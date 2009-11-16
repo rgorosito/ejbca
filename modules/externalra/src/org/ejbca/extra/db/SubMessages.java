@@ -1,0 +1,206 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA: The OpenSource Certificate Authority                          *
+ *                                                                       *
+ *  This software is free software; you can redistribute it and/or       *
+ *  modify it under the terms of the GNU Lesser General Public           *
+ *  License as published by the Free Software Foundation; either         *
+ *  version 2.1 of the License, or any later version.                    *
+ *                                                                       *
+ *  See terms of license at gnu.org.                                     *
+ *                                                                       *
+ *************************************************************************/
+package org.ejbca.extra.db;
+
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.security.PrivateKey;
+import java.security.SignatureException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.bouncycastle.util.encoders.Base64;
+
+/**
+ * Class used 
+ * 
+ * $Id: SubMessages.java,v 1.2 2007-05-15 12:57:58 anatom Exp $
+ * @author Philip Vendil
+ */
+public class SubMessages {
+	
+	private static final Log log = LogFactory.getLog(SubMessages.class);
+	
+	private ArrayList submessages = new ArrayList();
+	
+	private boolean isSigned = false;
+	
+	private boolean isEncrypted = false;
+	
+	private transient X509Certificate userCert = null;
+	private transient PrivateKey userKey = null;
+	private transient X509Certificate encCert = null;
+
+	private X509Certificate signerCert;
+	
+	/**
+	 * Constuctor to use when creating a SubMessages.
+	 * 
+	 * @param userCert certificate used for signing the request and used for encryption by 
+	 * the responding service. Set this to null if no request signing should be performed.
+	 * @param userKey Key to use as signing, set to null if no signing should be performed.
+	 * @param encCert certificate that should be used to encrypt the messages. 
+	 * Set this to null if no encryption should be done.
+	 */
+	public SubMessages(X509Certificate userCert, PrivateKey userKey, X509Certificate encCert){
+		
+		if(userCert != null && userKey != null){
+			this.isSigned = true;
+			this.userCert = userCert;
+			this.userKey = userKey;
+		}
+		
+		if(encCert != null){
+			this.isEncrypted = true;
+			this.encCert = encCert;
+		}
+		
+	}
+	
+	/**
+	 * Constructor to use when loading a SubMessage from persisted state
+	 */
+    public SubMessages(){}
+    
+    /**
+     * Method use by db api to load a persisted submessage
+     */
+	void load(String data, PrivateKey userKey, Collection cACertChain, Collection crls){
+		try {		
+			submessages.clear();
+			java.beans.XMLDecoder decoder = new  java.beans.XMLDecoder(new java.io.ByteArrayInputStream(data.getBytes("UTF8")));
+			isSigned = ((Boolean) decoder.readObject()).booleanValue();
+			isEncrypted = ((Boolean) decoder.readObject()).booleanValue();
+			byte[] messagedata = Base64.decode(((String) decoder.readObject()).getBytes());
+			decoder.close();
+			
+			if(isEncrypted){
+				messagedata = ExtRAMsgHelper.decryptData(userKey, messagedata);
+			}
+			
+			if(isSigned){
+				ParsedSignatureResult result = ExtRAMsgHelper.verifySignature(cACertChain,crls,messagedata);
+				if(!result.isValid()){
+					throw new SignatureException("Signature not valid");
+				}
+				this.signerCert = result.getSignerCert();
+				messagedata = result.getContent();
+			}
+			
+			ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(messagedata));
+			ArrayList savearray = (ArrayList) ois.readObject(); 
+							        	        
+	        Iterator iter = savearray.iterator();
+	        while(iter.hasNext()){
+	        	HashMap map = (HashMap) iter.next();
+	        	ISubMessage submessage = SubMessageFactory.createInstance(map);
+	        	submessage.loadData(map);
+	        	submessages.add(submessage);
+	        }
+	        ois.close();
+	        
+	        	        
+		}catch (Exception e) {
+			log.error("Error reading persistent SubMessages.", e);
+		}
+
+	}
+	
+	
+	/**
+	 * Method used to persist the set of submessages
+	 * @return a String representation of the data
+	 */
+	String save(){
+		String retval = null;
+
+		ArrayList savearray = new ArrayList();
+		
+		Iterator iter = submessages.iterator();
+		while(iter.hasNext()){
+		   ISubMessage next = (ISubMessage) iter.next();
+		   savearray.add(next.saveData());
+		}
+		
+		try{
+			java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+			ObjectOutputStream oos = new ObjectOutputStream(baos);		
+			oos.writeObject(savearray);
+			byte[] messagedata = baos.toByteArray();
+		
+			if(isSigned){
+				messagedata = ExtRAMsgHelper.signData(userKey, userCert, messagedata);
+			}
+			
+			if(isEncrypted){
+				messagedata = ExtRAMsgHelper.encryptData(encCert,messagedata);
+			}
+		
+			java.io.ByteArrayOutputStream baos2 = new java.io.ByteArrayOutputStream();
+			
+			java.beans.XMLEncoder encoder = new java.beans.XMLEncoder(baos2);
+			encoder.writeObject(Boolean.valueOf(isSigned));
+			encoder.writeObject(Boolean.valueOf(isEncrypted));
+			encoder.writeObject(new String(Base64.encode(messagedata)));
+			encoder.close();
+			retval =baos2.toString("UTF8");	
+		} catch (Exception e) {
+			log.error("Error writing persistent SubMessages.", e);
+		}
+		
+		return retval;
+	}
+	
+	/**
+	 * Method to add a submessage to the message sent between RA and CA.
+	 */
+	public void addSubMessage(ISubMessage submessage){
+		submessages.add(submessage);
+	}
+	
+	/**
+	 * Method to retreive a collection of submessages.
+	 */
+	public ArrayList getSubMessages(){
+		return submessages;
+	}
+	
+	/**
+	 * Returns true if this message is signed
+	 */
+	public boolean isSigned(){
+		return isSigned;
+	}
+	
+	/**
+	 * Returns true if this message is encrypted
+	 */
+	public boolean isEncrypted(){
+		return isEncrypted;
+	}
+	
+	/**
+	 * Returns the certificate of the signer, or null if message isn't signed
+	 *
+	 */
+	public X509Certificate getSignerCert(){
+		return signerCert;
+	}
+    
+}
