@@ -12,48 +12,32 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
-import java.io.File;
 import java.util.ArrayList;
+
+import javax.persistence.Persistence;
 
 import junit.framework.TestCase;
 
 import org.ejbca.util.CertTools;
-import org.hibernate.cfg.Configuration;
 
-
+/**
+ * Makes basic database functionality tests.
+ *
+ * @version $Id$ 
+ */
 public class TestMessageHome extends TestCase {
 
-	public static MessageHome msghome = null;
-
-    static {
-        Configuration dbconfig = new Configuration().
-            setProperty("hibernate.dialect", "org.hibernate.dialect.MySQLDialect").
-            setProperty("hibernate.connection.driver_class", "com.mysql.jdbc.Driver").
-            setProperty("hibernate.connection.url", "jdbc:mysql://localhost/messages").
-//            setProperty("hibernate.connection.driver_class", "org.postgresql.Driver").
-//            setProperty("hibernate.connection.url", "jdbc:postgresql://127.0.0.1/extra").
-            setProperty("hibernate.connection.username", "ejbca").
-            setProperty("hibernate.connection.password", "ejbca").
-            setProperty("hibernate.connection.autocommit", "true").
-            setProperty("hibernate.cache.provider_class", "org.hibernate.cache.HashtableCacheProvider").
-            setProperty("hibernate.hbm2ddl.auto", "update").
-            setProperty("hibernate.show_sql", "true")
-            .addDirectory(new File("src/db"));
-
-            msghome = new MessageHome(dbconfig.buildSessionFactory(), MessageHome.MESSAGETYPE_EXTRA, true);
-    }
+	public static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test"), MessageHome.MESSAGETYPE_EXTRA, true);
 
 	protected void setUp() throws Exception {
 		super.setUp();
 		CertTools.installBCProvider();
-				
 	}
 
-	/*
+	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.create(String, String)'
 	 */
 	public void test01Create() throws Exception {
-		
 		SubMessages submessages = new SubMessages(null,null,null);
 		submessages.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1, "PKCS10REQ", "PKCS10"));
 		submessages.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(2,"PKCS12REQ",false));
@@ -113,7 +97,7 @@ public class TestMessageHome extends TestCase {
 		//Thread.sleep(500); 
 	}
 
-	/*
+	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.update(Message)'
 	 */
 	public void test02Update() {
@@ -133,7 +117,7 @@ public class TestMessageHome extends TestCase {
 		assertTrue(msg.getCreatetime() != msg.getModifytime());
 	}
 
-	/*
+	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.findByUser(String)'
 	 */
 	public void test03FindByUser() {
@@ -145,7 +129,7 @@ public class TestMessageHome extends TestCase {
 	  assertNotNull(msg); 
 	}
 
-	/*
+	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.getNextWaitingUser()'
 	 */
 	public void test04GetNextWaitingUser() {
@@ -163,13 +147,10 @@ public class TestMessageHome extends TestCase {
 		
 	}
 
-
-	
-	/*
+	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.remove(String)'
 	 */
 	public void test05Remove() {
-		
 		assertNotNull(msghome.findByMessageId("test1"));
 		msghome.remove("test1");
 		assertNull(msghome.findByMessageId("test1"));
@@ -183,5 +164,4 @@ public class TestMessageHome extends TestCase {
 		assertNull(msghome.findByMessageId("test3"));
 		
 	}
-
 }

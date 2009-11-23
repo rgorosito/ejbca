@@ -31,9 +31,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 
+import javax.persistence.Persistence;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletInputStream;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -62,21 +64,16 @@ import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.ExtraConfiguration;
 import org.ejbca.extra.util.RAKeyStore;
-import org.ejbca.ui.web.RequestHelper;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
-
-
 
 /**
  * Servlet implementing the RA interface of the Simple Certificate Enrollment Protocol (SCEP)
- * It have three funtions:
+ * It have three functions:
  *   * Return the CA certificate
- *   * Save certificate requests to ra database and respond pending
+ *   * Save certificate requests to RA database and respond pending
  *   * Send back SCEP Success or Failed upon certificate poll request if request have
- *   been processed by CA, othervise respond with pending
+ *   been processed by CA, otherwise respond with pending
  * 
  * 
  * @version $Id: ScepRAServlet.java,v 1.18 2008-02-08 14:42:08 anatom Exp $
@@ -85,11 +82,8 @@ public class ScepRAServlet extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
 
-
 	private static final Logger log = Logger.getLogger(ScepRAServlet.class);   
     
-	private static final String defaultHibernateResource = "hibernate1.cfg.xml";
-
 	private SecureRandom randomSource;
 	private RAKeyStore scepraks;
 	private String keyStoreNumber;
@@ -97,9 +91,9 @@ public class ScepRAServlet extends HttpServlet {
 	private MessageHome msgHome = null;
 
     /**
-     * Inits the SCEP servlet
+     * Inits the SCEP Servlet
      *
-     * @param config servlet configuration
+     * @param config Servlet configuration
      *
      * @throws ServletException on error during initialization
      */
@@ -126,8 +120,7 @@ public class ScepRAServlet extends HttpServlet {
             String randomAlgorithm = "SHA1PRNG";
             randomSource = SecureRandom.getInstance(randomAlgorithm);
             
-            SessionFactory sessionFactory = new Configuration().configure(defaultHibernateResource).buildSessionFactory();
-            msgHome = new MessageHome(sessionFactory, MessageHome.MESSAGETYPE_SCEPRA, false);
+            msgHome = new MessageHome(Persistence.createEntityManagerFactory("ScepRAMessageDS"), MessageHome.MESSAGETYPE_SCEPRA, true);	//false);
 
         } catch (Exception e) {
             throw new ServletException(e);
@@ -350,7 +343,7 @@ public class ScepRAServlet extends HttpServlet {
                     return;
                 }
                 // Send back SCEP response, PKCS#7 which contains the end entity's certificate, or pending, or failure
-                RequestHelper.sendBinaryBytes(reply, response, "application/x-pki-message", null);
+                sendBinaryBytes(reply, response, "application/x-pki-message", null);
             } else if (operation.equals("GetCACert")) {
                 // The response has the content type tagged as application/x-x509-ca-cert. 
                 // The body of the response is a DER encoded binary X.509 certificate. 
@@ -369,7 +362,7 @@ public class ScepRAServlet extends HttpServlet {
                     	}
                     	log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
                         log.info("Sent certificate for CA '" + message + "' to SCEP client with ip " + remoteAddr);
-                        RequestHelper.sendNewX509CaCert(cert.getEncoded(), response);                		
+                        sendBinaryBytes(cert.getEncoded(), response, "application/x-x509-ca-cert", null);
                 	}
                 } else {
                     log.error("No CA certificates found");
@@ -424,7 +417,7 @@ public class ScepRAServlet extends HttpServlet {
 				ctype = "application/x-x509-ca-ra-cert-chain";				
 			}
 			log.debug("Sent certificate(s) for CA/RA '" + message + "' to SCEP client with ip "+remoteAddr+". Using content-type: "+ctype);
-			RequestHelper.sendBinaryBytes(pkcs7response, response, ctype, null);                						
+			sendBinaryBytes(pkcs7response, response, ctype, null);                						
 		} else {
 		    log.error("No CA certificates found");
 		    response.sendError(HttpServletResponse.SC_NOT_FOUND, "No CA certificates found.");
@@ -494,6 +487,57 @@ public class ScepRAServlet extends HttpServlet {
     	return s.getEncoded();
     }    
 
+    //
+    // Methods that were shamelessly ripped from ServletUtils and RequestHelper to avoid dependencies
+    //
     
+    /**
+     * Sends back a number of bytes
+     *
+     * @param bytes DER encoded certificate to be returned
+     * @param out output stream to send to
+     * @param contentType mime type to send back bytes as
+     * @param fileName to call the file in a Content-disposition, can be null to leave out this header
+     *
+     * @throws Exception on error
+     */
+    private void sendBinaryBytes(byte[] bytes, HttpServletResponse out, String contentType, String filename)
+        throws Exception {
+        if ( (bytes == null) || (bytes.length == 0) ) {
+            log.error("0 length can not be sent to client!");
+            return;
+        }
+        if (filename != null) {
+            // We must remove cache headers for IE
+            removeCacheHeaders(out);
+            out.setHeader("Content-disposition", "filename=\""+filename+"\"");        	
+        }
+        // Set content-type to general file
+        out.setContentType(contentType);
+        out.setContentLength(bytes.length);
+        // Write the certificate
+        ServletOutputStream os = out.getOutputStream();
+        os.write(bytes);
+        out.flushBuffer();
+        log.debug("Sent " + bytes.length + " bytes to client");
+    }
     
-} // ScepRAServlet
+    /** Helper methods that removes no-cache headers from a response. No-cache headers 
+     * makes IE refuse to save a file that is sent (for example a certificate). 
+     * No-cache headers are also automatically added by Tomcat by default, so we better
+     * make sure they are set to a harmless value.
+     * 
+     * @param res HttpServletResponse parameter as taken from the doGet, doPost methods in a Servlet.
+     */
+    private void removeCacheHeaders(HttpServletResponse res) {
+        if (res.containsHeader("Pragma")) {
+            log.debug("Removing Pragma header to avoid caching issues in IE");
+            res.setHeader("Pragma","null");
+        }
+        if (res.containsHeader("Cache-Control")) {
+            log.debug("Removing Cache-Control header to avoid caching issues in IE");
+            res.setHeader("Cache-Control","null");
+        }
+    }
+
+}

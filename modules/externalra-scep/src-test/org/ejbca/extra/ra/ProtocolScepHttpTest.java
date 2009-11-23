@@ -67,11 +67,12 @@ import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.keystore.KeyTools;
 
-/** Tests SCEP enrollment with an RA. 
+/**
+ * Tests SCEP enrollment with an RA (SCEP polling RA mode).
  * This test assumes a CA hierarchy. One root CA AdminCA1 and one sub CA ScepCA.
  * 
  * @version $Id: ProtocolScepHttpTest.java,v 1.11 2008-02-07 10:33:29 anatom Exp $
- **/
+ */
 public class ProtocolScepHttpTest extends TestCase {
     private static Logger log = Logger.getLogger(ProtocolScepHttpTest.class);
 
@@ -94,11 +95,9 @@ public class ProtocolScepHttpTest extends TestCase {
         junit.textui.TestRunner.run(suite());
     }
 
-
     public static TestSuite suite() {
         return new TestSuite(ProtocolScepHttpTest.class);
     }
-
 
     public ProtocolScepHttpTest(String name) throws Exception {
         super(name);
@@ -109,16 +108,10 @@ public class ProtocolScepHttpTest extends TestCase {
 		}
     }
 
-    protected void setUp() throws Exception {
-        log.debug(">setUp()");
-        log.debug("<setUp()");
-    }
+    protected void setUp() throws Exception { }
+    protected void tearDown() throws Exception { }
 
-    protected void tearDown() throws Exception {
-    }
-
-    
-    // GetCACert and GetCACertChain behaves the same if it is an RA that responde
+    // GetCACert and GetCACertChain behaves the same if it is an RA that responds
     public void test02ScepGetCACert() throws Exception {
         log.debug(">test02ScepGetCACert()");
     	scepGetCACertChain("GetCACert", "application/x-x509-ca-ra-cert");    	
@@ -167,11 +160,11 @@ public class ProtocolScepHttpTest extends TestCase {
         racert = (X509Certificate)it.next();
         cacert = (X509Certificate)it.next();
         rootcacert = (X509Certificate)it.next();
-        System.out.println("Got CA cert with DN: "+ cacert.getSubjectDN().getName());
+        log.info("Got CA cert with DN: "+ cacert.getSubjectDN().getName());
         assertEquals(cadn, cacert.getSubjectDN().getName());
-        System.out.println("Got Root CA cert with DN: "+ rootcacert.getSubjectDN().getName());
+        log.info("Got Root CA cert with DN: "+ rootcacert.getSubjectDN().getName());
         assertEquals(rootcadn, rootcacert.getSubjectDN().getName());
-        System.out.println("Got RA cert with DN: "+ racert.getSubjectDN().getName());
+        log.info("Got RA cert with DN: "+ racert.getSubjectDN().getName());
         assertEquals(radn, racert.getSubjectDN().getName());
     }
     
@@ -220,17 +213,17 @@ public class ProtocolScepHttpTest extends TestCase {
         int keeprunning = 0;
         boolean processed = false;
         while ( (keeprunning < 5) && !processed) {
-        	System.out.println("Waiting 5 secs...");
+        	log.info("Waiting 5 secs...");
         	Thread.sleep(5000); // wait 5 seconds between polls
             msgBytes = genScepGetCertInitial(gen, CMSSignedGenerator.DIGEST_SHA1);
             // Send message with GET
             retMsg = sendScep(false, msgBytes, false);
             assertNotNull(retMsg);
             if (isScepResponseMessageOfType(retMsg, ResponseStatus.PENDING)) {
-            	System.out.println("Received a PENDING message");
+            	log.info("Received a PENDING message");
                 checkScepResponse(retMsg, senderNonce, transId, false, CMSSignedGenerator.DIGEST_SHA1, false, ResponseStatus.PENDING);            	
             } else {            	
-            	System.out.println("Received a SUCCESS message");
+            	log.info("Received a SUCCESS message");
                 checkScepResponse(retMsg, senderNonce, transId, false, CMSSignedGenerator.DIGEST_SHA1, false, ResponseStatus.SUCCESS);
                 processed = true;
             }
@@ -454,7 +447,7 @@ public class ProtocolScepHttpTest extends TestCase {
                 X509CRL retCrl = null;
                 // CRL is first (and only)
                 retCrl = (X509CRL)it.next();
-                System.out.println("Got CRL with DN: "+ retCrl.getIssuerDN().getName());
+                log.info("Got CRL with DN: "+ retCrl.getIssuerDN().getName());
 //                try {
 //                    FileOutputStream fos = new FileOutputStream("sceptest.der");
 //                    fos.write(retCrl.getEncoded());
@@ -466,7 +459,7 @@ public class ProtocolScepHttpTest extends TestCase {
             } else {
                 // We got a reply with a requested certificate 
                 Collection certs = certstore.getCertificates(null);
-                System.out.println("Got certificate reply with certchain of length: "+certs.size());
+                log.info("Got certificate reply with certchain of length: "+certs.size());
                 // EJBCA returns the issued cert and the CA cert (cisco vpn client requires that the ca cert is included)
                 if (noca) {
                     assertEquals(certs.size(), 1);	                	
@@ -502,7 +495,7 @@ public class ProtocolScepHttpTest extends TestCase {
                         assertEquals("iPAddress=10.0.0.1, dNSName=foo.bar.com", altName);
                         usercert = retcert;
                     } else {
-                        System.out.println("Got CA cert with DN: "+ retcert.getSubjectDN().getName());
+                    	log.info("Got CA cert with DN: "+ retcert.getSubjectDN().getName());
                         // ca certificate
                         assertEquals(cacert.getSubjectDN().getName(), retcert.getSubjectDN().getName());
                         gotcacert = true;
@@ -579,5 +572,4 @@ public class ProtocolScepHttpTest extends TestCase {
         assertTrue(respBytes.length > 0);                
         return respBytes;
     }
-
 }

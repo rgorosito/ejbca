@@ -23,13 +23,15 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.ejb.CreateException;
 import javax.naming.NamingException;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
-import org.ejbca.config.ConfigurationHolder;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.ca.crl.RevokedCertInfo;
 import org.ejbca.core.model.log.Admin;
@@ -43,8 +45,6 @@ import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.RAKeyStore;
 import org.ejbca.util.CertTools;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
 
 /** An EJBCA Service worker that polls the External RA database for extRA messages and processes them.
  * The design includes that no two workers with the same serviceName can run on the same CA host at the same time.
@@ -55,19 +55,13 @@ public class ExtRACAServiceWorker extends BaseWorker {
 
 	private static Logger log = Logger.getLogger(ExtRACAServiceWorker.class);
 
-	private static final String defaultHibernateResource = "hibernate1.cfg.xml";
-	private static final String defaultKeyStorePath = "keystore/extrakeystore.p12";
-	private static final String defaultKeyStorePwd = "foo123";
-	private static final Boolean defaultEncryptionRequired = Boolean.FALSE;
-	private static final Boolean defaultSignatureRequired = Boolean.FALSE;
-	private static final String defaultRAIssuer = "AdminCA1";
-	
 	private boolean encryptionRequired = false;
 	private boolean signatureRequired = false;
 	private String keystorePwd = null;
 	private String caname = null;
 	
-	private SessionFactory sessionFactory = null;
+	private static ConcurrentHashMap<String, EntityManagerFactory> entityManagerFactories = new ConcurrentHashMap<String, EntityManagerFactory>();
+    
 	private MessageHome msgHome = null;
 	
 	private RAKeyStore serviceKeyStore = null;
@@ -94,7 +88,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 				init();
 				processWaitingMessages();
 			} finally {
-				cleanup();
 				stopWorking();
 			}			
 		} else {
@@ -131,33 +124,35 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		// Second we try to override this value with a value from the properties of this specific worker, configured in the GUI
 		// Oh, and if no configuration exist it uses the hard coded values from the top of this file.
 		
-		String hibernateconfresource = ConfigurationHolder.getString("externalra-caservice.hibernateresource", defaultHibernateResource);
-		hibernateconfresource = this.properties.getProperty("externalra-caservice.hibernateresource", hibernateconfresource);
-		log.debug("externalra-caservice.hibernateresource: "+hibernateconfresource);
+		String persistenceUnit = this.properties.getProperty("externalra-caservice.persistenceunit", "RAMessage1DS");
+		log.debug("externalra-caservice.hibernateresource: " + persistenceUnit);
 
-		String keystorePath = ConfigurationHolder.getString("externalra-caservice.keystore.path", defaultKeyStorePath);
-		keystorePath = this.properties.getProperty("externalra-caservice.keystore.path", keystorePath);
+		String keystorePath = this.properties.getProperty("externalra-caservice.keystore.path", "keystore/extrakeystore.p12");
 		log.debug("externalra-caservice.keystore.path: "+keystorePath);
 
-		keystorePwd = ConfigurationHolder.getString("externalra-caservice.keystore.pwd", defaultKeyStorePwd);
-		keystorePwd = this.properties.getProperty("externalra-caservice.keystore.pwd", keystorePwd);
+		keystorePwd = this.properties.getProperty("externalra-caservice.keystore.pwd", "foo123");
 		log.debug("externalra-caservice.keystore.pwd: "+keystorePwd);
 
-		encryptionRequired = ConfigurationHolder.instance().getBoolean("externalra-caservice.encryption.required", defaultEncryptionRequired).booleanValue();
-		encryptionRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.encryption.required", Boolean.toString(encryptionRequired))).booleanValue();
+		encryptionRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.encryption.required", "false"));
 		log.debug("externalra-caservice.encryption.required: "+encryptionRequired);
 
-		signatureRequired = ConfigurationHolder.instance().getBoolean("externalra-caservice.signature.required", defaultSignatureRequired).booleanValue();
-		signatureRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.signature.required", Boolean.toString(signatureRequired))).booleanValue();
+		signatureRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.signature.required", "false"));
 		log.debug("externalra-caservice.signature.required: "+signatureRequired);
 
-		caname = ConfigurationHolder.getString("externalra-caservice.raissuer", defaultRAIssuer);
-		caname = this.properties.getProperty("externalra-caservice.raissuer", caname);
+		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1");
 		log.debug("externalra-caservice.raissuer: "+caname);
 		
-		// Initialize hibernate
-        sessionFactory = new Configuration().configure(hibernateconfresource).buildSessionFactory();
-        msgHome = new MessageHome(sessionFactory, MessageHome.MESSAGETYPE_EXTRA, false);
+		// Initialize the JPA provider with the current persistence unit
+		if (entityManagerFactories.get(persistenceUnit) == null) {
+			EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory(persistenceUnit);
+			EntityManagerFactory entityManagerFactoryOld = entityManagerFactories.putIfAbsent(persistenceUnit, entityManagerFactory);
+			if (entityManagerFactoryOld!=null && !entityManagerFactoryOld.equals(entityManagerFactory)) {
+				entityManagerFactory.close();
+			} else {
+				log.info("Created new entity manager factory for persistence unit '" + persistenceUnit + "'");
+			}
+		}
+        msgHome = new MessageHome(entityManagerFactories.get(persistenceUnit), MessageHome.MESSAGETYPE_EXTRA, true);	// We manage transactions ourself for this DataSource
 
 		try {
 			serviceKeyStore = new RAKeyStore(keystorePath, keystorePwd);
@@ -170,14 +165,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		}
 	}
 
-	private void cleanup() {
-		log.trace(">cleanup()");
-		if (sessionFactory != null) {
-			sessionFactory.close();
-		}
-		log.trace("<cleanup()");
-	}
-	
 	/**
 	 * Loops and gets waiting messages from the extRA database as long as there are any, and processes them. 
 	 * If there are no more messages in status waiting the method ends.
@@ -207,7 +194,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			if (msg != null) {
 				String id = msg.getMessageid();
 				if (StringUtils.equals(id, lastMessageId)) {
-					log.info("The same message was in the queue twice, putting back and exiting from the current loop");
+					log.info("The same message (" + id + ") was in the queue twice, putting back and exiting from the current loop");
 					// Re-set status to waiting so we will process it the next time the service is run
 					msg.setStatus(Message.STATUS_WAITING);
 					msgHome.update(msg);							

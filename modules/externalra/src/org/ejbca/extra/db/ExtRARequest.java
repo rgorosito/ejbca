@@ -15,15 +15,18 @@ package org.ejbca.extra.db;
 import org.ejbca.core.model.UpgradeableDataHashMap;
 
 /**
- * Abstact base class of the ExtRA Sub Message requsest. all ExtRA request should inherit this class.
+ * Abstract base class of the ExtRA Sub Message request containing request information about the
+ * user like dn, certificatetype ...
+ * Also contains a requestId used to match the request with the given response.
+ * 
+ * All ExtRA request should inherit this class.
+ * 
  * @author philip
  * $Id: ExtRARequest.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
  */
-
 public abstract class ExtRARequest extends UpgradeableDataHashMap implements ISubMessage {
 
-
-		// Field constants
+	// Field constants
 	protected static final String REQUESTID              = "REQUESTID";
 	protected static final String USERNAME               = "USERNAME";
 	protected static final String SUBJECTDN              = "SUBJECTDN";
@@ -34,10 +37,7 @@ public abstract class ExtRARequest extends UpgradeableDataHashMap implements ISu
 	protected static final String CERTIFICATEPROFILENAME = "CERTIFICATEPROFILENAME";
 	protected static final String CANAME                 = "CANAME";
 	
-	
-	
 	private static final long serialVersionUID = 1L;
-	
 	
 	/**
 	 * Default constructor that should be used.

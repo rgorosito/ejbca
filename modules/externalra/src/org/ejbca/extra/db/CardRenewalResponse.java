@@ -10,6 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.ejbca.extra.db;
 
 import java.io.ByteArrayInputStream;
@@ -26,26 +27,25 @@ import org.bouncycastle.util.encoders.Base64;
 import org.ejbca.util.CertTools;
 
 /**
- * Class used as response to a ExtRA Card renewal Message response. If request was succesful then will the response
- * contain the generated certificates.
+ * Response to an ExtRACardRenewalRequest. The response contains two certificates that can be
+ * used to replace the old certificates on an EID smart card.
+ * 
  * @author tomas
  * @version $Id: ExtRACardRenewalResponse.java,v 1.3 2007-05-15 12:57:58 anatom Exp $
  */
-
 public class CardRenewalResponse extends ExtRAResponse {
 
 	private static final Log log = LogFactory.getLog(CardRenewalResponse.class);
 	
 	public static final float LATEST_VERSION = (float) 1.0;
 	
-	static final int CLASS_TYPE = 12; // Must be uniqu to all submessage classes
+	static final int CLASS_TYPE = 12; // Must be unique to all submessage classes
 		// Field constants
 	private static final String AUTHCERT           = "AUTHCERT";		
     private static final String SIGNCERT           = "SIGNCERT";     
 	
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	/**
 	 * Default constructor that should be used.
 	 *  
@@ -121,5 +121,4 @@ public class CardRenewalResponse extends ExtRAResponse {
 	public float getLatestVersion() {
 		return LATEST_VERSION;
 	}
-
 }

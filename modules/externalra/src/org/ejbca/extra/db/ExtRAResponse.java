@@ -15,9 +15,14 @@ package org.ejbca.extra.db;
 import org.ejbca.core.model.UpgradeableDataHashMap;
 
 /**
- * Abstact base class of the ExtRA Sub Message response. all Ext RA responses should inherit this class.
+ * Abstract base class of the ExtRA Sub Message response. all External RA responses should inherit
+ * this class.
+ * 
+ * Contains the requestId, a flag if operation was successful and a failure message if not. A
+ * basic ExtRAResponse will be returned from a ExtRARevokationRequest.
+ * 
  * @author philip
- * $Id: ExtRAResponse.java,v 1.3 2007-05-15 12:57:59 anatom Exp $
+ * @version $Id: ExtRAResponse.java,v 1.3 2007-05-15 12:57:59 anatom Exp $
  */
 
 public class ExtRAResponse extends UpgradeableDataHashMap implements ISubMessage {
@@ -79,10 +84,5 @@ public class ExtRAResponse extends UpgradeableDataHashMap implements ISubMessage
 	}
 
 	public void upgrade() {
-		
-		
 	}
-
-
-
 }

@@ -14,10 +14,8 @@ package org.ejbca.extra.db;
 
 import org.ejbca.core.model.IUpgradeableData;
 
-
 /**
- * Common interface for all SubMessages. Each implementor is responsible for it's own persitance by implementing the
- * Externalizable interface
+ * Common interface for all SubMessages. Each implementor is responsible for it's own persistence.
  * 
  * @author philip
  * $Id: ISubMessage.java,v 1.1 2006-07-31 13:13:07 herrvendil Exp $

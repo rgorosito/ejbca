@@ -208,7 +208,7 @@ public class MessageProcessor {
 		// Check if user already exists
 		UserDataVO oldUserData = ejb.getUserAdminSession().findUser(admin, userdata.getUsername());
 
-        // First we will look to see if there is an existing approval request pending for this user within tha last hour
+        // First we will look to see if there is an existing approval request pending for this user within the last hour
 		EditEndEntityApprovalRequest ear = new EditEndEntityApprovalRequest(userdata, clearpwd, userdata, admin,null,1,userdata.getCAId(),userdata.getEndEntityProfileId());
         AddEndEntityApprovalRequest aar = new AddEndEntityApprovalRequest(userdata,clearpwd,admin,null,1,userdata.getCAId(),userdata.getEndEntityProfileId());
         int approvalid = aar.generateApprovalId();

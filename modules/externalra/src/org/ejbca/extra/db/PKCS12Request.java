@@ -12,9 +12,9 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
-
 /**
  * Ext RA PKCS12 Reguest sub message used when the CA should generate a keystore.
+ * Contains a password used to protect the key-store, a key size and key algorithm.
  * 
  * @author philip
  * $Id: ExtRAPKCS12Request.java,v 1.3 2007-05-15 12:58:00 anatom Exp $
@@ -112,5 +112,4 @@ public class PKCS12Request extends ExtRARequest {
 		}
 		
 	}
-
 }

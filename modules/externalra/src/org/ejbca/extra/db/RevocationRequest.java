@@ -15,9 +15,14 @@ package org.ejbca.extra.db;
 import java.math.BigInteger;
 
 /**
- * Ext RA Revocation Reguest sub message used when the CA should recover a generated certificate.
- * 
- * Parameters inhereited from the base class ExtRARequset is ignored.
+ * Request to use to revoke a generate certificate. Contains the IssuerDN, certificate SN and
+ * revocation reason (One of the RevocationRequest.REVOKATION_REASON_ constants).
+ * Optionally you can request revocation of the user in EJBCA, so the user can not get a new
+ * certificate, when revoking the user, all the users certificates are revoked. This is requested by
+ * setting the parameter revokeuser to true. You can also optionally request revocation of all the users
+ * certificates, but without revoking the user itself, do this by setting revokall to true.
+ *  
+ * Parameters inherited from the base class ExtRARequest is ignored.
  * 
  * @author philip
  * $Id: ExtRARevocationRequest.java,v 1.3 2007-05-15 12:57:58 anatom Exp $
@@ -52,9 +57,7 @@ public class RevocationRequest extends ExtRARequest {
 	private static final String REVOKEALL             = "REVOKEALL";
     /** If the user should be revoked as well, and not only the certificates */
 	private static final String REVOKEUSER            = "REVOKEUSER";
-    
 
-	
 	private static final long serialVersionUID = 1L;
 	
 	/**
@@ -99,7 +102,6 @@ public class RevocationRequest extends ExtRARequest {
         data.put(REVOKEALL, Boolean.valueOf(true));
         data.put(REVOKEUSER, Boolean.valueOf(revokeuser));
     }
-	
 
 	/**
 	 * Constructor used when laoded from a persisted state
@@ -110,7 +112,6 @@ public class RevocationRequest extends ExtRARequest {
 	public float getLatestVersion() {
 		return LATEST_VERSION;
 	}
-	
 	
 	/**
 	 * Returns the issuer DN of the certificate which keystore should be recreated
@@ -147,7 +148,6 @@ public class RevocationRequest extends ExtRARequest {
 		return ((Boolean) data.get(REVOKEUSER)).booleanValue();
 	}
 	
-	
 	public void upgrade() {
         if(Float.compare(LATEST_VERSION, getVersion()) != 0) {
             
@@ -161,7 +161,4 @@ public class RevocationRequest extends ExtRARequest {
 		}
 		
 	}
-
-
-
 }

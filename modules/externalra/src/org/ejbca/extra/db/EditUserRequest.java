@@ -12,9 +12,9 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
-
 /**
- * Ext RA PKCS12 Reguest sub message used when the CA should generate a keystore.
+ * External RA Request sub message containing userdata used to add or edit a user. Mostly used
+ * with hard token issuing.
  * 
  * @author philip
  * $Id: ExtRAEditUserRequest.java,v 1.2 2007-05-15 12:58:00 anatom Exp $
@@ -27,10 +27,8 @@ public class EditUserRequest extends ExtRARequest {
 	public static final String SOFTTOKENNAME_P12           = "P12";
 	public static final String SOFTTOKENNAME_JKS           = "JKS";
 	public static final String SOFTTOKENNAME_PEM           = "PEM";	
-	
-	
+
 	static final int CLASS_TYPE = 10;
-	
 	
 	// Field constants
 	private static final String PASSWORD              = "PASSWORD";
@@ -38,8 +36,6 @@ public class EditUserRequest extends ExtRARequest {
 	private static final String TOKENNAME             = "TOKENNAME";
 	private static final String TYPE                  = "TYPE";
 	private static final String ISSUERNAME            = "ISSUERNAME";
-	
-	
 	
 	private static final long serialVersionUID = 1L;
 	

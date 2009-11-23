@@ -54,11 +54,16 @@ import org.ejbca.util.keystore.KeyTools;
 
 
 /**
- * Junit test used to test the ExtRA Api in a similar enviroment as used in production. Will connect to a RA message database and
+ * JUnit test used to test the ExtRA API in a similar environment as used in production. Will connect to a RA message database and
  * sent messages that should be pulled and processed by the CA.
  * 
+ * The test makes a full scale tests of sending PKCS10 and PKCS12 request to the CA and waits
+ * for proper responses. May take some time and check the server log for errors. Revocation of
+ * some of the generated certificates is also tested.
+ * 
  * The following requirements should be set in order to run the tests.
- * - Externan RA CA-service installed on EJBCA machine
+ * - Properly configured database
+ * - External RA CA-service worker installed on EJBCA machine
  * 
  * @author philip
  * @version $Id: TestRAApi.java,v 1.11 2008-04-01 05:10:32 anatom Exp $
@@ -85,7 +90,7 @@ public class TestRAApi extends TestCase {
 		
         Message msg = waitForUser("SimplePKCS10Test1");
 		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -144,7 +149,7 @@ public class TestRAApi extends TestCase {
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(100,"SimplePKCS10Test1NoAdd", Constants.pkcs10_1, false));
 		TestMessageHome.msghome.create("SimplePKCS10Test1NoAdd", smgs);
         Message msg = waitForUser("SimplePKCS10Test1NoAdd");
-		assertNotNull(msg);
+		assertNotNull("No response", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);		
 		Iterator iter =  submessagesresp.getSubMessages().iterator();
@@ -215,8 +220,7 @@ public class TestRAApi extends TestCase {
 		TestMessageHome.msghome.create("SimplePKCS12Test1", smgs);
 		
         Message msg = waitForUser("SimplePKCS12Test1");
-		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -244,8 +248,7 @@ public class TestRAApi extends TestCase {
 		TestMessageHome.msghome.create("SimpleKeyRecTest", smgs);
 		
         Message msg = waitForUser("SimpleKeyRecTest");
-		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -304,21 +307,18 @@ public class TestRAApi extends TestCase {
 		
 		keyRecCert = (X509Certificate) resp.getKeyStore("foo123").getCertificate("KEYRECREQ");
         assertFalse(keyRecCert.getSerialNumber().equals(orgCert.getSerialNumber()));
-        
-
-		
 	}
 	
 	public void test05GenerateSimpleRevokationRequest() throws Exception {
 		// revoke first certificate
 		SubMessages smgs = new SubMessages(null,null,null);
+		assertNotNull("Missing certificate from previous test.", firstCertificate);
 		smgs.addSubMessage(new RevocationRequest(10, CertTools.getIssuerDN(firstCertificate), firstCertificate.getSerialNumber(), RevocationRequest.REVOKATION_REASON_UNSPECIFIED));
 		
 		TestMessageHome.msghome.create("SimpleRevocationTest", smgs);
 		
         Message msg = waitForUser("SimpleRevocationTest");
-		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -450,8 +450,7 @@ public class TestRAApi extends TestCase {
 		TestMessageHome.msghome.create("SimpleEditUserTest", smgs);
 		
         Message msg = waitForUser("SimpleEditUserTest");
-		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -472,8 +471,7 @@ public class TestRAApi extends TestCase {
 		TestMessageHome.msghome.create("COMPLEXREQ_1", smgs);
 		
         Message msg = waitForUser("COMPLEXREQ_1");
-		
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		
@@ -501,30 +499,29 @@ public class TestRAApi extends TestCase {
 		  smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"LotsOfReq" + i, Constants.pkcs10_1));		
 		  TestMessageHome.msghome.create("LotsOfReq" + i, smgs);
 		}
-		  
-		
+
 		Message[] resps = new Message[numberOfRequests];
 		for(int i=0; i < numberOfRequests; i++){
 			resps[i] = waitForUser("LotsOfReq"+i);
-			assertNotNull(resps[i]);
+			assertNotNull("No response.", resps[i]);
 			SubMessages submessagesresp = resps[i].getSubMessages(null,null,null);
 			PKCS10Response resp = (PKCS10Response) submessagesresp.getSubMessages().iterator().next();
 			assertTrue(resp.isSuccessful() == true);
 		}								
-
-		
 	} 
 	
 	public void test09GenerateSimpleCardRenewalRequest() throws Exception {
 		
 		// First fail message
 		SubMessages smgs = new SubMessages(null,null,null);
+		assertNotNull("Missing certificate from previous test.", firstCertificate);
 		String cert1 = new String(Base64.encode(firstCertificate.getEncoded()));
+		assertNotNull("Missing certificate from previous test.", secondCertificate);
         String cert2 = new String(Base64.encode(secondCertificate.getEncoded()));
 		smgs.addSubMessage(new CardRenewalRequest(10, cert1, cert1, null, null));
 		TestMessageHome.msghome.create("SimpleCardRenewalTest", smgs);
         Message msg = waitForUser("SimpleCardRenewalTest");
-		assertNotNull(msg);
+		assertNotNull("No response.", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
@@ -577,7 +574,6 @@ public class TestRAApi extends TestCase {
 	
 	private Message waitForUser(String user) throws InterruptedException{
 		int waittime = 30; // Wait a maximum of 30 seconds
-		
 		boolean processed = false;
 		Message msg = null;
 		do{			
@@ -590,11 +586,9 @@ public class TestRAApi extends TestCase {
 			}	
 			Thread.sleep(1000);
 		}while( waittime-- >= 0);
-		
 		if(!processed){
 			msg = null;
 		}
-		
 		return msg;
 	}
 
@@ -623,5 +617,4 @@ public class TestRAApi extends TestCase {
         
         return p10request.getEncoded();        
     }
-
 }

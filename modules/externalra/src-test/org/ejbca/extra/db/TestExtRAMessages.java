@@ -22,12 +22,16 @@ import junit.framework.TestCase;
 
 import org.ejbca.util.CertTools;
 
+/**
+ * Makes sure that request and response classes are serialized properly.
+ * 
+ * @version $Id$
+ */
 public class TestExtRAMessages extends TestCase {
 	
 	protected void setUp() throws Exception {
 		super.setUp();
 		CertTools.installBCProvider();
-				
 	}
 	
 	public void testUnencryptedSubMessages() throws Exception {
@@ -270,7 +274,4 @@ public class TestExtRAMessages extends TestCase {
         assertTrue(((X509Certificate) submessage.getKeyStore("foo123").getCertificate("TEST")).getSubjectDN().toString()
         		   .equals(Constants.getUserCert().getSubjectDN().toString()));
 	}
-
-
-
 }

@@ -14,13 +14,11 @@ package org.ejbca.extra.db;
 
 import org.apache.commons.lang.BooleanUtils;
 
-
 /**
- * Ext RA Requset SubMessage when requesting using a PKCS10 and expecting a PKCS10 Response containing a certifcate. 
+ * External RA Request SubMessage when requesting using a PKCS10 and expecting a PKCS10 Response containing a certificate. 
  * @author philip
  * $Id: ExtRAPKCS10Request.java,v 1.3 2007-05-15 12:57:59 anatom Exp $
  */
-
 public class PKCS10Request extends ExtRARequest {
 
 	public static final float LATEST_VERSION = (float) 2.0;
@@ -30,9 +28,7 @@ public class PKCS10Request extends ExtRARequest {
 	// Field constants
 	private static final String PKCS10              = "PKCS10";
 	private static final String CREATEOREDITEUSER   = "CREATEOREDITEUSER";
-	
-	
-	
+
 	private static final long serialVersionUID = 1L;
 	
 	/**
@@ -90,5 +86,4 @@ public class PKCS10Request extends ExtRARequest {
 		}
 		
 	}
-
 }

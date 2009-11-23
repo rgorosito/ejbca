@@ -20,12 +20,16 @@ import junit.framework.TestCase;
 
 import org.ejbca.util.CertTools;
 
+/**
+ * Performs test related to encryption/signature of messages.
+ *
+ * @version $Id$
+ */
 public class TestExtRAMsgHelper extends TestCase {
 	
 	protected void setUp() throws Exception {
 		super.setUp();
 		CertTools.installBCProvider();
-				
 	}
 
 	/*
@@ -96,9 +100,5 @@ public class TestExtRAMsgHelper extends TestCase {
 		assertFalse((ExtRAMsgHelper.verifySignature(caCertChain5, null, signeddata2)).isValid());
         
 		// TODO test crl checks
-
 	}
-
-
-
 }

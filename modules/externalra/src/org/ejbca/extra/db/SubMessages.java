@@ -50,7 +50,7 @@ public class SubMessages {
 	private X509Certificate signerCert;
 	
 	/**
-	 * Constuctor to use when creating a SubMessages.
+	 * Constructor to use when creating a SubMessages.
 	 * 
 	 * @param userCert certificate used for signing the request and used for encryption by 
 	 * the responding service. Set this to null if no request signing should be performed.
@@ -80,6 +80,8 @@ public class SubMessages {
     
     /**
      * Method use by db api to load a persisted submessage
+     * @param cACertChain is the CA chain that signed the RA and CAService keystore
+     * @param crls could be set to null to disable CRL checking
      */
 	void load(String data, PrivateKey userKey, Collection cACertChain, Collection crls){
 		try {		
@@ -202,5 +204,4 @@ public class SubMessages {
 	public X509Certificate getSignerCert(){
 		return signerCert;
 	}
-    
 }

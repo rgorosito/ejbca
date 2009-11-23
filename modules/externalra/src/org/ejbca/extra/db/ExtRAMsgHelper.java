@@ -170,7 +170,7 @@ public class ExtRAMsgHelper {
 	/**
 	 * Method used to verify signed data.
 	 * 
-	 * @param TrustedCACerts a Collection of trusted certifcates, should contain the entire chains
+	 * @param TrustedCACerts a Collection of trusted certificates, should contain the entire chains
 	 * @param TrustedCRLs a Collection of trusted CRLS, use null if no CRL check should be used.
 	 * @param signedData the data to verify
 	 * @param date the date used to check the validity against.
@@ -213,8 +213,7 @@ public class ExtRAMsgHelper {
         		
         	}
         	
-        	// Second validify the certificate           
-        	
+        	// Second validate the certificate           
         	X509Certificate rootCert = null;
         	Iterator iter = cACertChain.iterator();
         	while(iter.hasNext()){

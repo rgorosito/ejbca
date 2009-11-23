@@ -22,12 +22,12 @@ import org.apache.commons.logging.LogFactory;
 import org.bouncycastle.util.encoders.Base64;
 
 /**
- * Class used as response to a ExtRA PKCS 12 or Key Recovery Sub Message response. If request was succesful then will the resposne
- * contain the generated keystore.
+ * Response to a ExtRAPKCS12Request and ExtRAKeyRecoveryRequest. Contains a Java Key Store
+ * of type PKCS12 containing the certificate and private key if the operation was successful.
+ * 
  * @author philip
  * $Id: ExtRAPKCS12Response.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
  */
-
 public class PKCS12Response extends ExtRAResponse {
 
 	public static final float LATEST_VERSION = (float) 1.0;
@@ -39,8 +39,7 @@ public class PKCS12Response extends ExtRAResponse {
 	private static final String KEYSTORE           = "KEYSTORE";
 		
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	/**
 	 * Default constructor that should be used.
 	 *  
@@ -63,8 +62,7 @@ public class PKCS12Response extends ExtRAResponse {
 	}
 
 	/**
-	 * Constructor used when laoded from a persisted state
-	 * 
+	 * Constructor used when loaded from a persisted state
 	 */	
 	public PKCS12Response(){}
 	
@@ -87,12 +85,9 @@ public class PKCS12Response extends ExtRAResponse {
 	}
 	
 	public void upgrade() {
-		
-		
 	}
 
 	public float getLatestVersion() {
 		return LATEST_VERSION;
 	}
-
 }

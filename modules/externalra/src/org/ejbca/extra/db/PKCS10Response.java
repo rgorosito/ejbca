@@ -25,13 +25,13 @@ import org.bouncycastle.util.encoders.Base64;
 import org.ejbca.util.CertTools;
 
 /**
- * Class used as response to a ExtRA PKCS 10Sub Message response. If request was succesful then will the response
- * contain the generated certificate.
+ * Response to a ExtRAPKCS10Request, contains a generated certificate if operation was successful. The
+ * response also contains the same certificate in a PKCS7 file. The PKCS7 file is signed by the CA
+ * and contains the full certificate chain of the issued certificate.
  * 
  * @author philip
  * $Id: ExtRAPKCS10Response.java,v 1.4 2007-05-15 12:58:00 anatom Exp $
  */
-
 public class PKCS10Response extends ExtRAResponse {
 
 	private static final Log log = LogFactory.getLog(PKCS10Response.class);
@@ -44,8 +44,7 @@ public class PKCS10Response extends ExtRAResponse {
 	private static final String PKCS7                 = "PKCS7";		
 	
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	/**
 	 * Default constructor that should be used.
 	 * 
@@ -110,12 +109,9 @@ public class PKCS10Response extends ExtRAResponse {
 	}
 
 	public void upgrade() {
-		
-		
 	}
 
 	public float getLatestVersion() {
 		return LATEST_VERSION;
 	}
-
 }

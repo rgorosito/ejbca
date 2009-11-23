@@ -15,10 +15,14 @@ package org.ejbca.extra.db;
 import java.math.BigInteger;
 
 /**
- * Ext RA KEy Recovery Reguest sub message used when the CA should recreate a keystore. Use the
+ * External RA Key Recovery Request sub message used when the CA should recreate a keystore. Use the
  * reuseCertifcate flag to get the original certificate in the keystore.
  * 
- * Parameters inhereited from the base class ExtRARequset is ignored.
+ * Containing serial number of certificate with associated key to recover. It is possible to request
+ * a new certificate with the original keys, or the original certificate, depending on the constructor
+ * used.
+ * 
+ * Parameters inherited from the base class ExtRARequest is ignored.
  * 
  * @author philip
  * $Id: ExtRAKeyRecoveryRequest.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
@@ -31,7 +35,7 @@ public class KeyRecoveryRequest extends ExtRARequest {
 	
 	// Public Constants.
 	/**
-	 * Constant specifying the generated key shoulg be RSA
+	 * Constant specifying the generated key should be RSA
 	 */
 	public static final int KEYALG_RSA = 1;
 	

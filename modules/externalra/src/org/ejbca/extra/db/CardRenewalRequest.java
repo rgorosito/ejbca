@@ -10,6 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.ejbca.extra.db;
 
 import java.security.cert.Certificate;
@@ -22,7 +23,21 @@ import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 
 /**
- * Ext RA card renewal sub message used when a users certificates on a PrimeCard smart card should be renewed.
+ * External RA card renewal sub message used when a users certificates on a PrimeCard smart card should be renewed.
+ * 
+ * Request to use to renew certificates on an EID smart card. The request is currently tailored against
+ * EID card with one authentication certificate and one signature certificate. The certificates and two
+ * pkcs10 requests are used as input.
+ * 
+ * When certificate renewal is requested the following steps are done:
+ * * The two certificates are verified against the CA certificate
+ * * The signatures on the requests are verified again the certificates (so the whole chain is verified)
+ * * The certificate profile and CA Id for each certificate is taken from the hard token profile of the user,
+ *   if there is a hard token profile defined for the user, otherwise it is taken from the
+ *   users registration info.There is also a possibility to override the profile values in the request,
+ *   this possibility is not used however.
+ * * When the certificates have been created they are returned to in an ExtRACardRenewalResponse.
+ * * The old certificates are not revoked, they can still be used to validate old signatures etc.
  * 
  * Parameters inherited from the base class ExtRARequset is ignored.
  * 
@@ -47,9 +62,7 @@ public class CardRenewalRequest extends ExtRARequest {
 	private static final String SIGNPROFILE        = "SIGNPROFILE";
     private static final String AUTHCA             = "AUTHCA";
     private static final String SIGNCA             = "SIGNCA";
-    
 
-	
 	private static final long serialVersionUID = 1L;
 	
 	/**
@@ -167,14 +180,10 @@ public class CardRenewalRequest extends ExtRARequest {
     public String getSignPkcs10(){
         return (String) data.get(SIGNPKCS10);
     }
-	
-	
+
 	public void upgrade() {
         if(Float.compare(LATEST_VERSION, getVersion()) != 0) {            
 			data.put(VERSION, new Float(LATEST_VERSION));
 		}		
 	}
-
-
-
 }
