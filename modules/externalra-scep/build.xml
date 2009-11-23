@@ -20,16 +20,15 @@
 		<path location="${mod.ejbca-util.lib}" />
 		<path location="${mod.externalra.lib}" />
 		<path refid="lib.jpa.classpath"/>
+		<path refid="lib.commons-lang.classpath"/>
+		<path refid="lib.commons-config.classpath"/>
 	</path>
 
 	<path id="compile.classpath">
 		<path refid="bundle.classpath"/>
 		<path refid="lib.log4j.classpath"/>
 		<path refid="lib.servlet.classpath"/>
-		<path refid="lib.commons-lang.classpath"/>
-		<path refid="lib.commons-config.classpath"/>
 		<!--
-		<path refid="lib.log4j.classpath"/>
 		<path refid="lib.jee.classpath"/>
 		-->
 	</path>
