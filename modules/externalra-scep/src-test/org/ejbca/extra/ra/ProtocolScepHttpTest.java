@@ -535,6 +535,7 @@ public class ProtocolScepHttpTest extends TestCase {
     	}
     	String urlString = httpReqPath + '/' + resource+"?operation=PKIOperation";
     	log.debug("UrlString =" + urlString);
+        log.debug("scepPackage.length: " + scepPackage.length);
         HttpURLConnection con = null;
         if (post) {
             URL url = new URL(urlString);
@@ -554,8 +555,8 @@ public class ProtocolScepHttpTest extends TestCase {
             con.getDoOutput();
             con.connect();
         }
-
-        assertEquals("Response code", 200, con.getResponseCode());
+        log.debug("HTTP response message: " + con.getResponseMessage());
+        assertEquals("Response code ", 200, con.getResponseCode());
         assertEquals("Content-Type", "application/x-pki-message", con.getContentType());
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         // This works for small requests, and SCEP requests are small enough

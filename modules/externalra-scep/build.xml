@@ -116,7 +116,7 @@
 	
 	<target name="setuptest" depends="ejbca-ejb-cli,assert-appserverrunning" description="Run this on the EJBCA installation once to create a ScepCA and keystore required by the tests.">
 		<antcall target="ejbca-cli">
-			<param name="ejbca-cli.arg" value='ca init "ScepCA CN=Scep CA,O=EJBCA Sample,C=SE" soft null 2048 RSA 3600 null SHA1WithRSA null -1688117755'/>
+			<param name="ejbca-cli.arg" value='ca init ScepCA "CN=Scep CA,O=EJBCA Sample,C=SE" soft null 2048 RSA 3600 null SHA1WithRSA null -1688117755'/>
 		</antcall>
 		<antcall target="ejbca-cli">
 			<param name="ejbca-cli.arg" value='ra adduser sceprakeystore foo123 "CN=Scep RA,O=PrimeKey,C=SE" null ScepCA null 1 P12'/>
@@ -125,7 +125,7 @@
 			<param name="ejbca-cli.arg" value="ra setclearpwd sceprakeystore foo123"/>
 		</antcall>
 		<antcall target="ejbca-cli">
-			<param name="ejbca-cli.arg" value="ra batch sceprakeystore"/>
+			<param name="ejbca-cli.arg" value="batch sceprakeystore"/>
 		</antcall>
 		<echo>
 			Copy the generated keystore ${ejbca.home}/p12/sceprakeystore.p12 to the External Scep RA server before running the tests.
