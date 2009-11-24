@@ -38,9 +38,9 @@
 		<path location="${build-test.dir}" />
 		<path refid="lib.commons-logging.classpath"/>
 		<path refid="lib.commons-collections.classpath"/>
+		<path refid="lib.junit.classpath"/>
 		<!--
 		<path location="${mod.ejbca-ejb.lib}" />
-		<path refid="lib.junit.classpath"/>
 		-->
 	</path>
 
