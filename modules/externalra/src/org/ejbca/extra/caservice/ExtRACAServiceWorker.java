@@ -33,7 +33,6 @@ import javax.persistence.Persistence;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
-import org.ejbca.core.model.ca.crl.RevokedCertInfo;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
@@ -306,8 +305,8 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			// Check that user have the administrator flag set.
 			getUserAdminSession().checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
 			
-			RevokedCertInfo revokeResult =  ejb.getCertStoreSession().isRevoked(internalUser,CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
-			if(revokeResult == null || revokeResult.getReason() != RevokedCertInfo.NOT_REVOKED){
+			boolean isRevoked =  ejb.getCertStoreSession().isRevoked(internalUser,CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
+			if (isRevoked) {
 				throw new SignatureException("Error Signer certificate doesn't exist or is revoked.");
 			}
 			
