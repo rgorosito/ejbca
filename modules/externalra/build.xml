@@ -135,6 +135,8 @@
         		<path refid="test.classpath"/>
         	</classpath>
     	</javac>
+        <copy file="${this.dir}/resources/persistence.test.xml" tofile="${build-test.dir}/META-INF/persistence.xml" failonerror="true" overwrite="true"/>
+        <copy file="${this.dir}/resources/log4j-test.xml" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
     </target>
 
 	<target name="test" depends="compile-tests" description="Run tests for this module">
@@ -143,8 +145,6 @@
     	<property name="reports.dir" location="${reports.base.dir}/test"/>
 		<delete dir="${reports.dir}" />
 		<mkdir dir="${reports.dir}/html"/>
-        <copy file="${this.dir}/resources/persistence.test.xml" tofile="${build-test.dir}/META-INF/persistence.xml" failonerror="true" overwrite="true"/>
-        <copy file="${this.dir}/resources/log4j-test.xml" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
 		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}">
 			<classpath>
         		<path refid="test.classpath"/>
