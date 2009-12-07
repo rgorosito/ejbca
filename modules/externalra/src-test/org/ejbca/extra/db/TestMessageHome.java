@@ -30,7 +30,7 @@ public class TestMessageHome extends TestCase {
 
 	private static final Logger log = Logger.getLogger(TestMessageHome.class);
 	
-	public static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test-notpolled"), MessageHome.MESSAGETYPE_EXTRA, true);
+	private static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test-notpolled"), MessageHome.MESSAGETYPE_EXTRA, true);
 
 	protected void setUp() throws Exception {
 		super.setUp();

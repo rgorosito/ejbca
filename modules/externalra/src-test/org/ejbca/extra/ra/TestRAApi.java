@@ -25,6 +25,8 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Iterator;
 
+import javax.persistence.Persistence;
+
 import junit.framework.TestCase;
 
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -38,16 +40,16 @@ import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.ejbca.core.model.ca.catoken.CATokenConstants;
-import org.ejbca.extra.db.Constants;
 import org.ejbca.extra.db.CardRenewalRequest;
+import org.ejbca.extra.db.Constants;
+import org.ejbca.extra.db.ExtRAResponse;
+import org.ejbca.extra.db.Message;
+import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.PKCS12Response;
-import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.RevocationRequest;
-import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.db.TestExtRAMessages;
-import org.ejbca.extra.db.TestMessageHome;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.keystore.KeyTools;
@@ -79,6 +81,7 @@ public class TestRAApi extends TestCase {
 	private static X509Certificate firstCertificate = null;
 	private static X509Certificate secondCertificate = null;
 	
+	private static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test"), MessageHome.MESSAGETYPE_EXTRA, true);
 	
 	public void test01GenerateSimplePKCS10Request() throws Exception {
 
@@ -86,7 +89,7 @@ public class TestRAApi extends TestCase {
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(100,"SimplePKCS10Test1", Constants.pkcs10_1));
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(101,"SimplePKCS10Test1", Constants.pkcs10_2));
 		
-		TestMessageHome.msghome.create("SimplePKCS10Test1", smgs);
+		msghome.create("SimplePKCS10Test1", smgs);
 		
         Message msg = waitForUser("SimplePKCS10Test1");
 		
@@ -147,7 +150,7 @@ public class TestRAApi extends TestCase {
 		// First test with a user that does not exist or has status generated, when the user it not created the request will fail
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(100,"SimplePKCS10Test1NoAdd", Constants.pkcs10_1, false));
-		TestMessageHome.msghome.create("SimplePKCS10Test1NoAdd", smgs);
+		msghome.create("SimplePKCS10Test1NoAdd", smgs);
         Message msg = waitForUser("SimplePKCS10Test1NoAdd");
 		assertNotNull("No response", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
@@ -160,19 +163,19 @@ public class TestRAApi extends TestCase {
 		// if we create the user first, with correct status, the request should be ok
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10UserRequest(101,"SimplePKCS10Test1NoAdd", "foo123"));
-		TestMessageHome.msghome.create("SimplePKCS10Test1NoAdd", smgs);		
+		msghome.create("SimplePKCS10Test1NoAdd", smgs);		
         msg = waitForUser("SimplePKCS10Test1NoAdd");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse editresp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + editresp.getRequestId(), editresp.getRequestId() == 101);
-		assertTrue(editresp.isSuccessful() == true);
+		assertTrue("External RA CA Service was not successful.", editresp.isSuccessful() == true);
 
 		// Create a new request, now it should be ok
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(102,"SimplePKCS10Test1NoAdd", Constants.pkcs10_1, false));
-		TestMessageHome.msghome.create("SimplePKCS10Test1NoAdd", smgs);		
+		msghome.create("SimplePKCS10Test1NoAdd", smgs);		
         msg = waitForUser("SimplePKCS10Test1NoAdd");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
@@ -217,7 +220,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(200,"SimplePKCS12Test1", false));
 		
-		TestMessageHome.msghome.create("SimplePKCS12Test1", smgs);
+		msghome.create("SimplePKCS12Test1", smgs);
 		
         Message msg = waitForUser("SimplePKCS12Test1");
 		assertNotNull("No response.", msg);
@@ -245,7 +248,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(300,"SimpleKeyRecTest", true));
 		
-		TestMessageHome.msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimpleKeyRecTest", smgs);
 		
         Message msg = waitForUser("SimpleKeyRecTest");
 		assertNotNull("No response.", msg);
@@ -269,7 +272,7 @@ public class TestRAApi extends TestCase {
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(301,"SimpleKeyRecTest",true,orgCert));
 		
-		TestMessageHome.msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimpleKeyRecTest", smgs);
 		
         msg = waitForUser("SimpleKeyRecTest");
 		
@@ -291,7 +294,7 @@ public class TestRAApi extends TestCase {
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(302,"SimpleKeyRecTest",false,orgCert));
 		
-		TestMessageHome.msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimpleKeyRecTest", smgs);
 		
         msg = waitForUser("SimpleKeyRecTest");
 		
@@ -315,7 +318,7 @@ public class TestRAApi extends TestCase {
 		assertNotNull("Missing certificate from previous test.", firstCertificate);
 		smgs.addSubMessage(new RevocationRequest(10, CertTools.getIssuerDN(firstCertificate), firstCertificate.getSerialNumber(), RevocationRequest.REVOKATION_REASON_UNSPECIFIED));
 		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs);
+		msghome.create("SimpleRevocationTest", smgs);
 		
         Message msg = waitForUser("SimpleRevocationTest");
 		assertNotNull("No response.", msg);
@@ -330,9 +333,10 @@ public class TestRAApi extends TestCase {
 	
 		// revoke second certificate	
 		SubMessages smgs2 = new SubMessages(null,null,null);
+		assertNotNull("Missing certificate from previous test.", secondCertificate);
 		smgs2.addSubMessage(new RevocationRequest(6, CertTools.getIssuerDN(secondCertificate), secondCertificate.getSerialNumber(), RevocationRequest.REVOKATION_REASON_UNSPECIFIED));
 		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs2);
+		msghome.create("SimpleRevocationTest", smgs2);
 		
         Message msg2 = waitForUser("SimpleRevocationTest");
 		
@@ -350,7 +354,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs3 = new SubMessages(null,null,null);
 		smgs3.addSubMessage(new RevocationRequest(7, CertTools.getIssuerDN(secondCertificate), new BigInteger("1234"), RevocationRequest.REVOKATION_REASON_UNSPECIFIED));
 		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs3);
+		msghome.create("SimpleRevocationTest", smgs3);
 		
         Message msg3 = waitForUser("SimpleRevocationTest");
 		
@@ -368,7 +372,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs4 = new SubMessages(null,null,null);
 		smgs4.addSubMessage(new RevocationRequest(8, CertTools.getIssuerDN(secondCertificate), secondCertificate.getSerialNumber(), RevocationRequest.REVOKATION_REASON_UNSPECIFIED, false, true));
 		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs4);
+		msghome.create("SimpleRevocationTest", smgs4);
 		
         Message msg4 = waitForUser("SimpleRevocationTest");
 		
@@ -386,7 +390,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs5 = new SubMessages(null,null,null);
 		smgs5.addSubMessage(new RevocationRequest(9, "SimplePKCS10Test1", RevocationRequest.REVOKATION_REASON_UNSPECIFIED, false));
 		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs5);
+		msghome.create("SimpleRevocationTest", smgs5);
 		
         Message msg5 = waitForUser("SimpleRevocationTest");
 		
@@ -404,7 +408,7 @@ public class TestRAApi extends TestCase {
         // First a message with null as parameters
 		SubMessages smgs6 = new SubMessages(null,null,null);
 		smgs6.addSubMessage(new RevocationRequest(10, null, RevocationRequest.REVOKATION_REASON_UNSPECIFIED, false));		
-		TestMessageHome.msghome.create("SimpleRevocationTest", smgs6);
+		msghome.create("SimpleRevocationTest", smgs6);
         Message msg6 = waitForUser("SimpleRevocationTest");
 		assertNotNull(msg6);
 		SubMessages submessagesresp6 = msg6.getSubMessages(null,null,null);
@@ -417,7 +421,7 @@ public class TestRAApi extends TestCase {
         // Then a message with a suername that does not exist
         SubMessages smgs7 = new SubMessages(null,null,null);
         smgs7.addSubMessage(new RevocationRequest(11, "184hjeyyydvv88q", RevocationRequest.REVOKATION_REASON_UNSPECIFIED, false));     
-        TestMessageHome.msghome.create("SimpleRevocationTest", smgs7);
+        msghome.create("SimpleRevocationTest", smgs7);
         Message msg7 = waitForUser("SimpleRevocationTest");
         assertNotNull(msg7);
         SubMessages submessagesresp7 = msg7.getSubMessages(null,null,null);
@@ -430,7 +434,7 @@ public class TestRAApi extends TestCase {
         // Then a message with a issuer/serno that does not exist
         SubMessages smgs8 = new SubMessages(null,null,null);
         smgs8.addSubMessage(new RevocationRequest(12, "CN=ffo558444,O=338qqwaa,C=qq", new BigInteger("123"), RevocationRequest.REVOKATION_REASON_UNSPECIFIED, false, false));     
-        TestMessageHome.msghome.create("SimpleRevocationTest", smgs8);
+        msghome.create("SimpleRevocationTest", smgs8);
         Message msg8 = waitForUser("SimpleRevocationTest");
         assertNotNull(msg8);
         SubMessages submessagesresp8 = msg8.getSubMessages(null,null,null);
@@ -447,7 +451,7 @@ public class TestRAApi extends TestCase {
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(TestExtRAMessages.genExtRAEditUserRequest(11,"SimpleEditUserTest"));
 		
-		TestMessageHome.msghome.create("SimpleEditUserTest", smgs);
+		msghome.create("SimpleEditUserTest", smgs);
 		
         Message msg = waitForUser("SimpleEditUserTest");
 		assertNotNull("No response.", msg);
@@ -468,7 +472,7 @@ public class TestRAApi extends TestCase {
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(2,"ComplexReq", false));
 		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(3,"ComplexReq", false));
 		
-		TestMessageHome.msghome.create("COMPLEXREQ_1", smgs);
+		msghome.create("COMPLEXREQ_1", smgs);
 		
         Message msg = waitForUser("COMPLEXREQ_1");
 		assertNotNull("No response.", msg);
@@ -497,7 +501,7 @@ public class TestRAApi extends TestCase {
 		for(int i=0; i< numberOfRequests; i++){
 		  SubMessages smgs = new SubMessages(null,null,null);
 		  smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"LotsOfReq" + i, Constants.pkcs10_1));		
-		  TestMessageHome.msghome.create("LotsOfReq" + i, smgs);
+		  msghome.create("LotsOfReq" + i, smgs);
 		}
 
 		Message[] resps = new Message[numberOfRequests];
@@ -519,7 +523,7 @@ public class TestRAApi extends TestCase {
 		assertNotNull("Missing certificate from previous test.", secondCertificate);
         String cert2 = new String(Base64.encode(secondCertificate.getEncoded()));
 		smgs.addSubMessage(new CardRenewalRequest(10, cert1, cert1, null, null));
-		TestMessageHome.msghome.create("SimpleCardRenewalTest", smgs);
+		msghome.create("SimpleCardRenewalTest", smgs);
         Message msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull("No response.", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
@@ -532,7 +536,7 @@ public class TestRAApi extends TestCase {
         // Second fail message
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(new CardRenewalRequest(11, null, null, Constants.pkcs10_1, Constants.pkcs10_2));
-		TestMessageHome.msghome.create("SimpleCardRenewalTest", smgs);
+		msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
@@ -545,7 +549,7 @@ public class TestRAApi extends TestCase {
         // Third fail message
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(new CardRenewalRequest(12, cert1, cert1, Constants.pkcs10_1, Constants.pkcs10_2));
-		TestMessageHome.msghome.create("SimpleCardRenewalTest", smgs);
+		msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
@@ -558,7 +562,7 @@ public class TestRAApi extends TestCase {
         // Fourth fail message
         smgs = new SubMessages(null,null,null);
         smgs.addSubMessage(new CardRenewalRequest(12, cert1, cert2, Constants.pkcs10_1, Constants.pkcs10_2));
-        TestMessageHome.msghome.create("SimpleCardRenewalTest", smgs);
+        msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
         assertNotNull(msg);
         submessagesresp = msg.getSubMessages(null,null,null);
@@ -577,7 +581,7 @@ public class TestRAApi extends TestCase {
 		boolean processed = false;
 		Message msg = null;
 		do{			
-			msg = TestMessageHome.msghome.findByMessageId(user);
+			msg = msghome.findByMessageId(user);
 			assertNotNull(msg);
 			
 			if(msg.getStatus().equals(Message.STATUS_PROCESSED)){
