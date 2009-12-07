@@ -18,6 +18,7 @@ import javax.persistence.Persistence;
 
 import junit.framework.TestCase;
 
+import org.apache.log4j.Logger;
 import org.ejbca.util.CertTools;
 
 /**
@@ -27,6 +28,8 @@ import org.ejbca.util.CertTools;
  */
 public class TestMessageHome extends TestCase {
 
+	private static final Logger log = Logger.getLogger(TestMessageHome.class);
+	
 	public static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test"), MessageHome.MESSAGETYPE_EXTRA, true);
 
 	protected void setUp() throws Exception {
@@ -133,18 +136,19 @@ public class TestMessageHome extends TestCase {
 	 * Test method for 'org.ejbca.extra.db.MessageHome.getNextWaitingUser()'
 	 */
 	public void test04GetNextWaitingUser() {
+		log.trace(">test04GetNextWaitingUser");
 		Message msg = msghome.getNextWaitingMessage();
 		
-		assertEquals("test1", msg.getMessageid());
-		assertEquals(Message.STATUS_INPROCESS, msg.getStatus());
+		assertEquals("msghome.getNextWaitingMessage did not return user 'test1'", "test1", msg.getMessageid());
+		assertEquals("User 'test1' does not have INPROCESS status", Message.STATUS_INPROCESS, msg.getStatus());
 		
 		msg = msghome.findByMessageId("test1");
-		assertEquals(Message.STATUS_INPROCESS, msg.getStatus());
+		assertEquals("User 'test1' does not have INPROCESS status", Message.STATUS_INPROCESS, msg.getStatus());
         msg.setStatus(Message.STATUS_PROCESSED);
 		
 		msg = msghome.getNextWaitingMessage();
-		assertEquals("test2", msg.getMessageid());
-		
+		assertEquals("msghome.getNextWaitingMessage did not return user 'test2'", "test2", msg.getMessageid());
+		log.trace("<test04GetNextWaitingUser");
 	}
 
 	/**

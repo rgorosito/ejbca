@@ -155,7 +155,7 @@ public class MessageHome {
     /**
      * Method that finds the oldest created Message with status waiting.
      * 
-     * This method will for concurrency reasons be update the message
+     * This method will for concurrency reasons update the message
      * with status STATUS_INPROCESS in one transaction
      * to avoid conflicts.
      * 
