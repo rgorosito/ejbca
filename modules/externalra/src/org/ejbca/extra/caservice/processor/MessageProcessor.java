@@ -36,6 +36,7 @@ import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.ca.caadmin.CAInfo;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.ExtendedInformation;
+import org.ejbca.core.model.ra.RAAuthorization;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
@@ -43,6 +44,7 @@ import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
+import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.query.ApprovalMatch;
 import org.ejbca.util.query.BasicMatch;
@@ -224,7 +226,8 @@ public class MessageProcessor {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
-		List approvals = ejb.getApprovalSession().query(admin, query, 0, 25);
+        RAAuthorization raAuthorization = new RAAuthorization(admin, ejb.getRAAdminSession(), ejb.getAuthorizationSession(), ejb.getCAAdminSession());
+		List approvals = ejb.getApprovalSession().query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
         	log.debug("Found at least one waiting approval request for approvalid: "+approvalid);
@@ -239,7 +242,7 @@ public class MessageProcessor {
 		cal = Calendar.getInstance();
 		cal.add(Calendar.MINUTE, APPROVAL_REJECT_TIMEOUT);
 		query.add(cal.getTime(), now);
-		approvals = ejb.getApprovalSession().query(admin, query, 0, 25);
+		approvals = ejb.getApprovalSession().query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
         	log.debug("Found at least one rejected approval request for approvalid: "+approvalid);
@@ -253,7 +256,7 @@ public class MessageProcessor {
 		cal = Calendar.getInstance();
 		cal.add(Calendar.MINUTE, -30);
 		query.add(cal.getTime(), now);
-		approvals = ejb.getApprovalSession().query(admin, query, 0, 25);
+		approvals = ejb.getApprovalSession().query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
         	log.debug("Found at least one failed approval request for approvalid: "+approvalid);
