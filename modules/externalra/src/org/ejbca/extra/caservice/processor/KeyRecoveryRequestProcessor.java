@@ -67,7 +67,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			if(orgcert == null){
 				throw new EjbcaException("Error in Key Recovery Request, couldn't find specified certificate");
 			}
-			if(!ejb.getKeyRecoverySession().markAsRecoverable(admin,orgcert,userdata.getEndEntityProfileId())){
+			if(!ejb.getUserAdminSession().prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
 			KeyRecoveryData keyData = ejb.getKeyRecoverySession().keyRecovery(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
