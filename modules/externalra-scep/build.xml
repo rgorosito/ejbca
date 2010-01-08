@@ -97,7 +97,7 @@
     	<property name="reports.dir" location="${reports.base.dir}/test"/>
 		<delete dir="${reports.dir}" />
 		<mkdir dir="${reports.dir}/html"/>
-        <copy file="${this.dir}/resources/log4j-test.xml" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
+        <copy file="${log4j.test.file}" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
 		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}">
 			<classpath>
         		<path refid="test.classpath"/>

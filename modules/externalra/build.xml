@@ -136,7 +136,7 @@
         	</classpath>
     	</javac>
         <copy file="${this.dir}/resources/persistence.test.xml" tofile="${build-test.dir}/META-INF/persistence.xml" failonerror="true" overwrite="true"/>
-        <copy file="${this.dir}/resources/log4j-test.xml" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
+        <copy file="${log4j.test.file}" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
     </target>
 
 	<target name="test" depends="compile-tests" description="Run tests for this module">
