@@ -97,8 +97,9 @@
                 <include name="org/ejbca/extra/util/*.class" />
     		</fileset>
     	</jar>
-        <copy file="${log4j.cli.file}" tofile="${mod.ejbca-ejb-cli.dist}/log4j.xml" failonerror="true"/>
+        <copy file="${log4j.cli.file}" tofile="${mod.externalra-cli.lib.dir}/log4j.xml" failonerror="true"/>
         <copy file="${this.dir}/resources/externalra-cli.sh" todir="${mod.externalra-cli.lib.dir}" failonerror="true"/>
+        <copy file="${this.dir}/resources/README" todir="${mod.externalra-cli.lib.dir}" failonerror="true"/>
     	<chmod perm="a+rx" file="${mod.externalra-cli.lib.dir}/externalra-cli.sh"/>
     	<copy tofile="${mod.externalra-cli.lib.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.cli.xml" overwrite="true"/>
     </target>
