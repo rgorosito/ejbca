@@ -61,10 +61,11 @@ import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.util.encoders.Base64;
-import org.ejbca.core.model.ca.catoken.CATokenConstants;
+import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.protocol.ResponseStatus;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 import org.ejbca.util.keystore.KeyTools;
 
 /**
@@ -102,9 +103,9 @@ public class ProtocolScepHttpTest extends TestCase {
     public ProtocolScepHttpTest(String name) throws Exception {
         super(name);
         // Install BouncyCastle provider
-        CertTools.installBCProvider();
+        CryptoProviderTools.installBCProvider();
 		if (keys == null) {
-			keys = KeyTools.genKeys("512", CATokenConstants.KEYALGORITHM_RSA);
+			keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
 		}
     }
 

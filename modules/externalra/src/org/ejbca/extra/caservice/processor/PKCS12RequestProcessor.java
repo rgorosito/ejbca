@@ -19,23 +19,19 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.Collection;
-import java.util.Iterator;
 
 import org.apache.log4j.Logger;
-import org.ejbca.core.model.SecConst;
+import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ca.caadmin.CAInfo;
-import org.ejbca.core.model.ca.catoken.CATokenConstants;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.caservice.ConfigurationException;
-import org.ejbca.extra.db.PKCS12Request;
-import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
+import org.ejbca.extra.db.PKCS12Request;
+import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.keystore.KeyTools;
 
@@ -126,9 +122,9 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 		KeyPair retval = null;
 		String keyalg = null;
 		if(submessage.getKeyAlg() == PKCS12Request.KEYALG_RSA){
-			keyalg = CATokenConstants.KEYALGORITHM_RSA;
+			keyalg = AlgorithmConstants.KEYALGORITHM_RSA;
 		} else if(submessage.getKeyAlg() == PKCS12Request.KEYALG_ECDSA){
-				keyalg = CATokenConstants.KEYALGORITHM_ECDSA;
+				keyalg = AlgorithmConstants.KEYALGORITHM_ECDSA;
 		} else {
 			throw new NoSuchAlgorithmException("Wrong Key Algorithm specified.");
 		}

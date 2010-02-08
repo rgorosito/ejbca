@@ -39,7 +39,7 @@ import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
-import org.ejbca.core.model.ca.catoken.CATokenConstants;
+import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.Constants;
 import org.ejbca.extra.db.ExtRAResponse;
@@ -52,6 +52,7 @@ import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.db.TestExtRAMessages;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 import org.ejbca.util.keystore.KeyTools;
 
 
@@ -75,7 +76,7 @@ public class TestRAApi extends TestCase {
 	
 	protected void setUp() throws Exception {
 		super.setUp();
-		CertTools.installBCProvider();			
+		CryptoProviderTools.installBCProvider();			
 	}
 	
 	private static X509Certificate firstCertificate = null;
@@ -598,7 +599,7 @@ public class TestRAApi extends TestCase {
 
     public byte[] generatePKCS10Req(String dn, String password) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignatureException, InvalidAlgorithmParameterException {
         // Generate keys
-    	KeyPair keys = KeyTools.genKeys("512", CATokenConstants.KEYALGORITHM_RSA);            
+    	KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);            
 
         // Create challenge password attribute for PKCS10
         // Attributes { ATTRIBUTE:IOSet } ::= SET OF Attribute{{ IOSet }}
