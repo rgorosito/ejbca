@@ -112,11 +112,19 @@ public class Message implements Serializable, Cloneable {
 	public void setMessage(String message) { this.message = message; }
    
     public boolean equals(Object other) {
-        if (this == other) return true;
-        if ( !(other instanceof Message) ) return false;
+        if (this == other) { 
+        	return true;
+        }
+        if ( !(other instanceof Message) ) {
+        	return false;
+        }
         String id = ((Message)other).getUniqueId();
-        if ( (id != null) && (this.uniqueId != null) && id.equals(this.uniqueId) ) return true;
-        if ( (id == null) && (this.uniqueId == null) ) return true;
+        if ( (id != null) && (this.uniqueId != null) && id.equals(this.uniqueId) ) {
+        	return true;
+        }
+        if ( (id == null) && (this.uniqueId == null) ) {
+        	return true;
+        }
         return false;
     }
 

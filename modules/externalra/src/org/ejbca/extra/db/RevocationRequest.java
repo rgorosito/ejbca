@@ -151,12 +151,15 @@ public class RevocationRequest extends ExtRARequest {
 	public void upgrade() {
         if(Float.compare(LATEST_VERSION, getVersion()) != 0) {
             
-            if(data.get(REVOKEALL) == null)
+            if(data.get(REVOKEALL) == null) {
                 data.put(REVOKEALL, Boolean.valueOf(false));
-            if(data.get(REVOKEUSER) == null)
+            }
+            if(data.get(REVOKEUSER) == null) {
                 data.put(REVOKEUSER, Boolean.valueOf(false));
-            if(data.get(USERNAME) == null)
+            }
+            if(data.get(USERNAME) == null) {
                 data.put(USERNAME, "");
+            }
 			data.put(VERSION, Float.valueOf(LATEST_VERSION));
 		}
 		
