@@ -18,22 +18,14 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 
-import javax.ejb.ObjectNotFoundException;
-
 import org.apache.log4j.Logger;
+import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ca.sign.ISignSessionLocal;
-import org.ejbca.core.model.ca.AuthLoginException;
-import org.ejbca.core.model.ca.AuthStatusException;
-import org.ejbca.core.model.ca.IllegalKeyException;
-import org.ejbca.core.model.ca.SignRequestException;
-import org.ejbca.core.model.ca.SignRequestSignatureException;
-import org.ejbca.core.model.ca.caadmin.CADoesntExistsException;
 import org.ejbca.core.model.ca.store.CertificateInfo;
 import org.ejbca.core.model.hardtoken.profiles.EIDProfile;
 import org.ejbca.core.model.hardtoken.profiles.HardTokenProfile;
 import org.ejbca.core.model.hardtoken.profiles.SwedishEIDProfile;
 import org.ejbca.core.model.log.Admin;
-import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.core.protocol.IResponseMessage;
@@ -246,20 +238,14 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
      * @param resulttype should indicate if a PKCS7 or just the certificate is wanted.
      *
      * @return Base64 encoded byte[] 
+     * @throws EjbcaException
+     * @throws CertificateEncodingException
+     * @throws CertificateException
+     * @throws IOException
      * @throws ClassNotFoundException 
-     * @throws SignRequestSignatureException 
-     * @throws SignRequestException 
-     * @throws CADoesntExistsException 
-     * @throws IllegalKeyException 
-     * @throws AuthLoginException 
-     * @throws AuthStatusException 
-     * @throws ObjectNotFoundException 
-     * @throws IOException 
-     * @throws CertificateException 
-     * @throws CertificateEncodingException 
      */
     private Certificate pkcs10CertRequest(Admin administrator, ISignSessionLocal signsession, PKCS10RequestMessage req,
-        String username, String password) throws NotFoundException, AuthStatusException, AuthLoginException, IllegalKeyException, CADoesntExistsException, SignRequestException, SignRequestSignatureException, ClassNotFoundException, CertificateEncodingException, CertificateException, IOException {
+        String username, String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException {
         Certificate cert=null;
 		req.setUsername(username);
         req.setPassword(password);
