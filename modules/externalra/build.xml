@@ -141,7 +141,7 @@
     </target>
 
 	<target name="test" depends="compile-tests" description="Run tests for this module">
-		<fail message="Specify a JDBC connector JAR using -Dexternalra.test.jdbcjar=... and configure the database connection in resources/persistence.test.xml" unless="externalra.test.jdbcjar"/>
+		<fail message="Specify a JDBC connector JAR using -Dexternalra.test.jdbcjar=... and configure the database connection in ${this.dir}/resources/persistence.test.xml" unless="externalra.test.jdbcjar"/>
     	<antcall target="showtime"/>
     	<property name="reports.dir" location="${reports.base.dir}/test"/>
 		<delete dir="${reports.dir}" />

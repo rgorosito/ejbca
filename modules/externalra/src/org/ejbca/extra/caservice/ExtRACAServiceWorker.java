@@ -58,6 +58,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	private boolean signatureRequired = false;
 	private String keystorePwd = null;
 	private String caname = null;
+	private String whiteList = null;
 	
 	private static ConcurrentHashMap<String, EntityManagerFactory> entityManagerFactories = new ConcurrentHashMap<String, EntityManagerFactory>();
     
@@ -140,6 +141,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 
 		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1");
 		log.debug("externalra-caservice.raissuer: "+caname);
+		
+		whiteList = this.properties.getProperty("externalra-caservice.whitelist", "");
+		log.debug("externalra-caservice.whitelist: "+whiteList);
 		
 		// Initialize the JPA provider with the current persistence unit
 		if (entityManagerFactories.get(persistenceUnit) == null) {
@@ -238,7 +242,11 @@ public class ExtRACAServiceWorker extends BaseWorker {
 							Iterator iter = submgs.getSubMessages().iterator();
 							boolean somethingprocessed = false;
 							while(iter.hasNext()){
-								ISubMessage respMsg = MessageProcessor.processSubMessage(getAdmin(submgs), (ISubMessage) iter.next(), errormessage);
+								ISubMessage reqMsg = (ISubMessage) iter.next();
+								if (!checkWhiteList(reqMsg)) {
+									errormessage = "Sub message of type " + reqMsg.getClass().getName() + " is not listed in white list. Message id: " + msg.getMessageid();
+								}
+								ISubMessage respMsg = MessageProcessor.processSubMessage(getAdmin(submgs), reqMsg, errormessage);
 								if (respMsg != null) {
 									// if the response message is null here, we will ignore this message, 
 									// it means that we should not do anything with it this round 
@@ -344,6 +352,24 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		}
 		
 		return new SubMessages(null,null,null);
+	}
+
+	/**
+	 * Check if the classname is listed in the whitelist of allowed classes.
+	 * @param reqMsg is request submessage
+	 * @return true if the classname was found in the whitelist or if the whitelist is empty
+	 */
+	private boolean checkWhiteList(ISubMessage reqMsg) {
+		String classname = reqMsg.getClass().getName();
+		if (whiteList == null || whiteList.length() == 0) {
+			return true;
+		}
+		if (whiteList.indexOf(classname) == -1) {
+			log.info("Rejected External RA API submessage of type " + classname + " since it's not in the whitelist.");
+			log.debug("Whitelist was " + whiteList);
+			return false;
+		}
+		return true;
 	}
 
 }

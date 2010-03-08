@@ -10,6 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.ejbca.extra.db;
 
 import java.util.HashMap;
@@ -25,7 +26,6 @@ import org.apache.commons.logging.LogFactory;
  * @author philip
  * $Id: SubMessageFactory.java,v 1.2 2006-08-15 10:44:19 anatom Exp $
  */
-
 class SubMessageFactory {
 	
 	private static final Log log = LogFactory.getLog(SubMessageFactory.class);
@@ -74,12 +74,25 @@ class SubMessageFactory {
             retval =  new CardRenewalResponse();
             log.debug("Class of type CardRenewalResponse created");
             break;          
+        case KeyStoreRetrievalRequest.CLASS_TYPE:
+            retval =  new KeyStoreRetrievalRequest();
+            log.debug("Class of type KeyStoreRetrievalRequest created");
+            break;          
+        case KeyStoreRetrievalResponse.CLASS_TYPE:
+            retval =  new KeyStoreRetrievalResponse();
+            log.debug("Class of type KeyStoreRetrievalResponse created");
+            break;          
+        case CertificateRequestRequest.CLASS_TYPE:
+            retval =  new CertificateRequestRequest();
+            log.debug("Class of type CertificateRequestRequest created");
+            break;          
+        case CertificateRequestResponse.CLASS_TYPE:
+            retval =  new CertificateRequestResponse();
+            log.debug("Class of type CertificateRequestResponse created");
+            break;          
 		default:
 			log.error("Error Class of type : " + classType + " not registred");
 		}
-		
-		
 		return retval;
 	}
-	
 }

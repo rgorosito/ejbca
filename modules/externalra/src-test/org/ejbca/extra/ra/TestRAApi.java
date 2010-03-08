@@ -12,6 +12,7 @@
  *************************************************************************/
 package org.ejbca.extra.ra;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -24,6 +25,7 @@ import java.security.cert.CertStore;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Random;
 
 import javax.persistence.Persistence;
 
@@ -40,9 +42,15 @@ import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.ejbca.core.model.AlgorithmConstants;
+import org.ejbca.core.model.SecConst;
 import org.ejbca.extra.db.CardRenewalRequest;
+import org.ejbca.extra.db.CertificateRequestRequest;
+import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.Constants;
+import org.ejbca.extra.db.EditUserRequest;
 import org.ejbca.extra.db.ExtRAResponse;
+import org.ejbca.extra.db.KeyStoreRetrievalRequest;
+import org.ejbca.extra.db.KeyStoreRetrievalResponse;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.PKCS10Response;
@@ -575,6 +583,92 @@ public class TestRAApi extends TestCase {
         
         // TODO: make a successful message, but user status must be set to new then
 	}
+	
+	/**
+	 * Add a user and retrieve a keystore for this user.
+	 */
+	public void test10KeyStoreRetrieval() throws Exception {
+		Random random = new Random();
+		long requestId = random.nextLong();
+		String username = "ExtRA-ksret-" + random.nextInt();
+		String password = "foo123";
+		// Add a new user
+		EditUserRequest editUserRequest = new EditUserRequest(requestId, username, "CN=" + username, null, null, null, "EMPTY", "ENDUSER", 
+                   "AdminCA1", password, 10, 1, EditUserRequest.SOFTTOKENNAME_P12, null);
+		SubMessages smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(editUserRequest);
+		msghome.create(username, smgs);
+        Message msg = waitForUser(username);
+		assertNotNull("No response.", msg);
+		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
+		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
+		assertTrue("Wrong Request ID: " + resp.getRequestId(), resp.getRequestId() == requestId);
+		assertTrue("Edit user failed", resp.isSuccessful() == true);
+		// Try to retrieve keystore
+		requestId = random.nextLong();
+		KeyStoreRetrievalRequest keyStoreRetrievalRequest = new KeyStoreRetrievalRequest(requestId, username, password);
+		smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(keyStoreRetrievalRequest);
+		msghome.create(username+"ks", smgs);
+        msg = waitForUser(username+"ks");
+		assertNotNull("No response.", msg);
+		submessagesresp = msg.getSubMessages(null,null,null);
+		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
+		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
+		assertTrue("Wrong Request ID: " + resp.getRequestId(), resp.getRequestId() == requestId);
+		assertTrue("KeyStoreRetrieval failed", resp.isSuccessful() == true);
+		assertTrue("Wrong response type.", resp instanceof KeyStoreRetrievalResponse);
+		KeyStoreRetrievalResponse ksResp = (KeyStoreRetrievalResponse) resp;
+		assertTrue("Wrong keystore type.", ksResp.getKeyStoreType() == SecConst.TOKEN_SOFT_P12);
+		KeyStore ks = KeyStore.getInstance("PKCS12", "BC");
+		try {
+			ks.load(new ByteArrayInputStream(ksResp.getKeyStoreData()), password.toCharArray());
+		} catch (Exception e) {
+			assertTrue("Could not recreate keystore from response.", false);
+		}
+	}	
+	
+	/**
+	 * Add a user and fetch a certificate for this user.
+	 */
+	public void test11CertificateFromCSR() throws Exception {
+		Random random = new Random();
+		long requestId = random.nextLong();
+		String username = "ExtRA-ksret-" + random.nextInt();
+		String password = "foo123";
+		// Add a new user
+		EditUserRequest editUserRequest = new EditUserRequest(requestId, username, "CN=" + username, null, null, null, "EMPTY", "ENDUSER", 
+                   "AdminCA1", password, 10, 1, EditUserRequest.SOFTTOKENNAME_USERGENERATED, null);
+		SubMessages smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(editUserRequest);
+		msghome.create(username, smgs);
+        Message msg = waitForUser(username);
+		assertNotNull("No response.", msg);
+		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
+		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
+		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == requestId);
+		assertTrue("Edit user failed", resp.isSuccessful() == true);
+		// Try to retrieve keystore
+		requestId = random.nextLong();
+		byte[] requestData = generatePKCS10Req("CN=dummyname", password);
+		CertificateRequestRequest certificateRequestRequest = new CertificateRequestRequest(requestId, username, password, CertificateRequestRequest.REQUEST_TYPE_PKCS10, requestData, CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
+		smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(certificateRequestRequest);
+		msghome.create(username+"csr", smgs);
+        msg = waitForUser(username+"csr");
+		assertNotNull("No response.", msg);
+		submessagesresp = msg.getSubMessages(null,null,null);
+		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
+		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
+		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == requestId);
+		assertTrue("KeyStoreRetrieval failed", resp.isSuccessful() == true);
+		assertTrue("Wrong response type.", resp instanceof CertificateRequestResponse);
+		CertificateRequestResponse certResp = (CertificateRequestResponse) resp;
+		assertTrue("Wrong keystore type.", certResp.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
+		assertTrue("Wrong certificate in response", CertTools.getSubjectDN(CertTools.getCertfromByteArray(certResp.getResponseData())).equals("CN="+username));
+	}	
 	
 	
 	private Message waitForUser(String user) throws InterruptedException{

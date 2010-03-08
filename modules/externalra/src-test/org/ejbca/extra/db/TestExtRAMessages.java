@@ -20,7 +20,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 
-import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 
 /**
  * Makes sure that request and response classes are serialized properly.
@@ -31,7 +31,7 @@ public class TestExtRAMessages extends TestCase {
 	
 	protected void setUp() throws Exception {
 		super.setUp();
-		CertTools.installBCProvider();
+		CryptoProviderTools.installBCProvider();
 	}
 	
 	public void testUnencryptedSubMessages() throws Exception {
