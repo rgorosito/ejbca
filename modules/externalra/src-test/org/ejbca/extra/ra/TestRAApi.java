@@ -31,6 +31,7 @@ import javax.persistence.Persistence;
 
 import junit.framework.TestCase;
 
+import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERSet;
@@ -81,7 +82,9 @@ import org.ejbca.util.keystore.KeyTools;
  */
 
 public class TestRAApi extends TestCase {
-	
+
+	private static final Logger log = Logger.getLogger(TestRAApi.class);
+			
 	protected void setUp() throws Exception {
 		super.setUp();
 		CryptoProviderTools.installBCProvider();			
@@ -158,9 +161,9 @@ public class TestRAApi extends TestCase {
 
 		// First test with a user that does not exist or has status generated, when the user it not created the request will fail
 		SubMessages smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(100,"SimplePKCS10Test1NoAdd", Constants.pkcs10_1, false));
-		msghome.create("SimplePKCS10Test1NoAdd", smgs);
-        Message msg = waitForUser("SimplePKCS10Test1NoAdd");
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(100,"SimplePKCS10Test1", Constants.pkcs10_1, false));
+		msghome.create("SimplePKCS10Test1", smgs);
+        Message msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull("No response", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);		
@@ -171,9 +174,9 @@ public class TestRAApi extends TestCase {
 		
 		// if we create the user first, with correct status, the request should be ok
 		smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10UserRequest(101,"SimplePKCS10Test1NoAdd", "foo123"));
-		msghome.create("SimplePKCS10Test1NoAdd", smgs);		
-        msg = waitForUser("SimplePKCS10Test1NoAdd");
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10UserRequest(101,"SimplePKCS10Test1", "foo123"));
+		msghome.create("SimplePKCS10Test1", smgs);		
+        msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
@@ -183,9 +186,9 @@ public class TestRAApi extends TestCase {
 
 		// Create a new request, now it should be ok
 		smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(102,"SimplePKCS10Test1NoAdd", Constants.pkcs10_1, false));
-		msghome.create("SimplePKCS10Test1NoAdd", smgs);		
-        msg = waitForUser("SimplePKCS10Test1NoAdd");
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(102,"SimplePKCS10Test1", Constants.pkcs10_1, false));
+		msghome.create("SimplePKCS10Test1", smgs);		
+        msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull(msg);
 		submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
@@ -255,11 +258,11 @@ public class TestRAApi extends TestCase {
 	public void test04GenerateSimpleKeyRecoveryRequest() throws Exception {
 		// First generate keystore
 		SubMessages smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(300,"SimpleKeyRecTest", true));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(300,"SimplePKCS12Test1", true));
 		
-		msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimplePKCS12Test1", smgs);
 		
-        Message msg = waitForUser("SimpleKeyRecTest");
+        Message msg = waitForUser("SimplePKCS12Test1");
 		assertNotNull("No response.", msg);
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
@@ -279,11 +282,11 @@ public class TestRAApi extends TestCase {
 		// Generate Key Recovery request with original cert.
 		
 		smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(301,"SimpleKeyRecTest",true,orgCert));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(301,"SimplePKCS12Test1",true,orgCert));
 		
-		msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimplePKCS12Test1", smgs);
 		
-        msg = waitForUser("SimpleKeyRecTest");
+        msg = waitForUser("SimplePKCS12Test1");
 		
 		assertNotNull(msg);
 		
@@ -301,11 +304,11 @@ public class TestRAApi extends TestCase {
         // Generate Key Recovery Request with new cert
         
 		smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(302,"SimpleKeyRecTest",false,orgCert));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAKeyRecoveryRequest(302,"SimplePKCS12Test1",false,orgCert));
 		
-		msghome.create("SimpleKeyRecTest", smgs);
+		msghome.create("SimplePKCS12Test1", smgs);
 		
-        msg = waitForUser("SimpleKeyRecTest");
+        msg = waitForUser("SimplePKCS12Test1");
 		
 		assertNotNull(msg);
 		
@@ -477,9 +480,9 @@ public class TestRAApi extends TestCase {
 	public void test07GenerateComplexRequest() throws Exception {
 		
 		SubMessages smgs = new SubMessages(null,null,null);
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"ComplexReq", Constants.pkcs10_1));
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(2,"ComplexReq", false));
-		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(3,"ComplexReq", false));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"SimplePKCS10Test1", Constants.pkcs10_1));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(2,"SimplePKCS12Test1", false));
+		smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS12Request(3,"SimplePKCS12Test1", false));
 		
 		msghome.create("COMPLEXREQ_1", smgs);
 		
@@ -509,7 +512,7 @@ public class TestRAApi extends TestCase {
 		
 		for(int i=0; i< numberOfRequests; i++){
 		  SubMessages smgs = new SubMessages(null,null,null);
-		  smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"LotsOfReq" + i, Constants.pkcs10_1));		
+		  smgs.addSubMessage(TestExtRAMessages.genExtRAPKCS10Request(1,"SimplePKCS10Test1", Constants.pkcs10_1));		
 		  msghome.create("LotsOfReq" + i, smgs);
 		}
 
@@ -579,7 +582,8 @@ public class TestRAApi extends TestCase {
         resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
         assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == 12);
         assertTrue(resp.isSuccessful() == false);
-        assertEquals(resp.getFailInfo(), "User status must be new for SimplePKCS10Test1NoAdd");
+        log.debug("resp.getFailInfo: " + resp.getFailInfo());
+        assertEquals("Wrong error message.", resp.getFailInfo(), "User status must be new for SimplePKCS10Test1");
         
         // TODO: make a successful message, but user status must be set to new then
 	}
