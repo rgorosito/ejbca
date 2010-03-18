@@ -62,6 +62,7 @@ import org.ejbca.extra.db.TestExtRAMessages;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.CryptoProviderTools;
+import org.ejbca.util.TestTools;
 import org.ejbca.util.keystore.KeyTools;
 
 
@@ -656,7 +657,7 @@ public class TestRAApi extends TestCase {
 		assertTrue("Edit user failed", resp.isSuccessful() == true);
 		// Try to retrieve keystore
 		requestId = random.nextLong();
-		byte[] requestData = generatePKCS10Req("CN=dummyname", password);
+		byte[] requestData = TestTools.generatePKCS10Req("CN=dummyname", password);
 		CertificateRequestRequest certificateRequestRequest = new CertificateRequestRequest(requestId, username, password, CertificateRequestRequest.REQUEST_TYPE_PKCS10, requestData, CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(certificateRequestRequest);
@@ -673,8 +674,7 @@ public class TestRAApi extends TestCase {
 		assertTrue("Wrong keystore type.", certResp.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
 		assertTrue("Wrong certificate in response", CertTools.getSubjectDN(CertTools.getCertfromByteArray(certResp.getResponseData())).equals("CN="+username));
 	}	
-	
-	
+
 	private Message waitForUser(String user) throws InterruptedException{
 		int waittime = 30; // Wait a maximum of 30 seconds
 		boolean processed = false;
@@ -694,30 +694,4 @@ public class TestRAApi extends TestCase {
 		}
 		return msg;
 	}
-
-    public byte[] generatePKCS10Req(String dn, String password) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignatureException, InvalidAlgorithmParameterException {
-        // Generate keys
-    	KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);            
-
-        // Create challenge password attribute for PKCS10
-        // Attributes { ATTRIBUTE:IOSet } ::= SET OF Attribute{{ IOSet }}
-        //
-        // Attribute { ATTRIBUTE:IOSet } ::= SEQUENCE {
-        //    type    ATTRIBUTE.&id({IOSet}),
-        //    values  SET SIZE(1..MAX) OF ATTRIBUTE.&Type({IOSet}{\@type})
-        // }
-        ASN1EncodableVector vec = new ASN1EncodableVector();
-        vec.add(PKCSObjectIdentifiers.pkcs_9_at_challengePassword); 
-        ASN1EncodableVector values = new ASN1EncodableVector();
-        values.add(new DERUTF8String(password));
-        vec.add(new DERSet(values));
-        ASN1EncodableVector v = new ASN1EncodableVector();
-        v.add(new DERSequence(vec));
-        DERSet set = new DERSet(v);
-        // Create PKCS#10 certificate request
-        PKCS10CertificationRequest p10request = new PKCS10CertificationRequest("SHA1WithRSA",
-                CertTools.stringToBcX509Name(dn), keys.getPublic(), set, keys.getPrivate());
-        
-        return p10request.getEncoded();        
-    }
 }
