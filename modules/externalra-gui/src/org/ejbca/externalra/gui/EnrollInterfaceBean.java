@@ -69,8 +69,8 @@ public class EnrollInterfaceBean {
 	
 	// General variables
 	private String userAgentString = null;
-	private String username = "test-0000";	//null;
-	private String password = "foo123";	//null;
+	private String username = null;
+	private String password = null;
 	private boolean showPassword = false;
 	private String filename = null;
 	private Resource resource = null;
@@ -239,8 +239,9 @@ public class EnrollInterfaceBean {
 	 * Action that requests a KeyStore from EJBCA using the given credentials.
 	 */
 	public void createKeystore() {
-		log.info("username: " + username);
-		log.info("password: " + password);
+		if (log.isDebugEnabled()) {
+			log.debug("username: " + username);
+		}
 		FacesContext context = FacesContext.getCurrentInstance();
 		if (username==null || username.length()==0 || password==null || password.length()==0) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.incompletefields"), null));
@@ -279,9 +280,10 @@ public class EnrollInterfaceBean {
 	 * Action that requests a certificate from EJBCA using the given credentials and the Certificate Signing Request.
 	 */
 	public void createCertFromCSR() {
-		log.info("username: " + username);
-		log.info("password: " + password);
-		log.info("certificateRequest: " + certificateRequest);
+		if (log.isDebugEnabled()) {
+			log.debug("username: " + username);
+			log.debug("certificateRequest: " + certificateRequest);
+		}
 		FacesContext context = FacesContext.getCurrentInstance();
 		if (username==null || username.length()==0 || password==null || password.length()==0 || certificateRequest==null || certificateRequest.length()==0) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.incompletefields"), null));
@@ -294,7 +296,9 @@ public class EnrollInterfaceBean {
             // See if it is a PEM
 			buf = FileTools.getBytesFromPEM(buf, PEM_CSR_BEGIN, PEM_CSR_END);
 			certificateRequest = PEM_CSR_BEGIN + "\n" + new String(Base64.encode(buf)) + "\n" + PEM_CSR_END;
-            log.info("cleaned req: " + certificateRequest);
+			if (log.isDebugEnabled()) {
+	            log.debug("cleaned req: " + certificateRequest);
+			}
             new PKCS10CertificationRequest(buf);
 		} catch (Exception e) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.invalidreqdata"), null));
@@ -351,10 +355,11 @@ public class EnrollInterfaceBean {
 	 * Action that requests a certificate from EJBCA using the given credentials and the Certificate Signing Request created by the browser.
 	 */
 	public void createCertFromBrowser() {
-		log.info("username: " + username);
-		log.info("password: " + password);
-		log.info("certificateRequest: " + certificateRequest);
-		log.info("certificateRequestType: " + certificateRequestType);
+		if (log.isDebugEnabled()) {
+			log.debug("username: " + username);
+			log.debug("certificateRequest: " + certificateRequest);
+			log.debug("certificateRequestType: " + certificateRequestType);
+		}
 		FacesContext context = FacesContext.getCurrentInstance();
 		if (username==null || username.length()==0 || password==null || password.length()==0 || certificateRequest==null || certificateRequest.length()==0
 				|| certificateRequestType==null || certificateRequestType.length()==0) {
@@ -426,7 +431,9 @@ public class EnrollInterfaceBean {
 			return;
 		}
 		// Request the certificate from the CA
-		log.info("Got requestType " + requestType + " and is expecting responseType " + responseType + " for user " + username);
+		if (log.isDebugEnabled()) {
+			log.debug("Got requestType " + requestType + " and is expecting responseType " + responseType + " for user " + username);
+		}
 		ResponseData responseData = getRequestDispatcher().getCertificateResponse(username, password, requestType, buf, responseType);
 		// Check if got a valid result
 		if (responseData == null) {
@@ -454,7 +461,7 @@ public class EnrollInterfaceBean {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");
                 String pkcs7 = PEM_PKCS7_BEGIN + "\n" + new String(Base64.encode(responseData.getResponseData(), true)) + "\n" + PEM_PKCS7_END + "\n";
-                log.info("pkcs7="+pkcs7);
+                log.debug("pkcs7="+pkcs7);
             	CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(responseData.getResponseData()), "PKCS7");
             	List<? extends Certificate> certList = certPath.getCertificates();
             	Certificate caCert = certList.get(certList.size()-1);
@@ -464,7 +471,9 @@ public class EnrollInterfaceBean {
             } catch (CertificateException e) {
             	e.printStackTrace();
             }
-			log.info("certificateResponse: " + certificateResponse);
+    		if (log.isDebugEnabled()) {
+    			log.debug("certificateResponse: " + certificateResponse);
+    		}
 			break;
 		default:
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.unknownresponsetype"), null));
