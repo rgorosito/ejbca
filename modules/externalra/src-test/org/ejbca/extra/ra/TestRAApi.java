@@ -14,13 +14,7 @@ package org.ejbca.extra.ra;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
 import java.security.cert.CertStore;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
@@ -32,17 +26,10 @@ import javax.persistence.Persistence;
 import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.DERSequence;
-import org.bouncycastle.asn1.DERSet;
-import org.bouncycastle.asn1.DERUTF8String;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
-import org.bouncycastle.jce.PKCS10CertificationRequest;
-import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.CertificateRequestRequest;
@@ -62,8 +49,7 @@ import org.ejbca.extra.db.TestExtRAMessages;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.CryptoProviderTools;
-import org.ejbca.util.TestTools;
-import org.ejbca.util.keystore.KeyTools;
+import org.ejbca.util.NonEjbTestTools;
 
 
 /**
@@ -657,7 +643,7 @@ public class TestRAApi extends TestCase {
 		assertTrue("Edit user failed", resp.isSuccessful() == true);
 		// Try to retrieve keystore
 		requestId = random.nextLong();
-		byte[] requestData = TestTools.generatePKCS10Req("CN=dummyname", password);
+		byte[] requestData = NonEjbTestTools.generatePKCS10Req("CN=dummyname", password);
 		CertificateRequestRequest certificateRequestRequest = new CertificateRequestRequest(requestId, username, password, CertificateRequestRequest.REQUEST_TYPE_PKCS10, requestData, CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(certificateRequestRequest);
