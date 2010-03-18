@@ -251,9 +251,11 @@ public class EnrollInterfaceBean {
 		// Check if got a valid result
 		if (keyStoreResponse == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
+			log.error("KeyStore request for '" + username + "' failed. No response from CA.");
 			return;
 		} else if (keyStoreResponse.getErrorMessage() != null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.keystore.couldnotcreate"), null));
+			log.info("KeyStore request for '" + username + "' failed. " + keyStoreResponse.getErrorMessage());
 			return;
 		}
 		// Handle response
@@ -273,6 +275,7 @@ public class EnrollInterfaceBean {
 			break;
 		}
 		mimeType = "application/octet-stream";
+		log.info("KeyStore request with response-type " + keyStoreResponse.getResponseType() + " for '" + username + "' was successful.");
 	}
 	
 	/**
@@ -313,9 +316,11 @@ public class EnrollInterfaceBean {
 		// Check if got a valid result
 		if (csrResponse == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
+			log.error("Certificate request for '" + username + "' failed. No response from CA.");
 			return;
 		} else if (csrResponse.getErrorMessage() != null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.csrcert.couldnotcreate"), null));
+			log.info("Certificate request for '" + username + "' failed. " + csrResponse.getErrorMessage());
 			return;
 		}
 		// Handle response
@@ -348,6 +353,7 @@ public class EnrollInterfaceBean {
 			mimeType = "application/octet-stream";
 			break;
 		}
+		log.info("Certificate request with response-type " + csrResponse.getResponseType() + " for '" + username + "' was successful.");
 	}
 
 	/**
@@ -436,9 +442,11 @@ public class EnrollInterfaceBean {
 		// Check if got a valid result
 		if (responseData == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
+			log.error("Certificate request for '" + username + "' failed. No response from CA.");
 			return;
 		} else if (responseData.getErrorMessage() != null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.browsercert.couldnotcreate"), null));
+			log.info("Certificate request for '" + username + "' failed. " + responseData.getErrorMessage());
 			return;
 		}
 		// Handle response
@@ -478,6 +486,7 @@ public class EnrollInterfaceBean {
 			log.error("Unknown result type: " + certificateResponseType);
 			break;
 		}
+		log.info("Certificate request with response-type " + responseData.getResponseType() + " for '" + username + "' was successful.");
 	}
 	
 	/**
