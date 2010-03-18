@@ -30,6 +30,7 @@ import java.util.ResourceBundle;
 import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
 import javax.faces.event.ActionEvent;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1InputStream;
@@ -239,9 +240,7 @@ public class EnrollInterfaceBean {
 	 * Action that requests a KeyStore from EJBCA using the given credentials.
 	 */
 	public void createKeystore() {
-		if (log.isDebugEnabled()) {
-			log.debug("username: " + username);
-		}
+		log.info("Recieved a KeyStore request for username '" + username + "' from " + getRemoteAddress());
 		FacesContext context = FacesContext.getCurrentInstance();
 		if (username==null || username.length()==0 || password==null || password.length()==0) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.incompletefields"), null));
@@ -280,8 +279,8 @@ public class EnrollInterfaceBean {
 	 * Action that requests a certificate from EJBCA using the given credentials and the Certificate Signing Request.
 	 */
 	public void createCertFromCSR() {
+		log.info("Recieved a certificate signing request for username '" + username + "' from " + getRemoteAddress());
 		if (log.isDebugEnabled()) {
-			log.debug("username: " + username);
 			log.debug("certificateRequest: " + certificateRequest);
 		}
 		FacesContext context = FacesContext.getCurrentInstance();
@@ -355,10 +354,9 @@ public class EnrollInterfaceBean {
 	 * Action that requests a certificate from EJBCA using the given credentials and the Certificate Signing Request created by the browser.
 	 */
 	public void createCertFromBrowser() {
+		log.info("Recieved a browser generated certificate request of type " + certificateRequestType + " for username '" + username + "' from " + getRemoteAddress());
 		if (log.isDebugEnabled()) {
-			log.debug("username: " + username);
 			log.debug("certificateRequest: " + certificateRequest);
-			log.debug("certificateRequestType: " + certificateRequestType);
 		}
 		FacesContext context = FacesContext.getCurrentInstance();
 		if (username==null || username.length()==0 || password==null || password.length()==0 || certificateRequest==null || certificateRequest.length()==0
@@ -508,5 +506,9 @@ public class EnrollInterfaceBean {
 			text = "?? key " + key + " not found ??";
 		}
 		return text;
+	}
+	
+	private String getRemoteAddress() {
+		return ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest()).getRemoteAddr();
 	}
 }
