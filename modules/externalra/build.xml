@@ -163,7 +163,7 @@
     </target>
 	
 	<target name="runone" depends="compile-tests">
-		<fail message="'test.runone' is not set. Example -Dtest.runone=TestExtRAMessages" unless="test.runone" />
+		<fail message="'test.runone' is not set. Example -Dtest.runone=ExtRAMessagesTest" unless="test.runone" />
 		<fail message="Specify a JDBC connector JAR using -Dexternalra.test.jdbcjar=... and configure the database connection in ${this.dir}/resources/persistence.test.xml" unless="externalra.test.jdbcjar"/>
     	<property name="reports.dir" location="${reports.base.dir}/runone"/>
 		<delete dir="${reports.dir}" />
