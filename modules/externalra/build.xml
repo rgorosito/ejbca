@@ -154,8 +154,7 @@
 			</classpath>
 			<formatter type="xml" />
 			<batchtest fork="yes" todir="${reports.dir}">
-				<fileset dir="${build-test.dir}" includes="**/*.class">
-					<exclude name="org/ejbca/extra/db/Constants.class"/>
+				<fileset dir="${build-test.dir}" includes="**/*Test.class">
 				</fileset>
 			</batchtest>
 		</junit>

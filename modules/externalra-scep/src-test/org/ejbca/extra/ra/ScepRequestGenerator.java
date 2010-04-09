@@ -137,9 +137,6 @@ public class ScepRequestGenerator {
         } catch (IOException e) {
             throw new IllegalArgumentException("error encoding value: " + e);
         }
-        // Extension request attribute is a set of X509Extensions
-        // ASN1EncodableVector x509extensions = new ASN1EncodableVector();
-        // An X509Extensions is a sequence of Extension which is a sequence of {oid, X509Extension}
         ASN1EncodableVector extvalue = new ASN1EncodableVector();
         Vector oidvec = new Vector();
         oidvec.add(X509Extensions.SubjectAlternativeName);
@@ -168,19 +165,12 @@ public class ScepRequestGenerator {
         this.cacert = ca;
         this.reqdn = dn;
 
-        // pkcsGetCertInitial issuerAndSubject ::= { 
-        //	    issuer "the certificate authority issuer name" 
-        //	    subject "the requester subject name as given in PKCS#10" 
-        //	} 
+
         ASN1EncodableVector vec = new ASN1EncodableVector();
         vec.add(new DERUTF8String(ca.getIssuerDN().getName()));
         vec.add(new DERUTF8String(dn));
         DERSequence seq = new DERSequence(vec);
-        
-        // The self signed certificate has already been generated when the request message was created
-        // Create self signed cert, validity 1 day
-        //cert = CertTools.genSelfCert(reqdn,24*60*60*1000,null,keys.getPrivate(),keys.getPublic(),AlgorithmConstants.SIGALG_SHA1_WITH_RSA,false);
-        
+              
         // wrap message in pkcs#7
         byte[] msg = wrap(seq.getEncoded(), "20");
         return msg;        

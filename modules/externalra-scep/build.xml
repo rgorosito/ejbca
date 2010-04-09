@@ -105,8 +105,7 @@
 			</classpath>
 			<formatter type="xml" />
 			<batchtest fork="yes" todir="${reports.dir}">
-				<fileset dir="${build-test.dir}" includes="**/*Test*.class">
-					<exclude name="org/ejbca/extra/ra/ScepRequestGenerator.class"/>
+				<fileset dir="${build-test.dir}" includes="**/*Test.class">
 				</fileset>
 			</batchtest>
 		</junit>
