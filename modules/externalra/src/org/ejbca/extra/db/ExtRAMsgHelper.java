@@ -48,7 +48,7 @@ import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 
 /**
- * Class conatning static help methods used to encrypt, decrypt, sign  and verify ExtRASubMessages
+ * Class containing static help methods used to encrypt, decrypt, sign  and verify ExtRASubMessages
  * 
  * @author philip
  * $Id: ExtRAMsgHelper.java,v 1.2 2006-08-08 17:11:40 anatom Exp $
