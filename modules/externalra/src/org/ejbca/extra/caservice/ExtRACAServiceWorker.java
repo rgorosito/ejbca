@@ -12,7 +12,6 @@
  *************************************************************************/
 package org.ejbca.extra.caservice;
 
-import java.rmi.RemoteException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -300,7 +299,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	 * @throws ClassCastException 
 	 * @throws SignatureException 
 	 * @throws AuthorizationDeniedException 
-	 * @throws RemoteException 
 	 */
 	private Admin getAdmin(SubMessages submessages) throws ClassCastException, CreateException, NamingException, SignatureException,  AuthorizationDeniedException{
 		if(submessages.isSigned()){

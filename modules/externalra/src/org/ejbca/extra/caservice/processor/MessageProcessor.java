@@ -44,7 +44,6 @@ import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.query.ApprovalMatch;
 import org.ejbca.util.query.BasicMatch;

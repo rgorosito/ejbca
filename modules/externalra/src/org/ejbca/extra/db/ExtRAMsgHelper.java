@@ -14,7 +14,6 @@ package org.ejbca.extra.db;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
@@ -37,7 +36,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.CMSEnvelopedDataGenerator;
-import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -108,11 +106,9 @@ public class ExtRAMsgHelper {
 	 * 
 	 * Uses the algorithm specified in the init method.
 	 * 
-	 * @param decKey, the recepients private key.
+	 * @param decKey, the recipients private key.
 	 * @param encData, the encrypted data
 	 * @return encrypted byte[] or null if decryption failed.
-	 * @throws CMSException 
-	 * @throws NoSuchProviderException 
 	 */
 	public static byte[] decryptData(PrivateKey decKey, byte[] encData) {
 		byte[] retdata = null;

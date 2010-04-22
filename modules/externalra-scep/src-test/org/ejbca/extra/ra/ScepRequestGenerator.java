@@ -137,7 +137,6 @@ public class ScepRequestGenerator {
         } catch (IOException e) {
             throw new IllegalArgumentException("error encoding value: " + e);
         }
-        ASN1EncodableVector extvalue = new ASN1EncodableVector();
         Vector oidvec = new Vector();
         oidvec.add(X509Extensions.SubjectAlternativeName);
         Vector valuevec = new Vector();

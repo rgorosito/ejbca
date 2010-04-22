@@ -47,7 +47,6 @@ import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.ejbca.core.model.ca.SignRequestException;
 import org.ejbca.core.model.ca.SignRequestSignatureException;
 import org.ejbca.core.model.ra.NotFoundException;
@@ -307,7 +306,6 @@ public class ScepRAServlet extends HttpServlet {
                         } else {
                         	log.debug("Not requiring authPwd in order to precess SCEP requests");                        	
                         }
-                        PKCS10CertificationRequest p10 = reqmsg.getCertificationRequest();
                         // Try to find the CA name from the issuerDN, if we can't find it (i.e. not defined in web.xml) we use the default
                         String issuerDN = CertTools.stringToBCDNString(reqmsg.getIssuerDN());
                         String caName = ExtraConfiguration.instance().getString(issuerDN);

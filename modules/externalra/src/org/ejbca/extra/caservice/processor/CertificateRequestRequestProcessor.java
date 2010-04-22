@@ -38,7 +38,6 @@ import org.ejbca.extra.db.CertificateRequestRequest;
 import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.RequestMessageUtils;
 
