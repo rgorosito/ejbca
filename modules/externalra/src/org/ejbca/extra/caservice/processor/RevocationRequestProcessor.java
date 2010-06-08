@@ -14,8 +14,6 @@ package org.ejbca.extra.caservice.processor;
 
 import java.math.BigInteger;
 
-import javax.ejb.FinderException;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
@@ -23,8 +21,8 @@ import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
-import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.extra.db.ISubMessage;
+import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.util.CertTools;
 
 /**
@@ -85,9 +83,6 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 		} catch (AuthorizationDeniedException e) {
 			log.error("Error processing ExtRARevocationRequest : ", e);
 			retval = new ExtRAResponse(submessage.getRequestId(),false, "AuthorizationDeniedException: " + e.getMessage());
-		} catch (FinderException e) {
-			log.error("Error processing ExtRARevocationRequest : ", e);
-			retval = new ExtRAResponse(submessage.getRequestId(),false, "ExtRARevocationRequest: " + e.getMessage());
 		}catch(Exception e){
 			log.error("Error processing ExtRARevocationRequest : ", e);
 			retval = new ExtRAResponse(submessage.getRequestId(),false,e.getMessage());

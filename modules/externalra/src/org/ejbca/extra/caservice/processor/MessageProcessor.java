@@ -203,17 +203,15 @@ public class MessageProcessor {
 	 * @throws Exception 
 	 * 
 	 */
-	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, DuplicateKeyException, FinderException, ApprovalException, WaitingForApprovalException, Exception {
+	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, DuplicateKeyException, ApprovalException, WaitingForApprovalException, Exception {
 		log.trace(">storeUserData() username : " + userdata.getUsername());
-
-		// Check if user already exists
-		UserDataVO oldUserData = ejb.getUserAdminSession().findUser(admin, userdata.getUsername());
 
         // First we will look to see if there is an existing approval request pending for this user within the last hour
 		EditEndEntityApprovalRequest ear = new EditEndEntityApprovalRequest(userdata, clearpwd, userdata, admin,null,1,userdata.getCAId(),userdata.getEndEntityProfileId());
         AddEndEntityApprovalRequest aar = new AddEndEntityApprovalRequest(userdata,clearpwd,admin,null,1,userdata.getCAId(),userdata.getEndEntityProfileId());
         int approvalid = aar.generateApprovalId();
-        if (oldUserData != null) {
+		// Check if user already exists
+        if (ejb.getUserAdminSession().existsUser(admin, userdata.getUsername())) {
         	// a user already exists, so this is an edit entity request we are preparing
         	log.debug("User already exist, we will look for an edit end entity request");
         	approvalid = ear.generateApprovalId();
@@ -263,7 +261,7 @@ public class MessageProcessor {
         }
         
 		// Check if user already exists
-		oldUserData = ejb.getUserAdminSession().findUser(admin, userdata.getUsername());
+		UserDataVO oldUserData = ejb.getUserAdminSession().findUser(admin, userdata.getUsername());
 		if (oldUserData != null) {
 			log.debug("User '"+userdata.getUsername()+"' already exist, edit user.");
 			if ( (oldUserData.getStatus() == UserDataConstants.STATUS_INPROCESS) || (oldUserData.getStatus() == UserDataConstants.STATUS_NEW) ) {

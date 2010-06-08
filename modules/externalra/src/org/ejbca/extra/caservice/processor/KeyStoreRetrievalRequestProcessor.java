@@ -18,7 +18,6 @@ import java.rmi.RemoteException;
 import java.security.KeyStore;
 
 import javax.ejb.EJBException;
-import javax.ejb.FinderException;
 
 import org.apache.log4j.Logger;
 import org.ejbca.core.ejb.ra.IUserAdminSessionRemote;
@@ -69,8 +68,6 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			UserDataVO data = null;
 			try {
 				data = userAdminSession.findUser(admin, submessage.getUsername());
-			} catch (FinderException e) {
-				log.info("Dropped external RA keystore request for non-existing user " + submessage.getUsername());
 			} catch (AuthorizationDeniedException e) {
 				log.info("External RA admin was denied access to a user: " + e.getMessage());
 			}
