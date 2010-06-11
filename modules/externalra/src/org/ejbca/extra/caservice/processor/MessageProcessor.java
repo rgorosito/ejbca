@@ -21,7 +21,6 @@ import java.util.List;
 
 import javax.ejb.CreateException;
 import javax.ejb.DuplicateKeyException;
-import javax.ejb.FinderException;
 import javax.naming.NamingException;
 
 import org.apache.log4j.Logger;
@@ -196,7 +195,6 @@ public class MessageProcessor {
 	 * 
 	 * @throws UserDoesntFullfillEndEntityProfile 
 	 * @throws AuthorizationDeniedException 
-	 * @throws FinderException 
 	 * @throws DuplicateKeyException 
 	 * @throws WaitingForApprovalException 
 	 * @throws ApprovalException
