@@ -17,7 +17,7 @@ import org.apache.commons.lang.BooleanUtils;
 /**
  * External RA Request SubMessage when requesting using a PKCS10 and expecting a PKCS10 Response containing a certificate. 
  * @author philip
- * $Id: ExtRAPKCS10Request.java,v 1.3 2007-05-15 12:57:59 anatom Exp $
+ * $Id$
  */
 public class PKCS10Request extends ExtRARequest {
 

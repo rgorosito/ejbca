@@ -65,7 +65,7 @@ import org.ejbca.util.NonEjbTestTools;
  * - External RA CA-service worker installed on EJBCA machine
  * 
  * @author philip
- * @version $Id: RAApiTest.java,v 1.11 2008-04-01 05:10:32 anatom Exp $
+ * @version $Id$
  */
 
 public class RAApiTest extends TestCase {

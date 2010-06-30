@@ -47,7 +47,7 @@ import org.ejbca.util.CertTools;
 /** An EJBCA Service worker that polls the External RA database for extRA messages and processes them.
  * The design includes that no two workers with the same serviceName can run on the same CA host at the same time.
  * 
- * @version $Id: ExtRACAProcess.java,v 1.26 2008-01-25 12:40:24 anatom Exp $
+ * @version $Id$
  */
 public class ExtRACAServiceWorker extends BaseWorker {
 

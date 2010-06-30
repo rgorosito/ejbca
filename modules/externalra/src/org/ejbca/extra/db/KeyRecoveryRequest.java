@@ -25,7 +25,7 @@ import java.math.BigInteger;
  * Parameters inherited from the base class ExtRARequest is ignored.
  * 
  * @author philip
- * $Id: ExtRAKeyRecoveryRequest.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
+ * $Id$
  */
 public class KeyRecoveryRequest extends ExtRARequest {
 

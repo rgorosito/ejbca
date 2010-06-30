@@ -23,7 +23,7 @@ import java.security.cert.X509Certificate;
  * Content 
  *  
  * @author Philip Vendil
- * $Id: ParsedSignatureResult.java,v 1.1 2006-07-31 13:13:07 herrvendil Exp $
+ * $Id$
  */
 public class ParsedSignatureResult {
 

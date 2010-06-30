@@ -25,7 +25,7 @@ import java.math.BigInteger;
  * Parameters inherited from the base class ExtRARequest is ignored.
  * 
  * @author philip
- * $Id: ExtRARevocationRequest.java,v 1.3 2007-05-15 12:57:58 anatom Exp $
+ * $Id$
  */
 public class RevocationRequest extends ExtRARequest {
 

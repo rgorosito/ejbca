@@ -28,7 +28,7 @@ import org.ejbca.util.CertTools;
 /**
  * Simple utility class that reads a P12 Keystore from file.
  * @author Philip Vendil
- * $Id: RAKeyStore.java,v 1.2 2008-02-07 10:30:16 anatom Exp $
+ * $Id$
  */
 public class RAKeyStore {
 	

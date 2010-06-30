@@ -42,7 +42,7 @@ import org.ejbca.util.CertTools;
  * Parameters inherited from the base class ExtRARequset is ignored.
  * 
  * @author tomas
- * @version $Id: ExtRACardRenewalRequest.java,v 1.4 2007-05-15 12:57:58 anatom Exp $
+ * @version $Id$
  */
 public class CardRenewalRequest extends ExtRARequest {
 	private static final Log log = LogFactory.getLog(CardRenewalRequest.class);

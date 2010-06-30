@@ -26,7 +26,7 @@ import org.bouncycastle.util.encoders.Base64;
  * of type PKCS12 containing the certificate and private key if the operation was successful.
  * 
  * @author philip
- * $Id: ExtRAPKCS12Response.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
+ * $Id$
  */
 public class PKCS12Response extends ExtRAResponse {
 

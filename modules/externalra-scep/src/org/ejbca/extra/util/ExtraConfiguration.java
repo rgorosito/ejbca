@@ -30,7 +30,7 @@ import org.ejbca.extra.ra.ScepRAServlet;
  * See in-line comments below for the sources added to the configuration.
  * 
  * @author tomas
- * @version $Id: ExtraConfiguration.java,v 1.2 2008-02-12 14:45:55 anatom Exp $
+ * @version $Id$
  */
 public class ExtraConfiguration {
 	private static Logger log = Logger.getLogger(ExtraConfiguration.class);   

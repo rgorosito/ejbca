@@ -24,7 +24,7 @@ import org.apache.commons.logging.LogFactory;
  * 
  * 
  * @author philip
- * $Id: SubMessageFactory.java,v 1.2 2006-08-15 10:44:19 anatom Exp $
+ * $Id$
  */
 class SubMessageFactory {
 	

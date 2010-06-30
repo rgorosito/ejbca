@@ -17,7 +17,7 @@ package org.ejbca.extra.db;
  * with hard token issuing.
  * 
  * @author philip
- * $Id: ExtRAEditUserRequest.java,v 1.2 2007-05-15 12:58:00 anatom Exp $
+ * $Id$
  */
 public class EditUserRequest extends ExtRARequest {
 

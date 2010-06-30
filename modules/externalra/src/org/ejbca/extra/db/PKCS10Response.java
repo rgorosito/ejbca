@@ -30,7 +30,7 @@ import org.ejbca.util.CertTools;
  * and contains the full certificate chain of the issued certificate.
  * 
  * @author philip
- * $Id: ExtRAPKCS10Response.java,v 1.4 2007-05-15 12:58:00 anatom Exp $
+ * $Id$
  */
 public class PKCS10Response extends ExtRAResponse {
 

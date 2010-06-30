@@ -75,7 +75,7 @@ import org.ejbca.util.CertTools;
  *   been processed by CA, otherwise respond with pending
  * 
  * 
- * @version $Id: ScepRAServlet.java,v 1.18 2008-02-08 14:42:08 anatom Exp $
+ * @version $Id$
  */
 public class ScepRAServlet extends HttpServlet {
 

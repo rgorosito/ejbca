@@ -25,7 +25,7 @@ import org.apache.commons.logging.LogFactory;
  * Java Persistence API is used for database access.
  * 
  * @see org.ejbca.extra.db.Message
- * @version $Id: MessageHome.java,v 1.2 2007-05-15 12:57:59 anatom Exp $
+ * @version $Id$
  */
 public class MessageHome {
 

@@ -30,7 +30,7 @@ import org.bouncycastle.util.encoders.Base64;
 /**
  * Class used 
  * 
- * $Id: SubMessages.java,v 1.2 2007-05-15 12:57:58 anatom Exp $
+ * $Id$
  * @author Philip Vendil
  */
 public class SubMessages {

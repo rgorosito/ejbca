@@ -17,7 +17,7 @@ package org.ejbca.extra.db;
  * Contains a password used to protect the key-store, a key size and key algorithm.
  * 
  * @author philip
- * $Id: ExtRAPKCS12Request.java,v 1.3 2007-05-15 12:58:00 anatom Exp $
+ * $Id$
  */
 public class PKCS12Request extends ExtRARequest {
 

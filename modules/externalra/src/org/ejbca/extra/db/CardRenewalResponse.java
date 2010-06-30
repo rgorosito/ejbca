@@ -31,7 +31,7 @@ import org.ejbca.util.CertTools;
  * used to replace the old certificates on an EID smart card.
  * 
  * @author tomas
- * @version $Id: ExtRACardRenewalResponse.java,v 1.3 2007-05-15 12:57:58 anatom Exp $
+ * @version $Id$
  */
 public class CardRenewalResponse extends ExtRAResponse {
 

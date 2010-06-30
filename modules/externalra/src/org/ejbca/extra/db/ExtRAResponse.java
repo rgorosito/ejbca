@@ -22,7 +22,7 @@ import org.ejbca.core.model.UpgradeableDataHashMap;
  * basic ExtRAResponse will be returned from a ExtRARevokationRequest.
  * 
  * @author philip
- * @version $Id: ExtRAResponse.java,v 1.3 2007-05-15 12:57:59 anatom Exp $
+ * @version $Id$
  */
 
 public class ExtRAResponse extends UpgradeableDataHashMap implements ISubMessage {

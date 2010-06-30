@@ -72,7 +72,7 @@ import org.ejbca.util.keystore.KeyTools;
  * Tests SCEP enrollment with an RA (SCEP polling RA mode).
  * This test assumes a CA hierarchy. One root CA AdminCA1 and one sub CA ScepCA.
  * 
- * @version $Id: ProtocolScepHttpTest.java,v 1.11 2008-02-07 10:33:29 anatom Exp $
+ * @version $Id$
  */
 public class ProtocolScepHttpTest extends TestCase {
     private static Logger log = Logger.getLogger(ProtocolScepHttpTest.class);
