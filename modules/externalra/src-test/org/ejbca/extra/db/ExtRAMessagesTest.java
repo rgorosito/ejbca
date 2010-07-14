@@ -29,7 +29,7 @@ import org.ejbca.util.CryptoProviderTools;
  */
 public class ExtRAMessagesTest extends TestCase {
 	
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		super.setUp();
 		CryptoProviderTools.installBCProvider();
 	}

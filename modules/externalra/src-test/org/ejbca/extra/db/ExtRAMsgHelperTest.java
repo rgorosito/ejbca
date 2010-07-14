@@ -27,7 +27,7 @@ import org.ejbca.util.CertTools;
  */
 public class ExtRAMsgHelperTest extends TestCase {
 	
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		super.setUp();
 		CertTools.installBCProvider();
 	}

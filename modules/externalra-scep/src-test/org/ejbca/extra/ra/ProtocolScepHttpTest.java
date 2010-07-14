@@ -109,8 +109,8 @@ public class ProtocolScepHttpTest extends TestCase {
 		}
     }
 
-    protected void setUp() throws Exception { }
-    protected void tearDown() throws Exception { }
+    public void setUp() throws Exception { }
+    public void tearDown() throws Exception { }
 
     // GetCACert and GetCACertChain behaves the same if it is an RA that responds
     public void test02ScepGetCACert() throws Exception {

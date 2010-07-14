@@ -72,7 +72,7 @@ public class RAApiTest extends TestCase {
 
 	private static final Logger log = Logger.getLogger(RAApiTest.class);
 			
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		super.setUp();
 		CryptoProviderTools.installBCProvider();			
 	}

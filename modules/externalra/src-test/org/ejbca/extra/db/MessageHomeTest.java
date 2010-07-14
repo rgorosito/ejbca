@@ -32,7 +32,7 @@ public class MessageHomeTest extends TestCase {
 	
 	private static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test-notpolled"), MessageHome.MESSAGETYPE_EXTRA, true);
 
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		super.setUp();
 		CertTools.installBCProvider();
 	}
