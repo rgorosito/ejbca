@@ -23,11 +23,11 @@ import org.ejbca.core.model.keyrecovery.KeyRecoveryData;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
+import org.ejbca.extra.db.KeyRecoveryRequest;
+import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.extra.db.KeyRecoveryRequest;
-import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.keystore.KeyTools;
 
