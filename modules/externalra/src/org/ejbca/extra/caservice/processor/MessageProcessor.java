@@ -25,6 +25,7 @@ import javax.naming.NamingException;
 
 import org.apache.log4j.Logger;
 import org.ejbca.core.EjbcaException;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSession;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -130,9 +131,9 @@ public class MessageProcessor {
 	 * @return the CACertChain.
 	 * @throws ConfigurationException if any of the CAs doesn't exist or is revoked
 	 */
-	public static Collection getCACertChain(Admin admin, String cAName, boolean checkRevokation, EjbLocalHelper ejb) throws ConfigurationException{		
+	public static Collection getCACertChain(Admin admin, String cAName, boolean checkRevokation, CAAdminSession caAdminSession) throws ConfigurationException{		
 		try{
-			CAInfo cainfo = ejb.getCAAdminSession().getCAInfo(admin, cAName);
+			CAInfo cainfo = caAdminSession.getCAInfo(admin, cAName);
 			if(cainfo == null){
 				log.error("Misconfigured CA Name in RAService");
 				throw new ConfigurationException("Misconfigured CA Name in RAService");
@@ -147,7 +148,7 @@ public class MessageProcessor {
 			  iter.next(); // Throw away the first one.
 			  while(iter.hasNext()){
 				X509Certificate cacert = (X509Certificate) iter.next();
-				CAInfo cainfo2 = ejb.getCAAdminSession().getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
+				CAInfo cainfo2 = caAdminSession.getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
 				// This CA may be an external CA, so we don't bother if we can not find it.
 				if ((cainfo2 != null) && (cainfo2.getStatus()==SecConst.CA_REVOKED) ) {
 					throw new ConfigurationException("CA " + cainfo2.getName() + " Have been revoked");

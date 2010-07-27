@@ -21,6 +21,7 @@ import java.security.cert.CertificateException;
 import org.apache.log4j.Logger;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ca.sign.ISignSessionLocal;
+import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.model.ca.store.CertificateInfo;
 import org.ejbca.core.model.hardtoken.profiles.EIDProfile;
 import org.ejbca.core.model.hardtoken.profiles.HardTokenProfile;
@@ -231,7 +232,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
      * IOSet} ::= SEQUENCE { algorithm           AlgorithmIdentifier {{IOSet}}, subjectPublicKey
      * BIT STRING }</code> PublicKey's encoded-format has to be RSA X.509.
      *
-     * @param signsession signsession to get certificate from
+     * @param signSession signsession to get certificate from
      * @param b64Encoded base64 encoded pkcs10 request message
      * @param username username of requesting user
      * @param password password of requesting user
@@ -244,12 +245,12 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
      * @throws IOException
      * @throws ClassNotFoundException 
      */
-    private Certificate pkcs10CertRequest(Admin administrator, ISignSessionLocal signsession, PKCS10RequestMessage req,
+    private Certificate pkcs10CertRequest(Admin administrator, SignSession signSession, PKCS10RequestMessage req,
         String username, String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException {
         Certificate cert=null;
 		req.setUsername(username);
         req.setPassword(password);
-        IResponseMessage resp = signsession.createCertificate(administrator,req,Class.forName(X509ResponseMessage.class.getName()));
+        IResponseMessage resp = signSession.createCertificate(administrator,req,Class.forName(X509ResponseMessage.class.getName()));
         cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
         return cert;
     } //pkcs10CertReq

@@ -35,7 +35,6 @@ import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
-import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.extra.caservice.processor.MessageProcessor;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.Message;
@@ -66,9 +65,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	private RAKeyStore serviceKeyStore = null;
 
 	private Admin internalUser = new Admin(Admin.TYPE_INTERNALUSER);
-	
-	/** Used to help in looking up EJB interfaces */
-	private final EjbLocalHelper ejb = new EjbLocalHelper();
 	
 	/** Semaphore to keep several processes from running simultaneously on the same host */
 	private static HashMap running = new HashMap();
@@ -175,7 +171,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 
 		Collection cACertChain = null;
 		try {
-			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, ejb);
+			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, getCAAdminSession());
 		} catch (ConfigurationException e) {
 			if(encryptionRequired || signatureRequired){
 				log.error("RAIssuer is misconfigured: ", e);
@@ -311,7 +307,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			// Check that user have the administrator flag set.
 			getUserAdminSession().checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
 			
-			boolean isRevoked = ejb.getCertStoreSession().isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
+			boolean isRevoked = getCertificateSession().isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
 			if (isRevoked) {
 				throw new SignatureException("Error Signer certificate doesn't exist or is revoked.");
 			}
