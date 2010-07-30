@@ -27,7 +27,7 @@ import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
-import org.ejbca.core.ejb.ca.sign.ISignSessionRemote;
+import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.util.EjbRemoteHelper;
 import org.ejbca.core.protocol.IResponseMessage;
@@ -78,7 +78,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		log.debug("Processing CertificateRequestRequest");
 
 		EjbRemoteHelper ejbHelper = new EjbRemoteHelper();	// Can we use local EJB interfaces?
-		ISignSessionRemote signSession = ejbHelper.getSignSession();
+		SignSession signSession = ejbHelper.getSignSession();
 		try {
 	        byte[] result = null;	
 	        switch (submessage.getRequestType()) {
@@ -107,7 +107,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		result = signSession.createPKCS7(admin, cert, true);
 	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_UNSIGNEDPKCS7) {
 	        		// Read certificate chain
-	                ArrayList certList = new ArrayList();
+	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
                     certList.addAll(ejbHelper.getCAAdminSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7
@@ -141,7 +141,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		result = signSession.createPKCS7(admin, cert, false);
 	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_UNSIGNEDPKCS7) {
 	        		// Read certificate chain
-	                ArrayList certList = new ArrayList();
+	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
                     certList.addAll(ejbHelper.getCAAdminSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7

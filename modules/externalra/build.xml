@@ -16,6 +16,7 @@
 	<path id="compile-service.classpath">
 		<path refid="lib.jee.classpath"/>
 		<path location="${mod.ejbca-ejb.lib}" />
+		<path location="${mod.ejbca-ejb-interface_ejb3.lib}" />
 	</path>
 
 	<path id="compile-client.classpath">

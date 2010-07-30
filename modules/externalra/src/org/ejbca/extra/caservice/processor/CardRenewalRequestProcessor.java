@@ -20,7 +20,6 @@ import java.security.cert.CertificateException;
 
 import org.apache.log4j.Logger;
 import org.ejbca.core.EjbcaException;
-import org.ejbca.core.ejb.ca.sign.ISignSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.model.ca.store.CertificateInfo;
 import org.ejbca.core.model.hardtoken.profiles.EIDProfile;

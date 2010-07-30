@@ -17,11 +17,16 @@ import java.io.ByteArrayOutputStream;
 import java.rmi.RemoteException;
 import java.security.KeyStore;
 
+import javax.ejb.CreateException;
 import javax.ejb.EJBException;
 
 import org.apache.log4j.Logger;
-import org.ejbca.core.ejb.ra.IUserAdminSessionRemote;
-import org.ejbca.core.ejb.ra.raadmin.IRaAdminSessionRemote;
+import org.ejbca.core.ejb.ca.auth.AuthenticationSession;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSession;
+import org.ejbca.core.ejb.ca.sign.SignSession;
+import org.ejbca.core.ejb.keyrecovery.KeyRecoverySession;
+import org.ejbca.core.ejb.ra.UserAdminSessionRemote;
+import org.ejbca.core.ejb.ra.raadmin.RaAdminSessionRemote;
 import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
@@ -61,8 +66,20 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 		log.debug("Processing KeyStoreRetrievalRequest");
 
 		EjbRemoteHelper ejbHelper = new EjbRemoteHelper();	// Can we use local EJB interfaces?
-		IUserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
-		IRaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();            
+		UserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
+		RaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();
+		AuthenticationSession authenticationSession;
+		CAAdminSession caAdminSession;
+		KeyRecoverySession keyRecoverySession;
+		SignSession signSession;
+		try {
+			authenticationSession = ejb.getAuthenticationSession();
+			caAdminSession = ejb.getCAAdminSession();
+			keyRecoverySession = ejb.getKeyRecoverySession();
+			signSession = ejb.getSignSession();
+		} catch (CreateException e) {
+			throw new RuntimeException(e);
+		}
 
 		try {
 			UserDataVO data = null;
@@ -81,7 +98,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			boolean loadkeys = (data.getStatus() == UserDataConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
 			boolean reusecertificate = raAdminSession.getEndEntityProfile(admin, endEntityProfileId).getReUseKeyRevoceredCertificate();
 			// Generate or recover keystore and save it in the configured format 
-			GenerateToken tgen = new GenerateToken(false);
+			GenerateToken tgen = new GenerateToken(authenticationSession, caAdminSession, keyRecoverySession, signSession);
 			byte[] buf = null;
 			int tokentype = data.getTokenType();
 			boolean createJKS = (tokentype == SecConst.TOKEN_SOFT_JKS);
