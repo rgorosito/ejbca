@@ -93,7 +93,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			}
 			// Find out if are doing key recovery
 			int endEntityProfileId = data.getEndEntityProfileId();	// TODO should probably also be used to get keysize and algorithm in the future..
-			boolean usekeyrecovery = (raAdminSession.loadGlobalConfiguration(admin)).getEnableKeyRecovery();
+			boolean usekeyrecovery = (raAdminSession.getCachedGlobalConfiguration(admin)).getEnableKeyRecovery();
 			boolean savekeys = data.getKeyRecoverable() && usekeyrecovery &&  (data.getStatus() != UserDataConstants.STATUS_KEYRECOVERY);
 			boolean loadkeys = (data.getStatus() == UserDataConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
 			boolean reusecertificate = raAdminSession.getEndEntityProfile(admin, endEntityProfileId).getReUseKeyRevoceredCertificate();

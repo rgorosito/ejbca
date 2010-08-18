@@ -57,7 +57,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 
 	public PKCS12RequestProcessor() throws ConfigurationException {
 		try {
-			usekeyrecovery  = ejb.getRAAdminSession().loadGlobalConfiguration(internalUser).getEnableKeyRecovery();
+			usekeyrecovery  = ejb.getRAAdminSession().getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
 			log.debug("Key recovery enabled: "+ usekeyrecovery);
 		}  catch (Exception e) {
 			log.error("Error instansiating Session Beans: ",e);
