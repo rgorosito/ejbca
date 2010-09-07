@@ -20,8 +20,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import javax.ejb.CreateException;
-import javax.ejb.DuplicateKeyException;
 import javax.naming.NamingException;
+import javax.persistence.PersistenceException;
 
 import org.apache.log4j.Logger;
 import org.ejbca.core.EjbcaException;
@@ -196,13 +196,13 @@ public class MessageProcessor {
 	 * 
 	 * @throws UserDoesntFullfillEndEntityProfile 
 	 * @throws AuthorizationDeniedException 
-	 * @throws DuplicateKeyException 
+	 * @throws PersistenceException 
 	 * @throws WaitingForApprovalException 
 	 * @throws ApprovalException
 	 * @throws Exception 
 	 * 
 	 */
-	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, DuplicateKeyException, ApprovalException, WaitingForApprovalException, Exception {
+	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, PersistenceException, ApprovalException, WaitingForApprovalException, Exception {
 		log.trace(">storeUserData() username : " + userdata.getUsername());
 
         // First we will look to see if there is an existing approval request pending for this user within the last hour
