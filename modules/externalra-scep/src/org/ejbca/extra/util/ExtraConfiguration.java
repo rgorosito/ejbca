@@ -22,7 +22,6 @@ import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.log4j.Logger;
-import org.ejbca.extra.ra.ScepRAServlet;
 
 /** This is a singleton. Used to configure common-configuration with our sources.
  * Use like this:
@@ -55,9 +54,8 @@ public class ExtraConfiguration {
 	public static Configuration instance() {
 		if (config == null) {
 	        try {
-
 	        	// Default values build into war file, this is last prio used if no of the other sources override this
-	        	boolean allowexternal = Boolean.getBoolean(new PropertiesConfiguration(ScepRAServlet.class.getResource("/" + PROPERTY_FILENAME)).getString(CONFIGALLOWEXTERNAL, "false"));
+	        	boolean allowexternal = Boolean.getBoolean(new PropertiesConfiguration(ExtraConfiguration.class.getResource("/" + PROPERTY_FILENAME)).getString(CONFIGALLOWEXTERNAL, "false"));
 
 	        	config = new CompositeConfiguration();
 	        	
@@ -84,7 +82,7 @@ public class ExtraConfiguration {
 	        	}
 	        	
 	        	// Default values build into war file, this is last prio used if no of the other sources override this
-	        	URL url = ScepRAServlet.class.getResource("/" + PROPERTY_FILENAME);
+	        	URL url = ExtraConfiguration.class.getResource("/" + PROPERTY_FILENAME);
 	        	pc = new PropertiesConfiguration(url);
 	        	config.addConfiguration(pc);
 	        	log.info("Added url to configuration source: "+url);

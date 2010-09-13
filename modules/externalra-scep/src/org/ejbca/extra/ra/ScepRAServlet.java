@@ -65,6 +65,7 @@ import org.ejbca.extra.util.ExtraConfiguration;
 import org.ejbca.extra.util.RAKeyStore;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 
 /**
  * Servlet implementing the RA interface of the Simple Certificate Enrollment Protocol (SCEP)
@@ -106,8 +107,8 @@ public class ScepRAServlet extends HttpServlet {
         	
             // Install BouncyCastle provider
             log.debug("Re-installing BC-provider");
-            CertTools.removeBCProvider();
-            CertTools.installBCProvider();
+            CryptoProviderTools.removeBCProvider();
+            CryptoProviderTools.installBCProvider();
             
             cryptProvider = getInitParameter("cryptProvider");
 
@@ -248,8 +249,8 @@ public class ScepRAServlet extends HttpServlet {
                 		if(msg.getStatus().equals(Message.STATUS_PROCESSED)) {
                 			log.debug("Request is processed with status: "+msg.getStatus());
                 			SubMessages submessagesresp = msg.getSubMessages(null,null,null);
-                			Iterator iter =  submessagesresp.getSubMessages().iterator();
-                			PKCS10Response resp = (PKCS10Response) iter.next();
+                			Iterator<PKCS10Response> iter =  submessagesresp.getSubMessages().iterator();
+                			PKCS10Response resp = iter.next();
                 			// create proper ScepResponseMessage
                 			IResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, rapriv, cryptProvider);
                 			ret.setCACert(cacert);

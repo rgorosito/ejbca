@@ -63,9 +63,7 @@
 			<classes dir="${build.dir}">
 				<include name="**/*.class"/>
 			</classes>
-   			<fileset dir="${ejbca.home}/conf">
-				<include name="scep.properties"/>
-    		</fileset>
+   			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="scep.properties"/>
 		</war>
     </target>
 
