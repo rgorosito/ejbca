@@ -19,9 +19,9 @@
 		<path refid="lib.cert-cvc.classpath"/>
 		<path location="${mod.ejbca-util.lib}" />
 		<path location="${mod.externalra.lib}" />
-		<path refid="lib.jpa.classpath"/>
 		<path refid="lib.commons-lang.classpath"/>
 		<path refid="lib.commons-config.classpath"/>
+		<!-- Hibernate's JPA libs are handled separately -->
 	</path>
 
 	<path id="compile.classpath">
@@ -31,6 +31,7 @@
 		<!--
 		<path refid="lib.jee.classpath"/>
 		-->
+		<path refid="lib.jpa.classpath"/>
 	</path>
 
 	<path id="test.classpath">
@@ -39,9 +40,6 @@
 		<path refid="lib.commons-logging.classpath"/>
 		<path refid="lib.commons-collections.classpath"/>
 		<path refid="lib.junit.classpath"/>
-		<!--
-		<path location="${mod.ejbca-ejb.lib}" />
-		-->
 	</path>
 
     <target name="build" description="Build this module" depends="compile, setup-database-mapping-file">
@@ -52,13 +50,14 @@
     		<map from="${ejbca.home}/" to=""/>
     	</pathconvert>
     	<mkdir dir="${build.dir}/lib-temp" />
-    	<copy todir="${build.dir}/lib-temp" flatten="true" >
+    	<copy todir="${build.dir}/lib-temp" flatten="true">
     		<fileset dir="${ejbca.home}" includes="${bundle.classpath.property}"/>
     	</copy>
+    	<antcall target="bundle-hibernate-jpa"/>
 		<war destfile="${mod.externalra-scep.war}" webxml="${this.dir}/resources/web.xml">
 	        <zipfileset id="libs" prefix="WEB-INF/lib" dir="${build.dir}/lib-temp" includes="**"/>
    			<fileset dir="${build.dir}">
-				<include name="META-INF/*.*"/>
+				<include name="WEB-INF/classes/META-INF/*.*"/>
     		</fileset>
 			<classes dir="${build.dir}">
 				<include name="**/*.class"/>
@@ -66,6 +65,17 @@
    			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="scep.properties"/>
 		</war>
     </target>
+	
+	<target name="bundle-hibernate-jpa" if="bundle-hibernate-jpa">
+		<echo message="Appserver type is ${appserver.type} - bundling Hibernate JPA libraries in WAR. (${bundle-hibernate-jpa})"/>
+    	<pathconvert property="bundle-jpa.classpath.property" pathsep=" ">
+    	    <path refid="lib.jpa.classpath" />
+    		<map from="${ejbca.home}/" to=""/>
+    	</pathconvert>
+    	<copy todir="${build.dir}/lib-temp" flatten="true">
+    		<fileset dir="${ejbca.home}" includes="${bundle-jpa.classpath.property}"/>
+    	</copy>
+	</target>
 
     <target name="clean" description="Clean up this module">
 		<delete dir="${build.dir}" />
@@ -146,7 +156,8 @@
     	<condition property="driver-class" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="driver-class" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<fail message="Unsupported database with JDBC URL '${scep.ra.datasource.jdbc-url}'." unless="driver-class"/>
-    	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml" overwrite="true">
+		<mkdir dir="${build.dir}/WEB-INF/classes/META-INF"/>
+    	<copy tofile="${build.dir}/WEB-INF/classes/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml" overwrite="true">
     		<filterchain>
 				<expandproperties/>
     		</filterchain>
