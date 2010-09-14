@@ -23,7 +23,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Enumeration;
 
-import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 
 /**
  * Simple utility class that reads a P12 Keystore from file.
@@ -36,7 +36,7 @@ public class RAKeyStore {
 	private String alias = null;
 	
 	public RAKeyStore(String keystorepath, String password) throws KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, IOException{
-		CertTools.installBCProvider();
+		CryptoProviderTools.installBCProviderIfNotAvailable();
 		keystore = KeyStore.getInstance("PKCS12", "BC");
         InputStream in = null;
         try {
