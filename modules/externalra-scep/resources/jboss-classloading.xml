@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classloading
+    xmlns="urn:jboss:classloading:1.0"
+    name="mywar.war"
+    domain="DefaultDomain"
+    parent-domain="Ignored"
+    export-all="NON_EMPTY"
+    import-all="true">
+<!-- 
+    This hack will make the class loading of the WAR a toplevel classloader in JBoss.
+    The actual value is ignored since DefaultDomain already exists.
+    See http://community.jboss.org/wiki/useJBossWebClassLoaderinJBoss5
+    
+    We need this to be able to override the BC libraries.
+-->
+</classloading>

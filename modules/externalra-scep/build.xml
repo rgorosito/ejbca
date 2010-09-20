@@ -16,6 +16,8 @@
 	<path id="bundle.classpath">
 		<path refid="lib.bouncycastle-provonly.classpath"/>
 		<path refid="lib.bouncycastle-mailonly.classpath"/>
+		<!--
+		-->
 		<path refid="lib.cert-cvc.classpath"/>
 		<path location="${mod.ejbca-util.lib}" />
 		<path location="${mod.externalra.lib}" />
@@ -32,6 +34,9 @@
 		<path refid="lib.jee.classpath"/>
 		-->
 		<path refid="lib.jpa.classpath"/>
+		<!-- Temporary exclusion of BC libs..
+		<path refid="lib.bouncycastle-provonly.classpath"/>
+		<path refid="lib.bouncycastle-mailonly.classpath"/> -->
 	</path>
 
 	<path id="test.classpath">
@@ -63,6 +68,7 @@
 				<include name="**/*.class"/>
 			</classes>
    			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="scep.properties"/>
+	        <zipfileset prefix="WEB-INF" dir="${this.dir}/resources" includes="jboss-classloading.xml"/>
 		</war>
     </target>
 	
