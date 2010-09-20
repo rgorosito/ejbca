@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classloading
     xmlns="urn:jboss:classloading:1.0"
-    name="mywar.war"
-    domain="DefaultDomain"
-    parent-domain="Ignored"
+    name="scepraserver.war"
+    domain="ExternalScepRaDomain"
+    parent-domain="DefaultDomain"
     export-all="NON_EMPTY"
     import-all="true">
 <!-- 
-    This hack will make the class loading of the WAR a toplevel classloader in JBoss.
-    The actual value is ignored since DefaultDomain already exists.
-    See http://community.jboss.org/wiki/useJBossWebClassLoaderinJBoss5
-    
-    We need this to be able to override the BC libraries.
+    The config will create a new class loading domain "ExternalScepRaDomain", that import all JBoss classes
+    and export non of it's own. We need this to be able to override the BC libraries.
+
+    (This was loosely based on http://community.jboss.org/wiki/useJBossWebClassLoaderinJBoss5 .)
 -->
 </classloading>
