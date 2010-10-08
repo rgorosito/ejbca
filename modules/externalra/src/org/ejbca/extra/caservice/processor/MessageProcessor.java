@@ -278,7 +278,7 @@ public class MessageProcessor {
 	}
 
 	private int getCertificateProfileId(Admin admin, String certificateProfileName) throws EjbcaException, ClassCastException, CreateException, NamingException{		
-		int retval = ejb.getCertStoreSession().getCertificateProfileId(admin,certificateProfileName);
+		int retval = ejb.getCertificateProfileSession().getCertificateProfileId(admin,certificateProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' doesn't exists.");
 		}
