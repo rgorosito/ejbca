@@ -222,7 +222,7 @@ public class MessageProcessor {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
-        RAAuthorization raAuthorization = new RAAuthorization(admin, ejb.getRAAdminSession(), ejb.getAuthorizationSession(), ejb.getCAAdminSession());
+        RAAuthorization raAuthorization = new RAAuthorization(admin, ejb.getRAAdminSession(), ejb.getAuthorizationSession(), ejb.getCAAdminSession(), ejb.getEndEntityProfileSession());
 		List approvals = ejb.getApprovalSession().query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
@@ -286,7 +286,7 @@ public class MessageProcessor {
 	}
 
 	private int getEndEntityProfileId(Admin admin,String endEntityProfileName) throws EjbcaException, ClassCastException, CreateException, NamingException {
-		int retval = ejb.getRAAdminSession().getEndEntityProfileId(admin,endEntityProfileName);
+		int retval = ejb.getEndEntityProfileSession().getEndEntityProfileId(admin,endEntityProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' doesn't exists.");
 		}

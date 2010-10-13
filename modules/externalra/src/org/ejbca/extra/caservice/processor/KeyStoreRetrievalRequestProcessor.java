@@ -21,6 +21,7 @@ import javax.ejb.CreateException;
 import javax.ejb.EJBException;
 
 import org.apache.log4j.Logger;
+import org.cesecore.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.core.ejb.ca.auth.AuthenticationSession;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSession;
 import org.ejbca.core.ejb.ca.sign.SignSession;
@@ -68,6 +69,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 		EjbRemoteHelper ejbHelper = new EjbRemoteHelper();	// Can we use local EJB interfaces?
 		UserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
 		RaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();
+		EndEntityProfileSessionRemote endEntityProfileSession = ejbHelper.getEndEntityProfileSession();
 		AuthenticationSession authenticationSession;
 		CAAdminSession caAdminSession;
 		KeyRecoverySession keyRecoverySession;
@@ -96,7 +98,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			boolean usekeyrecovery = (raAdminSession.getCachedGlobalConfiguration(admin)).getEnableKeyRecovery();
 			boolean savekeys = data.getKeyRecoverable() && usekeyrecovery &&  (data.getStatus() != UserDataConstants.STATUS_KEYRECOVERY);
 			boolean loadkeys = (data.getStatus() == UserDataConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
-			boolean reusecertificate = raAdminSession.getEndEntityProfile(admin, endEntityProfileId).getReUseKeyRevoceredCertificate();
+			boolean reusecertificate = endEntityProfileSession.getEndEntityProfile(admin, endEntityProfileId).getReUseKeyRevoceredCertificate();
 			// Generate or recover keystore and save it in the configured format 
 			GenerateToken tgen = new GenerateToken(authenticationSession, userAdminSession, caAdminSession, keyRecoverySession, signSession);
 			byte[] buf = null;
