@@ -35,6 +35,7 @@ import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.RAKeyStore;
 import org.ejbca.util.CertTools;
+import org.ejbca.util.CryptoProviderTools;
 
 /**
  * A test client for the External RA API that can be used for simple load and performance test and
@@ -96,11 +97,11 @@ public class ExtRATestClient {
 	private MessageHome msghome = null; 
 
 	ExtRATestClient(String[] args) throws Exception {
-    	CertTools.installBCProvider();
+    	CryptoProviderTools.installBCProvider();
 		if(args.length != 8){
 			log.debug("Number of arguments: " + args.length);
 			help();
-			System.exit(-1);
+			System.exit(-1); // NOPMD, it's not a JEE app
 		}else{
 			requestKeyStore = args[ARG_TYPE].equalsIgnoreCase(TYPE_KEYSTORE);
 			EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("external-ra-cli");
@@ -187,7 +188,7 @@ public class ExtRATestClient {
 		  System.out.flush();
 	}
 	  
-	private class ConcurrentRAThread extends Thread {
+	private class ConcurrentRAThread extends Thread { // NOPMD, it's not a JEE app
 		private boolean run = false;
 		private String threadName = "";		
 		private long serialNumber = 0;
@@ -222,7 +223,7 @@ public class ExtRATestClient {
 		}
 	}
 	
-	private class RequestThread extends Thread {
+	private class RequestThread extends Thread { // NOPMD, it's not a JEE app
 		private boolean run = false;
 		private String threadName = "";
 		private long serialNumber = 0;
