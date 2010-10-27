@@ -128,7 +128,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        	crmfReq.setUsername(submessage.getUsername());
 	        	crmfReq.setPassword(submessage.getPassword());
 	        	// Request and extract certificate from response
-	        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, -1, Class.forName(org.ejbca.core.protocol.cmp.CmpResponseMessage.class.getName()));
+	        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, Class.forName(org.ejbca.core.protocol.cmp.CmpResponseMessage.class.getName()));
 	        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
 	        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
 				InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
