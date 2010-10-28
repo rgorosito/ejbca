@@ -30,8 +30,8 @@ import org.bouncycastle.util.encoders.Base64;
 /**
  * Class used 
  * 
- * $Id$
  * @author Philip Vendil
+ * @version $Id$
  */
 public class SubMessages {
 	

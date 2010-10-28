@@ -16,6 +16,7 @@ package org.ejbca.externalra.gui;
 import java.io.IOException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
@@ -51,7 +52,7 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
 	private static X509Certificate extRaCertificate = null;
 	private static PrivateKey extRaKey = null;
 	private static X509Certificate racaserviceCert = null;
-	private static Collection<X509Certificate> caCerts = null;
+	private static Collection<Certificate> caCerts = null;
     
 	private final Random random = new SecureRandom();
 	
@@ -88,8 +89,8 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
                 log.error("raCaServiceCertPath cannot be empty");
             } else {
                 try {
-                    Collection coll = CertTools.getCertsFromPEM(raCaServiceCertPath);
-                    Iterator i = coll.iterator();
+                    Collection<Certificate> coll = CertTools.getCertsFromPEM(raCaServiceCertPath);
+                    Iterator<Certificate> i = coll.iterator();
                     if (i.hasNext()) {
                         racaserviceCert = (X509Certificate)i.next();
                         log.info("Loaded certificate from: "+raCaServiceCertPath);
