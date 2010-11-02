@@ -249,7 +249,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
         Certificate cert=null;
 		req.setUsername(username);
         req.setPassword(password);
-        IResponseMessage resp = signSession.createCertificate(administrator,req,Class.forName(X509ResponseMessage.class.getName()));
+        IResponseMessage resp = signSession.createCertificate(administrator,req,Class.forName(X509ResponseMessage.class.getName()), null);
         cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
         return cert;
     } //pkcs10CertReq
