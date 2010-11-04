@@ -443,9 +443,6 @@ public class ScepRAServlet extends HttpServlet {
     		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
     		ret.setSignKeyInfo(racert, rakey, cryptProvider);
     	}
-    	if (ret.requireEncKeyInfo()) {
-    		ret.setEncKeyInfo(racert);
-    	}
     	if (req.getSenderNonce() != null) {
     		ret.setRecipientNonce(req.getSenderNonce());
     	}
