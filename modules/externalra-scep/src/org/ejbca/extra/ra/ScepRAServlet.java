@@ -252,7 +252,7 @@ public class ScepRAServlet extends HttpServlet {
                 			Iterator<PKCS10Response> iter =  submessagesresp.getSubMessages().iterator();
                 			PKCS10Response resp = iter.next();
                 			// create proper ScepResponseMessage
-                			IResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, rapriv, cryptProvider);
+                			IResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, cryptProvider);
                 			ret.setCACert(cacert);
             				X509Certificate respCert = resp.getCertificate();
                 			if ( resp.isSuccessful() && (respCert != null) ) {
@@ -444,7 +444,7 @@ public class ScepRAServlet extends HttpServlet {
     		ret.setSignKeyInfo(racert, rakey, cryptProvider);
     	}
     	if (ret.requireEncKeyInfo()) {
-    		ret.setEncKeyInfo(racert, rakey, cryptProvider);
+    		ret.setEncKeyInfo(racert);
     	}
     	if (req.getSenderNonce() != null) {
     		ret.setRecipientNonce(req.getSenderNonce());
