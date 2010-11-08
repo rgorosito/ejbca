@@ -59,9 +59,9 @@ public class CertificateRequestRequest extends ExtRARequest {
 		data.put(REQUESTID, Long.valueOf(requestId));
 		data.put(USERNAME, username);
 		data.put(PASSWORD, password);
-		data.put(REQUEST_TYPE, new Integer(requestType));
+		data.put(REQUEST_TYPE, Integer.valueOf(requestType));
 		data.put(REQUEST_DATA, new String(Base64.encode(requestData)));
-		data.put(RESPONSE_TYPE, new Integer(responseType));
+		data.put(RESPONSE_TYPE, Integer.valueOf(responseType));
 	}
 
 	/** @see org.ejbca.core.model.IUpgradeableData#getLatestVersion() */
