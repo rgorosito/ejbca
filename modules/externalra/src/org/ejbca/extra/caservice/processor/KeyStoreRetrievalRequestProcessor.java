@@ -17,7 +17,6 @@ import java.io.ByteArrayOutputStream;
 import java.rmi.RemoteException;
 import java.security.KeyStore;
 
-import javax.ejb.CreateException;
 import javax.ejb.EJBException;
 
 import org.apache.log4j.Logger;
@@ -60,28 +59,27 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 		}
 	}
 
-	/**
-	 * Lookup the requested user and generate or recover a keystore.
-	 */
-	private KeyStoreRetrievalResponse processKeyStoreRetrievalRequest(Admin admin, KeyStoreRetrievalRequest submessage) {
-		log.debug("Processing KeyStoreRetrievalRequest");
+    /**
+     * Lookup the requested user and generate or recover a keystore.
+     */
+    private KeyStoreRetrievalResponse processKeyStoreRetrievalRequest(Admin admin, KeyStoreRetrievalRequest submessage) {
+        log.debug("Processing KeyStoreRetrievalRequest");
 
-		EjbRemoteHelper ejbHelper = new EjbRemoteHelper();	// Can we use local EJB interfaces?
-		UserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
-		RaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();
-		EndEntityProfileSessionRemote endEntityProfileSession = ejbHelper.getEndEntityProfileSession();
-		AuthenticationSession authenticationSession;
-		CAAdminSession caAdminSession;
-		KeyRecoverySession keyRecoverySession;
-		SignSession signSession;
-		try {
-			authenticationSession = ejb.getAuthenticationSession();
-			caAdminSession = ejb.getCAAdminSession();
-			keyRecoverySession = ejb.getKeyRecoverySession();
-			signSession = ejb.getSignSession();
-		} catch (CreateException e) {
-			throw new RuntimeException(e);
-		}
+        EjbRemoteHelper ejbHelper = new EjbRemoteHelper(); // Can we use local
+                                                           // EJB interfaces?
+        UserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
+        RaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();
+        EndEntityProfileSessionRemote endEntityProfileSession = ejbHelper.getEndEntityProfileSession();
+        AuthenticationSession authenticationSession;
+        CAAdminSession caAdminSession;
+        KeyRecoverySession keyRecoverySession;
+        SignSession signSession;
+
+        authenticationSession = ejb.getAuthenticationSession();
+        caAdminSession = ejb.getCAAdminSession();
+        keyRecoverySession = ejb.getKeyRecoverySession();
+        signSession = ejb.getSignSession();
+		
 
 		try {
 			UserDataVO data = null;

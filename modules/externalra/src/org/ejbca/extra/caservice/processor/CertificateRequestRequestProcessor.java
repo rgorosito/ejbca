@@ -109,7 +109,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		// Read certificate chain
 	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
-                    certList.addAll(ejbHelper.getCAAdminSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+                    certList.addAll(ejbHelper.getCaSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7
                     CertificateFactory cf = CertificateFactory.getInstance("X.509");
                     CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
@@ -143,7 +143,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		// Read certificate chain
 	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
-                    certList.addAll(ejbHelper.getCAAdminSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+                    certList.addAll(ejbHelper.getCaSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7
                     CertificateFactory cf = CertificateFactory.getInstance("X.509");
                     CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
