@@ -222,7 +222,7 @@ public class MessageProcessor {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
-        RAAuthorization raAuthorization = new RAAuthorization(admin, ejb.getRAAdminSession(), ejb.getAuthorizationSession(), ejb.getCAAdminSession(), ejb.getEndEntityProfileSession());
+        RAAuthorization raAuthorization = new RAAuthorization(admin, ejb.getRAAdminSession(), ejb.getAuthorizationSession(), ejb.getCaSession(), ejb.getEndEntityProfileSession());
 		List approvals = ejb.getApprovalSession().query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
