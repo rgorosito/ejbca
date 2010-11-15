@@ -87,7 +87,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        	PKCS10RequestMessage req = RequestMessageUtils.genPKCS10RequestMessage(submessage.getRequestData());
 	        	req.setUsername(submessage.getUsername());
 	        	req.setPassword(submessage.getPassword());
-	        	IResponseMessage resp = signSession.createCertificate(admin, req, Class.forName(X509ResponseMessage.class.getName()), null);
+	        	IResponseMessage resp = signSession.createCertificate(admin, req, X509ResponseMessage.class, null);
 	        	cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
 	        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED) {
 	        		result = cert.getEncoded();
@@ -128,7 +128,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        	crmfReq.setUsername(submessage.getUsername());
 	        	crmfReq.setPassword(submessage.getPassword());
 	        	// Request and extract certificate from response
-	        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, Class.forName(org.ejbca.core.protocol.cmp.CmpResponseMessage.class.getName()), null);
+	        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
 	        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
 	        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
 				InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());

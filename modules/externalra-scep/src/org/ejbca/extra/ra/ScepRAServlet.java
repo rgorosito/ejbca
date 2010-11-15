@@ -424,21 +424,8 @@ public class ScepRAServlet extends HttpServlet {
 	}
     
     private ScepResponseMessage createPendingResponseMessage(IRequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException {
-    	ScepResponseMessage ret = null;
+    	ScepResponseMessage ret = new ScepResponseMessage();
     	// Create the response message and set all required fields
-    	try {
-    		ret = (ScepResponseMessage) Class.forName(org.ejbca.core.protocol.scep.ScepResponseMessage.class.getName()).newInstance();
-    	} catch (InstantiationException e) {
-    		//TODO : do something with these exceptions
-    		log.error("Error creating response message", e);
-    		return null;
-    	} catch (IllegalAccessException e) {
-    		log.error("Error creating response message", e);
-    		return null;
-    	} catch (ClassNotFoundException e) {
-    		log.error("Error creating response message", e);
-    		return null;
-		}
     	if (ret.requireSignKeyInfo()) {
     		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
     		ret.setSignKeyInfo(racert, rakey, cryptProvider);
