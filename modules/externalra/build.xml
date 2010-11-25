@@ -112,7 +112,7 @@
 		<delete file="${mod.externalra-service.lib}" />
     </target>
 	
-    <target name="compile" depends="ejbca-util, ejbca-ejb">
+    <target name="compile" depends="ejbca-ejb">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
         	encoding="iso8859-1" target="${java.target.version}" classpathref="compile.classpath"/>
