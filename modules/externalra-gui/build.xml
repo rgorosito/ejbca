@@ -50,8 +50,8 @@
    			<fileset dir="${this.dir}/resources" includes="WEB-INF/**"/>
    			<fileset dir="${this.dir}/resources/content" includes="**"/>
 			<classes dir="${build.dir}" includes="**/*.class"/>
-   			<fileset dir="${ejbca.home}/conf" includes="externalra-gui.properties"/>
-   			<fileset file="${internal.properties.file}"/>
+   			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="externalra-gui.properties"/>
+   			<zipfileset prefix="WEB-INF/classes" file="${internal.properties.file}"/>
 		</war>
     </target>
 
