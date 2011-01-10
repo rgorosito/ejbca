@@ -17,7 +17,7 @@
 		<ice:panelGroup rendered="#{!enrollInterface.internetExplorer and !enrollInterface.downloadAvailable}">
 	    	<ice:inputHidden id="dummy" value="exists"/>
 			<iframe id="hiddenFrame" name="hiddenFrame" src="about:blank" onload="postCSRConversion()" scrolling="no" style="border: none; height: 0px; width: 0px;"/>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				// <![CDATA[
 				function postCSRConversion() {
 					if (crypto == null || crypto.version == null) {
@@ -60,7 +60,7 @@
 			<ice:panelGroup id="cspsDiv" style="color:red;">
     			<select id="csps" class="iceSelOneMnu"/>
     		</ice:panelGroup>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				//<![CDATA[
 				var selectedIndex = -1;
 				var count = 0;
@@ -128,7 +128,7 @@
 	    	<object classid="clsid:127698e4-e730-4e5c-a2b1-21490a70c8a1" id="objXenroll" height="0" width="0"></object>
 		    <ice:outputText value="Installing..."/>
 	    	<ice:inputHidden id="certificateResponse" value="#{enrollInterface.certificateResponse}"/>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				//<![CDATA[
 				document.objXenroll.acceptPKCS7(document.getElementById("form:certificateResponse").value);
 				alert("#{resources['enroll.browsercert.newcertinstalled']}");
@@ -141,7 +141,7 @@
 			<ice:panelGroup id="cspsDiv2" style="color:red;">
     			<select id="csps" class="iceSelOneMnu"/>
     		</ice:panelGroup>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				//<![CDATA[
 				var initOk = false;
 				try {
@@ -260,7 +260,7 @@
 	    	<object classid="clsid:884e2049-217d-11da-b2a4-000e7bbb2b09" id="g_objClassFactory2" height="0" width="0"/>
 	    	<ice:inputHidden id="certificateResponse" value="#{enrollInterface.certificateResponse}"/>
 	    	<ice:inputHidden id="certificateInstalled" value="false"/>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				//<![CDATA[
 				if (installEntityCertificate()) {
 					document.getElementById("form:downloadLinkDiv2").innerHTML = "#{resources['enroll.browsercert.newcertinstalled']}";
@@ -318,7 +318,7 @@
 			   		attachment="true" label="#{resources['enroll.browsercert.download']}"/>
 			</ice:panelGroup>
 			<iframe id="hiddenDownloadFrame" name="hiddenDownloadFrame" src="about:blank" scrolling="no" style="border: none; height: 0px; width: 0px;"/>
-			<script language="JavaScript">
+			<script type="text/javascript">
 				// Send the user's browsers to download the cert
 				window.frames['hiddenDownloadFrame'].location = document.getElementById('form:downloadLink').href;
 			</script> 

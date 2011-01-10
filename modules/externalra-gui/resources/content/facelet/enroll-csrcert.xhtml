@@ -81,7 +81,7 @@
 		    	attachment="true" label="#{resources['enroll.csrcert.download']}"/>
 	    	<ice:panelGroup rendered="#{!enrollInterface.internetExplorer}">
 				<iframe id="hiddenDownloadFrame" name="hiddenDownloadFrame" src="about:blank" scrolling="no" style="border: none; height: 0px; width: 0px;"/>
-				<script language="JavaScript">
+				<script type="text/javascript">
 					// Send the user's browsers to download the cert
 					window.frames['hiddenDownloadFrame'].location = document.getElementById('form:downloadLink').href;
 				</script>
