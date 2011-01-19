@@ -15,15 +15,14 @@
 
 	<path id="compile-service.classpath">
 		<path refid="lib.jee.classpath"/>
-		<path location="${mod.ejbca-common-web.lib}" />
-		<path location="${mod.ejbca-ejb-interface.lib}" />
+		<path refid="lib.ejbca-common-web.classpath"/>
 	</path>
 
 	<path id="compile-client.classpath">
 		<path refid="lib.jpa.classpath"/>
 		<path refid="lib.cert-cvc.classpath"/>
 		<path refid="lib.bouncycastle.classpath"/>
-		<path location="${mod.ejbca-util.lib}" />
+		<path refid="lib.ejbca-util.classpath"/>
 		<path refid="lib.log4j.classpath"/>
 		<path refid="lib.commons-logging.classpath"/>
 		<path refid="lib.commons-lang.classpath"/>
@@ -112,13 +111,15 @@
 		<delete file="${mod.externalra-service.lib}" />
     </target>
 	
-    <target name="compile" depends="ejbca-ejb">
+    <target name="compile-external-deps" unless="external-deps-satfisfied"><antcall target="ejbca-common-web"/></target>
+    <target name="compile" depends="compile-external-deps">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
         	encoding="iso8859-1" target="${java.target.version}" classpathref="compile.classpath"/>
     </target>
 
-    <target name="compile-client" depends="ejbca-util">
+    <target name="compile-client-external-deps" unless="external-deps-satfisfied"><antcall target="ejbca-util"/></target>
+    <target name="compile-client" depends="compile-client-external-deps">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
         	encoding="iso8859-1" target="${java.target.version}" classpathref="compile.classpath">
