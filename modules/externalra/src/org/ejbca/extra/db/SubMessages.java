@@ -37,7 +37,7 @@ public class SubMessages {
 	
 	private static final Log log = LogFactory.getLog(SubMessages.class);
 	
-	private ArrayList submessages = new ArrayList();
+	private ArrayList<ISubMessage> submessages = new ArrayList<ISubMessage>();
 	
 	private boolean isSigned = false;
 	
@@ -106,25 +106,21 @@ public class SubMessages {
 			}
 			
 			ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(messagedata));
-			ArrayList savearray = (ArrayList) ois.readObject(); 
+			ArrayList<HashMap> savearray = (ArrayList<HashMap>) ois.readObject(); 
 							        	        
-	        Iterator iter = savearray.iterator();
+	        Iterator<HashMap> iter = savearray.iterator();
 	        while(iter.hasNext()){
-	        	HashMap map = (HashMap) iter.next();
+	        	HashMap map = iter.next();
 	        	ISubMessage submessage = SubMessageFactory.createInstance(map);
 	        	submessage.loadData(map);
 	        	submessages.add(submessage);
 	        }
 	        ois.close();
-	        
-	        	        
 		}catch (Exception e) {
 			log.error("Error reading persistent SubMessages.", e);
 		}
-
 	}
-	
-	
+
 	/**
 	 * Method used to persist the set of submessages
 	 * @return a String representation of the data
@@ -134,9 +130,9 @@ public class SubMessages {
 
 		ArrayList savearray = new ArrayList();
 		
-		Iterator iter = submessages.iterator();
+		Iterator<ISubMessage> iter = submessages.iterator();
 		while(iter.hasNext()){
-		   ISubMessage next = (ISubMessage) iter.next();
+		   ISubMessage next = iter.next();
 		   savearray.add(next.saveData());
 		}
 		
@@ -179,7 +175,7 @@ public class SubMessages {
 	/**
 	 * Method to retreive a collection of submessages.
 	 */
-	public ArrayList getSubMessages(){
+	public ArrayList<ISubMessage> getSubMessages(){
 		return submessages;
 	}
 	

@@ -17,11 +17,13 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.ejb.CreateException;
@@ -31,6 +33,9 @@ import javax.persistence.Persistence;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
+import org.ejbca.core.ejb.ca.store.CertificateStoreSessionLocal;
+import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.services.BaseWorker;
@@ -69,19 +74,26 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	/** Semaphore to keep several processes from running simultaneously on the same host */
 	private static HashMap running = new HashMap();
 
+	private CAAdminSessionLocal caAdminSession;
+	private CertificateStoreSessionLocal certificateStoreSession;
+	private UserAdminSessionLocal userAdminSession;
+	
 	/**
 	 * Checks if there are any new messages on the External RA and processes them.
 	 * 
-	 * @see org.ejbca.core.model.services.IWorker#work()
+	 * @see org.ejbca.core.model.services.IWorker#work(Map<Class<?>, Object>)
 	 */
-	public void work() throws ServiceExecutionFailedException {
+	public void work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
 		log.debug(">work: "+serviceName);
+        caAdminSession = ((CAAdminSessionLocal)ejbs.get(CAAdminSessionLocal.class));
+        certificateStoreSession = ((CertificateStoreSessionLocal)ejbs.get(CertificateStoreSessionLocal.class));
+        userAdminSession = ((UserAdminSessionLocal)ejbs.get(UserAdminSessionLocal.class));
 		if (startWorking()) {
 			try {
 				// A semaphore used to not run parallel service jobs on the same host so not to start unlimited number of threads just
 				// because there is a lot of work to do.
 				init();
-				processWaitingMessages();
+				processWaitingMessages(ejbs);
 			} finally {
 				stopWorking();
 			}			
@@ -166,12 +178,13 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	/**
 	 * Loops and gets waiting messages from the extRA database as long as there are any, and processes them. 
 	 * If there are no more messages in status waiting the method ends.
+	 * @param ejbs A map between Local EJB interface classes and their injected stub
 	 */
-	public void processWaitingMessages() {
+	public void processWaitingMessages(Map<Class<?>, Object> ejbs) {
 
-		Collection cACertChain = null;
+		Collection<Certificate> cACertChain = null;
 		try {
-			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, getCAAdminSession());
+			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, caAdminSession);
 		} catch (ConfigurationException e) {
 			if(encryptionRequired || signatureRequired){
 				log.error("RAIssuer is misconfigured: ", e);
@@ -241,7 +254,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 								if (!checkWhiteList(reqMsg)) {
 									errormessage = "Sub message of type " + reqMsg.getClass().getName() + " is not listed in white list. Message id: " + msg.getMessageid();
 								}
-								ISubMessage respMsg = MessageProcessor.processSubMessage(getAdmin(submgs), reqMsg, errormessage);
+								ISubMessage respMsg = MessageProcessor.processSubMessage(getAdmin(submgs), reqMsg, errormessage, ejbs);
 								if (respMsg != null) {
 									// if the response message is null here, we will ignore this message, 
 									// it means that we should not do anything with it this round 
@@ -298,21 +311,15 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	 */
 	private Admin getAdmin(SubMessages submessages) throws ClassCastException, CreateException, NamingException, SignatureException,  AuthorizationDeniedException{
 		if(submessages.isSigned()){
-			
 			// Check if Signer Cert is revoked
 			X509Certificate signerCert = submessages.getSignerCert();
-			
-			Admin admin = getUserAdminSession().getAdmin(signerCert);
-			
+			Admin admin = userAdminSession.getAdmin(signerCert);
 			// Check that user have the administrator flag set.
-			getUserAdminSession().checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
-			
-			boolean isRevoked = getCertificateSession().isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
+			userAdminSession.checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
+			boolean isRevoked = certificateStoreSession.isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
 			if (isRevoked) {
 				throw new SignatureException("Error Signer certificate doesn't exist or is revoked.");
 			}
-			
-			
 			return admin;
 		}
 		return internalUser;

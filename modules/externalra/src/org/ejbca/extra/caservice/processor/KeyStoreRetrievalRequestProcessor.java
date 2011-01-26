@@ -20,20 +20,12 @@ import java.security.KeyStore;
 import javax.ejb.EJBException;
 
 import org.apache.log4j.Logger;
-import org.cesecore.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
-import org.ejbca.core.ejb.ca.auth.AuthenticationSession;
-import org.ejbca.core.ejb.ca.caadmin.CAAdminSession;
-import org.ejbca.core.ejb.ca.sign.SignSession;
-import org.ejbca.core.ejb.keyrecovery.KeyRecoverySession;
-import org.ejbca.core.ejb.ra.UserAdminSessionRemote;
-import org.ejbca.core.ejb.ra.raadmin.RaAdminSessionRemote;
 import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.core.model.util.EjbRemoteHelper;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
@@ -64,23 +56,6 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
      */
     private KeyStoreRetrievalResponse processKeyStoreRetrievalRequest(Admin admin, KeyStoreRetrievalRequest submessage) {
         log.debug("Processing KeyStoreRetrievalRequest");
-
-        EjbRemoteHelper ejbHelper = new EjbRemoteHelper(); // Can we use local
-                                                           // EJB interfaces?
-        UserAdminSessionRemote userAdminSession = ejbHelper.getUserAdminSession();
-        RaAdminSessionRemote raAdminSession = ejbHelper.getRAAdminSession();
-        EndEntityProfileSessionRemote endEntityProfileSession = ejbHelper.getEndEntityProfileSession();
-        AuthenticationSession authenticationSession;
-        CAAdminSession caAdminSession;
-        KeyRecoverySession keyRecoverySession;
-        SignSession signSession;
-
-        authenticationSession = ejb.getAuthenticationSession();
-        caAdminSession = ejb.getCAAdminSession();
-        keyRecoverySession = ejb.getKeyRecoverySession();
-        signSession = ejb.getSignSession();
-		
-
 		try {
 			UserDataVO data = null;
 			try {

@@ -67,8 +67,8 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 	          storeUserData(admin, userdata,false,UserDataConstants.STATUS_INPROCESS );	    		  
 	      }
 	      if (StringUtils.isNotEmpty(password)) {
-		      X509Certificate cert = (X509Certificate) ejb.getSignSession().createCertificate(admin,submessage.getUsername(),password, pkcs10.getRequestPublicKey());
-		      byte[] pkcs7 = ejb.getSignSession().createPKCS7(admin, cert, true);
+		      X509Certificate cert = (X509Certificate) signSession.createCertificate(admin,submessage.getUsername(),password, pkcs10.getRequestPublicKey());
+		      byte[] pkcs7 = signSession.createPKCS7(admin, cert, true);
 		      retval = new PKCS10Response(submessage.getRequestId(),true,null,cert,pkcs7);	    	  
 	      } else {
 	    	  // Will be caught below and a fail response created

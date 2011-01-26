@@ -27,9 +27,7 @@ import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
-import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.model.log.Admin;
-import org.ejbca.core.model.util.EjbRemoteHelper;
 import org.ejbca.core.protocol.IResponseMessage;
 import org.ejbca.core.protocol.PKCS10RequestMessage;
 import org.ejbca.core.protocol.X509ResponseMessage;
@@ -76,9 +74,6 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	 */
 	private CertificateRequestResponse processCertificateRequestRequest(Admin admin, CertificateRequestRequest submessage) {
 		log.debug("Processing CertificateRequestRequest");
-
-		EjbRemoteHelper ejbHelper = new EjbRemoteHelper();	// Can we use local EJB interfaces?
-		SignSession signSession = ejbHelper.getSignSession();
 		try {
 	        byte[] result = null;	
 	        switch (submessage.getRequestType()) {
@@ -109,7 +104,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		// Read certificate chain
 	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
-                    certList.addAll(ejbHelper.getCaSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+                    certList.addAll(caSession.getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7
                     CertificateFactory cf = CertificateFactory.getInstance("X.509");
                     CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
@@ -143,7 +138,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	        		// Read certificate chain
 	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
                     certList.add(cert);
-                    certList.addAll(ejbHelper.getCaSession().getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+                    certList.addAll(caSession.getCA(new Admin(Admin.TYPE_INTERNALUSER), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
                     // Create large certificate-only PKCS7
                     CertificateFactory cf = CertificateFactory.getInstance("X.509");
                     CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
@@ -161,6 +156,4 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 			return new CertificateRequestResponse(submessage.getRequestId(), false, "Error " + e.getMessage(), null, null);
 		}
 	}
-
-
 }

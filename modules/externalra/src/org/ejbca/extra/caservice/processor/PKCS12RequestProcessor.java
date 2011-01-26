@@ -57,7 +57,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 
 	public PKCS12RequestProcessor() throws ConfigurationException {
 		try {
-			usekeyrecovery  = ejb.getRAAdminSession().getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
+			usekeyrecovery  = raAdminSession.getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
 			log.debug("Key recovery enabled: "+ usekeyrecovery);
 		}  catch (Exception e) {
 			log.error("Error instansiating Session Beans: ",e);
@@ -77,11 +77,11 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	      // Generate keys
 	      KeyPair keys = generateKeys(submessage);
 	      // Generate Certificate
-	      X509Certificate cert = (X509Certificate) ejb.getSignSession().createCertificate(admin,submessage.getUsername(),"foo123", keys.getPublic());
+	      X509Certificate cert = (X509Certificate) signSession.createCertificate(admin,submessage.getUsername(),"foo123", keys.getPublic());
 	      
 	      // Generate Keystore
 	      // Fetch CA Cert Chain.	        
-	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(admin, submessage.getCAName(), false, ejb.getCAAdminSession()).toArray(new Certificate[0]);
+	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(admin, submessage.getCAName(), false, caAdminSession).toArray(new Certificate[0]);
 	      String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 	      if (alias == null){
 	    	  alias = submessage.getUsername();
@@ -91,7 +91,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	      // Store Keys if requested
 	        if (usekeyrecovery && submessage.getStoreKeys()) {
 	            // Save generated keys to database.
-	            ejb.getKeyRecoverySession().addKeyRecoveryData(admin, cert, submessage.getUsername(), keys);
+	            keyRecoverySession.addKeyRecoveryData(admin, cert, submessage.getUsername(), keys);
 	        }
 
 	      retval = new PKCS12Response(submessage.getRequestId(),true,null,pkcs12,submessage.getPassword());

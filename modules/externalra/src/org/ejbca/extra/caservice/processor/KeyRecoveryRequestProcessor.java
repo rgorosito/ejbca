@@ -55,22 +55,22 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			UserDataVO userdata = null;
 			
 			if(submessage.getReUseCertificate()){
-				userdata = ejb.getUserAdminSession().findUser(admin,submessage.getUsername());
+				userdata = userAdminSession.findUser(admin,submessage.getUsername());
 			}else{
 			  userdata = generateUserDataVO(admin, submessage);
 			  userdata.setPassword("foo123");
 			}
 			
 			// Get KeyPair
-			ejb.getKeyRecoverySession().unmarkUser(admin,submessage.getUsername());
-			X509Certificate orgcert = (X509Certificate) ejb.getCertStoreSession().findCertificateByIssuerAndSerno(admin,CertTools.stringToBCDNString(submessage.getIssuerDN()), submessage.getCertificateSN());
+			keyRecoverySession.unmarkUser(admin,submessage.getUsername());
+			X509Certificate orgcert = (X509Certificate) certificateStoreSession.findCertificateByIssuerAndSerno(admin,CertTools.stringToBCDNString(submessage.getIssuerDN()), submessage.getCertificateSN());
 			if(orgcert == null){
 				throw new EjbcaException("Error in Key Recovery Request, couldn't find specified certificate");
 			}
-			if(!ejb.getUserAdminSession().prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
+			if(!userAdminSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
-			KeyRecoveryData keyData = ejb.getKeyRecoverySession().keyRecovery(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
+			KeyRecoveryData keyData = keyRecoverySession.keyRecovery(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
 			if(keyData == null){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}			
@@ -84,13 +84,13 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 				storeUserData(admin, userdata,false, UserDataConstants.STATUS_INPROCESS);
 				
 				// Generate Certificate
-				cert = (X509Certificate) ejb.getSignSession().createCertificate(admin,submessage.getUsername(),"foo123", savedKeys.getPublic());			  
+				cert = (X509Certificate) signSession.createCertificate(admin,submessage.getUsername(),"foo123", savedKeys.getPublic());			  
 			}			
 			
 			// Generate Keystore
 			// Fetch CA Cert Chain.	        
 			int caid = CertTools.stringToBCDNString(cert.getIssuerDN().toString()).hashCode(); 
-			Certificate[] chain = (Certificate[]) ejb.getCAAdminSession().getCAInfo(admin, caid).getCertificateChain().toArray(new Certificate[0]);
+			Certificate[] chain = (Certificate[]) caAdminSession.getCAInfo(admin, caid).getCertificateChain().toArray(new Certificate[0]);
 			String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 			if (alias == null){
 				alias = submessage.getUsername();

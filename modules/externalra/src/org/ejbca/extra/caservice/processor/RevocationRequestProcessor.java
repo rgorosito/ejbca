@@ -53,24 +53,24 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 				retval = new ExtRAResponse(submessage.getRequestId(),false,"Either username or issuer/serno is required");
 			} else {
 				if (StringUtils.isEmpty(username)) {
-					username = ejb.getCertStoreSession().findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
+					username = certificateStoreSession.findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
 				} 
 				if (username != null) {
 					if ( (submessage.getRevokeAll() || submessage.getRevokeUser()) ) {
 						// Revoke all users certificates by revoking the whole user
-						UserDataVO vo = ejb.getUserAdminSession().findUser(admin,username);
+						UserDataVO vo = userAdminSession.findUser(admin,username);
 						if (vo != null) {
-							ejb.getUserAdminSession().revokeUser(admin,username, submessage.getRevocationReason());
+							userAdminSession.revokeUser(admin,username, submessage.getRevocationReason());
 							if (!submessage.getRevokeUser()) {
 								// If we were not to revoke the user itself, but only the certificates, we should set back status
-								ejb.getUserAdminSession().setUserStatus(admin, username, vo.getStatus());
+								userAdminSession.setUserStatus(admin, username, vo.getStatus());
 							}					
 						} else {
 							retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from username: username="+username);							
 						}
 					} else {
 						// Revoke only this certificate
-						ejb.getUserAdminSession().revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), username, submessage.getRevocationReason());				
+						userAdminSession.revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), username, submessage.getRevocationReason());				
 					}					
 				} else {
 					retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);					

@@ -69,10 +69,10 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 				BigInteger serno = CertTools.getSerialNumber(authcert);
 				String issuerDN = CertTools.getIssuerDN(authcert);
                 // Verify the certificates with CA cert, and then verify the pcks10 requests
-                CertificateInfo authInfo = ejb.getCertStoreSession().getCertificateInfo(admin, CertTools.getFingerprintAsString(authcert));
-                Certificate authcacert = ejb.getCertStoreSession().findCertificateByFingerprint(admin, authInfo.getCAFingerprint());
-                CertificateInfo signInfo = ejb.getCertStoreSession().getCertificateInfo(admin, CertTools.getFingerprintAsString(signcert));
-                Certificate signcacert = ejb.getCertStoreSession().findCertificateByFingerprint(admin, signInfo.getCAFingerprint());
+                CertificateInfo authInfo = certificateStoreSession.getCertificateInfo(admin, CertTools.getFingerprintAsString(authcert));
+                Certificate authcacert = certificateStoreSession.findCertificateByFingerprint(admin, authInfo.getCAFingerprint());
+                CertificateInfo signInfo = certificateStoreSession.getCertificateInfo(admin, CertTools.getFingerprintAsString(signcert));
+                Certificate signcacert = certificateStoreSession.findCertificateByFingerprint(admin, signInfo.getCAFingerprint());
                 // Verify certificate
                 try {
                     authcert.verify(authcacert.getPublicKey());                    
@@ -121,9 +121,9 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                 }
                 
                 // Now start the actual work, we are ok and verified here
-				String username = ejb.getCertStoreSession().findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
+				String username = certificateStoreSession.findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
 				if (username != null) {
-		            final UserDataVO data = ejb.getUserAdminSession().findUser(admin, username);
+		            final UserDataVO data = userAdminSession.findUser(admin, username);
 		            if ( data.getStatus() != UserDataConstants.STATUS_NEW) {
 		            	log.error("User status must be new for "+username);
 						retval = new ExtRAResponse(submessage.getRequestId(),false,"User status must be new for "+username);
@@ -146,7 +146,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	if (submessage.getSignCA() != -1) {
 		            		signCA = submessage.getSignCA();
 		            	}
-                        HardTokenProfile htp = ejb.getHardTokenSession().getHardTokenProfile(admin, data.getTokenType());
+                        HardTokenProfile htp = hardTokenSession.getHardTokenProfile(admin, data.getTokenType());
                         if ( htp!=null && htp instanceof EIDProfile ) {
                         	EIDProfile hardTokenProfile = (EIDProfile)htp;
                         	if (authCertProfile == -1) {
@@ -185,27 +185,27 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// Set certificate profile and CA for auth certificate
                         UserDataVO newUser = new UserDataVO(username, data.getDN(), authCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), authCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        ejb.getUserAdminSession().setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
-                        ejb.getUserAdminSession().changeUser(admin, newUser, false); 
+                        userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
+                        userAdminSession.changeUser(admin, newUser, false); 
 
 		            	// We may have changed to a new auto generated password
-			            UserDataVO data1 = ejb.getUserAdminSession().findUser(admin, username);
-		            	Certificate authcertOut=pkcs10CertRequest(admin, ejb.getSignSession(), authPkcs10, username, data1.getPassword());
+			            UserDataVO data1 = userAdminSession.findUser(admin, username);
+		            	Certificate authcertOut=pkcs10CertRequest(admin, signSession, authPkcs10, username, data1.getPassword());
 
 		            	// Set certificate and CA for sign certificate
                         newUser = new UserDataVO(username, data.getDN(), signCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), signCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        ejb.getUserAdminSession().setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
-                        ejb.getUserAdminSession().changeUser(admin, newUser, false); 
+                        userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
+                        userAdminSession.changeUser(admin, newUser, false); 
 
                         // We may have changed to a new auto generated password
-			            data1 = ejb.getUserAdminSession().findUser(admin, username);
-		            	Certificate signcertOut=pkcs10CertRequest(admin, ejb.getSignSession(), signPkcs10, username, data1.getPassword());
+			            data1 = userAdminSession.findUser(admin, username);
+		            	Certificate signcertOut=pkcs10CertRequest(admin, signSession, signPkcs10, username, data1.getPassword());
 
 		            	// We are generated all right
 		            	data.setStatus(UserDataConstants.STATUS_GENERATED);
 		            	// set back to original values (except for generated)
-		            	ejb.getUserAdminSession().changeUser(admin, data, true); 
+		            	userAdminSession.changeUser(admin, data, true); 
 		            	retval = new CardRenewalResponse(submessage.getRequestId(), true, null, authcertOut, signcertOut);
 		            }
 				} else {

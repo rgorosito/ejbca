@@ -52,10 +52,8 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 			userdata.setType(submessage.getType());
 			userdata.setTokenType(getTokenTypeId(admin, submessage.getTokenName()));
 			userdata.setHardTokenIssuerId(getHardTokenIssuerId(admin, submessage.getHardTokenIssuerName()));
-            
 	        storeUserData(admin, userdata, false, submessage.getStatus());
 	        retval = new ExtRAResponse(submessage.getRequestId(),true,null);
-
 		}catch(Exception e){
 			log.error("Error processing ExtRAEditUserRequest : ", e);
             if (userdata != null) {
@@ -65,7 +63,6 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
             }
 			retval = new ExtRAResponse(submessage.getRequestId(),false,e.getMessage());
 		}
-		
 		return retval;
 	}
     
@@ -80,14 +77,12 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		SecConst.TOKEN_SOFT_PEM};	
 
 	private int getTokenTypeId(Admin admin, String tokenName) throws EjbcaException, ClassCastException, CreateException, NamingException {
-		
 		for(int i=0; i< AVAILABLESOFTTOKENNAMES.length ; i++){
 			if(tokenName.equalsIgnoreCase(AVAILABLESOFTTOKENNAMES[i])){
 				return AVAILABLESOFTTOKENIDS[i];
 			}
 		}
-		
-		int retval = ejb.getHardTokenSession().getHardTokenProfileId(admin,tokenName);
+		int retval = hardTokenSession.getHardTokenProfileId(admin,tokenName);
 		if(retval == 0){
 			throw new EjbcaException("Error Token with name " + tokenName + " doesn't exists.");
 		}
@@ -95,12 +90,6 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 	}
 
 	private int getHardTokenIssuerId(Admin admin, String hardTokenIssuerName) throws ClassCastException, CreateException, NamingException {
-		
-		int retval = ejb.getHardTokenSession().getHardTokenIssuerId(admin,hardTokenIssuerName);
-
-		return retval;
+		return hardTokenSession.getHardTokenIssuerId(admin,hardTokenIssuerName);
 	}
-
-
 }
-
