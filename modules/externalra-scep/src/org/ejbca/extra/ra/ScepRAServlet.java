@@ -56,6 +56,7 @@ import org.ejbca.core.protocol.IResponseMessage;
 import org.ejbca.core.protocol.ResponseStatus;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.core.protocol.scep.ScepResponseMessage;
+import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.PKCS10Request;
@@ -249,8 +250,8 @@ public class ScepRAServlet extends HttpServlet {
                 		if(msg.getStatus().equals(Message.STATUS_PROCESSED)) {
                 			log.debug("Request is processed with status: "+msg.getStatus());
                 			SubMessages submessagesresp = msg.getSubMessages(null,null,null);
-                			Iterator<PKCS10Response> iter =  submessagesresp.getSubMessages().iterator();
-                			PKCS10Response resp = iter.next();
+                			Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
+                			PKCS10Response resp = (PKCS10Response)iter.next();
                 			// create proper ScepResponseMessage
                 			IResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, cryptProvider);
                 			ret.setCACert(cacert);
