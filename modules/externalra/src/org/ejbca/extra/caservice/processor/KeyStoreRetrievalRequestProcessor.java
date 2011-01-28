@@ -14,10 +14,7 @@
 package org.ejbca.extra.caservice.processor;
 
 import java.io.ByteArrayOutputStream;
-import java.rmi.RemoteException;
 import java.security.KeyStore;
-
-import javax.ejb.EJBException;
 
 import org.apache.log4j.Logger;
 import org.ejbca.core.model.AlgorithmConstants;
@@ -89,8 +86,6 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 				return new KeyStoreRetrievalResponse(submessage.getRequestId(), false, "Unknown token type.", null, null);
 			}
 			return new KeyStoreRetrievalResponse(submessage.getRequestId(), true, null, tokentype, buf);
-		} catch (RemoteException e) {
-			throw new EJBException(e);
 		} catch (Exception e) {
 			log.debug("External RA request generated an error: " + e.getMessage());
 			return new KeyStoreRetrievalResponse(submessage.getRequestId(), false, "Error " + e.getMessage(), null, null);

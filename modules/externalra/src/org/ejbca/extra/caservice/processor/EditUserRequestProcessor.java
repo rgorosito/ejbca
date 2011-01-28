@@ -12,9 +12,6 @@
  *************************************************************************/
 package org.ejbca.extra.caservice.processor;
 
-import javax.ejb.CreateException;
-import javax.naming.NamingException;
-
 import org.apache.log4j.Logger;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.SecConst;
@@ -76,7 +73,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		SecConst.TOKEN_SOFT_JKS, 
 		SecConst.TOKEN_SOFT_PEM};	
 
-	private int getTokenTypeId(Admin admin, String tokenName) throws EjbcaException, ClassCastException, CreateException, NamingException {
+	private int getTokenTypeId(Admin admin, String tokenName) throws EjbcaException, ClassCastException {
 		for(int i=0; i< AVAILABLESOFTTOKENNAMES.length ; i++){
 			if(tokenName.equalsIgnoreCase(AVAILABLESOFTTOKENNAMES[i])){
 				return AVAILABLESOFTTOKENIDS[i];
@@ -89,7 +86,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		return retval;
 	}
 
-	private int getHardTokenIssuerId(Admin admin, String hardTokenIssuerName) throws ClassCastException, CreateException, NamingException {
+	private int getHardTokenIssuerId(Admin admin, String hardTokenIssuerName) throws ClassCastException {
 		return hardTokenSession.getHardTokenIssuerId(admin,hardTokenIssuerName);
 	}
 }

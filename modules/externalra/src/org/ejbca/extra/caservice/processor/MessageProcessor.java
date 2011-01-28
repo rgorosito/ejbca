@@ -21,10 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import javax.ejb.CreateException;
-import javax.naming.NamingException;
-import javax.persistence.PersistenceException;
-
 import org.apache.log4j.Logger;
 import org.cesecore.core.ejb.ca.store.CertificateProfileSessionLocal;
 import org.cesecore.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
@@ -44,17 +40,14 @@ import org.ejbca.core.ejb.ra.raadmin.RaAdminSessionLocal;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
-import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalRequest;
-import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.ca.caadmin.CAInfo;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.ExtendedInformation;
 import org.ejbca.core.model.ra.RAAuthorization;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
@@ -209,7 +202,7 @@ public class MessageProcessor {
 	}
 	
 
-    protected UserDataVO generateUserDataVO(Admin admin, ExtRARequest submessage) throws ClassCastException, EjbcaException, CreateException, NamingException{
+    protected UserDataVO generateUserDataVO(Admin admin, ExtRARequest submessage) throws ClassCastException, EjbcaException {
         String dirAttributes = submessage.getSubjectDirectoryAttributes();
         ExtendedInformation ext = null;
         if (dirAttributes != null) {
@@ -236,16 +229,8 @@ public class MessageProcessor {
 	/**
 	 * Help method used to store userdata in userdatabase with given status, that is
 	 * waiting for user to be reviewed. This methid handles approval as well.
-	 * 
-	 * @throws UserDoesntFullfillEndEntityProfile 
-	 * @throws AuthorizationDeniedException 
-	 * @throws PersistenceException 
-	 * @throws WaitingForApprovalException 
-	 * @throws ApprovalException
-	 * @throws Exception 
-	 * 
 	 */
-	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, PersistenceException, ApprovalException, WaitingForApprovalException, Exception {
+	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws Exception {
 		log.trace(">storeUserData() username : " + userdata.getUsername());
 
         // First we will look to see if there is an existing approval request pending for this user within the last hour
@@ -266,7 +251,7 @@ public class MessageProcessor {
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
         RAAuthorization raAuthorization = new RAAuthorization(admin, raAdminSession, authorizationSession, caSession, endEntityProfileSession);
-		List approvals = approvalSession.query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
+		List<ApprovalDataVO> approvals = approvalSession.query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
         	log.debug("Found at least one waiting approval request for approvalid: "+approvalid);
@@ -320,7 +305,7 @@ public class MessageProcessor {
 		log.trace("<storeUserData()");
 	}
 
-	private int getCertificateProfileId(Admin admin, String certificateProfileName) throws EjbcaException, ClassCastException, CreateException, NamingException{		
+	private int getCertificateProfileId(Admin admin, String certificateProfileName) throws EjbcaException {		
 		int retval = certificateProfileSession.getCertificateProfileId(admin,certificateProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' doesn't exists.");
@@ -328,7 +313,7 @@ public class MessageProcessor {
 		return retval;
 	}
 
-	private int getEndEntityProfileId(Admin admin,String endEntityProfileName) throws EjbcaException, ClassCastException, CreateException, NamingException {
+	private int getEndEntityProfileId(Admin admin,String endEntityProfileName) throws EjbcaException {
 		int retval = endEntityProfileSession.getEndEntityProfileId(admin,endEntityProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' doesn't exists.");
@@ -336,7 +321,7 @@ public class MessageProcessor {
 		return retval;
 	}
 
-	private int getCAId(Admin admin, String cAName) throws EjbcaException, ClassCastException, CreateException, NamingException {
+	private int getCAId(Admin admin, String cAName) throws EjbcaException {
 		CAInfo info = caAdminSession.getCAInfo(admin,cAName);
 		if(info == null){
 			throw new EjbcaException("Error CA '" + cAName + "' doesn't exists.");
@@ -344,6 +329,4 @@ public class MessageProcessor {
 		int retval = info.getCAId();
 		return retval;
 	}
-	
-	
 }

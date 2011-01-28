@@ -26,8 +26,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.ejb.CreateException;
-import javax.naming.NamingException;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
@@ -72,7 +70,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	private Admin internalUser = new Admin(Admin.TYPE_INTERNALUSER);
 	
 	/** Semaphore to keep several processes from running simultaneously on the same host */
-	private static HashMap running = new HashMap();
+	private static HashMap<String,Object> running = new HashMap<String,Object>();
 
 	private CAAdminSessionLocal caAdminSession;
 	private CertificateStoreSessionLocal certificateStoreSession;
@@ -247,10 +245,10 @@ public class ExtRACAServiceWorker extends BaseWorker {
 						SubMessages respSubMsg;
 						try {
 							respSubMsg = generateResponseSubMessage(submgs.getSignerCert());
-							Iterator iter = submgs.getSubMessages().iterator();
+							Iterator<ISubMessage> iter = submgs.getSubMessages().iterator();
 							boolean somethingprocessed = false;
 							while(iter.hasNext()){
-								ISubMessage reqMsg = (ISubMessage) iter.next();
+								ISubMessage reqMsg = iter.next();
 								if (!checkWhiteList(reqMsg)) {
 									errormessage = "Sub message of type " + reqMsg.getClass().getName() + " is not listed in white list. Message id: " + msg.getMessageid();
 								}
@@ -303,13 +301,10 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	/**
 	 * Method used to retrieve which administrator to use.
 	 * If message is signed then use the signer as admin otherwise use InternalUser
-	 * @throws NamingException 
-	 * @throws CreateException 
-	 * @throws ClassCastException 
 	 * @throws SignatureException 
 	 * @throws AuthorizationDeniedException 
 	 */
-	private Admin getAdmin(SubMessages submessages) throws ClassCastException, CreateException, NamingException, SignatureException,  AuthorizationDeniedException{
+	private Admin getAdmin(SubMessages submessages) throws SignatureException, AuthorizationDeniedException{
 		if(submessages.isSigned()){
 			// Check if Signer Cert is revoked
 			X509Certificate signerCert = submessages.getSignerCert();
