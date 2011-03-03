@@ -46,12 +46,12 @@
     	</copy>
 		<war destfile="${mod.externalra-gui.war}" webxml="${this.dir}/resources/WEB-INF/web.xml">
 	        <zipfileset id="libs" prefix="WEB-INF/lib" dir="${build.dir}/lib-temp" includes="**"/>
-   			<fileset dir="${build.dir}" includes="META-INF/*.*"/>
    			<fileset dir="${this.dir}/resources" includes="WEB-INF/**"/>
    			<fileset dir="${this.dir}/resources/content" includes="**"/>
 			<classes dir="${build.dir}" includes="**/*.class"/>
    			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="externalra-gui.properties"/>
    			<zipfileset prefix="WEB-INF/classes" file="${internal.properties.file}"/>
+			<zipfileset prefix="WEB-INF/classes/META-INF" file="${build.dir}/META-INF/persistence.xml"/>
 		</war>
     </target>
 
