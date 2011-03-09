@@ -33,10 +33,10 @@ import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.caadmin.CaSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.ca.store.CertificateStoreSessionLocal;
+import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
 import org.ejbca.core.ejb.keyrecovery.KeyRecoverySessionLocal;
 import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
-import org.ejbca.core.ejb.ra.raadmin.RaAdminSessionLocal;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -78,7 +78,7 @@ public class MessageProcessor {
     protected EndEntityProfileSessionLocal endEntityProfileSession;
     protected HardTokenSessionLocal hardTokenSession;
     protected KeyRecoverySessionLocal keyRecoverySession;
-    protected RaAdminSessionLocal raAdminSession;
+    protected GlobalConfigurationSessionLocal globalConfigurationSession;
     protected SignSessionLocal signSession;
     protected UserAdminSessionLocal userAdminSession;
     
@@ -93,7 +93,7 @@ public class MessageProcessor {
     	endEntityProfileSession = (EndEntityProfileSessionLocal) ejbs.get(EndEntityProfileSessionLocal.class);
     	hardTokenSession = (HardTokenSessionLocal) ejbs.get(HardTokenSessionLocal.class);
     	keyRecoverySession = (KeyRecoverySessionLocal) ejbs.get(KeyRecoverySessionLocal.class);
-    	raAdminSession = (RaAdminSessionLocal) ejbs.get(RaAdminSessionLocal.class);
+    	globalConfigurationSession = (GlobalConfigurationSessionLocal) ejbs.get(GlobalConfigurationSessionLocal.class);
     	signSession = (SignSessionLocal) ejbs.get(SignSessionLocal.class);
     	userAdminSession = (UserAdminSessionLocal) ejbs.get(UserAdminSessionLocal.class);
     }
@@ -250,7 +250,7 @@ public class MessageProcessor {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
-        RAAuthorization raAuthorization = new RAAuthorization(admin, raAdminSession, authorizationSession, caSession, endEntityProfileSession);
+        RAAuthorization raAuthorization = new RAAuthorization(admin, globalConfigurationSession, authorizationSession, caSession, endEntityProfileSession);
 		List<ApprovalDataVO> approvals = approvalSession.query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
