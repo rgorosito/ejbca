@@ -139,7 +139,9 @@ public class ScepRAServlet extends HttpServlet {
      */
     public void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
-        log.debug(">doPost()");
+    	if (log.isDebugEnabled()) {
+    		log.debug(">doPost()");
+    	}
         /* 
          If the remote CA supports it, any of the PKCS#7-encoded SCEP messages
          may be sent via HTTP POST instead of HTTP GET.   This is allowed for
@@ -161,7 +163,9 @@ public class ScepRAServlet extends HttpServlet {
         }
         String message = new String(Base64.encode(output.toByteArray()));
         service(operation, message, request.getRemoteAddr(), response);
-        log.debug("<doPost()");
+    	if (log.isDebugEnabled()) {
+    		log.debug("<doPost()");
+    	}
     } //doPost
 
     /**
@@ -175,9 +179,10 @@ public class ScepRAServlet extends HttpServlet {
      */
     public void doGet(HttpServletRequest request, HttpServletResponse response)
     throws java.io.IOException, ServletException {
-    	log.debug(">doGet()");
-
-    	log.debug("query string=" + request.getQueryString());
+    	if (log.isDebugEnabled()) {
+    		log.debug(">doGet()");
+        	log.debug("query string=" + request.getQueryString());
+    	}
 
     	// These are mandatory in SCEP GET
     	/*
@@ -193,7 +198,9 @@ public class ScepRAServlet extends HttpServlet {
 
     	service(operation, message, request.getRemoteAddr(), response);
 
-    	log.debug("<doGet()");
+    	if (log.isDebugEnabled()) {
+    		log.debug("<doGet()");
+    	}
     } // doGet
 
     private void service(String operation, String message, String remoteAddr, HttpServletResponse response) throws IOException {
@@ -204,12 +211,15 @@ public class ScepRAServlet extends HttpServlet {
                 "Parameters 'operation' and 'message' must be supplied!");
                 return;
             }
-            log.debug("Got request '" + operation + "'");
-            log.debug("Message: " + message);
-        	log.debug("Operation is : " + operation);
-        	
+        	if (log.isDebugEnabled()) {
+        		log.debug("Got request '" + operation + "'");
+        		log.debug("Message: " + message);
+        		log.debug("Operation is : " + operation);
+        	}        	
             String alias = scepraks.getAlias();
-        	log.debug("SCEP RA Keystore alias : " + alias);
+        	if (log.isDebugEnabled()) {
+        		log.debug("SCEP RA Keystore alias : " + alias);
+        	}
             KeyStore raks = scepraks.getKeyStore();
             Certificate[] chain = raks.getCertificateChain(alias);
             X509Certificate cacert = null;
@@ -236,7 +246,9 @@ public class ScepRAServlet extends HttpServlet {
                 byte[] reply = null;                                
                 ScepRequestMessage reqmsg = new ScepRequestMessage(scepmsg, includeCACert);
                 String transId = reqmsg.getTransactionId();
-                log.debug("Received a message of type: "+reqmsg.getMessageType());
+            	if (log.isDebugEnabled()) {
+            		log.debug("Received a message of type: "+reqmsg.getMessageType());
+            	}
                 if(reqmsg.getMessageType() == ScepRequestMessage.SCEP_TYPE_GETCERTINITIAL) {
                 	log.info("Received a GetCertInitial message from host: "+remoteAddr);
                 	Message msg = null;
@@ -248,7 +260,9 @@ public class ScepRAServlet extends HttpServlet {
                 	}
                 	if(msg != null) {
                 		if(msg.getStatus().equals(Message.STATUS_PROCESSED)) {
-                			log.debug("Request is processed with status: "+msg.getStatus());
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Request is processed with status: "+msg.getStatus());
+                	    	}
                 			SubMessages submessagesresp = msg.getSubMessages(null,null,null);
                 			Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
                 			PKCS10Response resp = (PKCS10Response)iter.next();
@@ -267,16 +281,20 @@ public class ScepRAServlet extends HttpServlet {
                 			ret.create();
                 			reply = ret.getResponseMessage();                				
                 		} else {
-                			log.debug("Request is not yet processed, status: "+msg.getStatus());
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Request is not yet processed, status: "+msg.getStatus());
+                        		log.debug("Responding with pending response, still pending.");               			
+                	    	}
                     		reply = createPendingResponseMessage(reqmsg, racert, rapriv, cryptProvider).getResponseMessage();
-                    		log.debug("Responding with pending response, still pending.");               			
                 		}                		
                 	}else{
                 		// User doesn't exist
                 	}
                 } else {         
                 	if(reqmsg.getMessageType() == ScepRequestMessage.SCEP_TYPE_PKCSREQ) {  
-                    	log.debug("Received a PKCSReq message from host: "+remoteAddr);
+            	    	if (log.isDebugEnabled()) {
+            	    		log.debug("Received a PKCSReq message from host: "+remoteAddr);
+            	    	}
                     	// Decrypt the Scep message and extract the pkcs10 request
                         if (reqmsg.requireKeyInfo()) {
                             // scep encrypts message with the RAs certificate
@@ -297,16 +315,22 @@ public class ScepRAServlet extends HttpServlet {
                         log.info("Received a SCEP/PKCS10 request for user: "+username+", from host: "+remoteAddr);
                         String authPwd = ExtraConfiguration.instance().getString(ExtraConfiguration.SCEPAUTHPWD);
                         if (StringUtils.isNotEmpty(authPwd) && !StringUtils.equals(authPwd, "none")) {
-                        	log.debug("Requiring authPwd in order to precess SCEP requests");
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Requiring authPwd in order to precess SCEP requests");
+                	    	}
                         	String pwd = reqmsg.getPassword();
                         	if (!StringUtils.equals(authPwd, pwd)) {
                         		log.error("Wrong auth password received in SCEP request: "+pwd);
                                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Auth pwd missmatch");
                                 return;
                         	}
-                        	log.debug("Request passed authPwd test.");
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Request passed authPwd test.");
+                	    	}
                         } else {
-                        	log.debug("Not requiring authPwd in order to precess SCEP requests");                        	
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Not requiring authPwd in order to precess SCEP requests");
+                	    	}
                         }
                         // Try to find the CA name from the issuerDN, if we can't find it (i.e. not defined in web.xml) we use the default
                         String issuerDN = CertTools.stringToBCDNString(reqmsg.getIssuerDN());
@@ -315,7 +339,9 @@ public class ScepRAServlet extends HttpServlet {
                         	caName = ExtraConfiguration.instance().getString(ExtraConfiguration.SCEPDEFAULTCA);
                         	log.info("Did not find a CA name from issuerDN: "+issuerDN+", using the default CA '"+caName+"'");
                         } else {
-                        	log.debug("Found a CA name '"+caName+"' from issuerDN: "+issuerDN);
+                	    	if (log.isDebugEnabled()) {
+                	    		log.debug("Found a CA name '"+caName+"' from issuerDN: "+issuerDN);
+                	    	}
                         }
                         // Get altNames if we can find them
                         String altNames = reqmsg.getRequestAltNames();
@@ -338,7 +364,9 @@ public class ScepRAServlet extends HttpServlet {
                 
                 if (reply == null) {
                     // This is probably a getCert message?
-                	log.debug("Sending HttpServletResponse.SC_NOT_IMPLEMENTED (501) response");
+        	    	if (log.isDebugEnabled()) {
+        	    		log.debug("Sending HttpServletResponse.SC_NOT_IMPLEMENTED (501) response");
+        	    	}
                     response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Can not handle request");
                     return;
                 }
@@ -360,7 +388,9 @@ public class ScepRAServlet extends HttpServlet {
                     	if (chain.length > 1) {
                     		cert = (X509Certificate)chain[1];
                     	}
-                    	log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
+            	    	if (log.isDebugEnabled()) {
+            	    		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
+            	    	}
                         log.info("Sent certificate for CA '" + message + "' to SCEP client with ip " + remoteAddr);
                         sendBinaryBytes(cert.getEncoded(), response, "application/x-x509-ca-cert", null);
                 	}
@@ -405,10 +435,14 @@ public class ScepRAServlet extends HttpServlet {
 
 	private void getCACertChain(String message, String remoteAddr, HttpServletResponse response, String alias, KeyStore raks, boolean getcaracertchain) throws KeyStoreException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, CertStoreException, CMSException, IOException, Exception {
 		Certificate[] chain = raks.getCertificateChain(alias);
-		log.debug("CACertChain is of length: "+chain.length);
+    	if (log.isDebugEnabled()) {
+    		log.debug("CACertChain is of length: "+chain.length);
+    	}
 		if (chain != null) {
 			X509Certificate cert = (X509Certificate) raks.getCertificateChain(alias)[0];
-			log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
+	    	if (log.isDebugEnabled()) {
+	    		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
+	    	}
 //            X509Certificate racert = (X509Certificate) raks.getCertificate(alias);
 //            PrivateKey rapriv = (PrivateKey) raks.getKey(alias, keystorepwd.toCharArray());
 			byte[] pkcs7response = createPKCS7(chain, null, null);                               
@@ -416,7 +450,9 @@ public class ScepRAServlet extends HttpServlet {
 			if (getcaracertchain) {
 				ctype = "application/x-x509-ca-ra-cert-chain";				
 			}
-			log.debug("Sent certificate(s) for CA/RA '" + message + "' to SCEP client with ip "+remoteAddr+". Using content-type: "+ctype);
+	    	if (log.isDebugEnabled()) {
+	    		log.debug("Sent certificate(s) for CA/RA '" + message + "' to SCEP client with ip "+remoteAddr+". Using content-type: "+ctype);
+	    	}
 			sendBinaryBytes(pkcs7response, response, ctype, null);                						
 		} else {
 		    log.error("No CA certificates found");
@@ -428,7 +464,9 @@ public class ScepRAServlet extends HttpServlet {
     	ScepResponseMessage ret = new ScepResponseMessage();
     	// Create the response message and set all required fields
     	if (ret.requireSignKeyInfo()) {
-    		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
+	    	if (log.isDebugEnabled()) {
+	    		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
+	    	}
     		ret.setSignKeyInfo(racert, rakey, cryptProvider);
     	}
     	if (req.getSenderNonce() != null) {
@@ -503,7 +541,9 @@ public class ScepRAServlet extends HttpServlet {
         ServletOutputStream os = out.getOutputStream();
         os.write(bytes);
         out.flushBuffer();
-        log.debug("Sent " + bytes.length + " bytes to client");
+    	if (log.isDebugEnabled()) {
+    		log.debug("Sent " + bytes.length + " bytes to client");
+    	}
     }
     
     /** Helper methods that removes no-cache headers from a response. No-cache headers 
@@ -515,11 +555,15 @@ public class ScepRAServlet extends HttpServlet {
      */
     private void removeCacheHeaders(HttpServletResponse res) {
         if (res.containsHeader("Pragma")) {
-            log.debug("Removing Pragma header to avoid caching issues in IE");
+	    	if (log.isDebugEnabled()) {
+	    		log.debug("Removing Pragma header to avoid caching issues in IE");
+	    	}
             res.setHeader("Pragma","null");
         }
         if (res.containsHeader("Cache-Control")) {
-            log.debug("Removing Cache-Control header to avoid caching issues in IE");
+	    	if (log.isDebugEnabled()) {
+	    		log.debug("Removing Cache-Control header to avoid caching issues in IE");
+	    	}
             res.setHeader("Cache-Control","null");
         }
     }
