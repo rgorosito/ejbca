@@ -67,7 +67,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	
 	private RAKeyStore serviceKeyStore = null;
 
-	private Admin internalUser = new Admin(Admin.TYPE_INTERNALUSER);
+	private Admin internalUser = Admin.getInternalAdmin();
 	
 	/** Semaphore to keep several processes from running simultaneously on the same host */
 	private static HashMap<String,Object> running = new HashMap<String,Object>();

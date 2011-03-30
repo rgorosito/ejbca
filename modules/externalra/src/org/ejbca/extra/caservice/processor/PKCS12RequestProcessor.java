@@ -45,7 +45,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 
 	private boolean usekeyrecovery = false;
 
-	private Admin internalUser = new Admin(Admin.TYPE_INTERNALUSER);
+	private Admin internalUser = Admin.getInternalAdmin();
 
     public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
     	if(errormessage == null){
