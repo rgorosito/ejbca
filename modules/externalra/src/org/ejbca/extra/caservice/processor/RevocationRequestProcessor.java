@@ -70,7 +70,7 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 						}
 					} else {
 						// Revoke only this certificate
-						userAdminSession.revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), username, submessage.getRevocationReason());				
+						userAdminSession.revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), submessage.getRevocationReason());				
 					}					
 				} else {
 					retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);					
