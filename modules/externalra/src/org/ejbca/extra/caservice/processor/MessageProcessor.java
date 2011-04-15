@@ -36,6 +36,7 @@ import org.ejbca.core.ejb.ca.store.CertificateStoreSessionLocal;
 import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
 import org.ejbca.core.ejb.keyrecovery.KeyRecoverySessionLocal;
+import org.ejbca.core.ejb.ra.CertificateRequestSessionLocal;
 import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalDataVO;
@@ -81,6 +82,7 @@ public class MessageProcessor {
     protected GlobalConfigurationSessionLocal globalConfigurationSession;
     protected SignSessionLocal signSession;
     protected UserAdminSessionLocal userAdminSession;
+    protected CertificateRequestSessionLocal certificateRequestSession;
     
     public void setEjbs(Map<Class<?>, Object> ejbs) {
     	approvalSession = (ApprovalSessionLocal) ejbs.get(ApprovalSessionLocal.class);
@@ -96,6 +98,7 @@ public class MessageProcessor {
     	globalConfigurationSession = (GlobalConfigurationSessionLocal) ejbs.get(GlobalConfigurationSessionLocal.class);
     	signSession = (SignSessionLocal) ejbs.get(SignSessionLocal.class);
     	userAdminSession = (UserAdminSessionLocal) ejbs.get(UserAdminSessionLocal.class);
+    	certificateRequestSession = (CertificateRequestSessionLocal) ejbs.get(CertificateRequestSessionLocal.class);
     }
 
 	/**
