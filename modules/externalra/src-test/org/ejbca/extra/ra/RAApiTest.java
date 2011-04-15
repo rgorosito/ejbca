@@ -14,6 +14,7 @@ package org.ejbca.extra.ra;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
+import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.cert.CertStore;
 import java.security.cert.X509Certificate;
@@ -30,6 +31,8 @@ import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.jce.PKCS10CertificationRequest;
+import org.ejbca.core.model.AlgorithmConstants;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.CertificateRequestRequest;
@@ -41,6 +44,8 @@ import org.ejbca.extra.db.KeyStoreRetrievalRequest;
 import org.ejbca.extra.db.KeyStoreRetrievalResponse;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
+import org.ejbca.extra.db.OneshotCertReqRequest;
+import org.ejbca.extra.db.OneshotCertReqResponse;
 import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.RevocationRequest;
@@ -50,6 +55,7 @@ import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.CryptoProviderTools;
 import org.ejbca.util.NonEjbTestTools;
+import org.ejbca.util.keystore.KeyTools;
 
 
 /**
@@ -660,6 +666,58 @@ public class RAApiTest extends TestCase {
 		assertTrue("Wrong keystore type.", certResp.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED);
 		assertTrue("Wrong certificate in response", CertTools.getSubjectDN(CertTools.getCertfromByteArray(certResp.getResponseData())).equals("CN="+username));
 	}	
+	
+	/**
+	 * Request certificate for a new user using the OneshotCertReqRequest.
+	 */
+	public void test12OneshotCertReq() throws Exception {
+		final Random random = new Random();
+		final long requestId = random.nextLong();
+		final String username = "ExtRA-oneshot-" + random.nextInt();
+		final String password = "foo12345";
+		
+		System.out.println("hej hej");
+		
+		// Create request
+		final KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
+		final byte[] requestData = new String("-----BEGIN CERTIFICATE REQUEST-----\n"
+				+ new String(Base64.encode(new PKCS10CertificationRequest("SHA1WithRSA",
+		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate()).getEncoded()))
+				+ "\n-----END CERTIFICATE REQUEST-----").getBytes();
+		
+		System.out.println("Request: " + new String(requestData));
+		log.info("Request: " + new String(requestData));
+		
+		final OneshotCertReqRequest request = new OneshotCertReqRequest(
+				requestId,
+				username, 
+				"CN=" + username, 
+				null, 
+				null, 
+				null, 
+				"EMPTY", 
+				"ENDUSER", 
+				"AdminCA1", 
+				null, 
+				password, 
+				OneshotCertReqRequest.REQUEST_TYPE_PKCS10, requestData, OneshotCertReqRequest.RESPONSE_TYPE_CERTIFICATE);
+		
+		final SubMessages smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(request);
+		msghome.create(username + "csr", smgs);
+        
+		final Message msg = waitForUser(username + "csr");
+        assertNotNull("No response.", msg);
+		final SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		assertEquals("Number of submessages " + submessagesresp.getSubMessages().size(), 1, submessagesresp.getSubMessages().size());
+		final ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
+		assertEquals("Wrong Request ID" + resp.getRequestId(), requestId, resp.getRequestId());
+		assertTrue("KeyStoreRetrieval failed: " + resp.getFailInfo(), resp.isSuccessful());
+		assertTrue("Wrong response type.", resp instanceof OneshotCertReqResponse);
+		final OneshotCertReqResponse certResp = (OneshotCertReqResponse) resp;
+		assertEquals("Wrong keystore type.", OneshotCertReqRequest.RESPONSE_TYPE_CERTIFICATE, certResp.getResponseType());
+		assertEquals("Wrong certificate in response", "CN=" + username, CertTools.getSubjectDN(CertTools.getCertfromByteArray(certResp.getResponseData())));
+	}
 
 	private Message waitForUser(String user) throws InterruptedException{
 		int waittime = 30; // Wait a maximum of 30 seconds

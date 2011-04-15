@@ -19,10 +19,10 @@ import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.ExtendedInformation;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.OneshotCertReqRequest;
+import org.ejbca.extra.db.OneshotCertReqResponse;
 import org.ejbca.util.passgen.IPasswordGenerator;
 import org.ejbca.util.passgen.PasswordGeneratorFactory;
 
@@ -42,14 +42,14 @@ public class OneshotCertReqRequestProcessor extends MessageProcessor implements 
 		if (errormessage == null) {
 			return processCertificateRequestRequest(admin, (OneshotCertReqRequest) submessage);
 		} else {
-			return new CertificateRequestResponse(((ExtRARequest) submessage).getRequestId(), false, errormessage, null, null);
+			return new OneshotCertReqResponse(((ExtRARequest) submessage).getRequestId(), false, errormessage, null, null);
 		}
 	}
 	
 	/**
 	 * Extracts the certificate signing request type and requests a new certificate using the provided credentials.
 	 */
-	private CertificateRequestResponse processCertificateRequestRequest(final Admin admin, final OneshotCertReqRequest submessage) {
+	private OneshotCertReqResponse processCertificateRequestRequest(final Admin admin, final OneshotCertReqRequest submessage) {
 		LOG.debug("Processing CertificateRequestRequest");
 	    try {
 	    	if (LOG.isDebugEnabled()) {
@@ -69,7 +69,7 @@ public class OneshotCertReqRequestProcessor extends MessageProcessor implements 
 	        		hardTokenSN, 
 	        		responseTypeInt); 
 	        
-			return new CertificateRequestResponse(submessage.getRequestId(), 
+			return new OneshotCertReqResponse(submessage.getRequestId(), 
 					true, 
 					null, 
 					submessage.getResponseType(), 
@@ -77,7 +77,7 @@ public class OneshotCertReqRequestProcessor extends MessageProcessor implements 
 	        
         } catch (Exception e) {
 			LOG.debug("External RA request generated an error: " + e.getMessage());
-			return new CertificateRequestResponse(submessage.getRequestId(), false, "Error " + e.getMessage(), null, null);
+			return new OneshotCertReqResponse(submessage.getRequestId(), false, "Error " + e.getMessage(), null, null);
 		}	
 	}
 	

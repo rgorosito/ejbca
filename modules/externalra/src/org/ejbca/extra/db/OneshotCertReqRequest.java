@@ -50,16 +50,24 @@ public class OneshotCertReqRequest extends ExtRARequest {
 	/** Constructor used when loaded from a persisted state */	
 	public OneshotCertReqRequest() {}
 
-	/**
-	 * Create a new certificate signing request message.
-	 * 
-	 * @param requestId should be unique.
-	 * @param username The end entity identifier
-	 * @param password The shared secret
-	 * @param requestType one of REQUEST_TYPE_..
-	 * @param requestData encoded request data in requestType format
-	 * @param responseType one of RESPONSE_TYPE_
-	 */
+    /**
+     * Creates a new instance of OneshotCertReqRequest.
+     *
+     * @param requestId Unique request ID.
+     * @param username The end entity name.
+     * @param subjectDN The subject DN.
+     * @param subjectAltName The subjectAltName or null.
+     * @param email The e-mail address or null.
+     * @param subjectDirectoryAttributes The subjectDirectoryAttributes or null.
+     * @param endEntityProfileName The end entity profile name for instance "EMPTY".
+     * @param certificateProfileName The certificate profile name for instance "ENDUSER".
+     * @param cAName The CA name.
+     * @param certificateSerialNo The certificate serial number to use or null.
+     * @param password The end entity password to set.
+     * @param requestType One of REQUEST_TYPE_...
+     * @param requestData Encoded request data in requestType format.
+     * @param responseType One of RESPONSE_TYPE_...
+     */
 	public OneshotCertReqRequest(long requestId, String username, 
 			String subjectDN, String subjectAltName, String email, 
 			String subjectDirectoryAttributes, String endEntityProfileName, 
