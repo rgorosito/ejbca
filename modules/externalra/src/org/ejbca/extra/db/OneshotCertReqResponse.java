@@ -18,7 +18,7 @@ import org.bouncycastle.util.encoders.Base64;
 /**
  * Certificate signing request response.
  * 
- * @version $Id: CertificateRequestResponse.java 9330 2010-06-30 18:16:53Z anatom $
+ * @version $Id$
  */
 public class OneshotCertReqResponse extends ExtRAResponse {
 

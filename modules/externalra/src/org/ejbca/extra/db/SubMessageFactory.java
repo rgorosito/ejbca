@@ -92,11 +92,11 @@ class SubMessageFactory {
             break;
         case OneshotCertReqRequest.CLASS_TYPE:
             retval =  new OneshotCertReqRequest();
-            log.debug("Class of type CertificateRequest2Request created");
+            log.debug("Class of type OneshotCertReqRequest created");
             break;          
         case OneshotCertReqResponse.CLASS_TYPE:
             retval =  new OneshotCertReqResponse();
-            log.debug("Class of type CertificateRequest2Response created");
+            log.debug("Class of type OneshotCertReqResponse created");
             break;
 		default:
 			log.error("Error Class of type : " + classType + " not registred");
