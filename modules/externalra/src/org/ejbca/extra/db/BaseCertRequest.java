@@ -12,41 +12,37 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
+import org.apache.commons.lang.BooleanUtils;
 
 /**
- * External RA Request SubMessage when requesting using a PKCS10 and expecting a PKCS10 Response containing a certificate. 
- * @author philip
+ * Base message for certificate request messages, simply contains common fields so we don't have to make copy and paste.
+ *  
  * @version $Id$
  */
-public class PKCS10Request extends BaseCertRequest {
+public class BaseCertRequest extends ExtRARequest {
 
-	public static final float LATEST_VERSION = (float) 2.0;
-	
-	static final int CLASS_TYPE = 2;
-	
+	private static final float LATEST_VERSION = (float) 2.0;
+
 	// Field constants
-	private static final String PKCS10              = "PKCS10";
+	private static final String CREATEOREDITEUSER   = "CREATEOREDITEUSER";
 
 	private static final long serialVersionUID = 1L;
 	
 	/**
 	 * Default constructor that should be used.
-	 * @param pkcs10 the PKCS10 request
 	 */
-	public PKCS10Request(long requestId, String username, String subjectDN, String subjectAltName, 
+	public BaseCertRequest(long requestId, String username, String subjectDN, String subjectAltName, 
             String email, String subjectDirectoryAttributes,
             String endEntityProfileName, String certificateProfileName,
-            String cAName, String pkcs10){
+            String cAName){
         super(requestId, username, subjectDN, subjectAltName, email, subjectDirectoryAttributes, endEntityProfileName, certificateProfileName,cAName);
-		data.put(CLASSTYPE, Integer.valueOf(CLASS_TYPE));
-		data.put(VERSION, Float.valueOf(LATEST_VERSION));
-		data.put(PKCS10, pkcs10);
+		data.put(CREATEOREDITEUSER, "false");
 	}
 
 	/**
 	 * Constructor used when loaded from a persisted state
 	 */	
-	public PKCS10Request(){}
+	public BaseCertRequest(){}
 	
 
 	public float getLatestVersion() {
@@ -54,17 +50,20 @@ public class PKCS10Request extends BaseCertRequest {
 	}
 	
 	/**
-	 * Returns the PKCS10 used in this request.
-	 * @return String with base64 encoded pkcs10 request
+	 * Returns the CREATEUSER used in this request, and converts it to boolean
+	 * @return true or false
 	 */
-	public String getPKCS10(){
-		return (String) data.get(PKCS10);
+	public boolean createOrEditUser(){
+		String ret = (String)data.get(CREATEOREDITEUSER);
+		return BooleanUtils.toBoolean(ret);
+	}
+	/**
+	 * Sets the CREATEUSER used in this request
+	 * @return true or false
+	 */
+	public void setCreateOrEditUser(boolean createUser){
+		String create = BooleanUtils.toStringTrueFalse(createUser);
+		data.put(CREATEOREDITEUSER, create);
 	}
 	
-	public void upgrade() {
-		if(LATEST_VERSION != getVersion()){						
-			data.put(VERSION, new Float(LATEST_VERSION));
-		}
-		
-	}
 }

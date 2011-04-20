@@ -27,7 +27,11 @@ import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
+import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.log.Admin;
+import org.ejbca.core.model.ra.ExtendedInformation;
+import org.ejbca.core.model.ra.UserDataConstants;
+import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.core.protocol.IResponseMessage;
 import org.ejbca.core.protocol.PKCS10RequestMessage;
 import org.ejbca.core.protocol.X509ResponseMessage;
@@ -38,6 +42,8 @@ import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.RequestMessageUtils;
+import org.ejbca.util.passgen.IPasswordGenerator;
+import org.ejbca.util.passgen.PasswordGeneratorFactory;
 
 import com.novosec.pkix.asn1.cmp.CertRepMessage;
 import com.novosec.pkix.asn1.cmp.PKIBody;
@@ -73,87 +79,143 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	 * Extracts the certificate signing request type and requests a new certificate using the provided credentials.
 	 */
 	private CertificateRequestResponse processCertificateRequestRequest(Admin admin, CertificateRequestRequest submessage) {
-		log.debug("Processing CertificateRequestRequest");
+		if (log.isDebugEnabled()) {
+			log.debug("Processing CertificateRequestRequest");
+		}
 		try {
-	        byte[] result = null;	
-	        switch (submessage.getRequestType()) {
-	        case CertificateRequestRequest.REQUEST_TYPE_PKCS10:
-	        	Certificate cert = null;
-	        	PKCS10RequestMessage req = RequestMessageUtils.genPKCS10RequestMessage(submessage.getRequestData());
-	        	req.setUsername(submessage.getUsername());
-	        	req.setPassword(submessage.getPassword());
-	        	IResponseMessage resp = signSession.createCertificate(admin, req, X509ResponseMessage.class, null);
-	        	cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
-	        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED) {
-	        		result = cert.getEncoded();
-	        	} else {  
-	        		result = signSession.createPKCS7(admin, cert, true);
-	        	}
-	        	break;
-	        case CertificateRequestRequest.REQUEST_TYPE_KEYGEN:
-		        ASN1InputStream in = new ASN1InputStream(new ByteArrayInputStream(submessage.getRequestData()));
-		        ASN1Sequence spkac = (ASN1Sequence) in.readObject();
-		        in.close();
-		        NetscapeCertRequest nscr = new NetscapeCertRequest(spkac);
-	            cert = signSession.createCertificate(admin, submessage.getUsername(), submessage.getPassword(), nscr.getPublicKey());
-	        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED) {
-	        		result = cert.getEncoded();
-	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7) {  
-	        		result = signSession.createPKCS7(admin, cert, true);
-	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_UNSIGNEDPKCS7) {
-	        		// Read certificate chain
-	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
-                    certList.add(cert);
-                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
-                    // Create large certificate-only PKCS7
-                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
-                    result = certPath.getEncoded("PKCS7");
-	        	} else {  
-	    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
-	        	}
-	        	break;
-	        case CertificateRequestRequest.REQUEST_TYPE_CRMF:
-	        	// Extract request in a format that EJBCA can process
-				CertReqMessages certReqMessages = CertReqMessages.getInstance(new ASN1InputStream(submessage.getRequestData()).readObject());
-				PKIMessage msg = new PKIMessage(new PKIHeader(
-						new DERInteger(2), new GeneralName(new X509Name("CN=unused")), new GeneralName(new X509Name("CN=unused"))),
-						new PKIBody(certReqMessages, 2)); // [2] CertReqMessages --Certification Request
-	        	CrmfRequestMessage crmfReq = new CrmfRequestMessage(msg, null, true, null);
-	        	crmfReq.setUsername(submessage.getUsername());
-	        	crmfReq.setPassword(submessage.getPassword());
-	        	// Request and extract certificate from response
-	        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
-	        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
-	        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
-				InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
-				cert = CertificateFactory.getInstance("X.509").generateCertificate(inStream);
-				inStream.close();
-				// Convert to the right response type
-	        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_ENCODED) {
-	        		result = cert.getEncoded();
-	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7) {  
-	        		result = signSession.createPKCS7(admin, cert, false);
-	        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_UNSIGNEDPKCS7) {
-	        		// Read certificate chain
-	                ArrayList<Certificate> certList = new ArrayList<Certificate>();
-                    certList.add(cert);
-                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
-                    // Create large certificate-only PKCS7
-                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
-                    result = certPath.getEncoded("PKCS7");
-	        	} else {
-	    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
-	        	}
-	        	break;
-        	default:
-    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_REQUEST_TYPE, null, null);
+	        byte[] result = null;
+	        if (submessage.createOrEditUser()) {
+				if (log.isDebugEnabled()) {
+					log.debug("createOrEditUser == true, will use one-shot request processing.");
+				}
+		        final UserDataVO userdatavo = getUserDataVO(admin, submessage);
+		        final String requestData = new String(submessage.getRequestData()); 
+		        final int requestTypeInt = submessage.getRequestType();
+		        final int responseTypeInt = submessage.getResponseType();
+		        
+		        final String hardTokenSN = null;
+		        result = certificateRequestSession.processCertReq(
+		        		admin, 
+		        		userdatavo, 
+		        		requestData, 
+		        		requestTypeInt,
+		        		hardTokenSN, 
+		        		responseTypeInt); 	        	
+	        } else {
+		        switch (submessage.getRequestType()) {
+		        case CertificateRequestRequest.REQUEST_TYPE_PKCS10:
+		        	Certificate cert = null;
+		        	PKCS10RequestMessage req = RequestMessageUtils.genPKCS10RequestMessage(submessage.getRequestData());
+		        	req.setUsername(submessage.getUsername());
+		        	req.setPassword(submessage.getPassword());
+		        	IResponseMessage resp = signSession.createCertificate(admin, req, X509ResponseMessage.class, null);
+		        	cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
+		        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE) {
+		        		result = cert.getEncoded();
+		        	} else {  
+		        		result = signSession.createPKCS7(admin, cert, true);
+		        	}
+		        	break;
+		        case CertificateRequestRequest.REQUEST_TYPE_SPKAC:
+			        ASN1InputStream in = new ASN1InputStream(new ByteArrayInputStream(submessage.getRequestData()));
+			        ASN1Sequence spkac = (ASN1Sequence) in.readObject();
+			        in.close();
+			        NetscapeCertRequest nscr = new NetscapeCertRequest(spkac);
+		            cert = signSession.createCertificate(admin, submessage.getUsername(), submessage.getPassword(), nscr.getPublicKey());
+		        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE) {
+		        		result = cert.getEncoded();
+		        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7) {  
+		        		result = signSession.createPKCS7(admin, cert, true);
+		        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7WITHCHAIN) {
+		        		// Read certificate chain
+		                ArrayList<Certificate> certList = new ArrayList<Certificate>();
+	                    certList.add(cert);
+	                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+	                    // Create large certificate-only PKCS7
+	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
+	                    result = certPath.getEncoded("PKCS7");
+		        	} else {  
+		    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
+		        	}
+		        	break;
+		        case CertificateRequestRequest.REQUEST_TYPE_CRMF:
+		        	// Extract request in a format that EJBCA can process
+					CertReqMessages certReqMessages = CertReqMessages.getInstance(new ASN1InputStream(submessage.getRequestData()).readObject());
+					PKIMessage msg = new PKIMessage(new PKIHeader(
+							new DERInteger(2), new GeneralName(new X509Name("CN=unused")), new GeneralName(new X509Name("CN=unused"))),
+							new PKIBody(certReqMessages, 2)); // [2] CertReqMessages --Certification Request
+		        	CrmfRequestMessage crmfReq = new CrmfRequestMessage(msg, null, true, null);
+		        	crmfReq.setUsername(submessage.getUsername());
+		        	crmfReq.setPassword(submessage.getPassword());
+		        	// Request and extract certificate from response
+		        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
+		        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
+		        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
+					InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
+					cert = CertificateFactory.getInstance("X.509").generateCertificate(inStream);
+					inStream.close();
+					// Convert to the right response type
+		        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE) {
+		        		result = cert.getEncoded();
+		        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7) {  
+		        		result = signSession.createPKCS7(admin, cert, false);
+		        	} else if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_PKCS7WITHCHAIN) {
+		        		// Read certificate chain
+		                ArrayList<Certificate> certList = new ArrayList<Certificate>();
+	                    certList.add(cert);
+	                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+	                    // Create large certificate-only PKCS7
+	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
+	                    result = certPath.getEncoded("PKCS7");
+		        	} else {
+		    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
+		        	}
+		        	break;
+	        	default:
+	    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_REQUEST_TYPE, null, null);
+		        }
 	        }
+	        
+	        // Return the response when we have response data (byte[])
 	        return new CertificateRequestResponse(submessage.getRequestId(), true, null, submessage.getResponseType(), result);
 		} catch (Exception e) {
-			log.debug("External RA request generated an error: " + e.getMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("External RA request generated an error: " + e.getMessage());
+			}
 			return new CertificateRequestResponse(submessage.getRequestId(), false, "Error " + e.getMessage(), null, null);
 		}
 	}
+	
+	private UserDataVO getUserDataVO(final Admin admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException {
+		final UserDataVO result = generateUserDataVO(admin, submessage);
+		
+		result.setStatus(UserDataConstants.STATUS_NEW);
+		
+		// Not yet supported: hardtokenissuerid
+		// Not yet supported: custom start time
+		// Not yet supported: custom end time
+		// Not yet support: generic Custom ExtendedInformation
+		
+		if (submessage.getCertificateSerialNumber() != null) {
+			ExtendedInformation ei = result.getExtendedinformation();
+			if (ei == null) {
+				ei = new ExtendedInformation(); 
+			}
+            ei.setCertificateSerialNumber(submessage.getCertificateSerialNumber());
+            result.setExtendedinformation(ei);
+        }
+		
+    	if (submessage.getPassword() == null) {
+    		final IPasswordGenerator pwdgen = PasswordGeneratorFactory.getInstance(PasswordGeneratorFactory.PASSWORDTYPE_ALLPRINTABLE);
+			final String pwd = pwdgen.getNewPassword(12, 12);									
+    		result.setPassword(pwd);
+    	} else {
+    		result.setPassword(submessage.getPassword());
+    	}
+    	
+    	return result;
+    }
+
 }

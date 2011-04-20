@@ -17,9 +17,9 @@ package org.ejbca.extra.db;
  * Contains a password used to protect the key-store, a key size and key algorithm.
  * 
  * @author philip
- * $Id$
+ * @version $Id$
  */
-public class PKCS12Request extends ExtRARequest {
+public class PKCS12Request extends BaseCertRequest {
 
 	public static final float LATEST_VERSION = (float) 1.0;
 	

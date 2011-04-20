@@ -24,7 +24,7 @@ import org.apache.commons.logging.LogFactory;
  * 
  * 
  * @author philip
- * $Id$
+ * @version $Id$
  */
 class SubMessageFactory {
 	
@@ -89,14 +89,6 @@ class SubMessageFactory {
         case CertificateRequestResponse.CLASS_TYPE:
             retval =  new CertificateRequestResponse();
             log.debug("Class of type CertificateRequestResponse created");
-            break;
-        case OneshotCertReqRequest.CLASS_TYPE:
-            retval =  new OneshotCertReqRequest();
-            log.debug("Class of type OneshotCertReqRequest created");
-            break;          
-        case OneshotCertReqResponse.CLASS_TYPE:
-            retval =  new OneshotCertReqResponse();
-            log.debug("Class of type OneshotCertReqResponse created");
             break;
 		default:
 			log.error("Error Class of type : " + classType + " not registred");

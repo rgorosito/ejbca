@@ -13,14 +13,17 @@
 
 package org.ejbca.extra.db;
 
+import java.math.BigInteger;
+
 import org.bouncycastle.util.encoders.Base64;
+import org.ejbca.core.model.SecConst;
 
 /**
  * Certificate signing request message.
  * 
  * @version $Id$
  */
-public class CertificateRequestRequest extends ExtRARequest {
+public class CertificateRequestRequest extends BaseCertRequest {
 
 	private static final long serialVersionUID = 1L;
 	
@@ -29,16 +32,33 @@ public class CertificateRequestRequest extends ExtRARequest {
 	public static final float LATEST_VERSION = (float) 1.0;
 
 	private static final String PASSWORD      = "password";
+	private static final String CERTIFICATESERIALNO 	= "certificateserialno";
+
+	/** This looks strange with request->response, but since it is constants it only looks strange in the hashmap (message). 
+	 * We don't want to change it now since it would affect old clients */
 	private static final String REQUEST_DATA  = "responseData";
 	private static final String REQUEST_TYPE  = "requestType";
 	private static final String RESPONSE_TYPE = "responseType";
 	
-	public static final int REQUEST_TYPE_PKCS10 = 0;
-	public static final int REQUEST_TYPE_CRMF   = 1;
-	public static final int REQUEST_TYPE_KEYGEN = 2;
-	public static final int RESPONSE_TYPE_ENCODED         = 0;
-	public static final int RESPONSE_TYPE_PKCS7           = 1;
-	public static final int RESPONSE_TYPE_UNSIGNEDPKCS7   = 2;
+	public static final int REQUEST_TYPE_PKCS10 = SecConst.CERT_REQ_TYPE_PKCS10;
+	public static final int REQUEST_TYPE_CRMF = SecConst.CERT_REQ_TYPE_CRMF;
+	public static final int REQUEST_TYPE_SPKAC = SecConst.CERT_REQ_TYPE_SPKAC;
+	public static final int REQUEST_TYPE_PUBLICKEY = SecConst.CERT_REQ_TYPE_PUBLICKEY;
+	
+	/** A DER encoded certificate */
+	public static final int RESPONSE_TYPE_CERTIFICATE       = SecConst.CERT_RES_TYPE_CERTIFICATE;
+	/** A PKCS7 signed by the CA */
+	public static final int RESPONSE_TYPE_PKCS7           	= SecConst.CERT_RES_TYPE_PKCS7;
+	/** For requests where "createOrEdit==false" this gives an unsigned PKCS7, for "createOrEdit==true" a signed PKCS7 */
+	public static final int RESPONSE_TYPE_PKCS7WITHCHAIN    = SecConst.CERT_RES_TYPE_PKCS7WITHCHAIN;
+
+	/** Kept for reasons to not change to much code in a small fix, should be removed during bigger refactoring */
+	public static final int REQUEST_TYPE_KEYGEN = CertificateRequestRequest.REQUEST_TYPE_SPKAC;
+	/** Kept for reasons to not change to much code in a small fix, should be removed during bigger refactoring */
+	public static final int RESPONSE_TYPE_ENCODED = CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE;
+	/** Kept for reasons to not change to much code in a small fix, should be removed during bigger refactoring */
+	public static final int RESPONSE_TYPE_UNSIGNEDPKCS7 = CertificateRequestRequest.RESPONSE_TYPE_PKCS7WITHCHAIN;
+	
 
 	/** Constructor used when loaded from a persisted state */	
 	public CertificateRequestRequest() {}
@@ -58,6 +78,42 @@ public class CertificateRequestRequest extends ExtRARequest {
 		data.put(CLASSTYPE, Integer.valueOf(CLASS_TYPE));
 		data.put(REQUESTID, Long.valueOf(requestId));
 		data.put(USERNAME, username);
+		data.put(PASSWORD, password);
+		data.put(REQUEST_TYPE, Integer.valueOf(requestType));
+		data.put(REQUEST_DATA, new String(Base64.encode(requestData)));
+		data.put(RESPONSE_TYPE, Integer.valueOf(responseType));
+	}
+
+	/**
+     * Creates a new instance of CertificateRequestRequest.
+     *
+     * @param requestId Unique request ID.
+     * @param username The end entity name.
+     * @param subjectDN The subject DN.
+     * @param subjectAltName The subjectAltName or null.
+     * @param email The e-mail address or null.
+     * @param subjectDirectoryAttributes The subjectDirectoryAttributes or null.
+     * @param endEntityProfileName The end entity profile name for instance "EMPTY".
+     * @param certificateProfileName The certificate profile name for instance "ENDUSER".
+     * @param cAName The CA name.
+     * @param certificateSerialNo The certificate serial number to use or null, used to request a custom certificate serial number, if the CA allows this.
+     * @param password The end entity password to set.
+     * @param requestType One of REQUEST_TYPE_...
+     * @param requestData Encoded request data in requestType format.
+     * @param responseType One of RESPONSE_TYPE_...
+     */
+	public CertificateRequestRequest(long requestId, String username, 
+			String subjectDN, String subjectAltName, String email, 
+			String subjectDirectoryAttributes, String endEntityProfileName, 
+			String certificateProfileName, String cAName, 
+			BigInteger certificateSerialNo, String password, int requestType, 
+			byte[] requestData, int responseType) {
+		super(requestId, username, subjectDN, subjectAltName, email, 
+				subjectDirectoryAttributes, endEntityProfileName, 
+				certificateProfileName,cAName);
+		data.put(VERSION, Float.valueOf(LATEST_VERSION));
+		data.put(CLASSTYPE, Integer.valueOf(CLASS_TYPE));		
+		data.put(CERTIFICATESERIALNO, certificateSerialNo);
 		data.put(PASSWORD, password);
 		data.put(REQUEST_TYPE, Integer.valueOf(requestType));
 		data.put(REQUEST_DATA, new String(Base64.encode(requestData)));
@@ -93,4 +149,9 @@ public class CertificateRequestRequest extends ExtRARequest {
 	public int getResponseType() {
 		return ((Integer)data.get(RESPONSE_TYPE)).intValue();
 	}
+	
+	public BigInteger getCertificateSerialNumber() {
+		return (BigInteger) data.get(CERTIFICATESERIALNO);
+	}
+	
 }

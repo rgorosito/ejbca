@@ -39,18 +39,16 @@ import org.ejbca.extra.db.CertificateRequestRequest;
 import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.Constants;
 import org.ejbca.extra.db.EditUserRequest;
+import org.ejbca.extra.db.ExtRAMessagesTest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.KeyStoreRetrievalRequest;
 import org.ejbca.extra.db.KeyStoreRetrievalResponse;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
-import org.ejbca.extra.db.OneshotCertReqRequest;
-import org.ejbca.extra.db.OneshotCertReqResponse;
 import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.extra.db.SubMessages;
-import org.ejbca.extra.db.ExtRAMessagesTest;
 import org.ejbca.util.Base64;
 import org.ejbca.util.CertTools;
 import org.ejbca.util.CryptoProviderTools;
@@ -676,8 +674,6 @@ public class RAApiTest extends TestCase {
 		final String username = "ExtRA-oneshot-" + random.nextInt();
 		final String password = "foo12345";
 		
-		System.out.println("hej hej");
-		
 		// Create request
 		final KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
 		final byte[] requestData = new String("-----BEGIN CERTIFICATE REQUEST-----\n"
@@ -685,10 +681,10 @@ public class RAApiTest extends TestCase {
 		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate()).getEncoded()))
 				+ "\n-----END CERTIFICATE REQUEST-----").getBytes();
 		
-		System.out.println("Request: " + new String(requestData));
-		log.info("Request: " + new String(requestData));
+//		System.out.println("Request: " + new String(requestData));
+//		log.info("Request: " + new String(requestData));
 		
-		final OneshotCertReqRequest request = new OneshotCertReqRequest(
+		final CertificateRequestRequest request = new CertificateRequestRequest(
 				requestId,
 				username, 
 				"CN=" + username, 
@@ -700,7 +696,8 @@ public class RAApiTest extends TestCase {
 				"AdminCA1", 
 				null, 
 				password, 
-				OneshotCertReqRequest.REQUEST_TYPE_PKCS10, requestData, OneshotCertReqRequest.RESPONSE_TYPE_CERTIFICATE);
+				CertificateRequestRequest.REQUEST_TYPE_PKCS10, requestData, CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE);
+		request.setCreateOrEditUser(true);
 		
 		final SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(request);
@@ -713,9 +710,9 @@ public class RAApiTest extends TestCase {
 		final ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertEquals("Wrong Request ID" + resp.getRequestId(), requestId, resp.getRequestId());
 		assertTrue("KeyStoreRetrieval failed: " + resp.getFailInfo(), resp.isSuccessful());
-		assertTrue("Wrong response type.", resp instanceof OneshotCertReqResponse);
-		final OneshotCertReqResponse certResp = (OneshotCertReqResponse) resp;
-		assertEquals("Wrong keystore type.", OneshotCertReqRequest.RESPONSE_TYPE_CERTIFICATE, certResp.getResponseType());
+		assertTrue("Wrong response type.", resp instanceof CertificateRequestResponse);
+		final CertificateRequestResponse certResp = (CertificateRequestResponse) resp;
+		assertEquals("Wrong keystore type.", CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE, certResp.getResponseType());
 		assertEquals("Wrong certificate in response", "CN=" + username, CertTools.getSubjectDN(CertTools.getCertfromByteArray(certResp.getResponseData())));
 	}
 
