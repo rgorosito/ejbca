@@ -22,7 +22,7 @@ import org.ejbca.core.model.UpgradeableDataHashMap;
  * All ExtRA request should inherit this class.
  * 
  * @author philip
- * $Id$
+ * @version $Id$
  */
 public abstract class ExtRARequest extends UpgradeableDataHashMap implements ISubMessage {
 
