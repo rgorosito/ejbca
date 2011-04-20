@@ -55,18 +55,14 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     	}
     }
 
-	public PKCS12RequestProcessor() throws ConfigurationException {
-		try {
-			usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
-			log.debug("Key recovery enabled: "+ usekeyrecovery);
-		}  catch (Exception e) {
-			log.error("Error instansiating Session Beans: ",e);
-			throw new ConfigurationException("Error instansiating Session Beans: ",e);
-		}
-	}
-
     private ISubMessage processExtRAPKCS12Request(Admin admin, PKCS12Request submessage) {
-		log.debug("Processing ExtRAPKCS12Request");
+    	if (log.isDebugEnabled()) {
+    		log.debug("Processing ExtRAPKCS12Request");
+    	}
+		usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
+    	if (log.isDebugEnabled()) {
+    		log.debug("Key recovery enabled: "+ usekeyrecovery);
+    	}
 		PKCS12Response retval = null;
         UserDataVO userdata = null;
 		try{
