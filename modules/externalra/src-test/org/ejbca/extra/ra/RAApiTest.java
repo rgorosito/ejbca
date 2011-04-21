@@ -681,9 +681,6 @@ public class RAApiTest extends TestCase {
 		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate()).getEncoded()))
 				+ "\n-----END CERTIFICATE REQUEST-----").getBytes();
 		
-//		System.out.println("Request: " + new String(requestData));
-//		log.info("Request: " + new String(requestData));
-		
 		final CertificateRequestRequest request = new CertificateRequestRequest(
 				requestId,
 				username, 
