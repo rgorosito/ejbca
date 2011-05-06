@@ -27,7 +27,6 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS12Request;
