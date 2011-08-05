@@ -27,6 +27,7 @@ import javax.persistence.Persistence;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.extra.db.CertificateRequestRequest;
 import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.ExtRAResponse;
@@ -37,7 +38,6 @@ import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.RAKeyStore;
-import org.ejbca.util.CertTools;
 import org.ejbca.util.GUIDGenerator;
 
 /**

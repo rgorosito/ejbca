@@ -26,6 +26,8 @@ import javax.persistence.Persistence;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.PKCS10Request;
@@ -34,8 +36,6 @@ import org.ejbca.extra.db.PKCS12Request;
 import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.RAKeyStore;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.CryptoProviderTools;
 
 /**
  * A test client for the External RA API that can be used for simple load and performance test and

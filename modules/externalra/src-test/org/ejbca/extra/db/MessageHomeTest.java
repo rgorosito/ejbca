@@ -19,7 +19,7 @@ import javax.persistence.Persistence;
 import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
-import org.ejbca.util.CertTools;
+import org.cesecore.util.CryptoProviderTools;
 
 /**
  * Makes basic database functionality tests.
@@ -34,7 +34,7 @@ public class MessageHomeTest extends TestCase {
 
 	public void setUp() throws Exception {
 		super.setUp();
-		CertTools.installBCProvider();
+		CryptoProviderTools.installBCProvider();
 	}
 
 	/**

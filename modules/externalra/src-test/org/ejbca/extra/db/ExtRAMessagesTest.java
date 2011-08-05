@@ -20,7 +20,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 
-import org.ejbca.util.CryptoProviderTools;
+import org.cesecore.util.CryptoProviderTools;
 
 /**
  * Makes sure that request and response classes are serialized properly.

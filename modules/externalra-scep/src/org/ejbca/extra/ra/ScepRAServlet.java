@@ -47,13 +47,16 @@ import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.ejbca.core.model.ca.SignRequestException;
-import org.ejbca.core.model.ca.SignRequestSignatureException;
+import org.cesecore.certificates.ca.SignRequestException;
+import org.cesecore.certificates.ca.SignRequestSignatureException;
+import org.cesecore.certificates.certificate.request.FailInfo;
+import org.cesecore.certificates.certificate.request.RequestMessage;
+import org.cesecore.certificates.certificate.request.ResponseMessage;
+import org.cesecore.certificates.certificate.request.ResponseStatus;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.Base64;
+import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.core.model.ra.NotFoundException;
-import org.ejbca.core.protocol.FailInfo;
-import org.ejbca.core.protocol.IRequestMessage;
-import org.ejbca.core.protocol.IResponseMessage;
-import org.ejbca.core.protocol.ResponseStatus;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.core.protocol.scep.ScepResponseMessage;
 import org.ejbca.extra.db.ISubMessage;
@@ -64,9 +67,6 @@ import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.ExtraConfiguration;
 import org.ejbca.extra.util.RAKeyStore;
-import org.ejbca.util.Base64;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.CryptoProviderTools;
 
 /**
  * Servlet implementing the RA interface of the Simple Certificate Enrollment Protocol (SCEP)
@@ -267,7 +267,7 @@ public class ScepRAServlet extends HttpServlet {
                 			Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
                 			PKCS10Response resp = (PKCS10Response)iter.next();
                 			// create proper ScepResponseMessage
-                			IResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, cryptProvider);
+                			ResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, cryptProvider);
                 			ret.setCACert(cacert);
             				X509Certificate respCert = resp.getCertificate();
                 			if ( resp.isSuccessful() && (respCert != null) ) {
@@ -460,7 +460,7 @@ public class ScepRAServlet extends HttpServlet {
 		}
 	}
     
-    private ScepResponseMessage createPendingResponseMessage(IRequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException {
+    private ScepResponseMessage createPendingResponseMessage(RequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException {
     	ScepResponseMessage ret = new ScepResponseMessage();
     	// Create the response message and set all required fields
     	if (ret.requireSignKeyInfo()) {

@@ -16,16 +16,16 @@ import java.security.cert.X509Certificate;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.core.protocol.PKCS10RequestMessage;
-import org.ejbca.extra.db.PKCS10Request;
-import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
+import org.ejbca.extra.db.PKCS10Request;
+import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.util.RequestMessageUtils;
 
 /**
@@ -36,7 +36,7 @@ import org.ejbca.util.RequestMessageUtils;
 public class PKCS10RequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(PKCS10RequestProcessor.class);
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processExtRAPKCS10Request(admin, (PKCS10Request) submessage);
 		}else{
@@ -44,7 +44,7 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 		}
     }
     
-    private ISubMessage processExtRAPKCS10Request(Admin admin, PKCS10Request submessage) {
+    private ISubMessage processExtRAPKCS10Request(AuthenticationToken admin, PKCS10Request submessage) {
 		log.debug("Processing PKCS10Request");
 		PKCS10Response retval = null;
 		try {

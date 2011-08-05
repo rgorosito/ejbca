@@ -24,7 +24,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bouncycastle.util.encoders.Base64;
-import org.ejbca.util.CertTools;
+import org.cesecore.certificates.util.CertTools;
 
 /**
  * Response to an ExtRACardRenewalRequest. The response contains two certificates that can be

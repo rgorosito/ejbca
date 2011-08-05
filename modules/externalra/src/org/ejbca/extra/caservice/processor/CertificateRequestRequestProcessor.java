@@ -27,20 +27,25 @@ import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
+import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CADoesntExistsException;
+import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
+import org.cesecore.certificates.certificate.request.ResponseMessage;
+import org.cesecore.certificates.certificate.request.X509ResponseMessage;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.log.Admin;
-import org.ejbca.core.model.ra.ExtendedInformation;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.core.protocol.IResponseMessage;
-import org.ejbca.core.protocol.PKCS10RequestMessage;
-import org.ejbca.core.protocol.X509ResponseMessage;
 import org.ejbca.core.protocol.cmp.CrmfRequestMessage;
 import org.ejbca.extra.db.CertificateRequestRequest;
 import org.ejbca.extra.db.CertificateRequestResponse;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.util.CertTools;
 import org.ejbca.util.RequestMessageUtils;
 import org.ejbca.util.passgen.IPasswordGenerator;
 import org.ejbca.util.passgen.PasswordGeneratorFactory;
@@ -67,7 +72,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	private static final String MSG_UNSUPPORTED_REQUEST_TYPE = "Unsupported request type.";
 	
 	/** @see ISubMessageProcessor#process(Admin, ISubMessage, String) */
-	public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+	public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if (errormessage == null) {
 			return processCertificateRequestRequest(admin, (CertificateRequestRequest) submessage);
 		} else {
@@ -78,7 +83,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	/**
 	 * Extracts the certificate signing request type and requests a new certificate using the provided credentials.
 	 */
-	private CertificateRequestResponse processCertificateRequestRequest(Admin admin, CertificateRequestRequest submessage) {
+	private CertificateRequestResponse processCertificateRequestRequest(AuthenticationToken admin, CertificateRequestRequest submessage) {
 		if (log.isDebugEnabled()) {
 			log.debug("Processing CertificateRequestRequest");
 		}
@@ -88,7 +93,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 				if (log.isDebugEnabled()) {
 					log.debug("createOrEditUser == true, will use one-shot request processing.");
 				}
-		        final UserDataVO userdatavo = getUserDataVO(admin, submessage);
+		        final EndEntityInformation userdatavo = getUserDataVO(admin, submessage);
 		        final String requestData = new String(submessage.getRequestData()); 
 		        final int requestTypeInt = submessage.getRequestType();
 		        final int responseTypeInt = submessage.getResponseType();
@@ -102,13 +107,14 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        		hardTokenSN, 
 		        		responseTypeInt); 	        	
 	        } else {
+	        	AuthenticationToken intAdmin = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("CertificateRequestProcessor"));
 		        switch (submessage.getRequestType()) {
 		        case CertificateRequestRequest.REQUEST_TYPE_PKCS10:
 		        	Certificate cert = null;
 		        	PKCS10RequestMessage req = RequestMessageUtils.genPKCS10RequestMessage(submessage.getRequestData());
 		        	req.setUsername(submessage.getUsername());
 		        	req.setPassword(submessage.getPassword());
-		        	IResponseMessage resp = signSession.createCertificate(admin, req, X509ResponseMessage.class, null);
+		        	ResponseMessage resp = signSession.createCertificate(admin, req, X509ResponseMessage.class, null);
 		        	cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
 		        	if (submessage.getResponseType() == CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE) {
 		        		result = cert.getEncoded();
@@ -130,7 +136,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        		// Read certificate chain
 		                ArrayList<Certificate> certList = new ArrayList<Certificate>();
 	                    certList.add(cert);
-	                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+	                    certList.addAll(caSession.getCAInfo(intAdmin, CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
 	                    // Create large certificate-only PKCS7
 	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
 	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
@@ -149,7 +155,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        	crmfReq.setUsername(submessage.getUsername());
 		        	crmfReq.setPassword(submessage.getPassword());
 		        	// Request and extract certificate from response
-		        	IResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
+		        	ResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
 		        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
 		        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
 					InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
@@ -164,7 +170,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        		// Read certificate chain
 		                ArrayList<Certificate> certList = new ArrayList<Certificate>();
 	                    certList.add(cert);
-	                    certList.addAll(caSession.getCA(Admin.getInternalAdmin(), CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
+	                    certList.addAll(caSession.getCAInfo(intAdmin, CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
 	                    // Create large certificate-only PKCS7
 	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
 	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
@@ -188,8 +194,8 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		}
 	}
 	
-	private UserDataVO getUserDataVO(final Admin admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException {
-		final UserDataVO result = generateUserDataVO(admin, submessage);
+	private EndEntityInformation getUserDataVO(final AuthenticationToken admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
+		final EndEntityInformation result = generateUserDataVO(admin, submessage);
 		
 		result.setStatus(UserDataConstants.STATUS_NEW);
 		

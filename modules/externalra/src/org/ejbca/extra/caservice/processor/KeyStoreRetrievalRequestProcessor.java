@@ -17,18 +17,19 @@ import java.io.ByteArrayOutputStream;
 import java.security.KeyStore;
 
 import org.apache.log4j.Logger;
-import org.ejbca.core.model.AlgorithmConstants;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.keys.util.KeyTools;
 import org.ejbca.core.model.SecConst;
-import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.KeyStoreRetrievalRequest;
 import org.ejbca.extra.db.KeyStoreRetrievalResponse;
-import org.ejbca.util.keystore.KeyTools;
 
 /**
  * Process keystore generation/retrieval requests.
@@ -40,7 +41,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 	private static final Logger log = Logger.getLogger(KeyStoreRetrievalRequestProcessor.class);
 
 	/** @see ISubMessageProcessor#process(Admin, ISubMessage, String) */
-	public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+	public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processKeyStoreRetrievalRequest(admin, (KeyStoreRetrievalRequest) submessage);
 		}else{
@@ -51,10 +52,10 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
     /**
      * Lookup the requested user and generate or recover a keystore.
      */
-    private KeyStoreRetrievalResponse processKeyStoreRetrievalRequest(Admin admin, KeyStoreRetrievalRequest submessage) {
+    private KeyStoreRetrievalResponse processKeyStoreRetrievalRequest(AuthenticationToken admin, KeyStoreRetrievalRequest submessage) {
         log.debug("Processing KeyStoreRetrievalRequest");
 		try {
-			UserDataVO data = null;
+			EndEntityInformation data = null;
 			try {
 				data = userAdminSession.findUser(admin, submessage.getUsername());
 			} catch (AuthorizationDeniedException e) {
@@ -70,7 +71,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			boolean loadkeys = (data.getStatus() == UserDataConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
 			boolean reusecertificate = endEntityProfileSession.getEndEntityProfile(admin, endEntityProfileId).getReUseKeyRecoveredCertificate();
 			// Generate or recover keystore and save it in the configured format 
-			GenerateToken tgen = new GenerateToken(authenticationSession, userAdminSession, caAdminSession, keyRecoverySession, signSession);
+			GenerateToken tgen = new GenerateToken(authenticationSession, userAdminSession, caSession, keyRecoverySession, signSession);
 			byte[] buf = null;
 			int tokentype = data.getTokenType();
 			boolean createJKS = (tokentype == SecConst.TOKEN_SOFT_JKS);

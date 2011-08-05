@@ -37,12 +37,12 @@ import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.Base64;
+import org.cesecore.util.FileTools;
 import org.ejbca.config.InternalConfiguration;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.extra.db.CertificateRequestRequest;
-import org.ejbca.util.Base64;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.FileTools;
 
 import com.icesoft.faces.component.inputfile.InputFile;
 import com.icesoft.faces.context.ByteArrayResource;

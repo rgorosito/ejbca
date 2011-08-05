@@ -58,9 +58,9 @@ import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSSignedGenerator;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.bouncycastle.util.encoders.Base64;
-import org.ejbca.core.model.AlgorithmConstants;
+import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
-import org.ejbca.util.CertTools;
 
 public class ScepRequestGenerator {
     private static Logger log = Logger.getLogger(ScepRequestGenerator.class);

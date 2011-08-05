@@ -13,9 +13,9 @@
 package org.ejbca.extra.caservice.processor;
 
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.SecConst;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.EditUserRequest;
@@ -31,7 +31,7 @@ import org.ejbca.extra.db.ISubMessage;
 public class EditUserRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(EditUserRequestProcessor.class);
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processExtRAEditUserRequest(admin, (EditUserRequest) submessage);
 		}else{
@@ -39,7 +39,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		}
     }
 
-    private ISubMessage processExtRAEditUserRequest(Admin admin, EditUserRequest submessage) {
+    private ISubMessage processExtRAEditUserRequest(AuthenticationToken admin, EditUserRequest submessage) {
 		log.debug("Processing ExtRAEditUserRequest");
 		ExtRAResponse retval = null;
         UserDataVO userdata = null;
@@ -73,7 +73,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		SecConst.TOKEN_SOFT_JKS, 
 		SecConst.TOKEN_SOFT_PEM};	
 
-	private int getTokenTypeId(Admin admin, String tokenName) throws EjbcaException, ClassCastException {
+	private int getTokenTypeId(AuthenticationToken admin, String tokenName) throws EjbcaException, ClassCastException {
 		for(int i=0; i< AVAILABLESOFTTOKENNAMES.length ; i++){
 			if(tokenName.equalsIgnoreCase(AVAILABLESOFTTOKENNAMES[i])){
 				return AVAILABLESOFTTOKENIDS[i];
@@ -86,7 +86,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		return retval;
 	}
 
-	private int getHardTokenIssuerId(Admin admin, String hardTokenIssuerName) throws ClassCastException {
+	private int getHardTokenIssuerId(AuthenticationToken admin, String hardTokenIssuerName) throws ClassCastException {
 		return hardTokenSession.getHardTokenIssuerId(admin,hardTokenIssuerName);
 	}
 }

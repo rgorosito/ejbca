@@ -18,7 +18,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 
-import org.ejbca.util.CertTools;
+import org.cesecore.util.CryptoProviderTools;
 
 /**
  * Performs test related to encryption/signature of messages.
@@ -29,7 +29,7 @@ public class ExtRAMsgHelperTest extends TestCase {
 	
 	public void setUp() throws Exception {
 		super.setUp();
-		CertTools.installBCProvider();
+		CryptoProviderTools.installBCProvider();
 	}
 
 	/*

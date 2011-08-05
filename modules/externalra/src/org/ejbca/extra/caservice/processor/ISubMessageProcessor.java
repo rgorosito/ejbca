@@ -14,7 +14,7 @@ package org.ejbca.extra.caservice.processor;
 
 import java.util.Map;
 
-import org.ejbca.core.model.log.Admin;
+import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.ejbca.extra.db.ISubMessage;
 
 /**
@@ -24,7 +24,7 @@ import org.ejbca.extra.db.ISubMessage;
  */
 public interface ISubMessageProcessor {
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage);
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage);
 
 	public void setEjbs(Map<Class<?>, Object> ejbs);
 

@@ -21,18 +21,21 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 
 import org.apache.log4j.Logger;
-import org.ejbca.core.model.AlgorithmConstants;
+import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.keys.util.KeyTools;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS12Request;
 import org.ejbca.extra.db.PKCS12Response;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.keystore.KeyTools;
 
 /**
  * 
@@ -44,9 +47,10 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 
 	private boolean usekeyrecovery = false;
 
-	private Admin internalUser = Admin.getInternalAdmin();
+	//private Admin internalUser = Admin.getInternalAdmin();
+	private AuthenticationToken internalUser = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("PKCS12RequestProcessr"));
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
     	if(errormessage == null){
     		return processExtRAPKCS12Request(admin, (PKCS12Request) submessage);
     	}else{
@@ -54,7 +58,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     	}
     }
 
-    private ISubMessage processExtRAPKCS12Request(Admin admin, PKCS12Request submessage) {
+    private ISubMessage processExtRAPKCS12Request(AuthenticationToken admin, PKCS12Request submessage) {
     	if (log.isDebugEnabled()) {
     		log.debug("Processing ExtRAPKCS12Request");
     	}
@@ -63,7 +67,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     		log.debug("Key recovery enabled: "+ usekeyrecovery);
     	}
 		PKCS12Response retval = null;
-        UserDataVO userdata = null;
+        EndEntityInformation userdata = null;
 		try{
             userdata = generateUserDataVO(admin, submessage);
             userdata.setPassword("foo123");

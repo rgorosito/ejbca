@@ -22,16 +22,23 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
-import org.cesecore.core.ejb.ca.store.CertificateProfileSessionLocal;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.certificates.ca.CADoesntExistsException;
+import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.CaSession;
+import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
-import org.ejbca.core.ejb.authorization.AuthorizationSessionLocal;
 import org.ejbca.core.ejb.ca.auth.OldAuthenticationSessionLocal;
-import org.ejbca.core.ejb.ca.caadmin.CAAdminSession;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
-import org.ejbca.core.ejb.ca.caadmin.CaSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
-import org.ejbca.core.ejb.ca.store.CertificateStoreSessionLocal;
 import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
 import org.ejbca.core.ejb.keyrecovery.KeyRecoverySessionLocal;
@@ -43,16 +50,11 @@ import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalRequest;
-import org.ejbca.core.model.ca.caadmin.CAInfo;
-import org.ejbca.core.model.log.Admin;
-import org.ejbca.core.model.ra.ExtendedInformation;
 import org.ejbca.core.model.ra.RAAuthorization;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.util.CertTools;
 import org.ejbca.util.query.ApprovalMatch;
 import org.ejbca.util.query.BasicMatch;
 import org.ejbca.util.query.Query;
@@ -71,7 +73,7 @@ public class MessageProcessor {
 
     protected ApprovalSessionLocal approvalSession;
     protected OldAuthenticationSessionLocal authenticationSession;
-    protected AuthorizationSessionLocal authorizationSession;
+    protected AccessControlSessionLocal authorizationSession;
     protected CAAdminSessionLocal caAdminSession;
     protected CaSessionLocal caSession;
     protected CertificateProfileSessionLocal certificateProfileSession;
@@ -87,7 +89,7 @@ public class MessageProcessor {
     public void setEjbs(Map<Class<?>, Object> ejbs) {
     	approvalSession = (ApprovalSessionLocal) ejbs.get(ApprovalSessionLocal.class);
     	authenticationSession = (OldAuthenticationSessionLocal) ejbs.get(OldAuthenticationSessionLocal.class);
-    	authorizationSession = (AuthorizationSessionLocal) ejbs.get(AuthorizationSessionLocal.class);
+    	authorizationSession = (AccessControlSessionLocal) ejbs.get(AccessControlSessionLocal.class);
     	caAdminSession = (CAAdminSessionLocal) ejbs.get(CAAdminSessionLocal.class);
     	caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
     	certificateProfileSession = (CertificateProfileSessionLocal) ejbs.get(CertificateProfileSessionLocal.class);
@@ -114,7 +116,7 @@ public class MessageProcessor {
 	 * @throws IllegalAccessException if the message processor class is invalid
 	 * @throws InstantiationException if the message processor class is invalid
 	 */
-	public static ISubMessage processSubMessage(Admin admin, ISubMessage submessage, String errormessage, Map<Class<?>, Object> ejbs) throws ConfigurationException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+	public static ISubMessage processSubMessage(AuthenticationToken admin, ISubMessage submessage, String errormessage, Map<Class<?>, Object> ejbs) throws ConfigurationException, ClassNotFoundException, InstantiationException, IllegalAccessException {
 		ISubMessageProcessor proc = null;
 		
 		String clazz = submessage.getClass().getName();
@@ -170,9 +172,9 @@ public class MessageProcessor {
 	 * @return the CACertChain.
 	 * @throws ConfigurationException if any of the CAs doesn't exist or is revoked
 	 */
-	public static Collection<Certificate> getCACertChain(Admin admin, String cAName, boolean checkRevokation, CAAdminSession caAdminSession) throws ConfigurationException{		
+	public static Collection<Certificate> getCACertChain(AuthenticationToken admin, String cAName, boolean checkRevokation, CaSession caSession) throws ConfigurationException{		
 		try{
-			CAInfo cainfo = caAdminSession.getCAInfo(admin, cAName);
+			CAInfo cainfo = caSession.getCAInfo(admin, cAName);
 			if(cainfo == null){
 				log.error("Misconfigured CA Name in RAService");
 				throw new ConfigurationException("Misconfigured CA Name in RAService");
@@ -187,7 +189,7 @@ public class MessageProcessor {
 			  iter.next(); // Throw away the first one.
 			  while(iter.hasNext()){
 				X509Certificate cacert = (X509Certificate) iter.next();
-				CAInfo cainfo2 = caAdminSession.getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
+				CAInfo cainfo2 = caSession.getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
 				// This CA may be an external CA, so we don't bother if we can not find it.
 				if ((cainfo2 != null) && (cainfo2.getStatus()==SecConst.CA_REVOKED) ) {
 					throw new ConfigurationException("CA " + cainfo2.getName() + " Have been revoked");
@@ -205,14 +207,14 @@ public class MessageProcessor {
 	}
 	
 
-    protected UserDataVO generateUserDataVO(Admin admin, ExtRARequest submessage) throws ClassCastException, EjbcaException {
+    protected EndEntityInformation generateUserDataVO(AuthenticationToken admin, ExtRARequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
         String dirAttributes = submessage.getSubjectDirectoryAttributes();
         ExtendedInformation ext = null;
         if (dirAttributes != null) {
             ext = new ExtendedInformation();
             ext.setSubjectDirectoryAttributes(dirAttributes);
         }
-           return  new UserDataVO(submessage.getUsername(),
+           return  new EndEntityInformation(submessage.getUsername(),
                    submessage.getSubjectDN(),
                    getCAId(admin,submessage.getCAName()),
                    submessage.getSubjectAltName(),
@@ -233,7 +235,7 @@ public class MessageProcessor {
 	 * Help method used to store userdata in userdatabase with given status, that is
 	 * waiting for user to be reviewed. This methid handles approval as well.
 	 */
-	protected void storeUserData(Admin admin, UserDataVO userdata, boolean clearpwd, int status) throws Exception {
+	protected void storeUserData(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, int status) throws Exception {
 		log.trace(">storeUserData() username : " + userdata.getUsername());
 
         // First we will look to see if there is an existing approval request pending for this user within the last hour
@@ -291,7 +293,7 @@ public class MessageProcessor {
         }
         
 		// Check if user already exists
-		UserDataVO oldUserData = userAdminSession.findUser(admin, userdata.getUsername());
+		EndEntityInformation oldUserData = userAdminSession.findUser(admin, userdata.getUsername());
 		if (oldUserData != null) {
 			log.debug("User '"+userdata.getUsername()+"' already exist, edit user.");
 			if ( (oldUserData.getStatus() == UserDataConstants.STATUS_INPROCESS) || (oldUserData.getStatus() == UserDataConstants.STATUS_NEW) ) {
@@ -308,15 +310,15 @@ public class MessageProcessor {
 		log.trace("<storeUserData()");
 	}
 
-	private int getCertificateProfileId(Admin admin, String certificateProfileName) throws EjbcaException {		
-		int retval = certificateProfileSession.getCertificateProfileId(admin,certificateProfileName);
+	private int getCertificateProfileId(AuthenticationToken admin, String certificateProfileName) throws EjbcaException {		
+		int retval = certificateProfileSession.getCertificateProfileId(certificateProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' doesn't exists.");
 		}
 		return retval;
 	}
 
-	private int getEndEntityProfileId(Admin admin,String endEntityProfileName) throws EjbcaException {
+	private int getEndEntityProfileId(AuthenticationToken admin,String endEntityProfileName) throws EjbcaException {
 		int retval = endEntityProfileSession.getEndEntityProfileId(admin,endEntityProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' doesn't exists.");
@@ -324,11 +326,8 @@ public class MessageProcessor {
 		return retval;
 	}
 
-	private int getCAId(Admin admin, String cAName) throws EjbcaException {
-		CAInfo info = caAdminSession.getCAInfo(admin,cAName);
-		if(info == null){
-			throw new EjbcaException("Error CA '" + cAName + "' doesn't exists.");
-		}
+	private int getCAId(AuthenticationToken admin, String cAName) throws CADoesntExistsException, AuthorizationDeniedException {
+		CAInfo info = caSession.getCAInfo(admin,cAName);
 		int retval = info.getCAId();
 		return retval;
 	}

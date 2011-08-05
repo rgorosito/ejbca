@@ -16,14 +16,14 @@ import java.math.BigInteger;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
-import org.ejbca.core.model.authorization.AuthorizationDeniedException;
-import org.ejbca.core.model.log.Admin;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.RevocationRequest;
-import org.ejbca.util.CertTools;
 
 /**
  * 
@@ -33,7 +33,7 @@ import org.ejbca.util.CertTools;
 public class RevocationRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(RevocationRequestProcessor.class);
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processExtRARevocationRequest(admin, (RevocationRequest) submessage);
 		}else{
@@ -41,7 +41,7 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 		}
     }
 
-	private ISubMessage processExtRARevocationRequest(Admin admin, RevocationRequest submessage) {
+	private ISubMessage processExtRARevocationRequest(AuthenticationToken admin, RevocationRequest submessage) {
 		log.debug("Processing ExtRARevocationRequest");
 		ExtRAResponse retval = null;
 		try {			 

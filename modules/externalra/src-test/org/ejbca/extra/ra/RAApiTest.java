@@ -32,7 +32,11 @@ import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
-import org.ejbca.core.model.AlgorithmConstants;
+import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.keys.util.KeyTools;
+import org.cesecore.util.Base64;
+import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.CertificateRequestRequest;
@@ -49,11 +53,7 @@ import org.ejbca.extra.db.PKCS10Response;
 import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.extra.db.SubMessages;
-import org.ejbca.util.Base64;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.CryptoProviderTools;
 import org.ejbca.util.NonEjbTestTools;
-import org.ejbca.util.keystore.KeyTools;
 
 
 /**

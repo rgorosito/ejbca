@@ -61,12 +61,12 @@ import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.util.encoders.Base64;
-import org.ejbca.core.model.AlgorithmConstants;
-import org.ejbca.core.protocol.ResponseStatus;
+import org.cesecore.certificates.certificate.request.ResponseStatus;
+import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.keys.util.KeyTools;
+import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.CryptoProviderTools;
-import org.ejbca.util.keystore.KeyTools;
 
 /**
  * Tests SCEP enrollment with an RA (SCEP polling RA mode).
@@ -345,7 +345,7 @@ public class ProtocolScepHttpTest extends TestCase {
         assertEquals(values.size(), 1);
         str = DERPrintableString.getInstance((values.getObjectAt(0)));
         String responsestatus =  str.getString();
-        if (extectedResponseStatus.getValue().equals(responsestatus)) {
+        if (extectedResponseStatus.getStringValue().equals(responsestatus)) {
         	return true;
         }
         return false;

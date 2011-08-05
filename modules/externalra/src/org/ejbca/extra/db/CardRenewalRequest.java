@@ -19,8 +19,8 @@ import java.security.cert.CertificateException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.ejbca.util.Base64;
-import org.ejbca.util.CertTools;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.Base64;
 
 /**
  * External RA card renewal sub message used when a users certificates on a PrimeCard smart card should be renewed.

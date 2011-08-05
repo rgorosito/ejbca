@@ -23,7 +23,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Enumeration;
 
-import org.ejbca.util.CryptoProviderTools;
+import org.cesecore.util.CryptoProviderTools;
 
 /**
  * Simple utility class that reads a P12 Keystore from file.

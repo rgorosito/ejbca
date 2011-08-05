@@ -31,10 +31,14 @@ import javax.persistence.Persistence;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
-import org.ejbca.core.ejb.ca.store.CertificateStoreSessionLocal;
 import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
-import org.ejbca.core.model.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
@@ -44,7 +48,6 @@ import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.extra.util.RAKeyStore;
-import org.ejbca.util.CertTools;
 
 /** An EJBCA Service worker that polls the External RA database for extRA messages and processes them.
  * The design includes that no two workers with the same serviceName can run on the same CA host at the same time.
@@ -67,7 +70,8 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	
 	private RAKeyStore serviceKeyStore = null;
 
-	private Admin internalUser = Admin.getInternalAdmin();
+	//private Admin internalUser = Admin.getInternalAdmin();
+	private AuthenticationToken internalUser = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("ExtRACAServiceWorker"));
 	
 	/** Semaphore to keep several processes from running simultaneously on the same host */
 	private static HashMap<String,Object> running = new HashMap<String,Object>();
@@ -304,11 +308,11 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	 * @throws SignatureException 
 	 * @throws AuthorizationDeniedException 
 	 */
-	private Admin getAdmin(SubMessages submessages) throws SignatureException, AuthorizationDeniedException{
+	private AuthenticationToken getAdmin(SubMessages submessages) throws SignatureException, AuthorizationDeniedException{
 		if(submessages.isSigned()){
 			// Check if Signer Cert is revoked
 			X509Certificate signerCert = submessages.getSignerCert();
-			Admin admin = userAdminSession.getAdmin(signerCert);
+			AuthenticationToken admin = userAdminSession.getAdmin(signerCert);
 			// Check that user have the administrator flag set.
 			userAdminSession.checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
 			boolean isRevoked = certificateStoreSession.isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());

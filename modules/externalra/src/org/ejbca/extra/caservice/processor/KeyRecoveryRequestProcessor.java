@@ -18,18 +18,18 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.util.CertTools;
+import org.cesecore.keys.util.KeyTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.keyrecovery.KeyRecoveryData;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.extra.db.KeyRecoveryRequest;
-import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.util.CertTools;
-import org.ejbca.util.keystore.KeyTools;
+import org.ejbca.extra.db.KeyRecoveryRequest;
+import org.ejbca.extra.db.PKCS12Response;
 
 /**
  * 
@@ -39,7 +39,7 @@ import org.ejbca.util.keystore.KeyTools;
 public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(KeyRecoveryRequestProcessor.class);
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
     	if(errormessage == null){
     		return processExtRAKeyRecoveryRequest(admin, (KeyRecoveryRequest) submessage);
     	}else{
@@ -47,12 +47,12 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
     	}
     }
 
-    private ISubMessage processExtRAKeyRecoveryRequest(Admin admin, KeyRecoveryRequest submessage) {
+    private ISubMessage processExtRAKeyRecoveryRequest(AuthenticationToken admin, KeyRecoveryRequest submessage) {
 		log.debug("Processing ExtRAKeyRecoveryRequest");
 		PKCS12Response retval = null;
 		try{
 			
-			UserDataVO userdata = null;
+			EndEntityInformation userdata = null;
 			
 			if(submessage.getReUseCertificate()){
 				userdata = userAdminSession.findUser(admin,submessage.getUsername());
@@ -63,7 +63,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			
 			// Get KeyPair
 			keyRecoverySession.unmarkUser(admin,submessage.getUsername());
-			X509Certificate orgcert = (X509Certificate) certificateStoreSession.findCertificateByIssuerAndSerno(admin,CertTools.stringToBCDNString(submessage.getIssuerDN()), submessage.getCertificateSN());
+			X509Certificate orgcert = (X509Certificate) certificateStoreSession.findCertificateByIssuerAndSerno(CertTools.stringToBCDNString(submessage.getIssuerDN()), submessage.getCertificateSN());
 			if(orgcert == null){
 				throw new EjbcaException("Error in Key Recovery Request, couldn't find specified certificate");
 			}
@@ -90,7 +90,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			// Generate Keystore
 			// Fetch CA Cert Chain.	        
 			int caid = CertTools.stringToBCDNString(cert.getIssuerDN().toString()).hashCode(); 
-			Certificate[] chain = (Certificate[]) caAdminSession.getCAInfo(admin, caid).getCertificateChain().toArray(new Certificate[0]);
+			Certificate[] chain = (Certificate[]) caSession.getCAInfo(admin, caid).getCertificateChain().toArray(new Certificate[0]);
 			String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 			if (alias == null){
 				alias = submessage.getUsername();

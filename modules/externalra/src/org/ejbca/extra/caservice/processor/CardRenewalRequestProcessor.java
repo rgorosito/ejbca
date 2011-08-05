@@ -19,24 +19,26 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 
 import org.apache.log4j.Logger;
+import org.cesecore.CesecoreException;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.certificate.CertificateInfo;
+import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
+import org.cesecore.certificates.certificate.request.ResponseMessage;
+import org.cesecore.certificates.certificate.request.X509ResponseMessage;
+import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ca.sign.SignSession;
-import org.ejbca.core.model.ca.store.CertificateInfo;
 import org.ejbca.core.model.hardtoken.profiles.EIDProfile;
 import org.ejbca.core.model.hardtoken.profiles.HardTokenProfile;
 import org.ejbca.core.model.hardtoken.profiles.SwedishEIDProfile;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
-import org.ejbca.core.protocol.IResponseMessage;
-import org.ejbca.core.protocol.PKCS10RequestMessage;
-import org.ejbca.core.protocol.X509ResponseMessage;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.CardRenewalResponse;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
-import org.ejbca.util.CertTools;
 import org.ejbca.util.RequestMessageUtils;
 
 /**
@@ -47,7 +49,7 @@ import org.ejbca.util.RequestMessageUtils;
 public class CardRenewalRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(CardRenewalRequestProcessor.class);
 
-    public ISubMessage process(Admin admin, ISubMessage submessage, String errormessage) {
+    public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processExtRACardRenewalRequest(admin, (CardRenewalRequest) submessage);
 		}else{
@@ -55,7 +57,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		}
     }
 
-    private ISubMessage processExtRACardRenewalRequest(Admin admin, CardRenewalRequest submessage) {
+    private ISubMessage processExtRACardRenewalRequest(AuthenticationToken admin, CardRenewalRequest submessage) {
 		log.debug("Processing ExtRACardRenewalRequest");
 		ExtRAResponse retval = null;
 		try {
@@ -69,10 +71,10 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 				BigInteger serno = CertTools.getSerialNumber(authcert);
 				String issuerDN = CertTools.getIssuerDN(authcert);
                 // Verify the certificates with CA cert, and then verify the pcks10 requests
-                CertificateInfo authInfo = certificateStoreSession.getCertificateInfo(admin, CertTools.getFingerprintAsString(authcert));
-                Certificate authcacert = certificateStoreSession.findCertificateByFingerprint(admin, authInfo.getCAFingerprint());
-                CertificateInfo signInfo = certificateStoreSession.getCertificateInfo(admin, CertTools.getFingerprintAsString(signcert));
-                Certificate signcacert = certificateStoreSession.findCertificateByFingerprint(admin, signInfo.getCAFingerprint());
+                CertificateInfo authInfo = certificateStoreSession.getCertificateInfo(CertTools.getFingerprintAsString(authcert));
+                Certificate authcacert = certificateStoreSession.findCertificateByFingerprint(authInfo.getCAFingerprint());
+                CertificateInfo signInfo = certificateStoreSession.getCertificateInfo(CertTools.getFingerprintAsString(signcert));
+                Certificate signcacert = certificateStoreSession.findCertificateByFingerprint(signInfo.getCAFingerprint());
                 // Verify certificate
                 try {
                     authcert.verify(authcacert.getPublicKey());                    
@@ -121,9 +123,9 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                 }
                 
                 // Now start the actual work, we are ok and verified here
-				String username = certificateStoreSession.findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
+				String username = certificateStoreSession.findUsernameByCertSerno(serno, CertTools.stringToBCDNString(issuerDN));
 				if (username != null) {
-		            final UserDataVO data = userAdminSession.findUser(admin, username);
+		            final EndEntityInformation data = userAdminSession.findUser(admin, username);
 		            if ( data.getStatus() != UserDataConstants.STATUS_NEW) {
 		            	log.error("User status must be new for "+username);
 						retval = new ExtRAResponse(submessage.getRequestId(),false,"User status must be new for "+username);
@@ -183,17 +185,17 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                         }
 
 		            	// Set certificate profile and CA for auth certificate
-                        UserDataVO newUser = new UserDataVO(username, data.getDN(), authCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), authCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
+                        EndEntityInformation newUser = new EndEntityInformation(username, data.getDN(), authCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), authCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
                         userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
                         userAdminSession.changeUser(admin, newUser, false); 
 
 		            	// We may have changed to a new auto generated password
-			            UserDataVO data1 = userAdminSession.findUser(admin, username);
+                        EndEntityInformation data1 = userAdminSession.findUser(admin, username);
 		            	Certificate authcertOut=pkcs10CertRequest(admin, signSession, authPkcs10, username, data1.getPassword());
 
 		            	// Set certificate and CA for sign certificate
-                        newUser = new UserDataVO(username, data.getDN(), signCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), signCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
+                        newUser = new EndEntityInformation(username, data.getDN(), signCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), signCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
                         userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
                         userAdminSession.changeUser(admin, newUser, false); 
@@ -243,13 +245,15 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
      * @throws CertificateException
      * @throws IOException
      * @throws ClassNotFoundException 
+     * @throws AuthorizationDeniedException 
+     * @throws CesecoreException 
      */
-    private Certificate pkcs10CertRequest(Admin administrator, SignSession signSession, PKCS10RequestMessage req,
-        String username, String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException {
+    private Certificate pkcs10CertRequest(AuthenticationToken administrator, SignSession signSession, PKCS10RequestMessage req,
+        String username, String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException, CesecoreException, AuthorizationDeniedException {
         Certificate cert=null;
 		req.setUsername(username);
         req.setPassword(password);
-        IResponseMessage resp = signSession.createCertificate(administrator,req,X509ResponseMessage.class, null);
+        ResponseMessage resp = signSession.createCertificate(administrator,req,X509ResponseMessage.class, null);
         cert = CertTools.getCertfromByteArray(resp.getResponseMessage());
         return cert;
     }

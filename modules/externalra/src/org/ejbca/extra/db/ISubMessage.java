@@ -12,7 +12,7 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
-import org.ejbca.core.model.IUpgradeableData;
+import org.cesecore.internal.IUpgradeableData;
 
 /**
  * Common interface for all SubMessages. Each implementor is responsible for it's own persistence.

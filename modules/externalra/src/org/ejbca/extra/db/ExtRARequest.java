@@ -12,7 +12,7 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
-import org.ejbca.core.model.UpgradeableDataHashMap;
+import org.cesecore.internal.UpgradeableDataHashMap;
 
 /**
  * Abstract base class of the ExtRA Sub Message request containing request information about the
