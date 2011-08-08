@@ -37,7 +37,6 @@ import org.cesecore.certificates.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.ejb.ca.auth.OldAuthenticationSessionLocal;
-import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
@@ -74,7 +73,6 @@ public class MessageProcessor {
     protected ApprovalSessionLocal approvalSession;
     protected OldAuthenticationSessionLocal authenticationSession;
     protected AccessControlSessionLocal authorizationSession;
-    protected CAAdminSessionLocal caAdminSession;
     protected CaSessionLocal caSession;
     protected CertificateProfileSessionLocal certificateProfileSession;
     protected CertificateStoreSessionLocal certificateStoreSession;
@@ -90,7 +88,6 @@ public class MessageProcessor {
     	approvalSession = (ApprovalSessionLocal) ejbs.get(ApprovalSessionLocal.class);
     	authenticationSession = (OldAuthenticationSessionLocal) ejbs.get(OldAuthenticationSessionLocal.class);
     	authorizationSession = (AccessControlSessionLocal) ejbs.get(AccessControlSessionLocal.class);
-    	caAdminSession = (CAAdminSessionLocal) ejbs.get(CAAdminSessionLocal.class);
     	caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
     	certificateProfileSession = (CertificateProfileSessionLocal) ejbs.get(CertificateProfileSessionLocal.class);
     	certificateStoreSession = (CertificateStoreSessionLocal) ejbs.get(CertificateStoreSessionLocal.class);

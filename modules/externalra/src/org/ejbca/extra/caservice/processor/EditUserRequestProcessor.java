@@ -14,10 +14,10 @@ package org.ejbca.extra.caservice.processor;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.EditUserRequest;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
@@ -42,7 +42,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
     private ISubMessage processExtRAEditUserRequest(AuthenticationToken admin, EditUserRequest submessage) {
 		log.debug("Processing ExtRAEditUserRequest");
 		ExtRAResponse retval = null;
-        UserDataVO userdata = null;
+        EndEntityInformation userdata = null;
 		try{
             userdata = generateUserDataVO(admin, submessage);
             userdata.setPassword(submessage.getPassword());			   

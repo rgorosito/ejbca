@@ -18,8 +18,8 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.CertTools;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
@@ -53,12 +53,12 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 				retval = new ExtRAResponse(submessage.getRequestId(),false,"Either username or issuer/serno is required");
 			} else {
 				if (StringUtils.isEmpty(username)) {
-					username = certificateStoreSession.findUsernameByCertSerno(admin, serno, CertTools.stringToBCDNString(issuerDN));
+					username = certificateStoreSession.findUsernameByCertSerno(serno, CertTools.stringToBCDNString(issuerDN));
 				} 
 				if (username != null) {
 					if ( (submessage.getRevokeAll() || submessage.getRevokeUser()) ) {
 						// Revoke all users certificates by revoking the whole user
-						UserDataVO vo = userAdminSession.findUser(admin,username);
+						EndEntityInformation vo = userAdminSession.findUser(admin,username);
 						if (vo != null) {
 							userAdminSession.revokeUser(admin,username, submessage.getRevocationReason());
 							if (!submessage.getRevokeUser()) {

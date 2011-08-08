@@ -18,10 +18,10 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
+import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS10Request;
@@ -58,7 +58,7 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 		    	  log.debug("Empty password received, createOrEditUser=true so setting default password.");
 		    	  password = "foo123";
 		      }
-	          UserDataVO userdata = generateUserDataVO(admin, submessage);
+	          EndEntityInformation userdata = generateUserDataVO(admin, submessage);
 	          userdata.setPassword(password);
 	          log.info("Creating/editing user: "+userdata.getUsername()+", with dn: "+userdata.getDN());
 	    	  // See if the user already exists, if it exists and have status NEW or INPROCESS we will not try to change it

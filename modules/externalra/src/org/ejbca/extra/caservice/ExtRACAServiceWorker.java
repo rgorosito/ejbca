@@ -35,11 +35,10 @@ import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.util.CertTools;
-import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
-import org.ejbca.core.model.log.Admin;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
 import org.ejbca.extra.caservice.processor.MessageProcessor;
@@ -76,7 +75,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	/** Semaphore to keep several processes from running simultaneously on the same host */
 	private static HashMap<String,Object> running = new HashMap<String,Object>();
 
-	private CAAdminSessionLocal caAdminSession;
+	private CaSessionLocal caSession;
 	private CertificateStoreSessionLocal certificateStoreSession;
 	private UserAdminSessionLocal userAdminSession;
 	
@@ -86,8 +85,10 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	 * @see org.ejbca.core.model.services.IWorker#work(Map<Class<?>, Object>)
 	 */
 	public void work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
-		log.debug(">work: "+serviceName);
-        caAdminSession = ((CAAdminSessionLocal)ejbs.get(CAAdminSessionLocal.class));
+		if (log.isDebugEnabled()) {
+			log.debug(">work: "+serviceName);
+		}
+        caSession = ((CaSessionLocal)ejbs.get(CaSessionLocal.class));
         certificateStoreSession = ((CertificateStoreSessionLocal)ejbs.get(CertificateStoreSessionLocal.class));
         userAdminSession = ((UserAdminSessionLocal)ejbs.get(UserAdminSessionLocal.class));
 		if (startWorking()) {
@@ -102,7 +103,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		} else {
 			log.info("Service "+ExtRACAServiceWorker.class.getName()+" with name "+serviceName+" is already running in this VM! Not starting work.");
 		}
-		log.debug("<work: "+serviceName);
+		if (log.isDebugEnabled()) {
+			log.debug("<work: "+serviceName);
+		}
 	}
 
 	/** Synchronized method that makes checks if another service thread with this particular service name is already running. 
@@ -134,26 +137,33 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		// Oh, and if no configuration exist it uses the hard coded values from the top of this file.
 		
 		String persistenceUnit = this.properties.getProperty("externalra-caservice.persistenceunit", "RAMessage1DS");
-		log.debug("externalra-caservice.hibernateresource: " + persistenceUnit);
-
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.hibernateresource: " + persistenceUnit);
+		}
 		String keystorePath = this.properties.getProperty("externalra-caservice.keystore.path", "keystore/extrakeystore.p12");
-		log.debug("externalra-caservice.keystore.path: "+keystorePath);
-
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.keystore.path: "+keystorePath);
+		}
 		keystorePwd = this.properties.getProperty("externalra-caservice.keystore.pwd", "foo123");
-		log.debug("externalra-caservice.keystore.pwd: "+keystorePwd);
-
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.keystore.pwd: "+keystorePwd);
+		}
 		encryptionRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.encryption.required", "false"));
-		log.debug("externalra-caservice.encryption.required: "+encryptionRequired);
-
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.encryption.required: "+encryptionRequired);
+		}
 		signatureRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.signature.required", "false"));
-		log.debug("externalra-caservice.signature.required: "+signatureRequired);
-
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.signature.required: "+signatureRequired);
+		}
 		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1");
-		log.debug("externalra-caservice.raissuer: "+caname);
-		
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.raissuer: "+caname);
+		}		
 		whiteList = this.properties.getProperty("externalra-caservice.whitelist", "");
-		log.debug("externalra-caservice.whitelist: "+whiteList);
-		
+		if (log.isDebugEnabled()) {
+			log.debug("externalra-caservice.whitelist: "+whiteList);
+		}		
 		// Initialize the JPA provider with the current persistence unit
 		if (entityManagerFactories.get(persistenceUnit) == null) {
 			EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory(persistenceUnit);
@@ -172,7 +182,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			if(encryptionRequired || signatureRequired){
 			  log.error("Error reading ExtRACAService keystore" ,e);
 			}else{
-			  log.debug("ExtRACAService KeyStore couldn't be configured, but isn't required");	
+				if (log.isDebugEnabled()) {
+					log.debug("ExtRACAService KeyStore couldn't be configured, but isn't required");
+				}
 			}
 		}
 	}
@@ -186,13 +198,15 @@ public class ExtRACAServiceWorker extends BaseWorker {
 
 		Collection<Certificate> cACertChain = null;
 		try {
-			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, caAdminSession);
+			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, caSession);
 		} catch (ConfigurationException e) {
 			if(encryptionRequired || signatureRequired){
 				log.error("RAIssuer is misconfigured: ", e);
 				return;
 			}else{
-				log.debug("RAIssuer is misconfigured, but isn't required");	
+				if (log.isDebugEnabled()) {
+					log.debug("RAIssuer is misconfigured, but isn't required");
+				}
 			}
 		}				
 
@@ -225,16 +239,18 @@ public class ExtRACAServiceWorker extends BaseWorker {
 						} else {
 							submgs =  msg.getSubMessages(null,null,null);
 						}
-						if (submgs.isSigned()) {
-							log.debug("Message from : " + msg.getMessageid() + " was signed");
+						if (log.isDebugEnabled()) {
+							if (submgs.isSigned()) {
+								log.debug("Message from : " + msg.getMessageid() + " was signed");
+							}
+							if (submgs.isEncrypted()) {
+								log.debug("Message from : " + msg.getMessageid() + " was encrypted");
+							}
 						}
 						if (signatureRequired && !submgs.isSigned()) {
 							errormessage = "Error: Message from : " + msg.getMessageid() + " wasn't signed which is a requirement";
 							log.error(errormessage);
 
-						}
-						if (submgs.isEncrypted()) {
-							log.debug("Message from : " + msg.getMessageid() + " was encrypted");
 						}
 						if (encryptionRequired && !submgs.isEncrypted()) {
 							errormessage = "Error: Message from : " + msg.getMessageid() + " wasn't encrypted which is a requirement";
@@ -292,9 +308,13 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	}
 
 	protected void storeMessageInRA(Message msg){
-		log.trace(">storeMessageInRA() MessageId : " + msg.getMessageid());
+		if (log.isTraceEnabled()) {
+			log.trace(">storeMessageInRA() MessageId : " + msg.getMessageid());
+		}
 		getMessageHome().update(msg);
-		log.trace("<storeMessageInRA() MessageId : " + msg.getMessageid());		
+		if (log.isTraceEnabled()) {
+			log.trace("<storeMessageInRA() MessageId : " + msg.getMessageid());
+		}
 	}
 	
 
@@ -366,7 +386,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		}
 		if (whiteList.indexOf(classname) == -1) {
 			log.info("Rejected External RA API submessage of type " + classname + " since it's not in the whitelist.");
-			log.debug("Whitelist was " + whiteList);
+			if (log.isDebugEnabled()) {
+				log.debug("Whitelist was " + whiteList);
+			}
 			return false;
 		}
 		return true;

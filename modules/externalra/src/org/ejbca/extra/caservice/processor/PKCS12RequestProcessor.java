@@ -31,7 +31,6 @@ import org.cesecore.keys.util.KeyTools;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ra.UserDataConstants;
-import org.ejbca.core.model.ra.UserDataVO;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS12Request;
@@ -80,7 +79,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	      
 	      // Generate Keystore
 	      // Fetch CA Cert Chain.	        
-	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(admin, submessage.getCAName(), false, caAdminSession).toArray(new Certificate[0]);
+	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(admin, submessage.getCAName(), false, caSession).toArray(new Certificate[0]);
 	      String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 	      if (alias == null){
 	    	  alias = submessage.getUsername();
