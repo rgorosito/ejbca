@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.AccessControlSessionLocal;
 import org.cesecore.certificates.ca.CADoesntExistsException;
@@ -233,7 +232,7 @@ public class MessageProcessor {
 	 * Help method used to store userdata in userdatabase with given status, that is
 	 * waiting for user to be reviewed. This methid handles approval as well.
 	 */
-	protected void storeUserData(X509CertificateAuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, int status) throws Exception {
+	protected void storeUserData(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, int status) throws Exception {
 		log.trace(">storeUserData() username : " + userdata.getUsername());
 
         // First we will look to see if there is an existing approval request pending for this user within the last hour
