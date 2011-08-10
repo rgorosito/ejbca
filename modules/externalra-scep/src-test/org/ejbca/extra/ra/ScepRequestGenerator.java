@@ -59,7 +59,7 @@ import org.bouncycastle.cms.CMSSignedGenerator;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.util.AlgorithmConstants;
-import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.CertTools;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 
 public class ScepRequestGenerator {

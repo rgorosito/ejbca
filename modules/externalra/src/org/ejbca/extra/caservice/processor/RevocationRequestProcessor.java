@@ -19,7 +19,7 @@ import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.endentity.EndEntityInformation;
-import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.CertTools;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;

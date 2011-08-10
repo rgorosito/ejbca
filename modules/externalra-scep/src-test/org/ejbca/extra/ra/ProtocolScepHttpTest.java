@@ -63,8 +63,8 @@ import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.util.AlgorithmConstants;
-import org.cesecore.certificates.util.CertTools;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 

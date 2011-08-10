@@ -26,7 +26,7 @@ import javax.persistence.Persistence;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.extra.db.Message;
 import org.ejbca.extra.db.MessageHome;

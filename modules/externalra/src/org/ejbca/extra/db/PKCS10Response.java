@@ -22,7 +22,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bouncycastle.util.encoders.Base64;
-import org.cesecore.certificates.util.CertTools;
+import org.cesecore.util.CertTools;
 
 /**
  * Response to a ExtRAPKCS10Request, contains a generated certificate if operation was successful. The
