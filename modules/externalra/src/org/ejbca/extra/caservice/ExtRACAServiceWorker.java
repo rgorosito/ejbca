@@ -332,8 +332,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		if(submessages.isSigned()){
 			// Check if Signer Cert is revoked
 			X509Certificate signerCert = submessages.getSignerCert();
+			
 			AuthenticationToken admin = userAdminSession.getAdmin(signerCert);
-			// Check that user have the administrator flag set.
+			// Check that user exists in the database.
 			userAdminSession.checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
 			boolean isRevoked = certificateStoreSession.isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
 			if (isRevoked) {
