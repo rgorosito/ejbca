@@ -36,7 +36,7 @@ import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
-import org.ejbca.core.ejb.ca.auth.OldAuthenticationSessionLocal;
+import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
@@ -71,7 +71,7 @@ public class MessageProcessor {
 	private static final int APPROVAL_REJECT_TIMEOUT = -30;
 
     protected ApprovalSessionLocal approvalSession;
-    protected OldAuthenticationSessionLocal authenticationSession;
+    protected EndEntityAuthenticationSessionLocal authenticationSession;
     protected AccessControlSessionLocal authorizationSession;
     protected CaSessionLocal caSession;
     protected CertificateProfileSessionLocal certificateProfileSession;
@@ -86,7 +86,7 @@ public class MessageProcessor {
     
     public void setEjbs(Map<Class<?>, Object> ejbs) {
     	approvalSession = (ApprovalSessionLocal) ejbs.get(ApprovalSessionLocal.class);
-    	authenticationSession = (OldAuthenticationSessionLocal) ejbs.get(OldAuthenticationSessionLocal.class);
+    	authenticationSession = (EndEntityAuthenticationSessionLocal) ejbs.get(EndEntityAuthenticationSessionLocal.class);
     	authorizationSession = (AccessControlSessionLocal) ejbs.get(AccessControlSessionLocal.class);
     	caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
     	certificateProfileSession = (CertificateProfileSessionLocal) ejbs.get(CertificateProfileSessionLocal.class);
