@@ -40,7 +40,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 
 	private static final Logger log = Logger.getLogger(KeyStoreRetrievalRequestProcessor.class);
 
-	/** @see ISubMessageProcessor#process(Admin, ISubMessage, String) */
+	/** @see ISubMessageProcessor#process(AuthenticationToken, ISubMessage, String) */
 	public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if(errormessage == null){
 			return processKeyStoreRetrievalRequest(admin, (KeyStoreRetrievalRequest) submessage);

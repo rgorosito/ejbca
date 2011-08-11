@@ -71,7 +71,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	private static final String MSG_UNSUPPORTED_RESPONSE_TYPE = "Unsupported response type.";
 	private static final String MSG_UNSUPPORTED_REQUEST_TYPE = "Unsupported request type.";
 	
-	/** @see ISubMessageProcessor#process(Admin, ISubMessage, String) */
+	/** @see ISubMessageProcessor#process(AuthenticationToken, ISubMessage, String) */
 	public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
 		if (errormessage == null) {
 			return processCertificateRequestRequest(admin, (CertificateRequestRequest) submessage);
