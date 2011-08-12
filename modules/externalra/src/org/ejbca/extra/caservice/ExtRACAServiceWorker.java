@@ -22,8 +22,10 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.persistence.EntityManagerFactory;
@@ -32,12 +34,13 @@ import javax.persistence.Persistence;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
+import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
-import org.cesecore.util.CertTools;
+import org.ejbca.core.ejb.authentication.WebAuthenticationProviderSessionLocal;
 import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
@@ -78,6 +81,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	private CaSessionLocal caSession;
 	private CertificateStoreSessionLocal certificateStoreSession;
 	private UserAdminSessionLocal userAdminSession;
+    private WebAuthenticationProviderSessionLocal authenticationSession;
 	
 	/**
 	 * Checks if there are any new messages on the External RA and processes them.
@@ -88,9 +92,10 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		if (log.isDebugEnabled()) {
 			log.debug(">work: "+serviceName);
 		}
-        caSession = ((CaSessionLocal)ejbs.get(CaSessionLocal.class));
-        certificateStoreSession = ((CertificateStoreSessionLocal)ejbs.get(CertificateStoreSessionLocal.class));
-        userAdminSession = ((UserAdminSessionLocal)ejbs.get(UserAdminSessionLocal.class));
+        caSession = (CaSessionLocal)ejbs.get(CaSessionLocal.class);
+        certificateStoreSession = (CertificateStoreSessionLocal)ejbs.get(CertificateStoreSessionLocal.class);
+        userAdminSession = (UserAdminSessionLocal)ejbs.get(UserAdminSessionLocal.class);
+        authenticationSession = (WebAuthenticationProviderSessionLocal)ejbs.get(WebAuthenticationProviderSessionLocal.class);
 		if (startWorking()) {
 			try {
 				// A semaphore used to not run parallel service jobs on the same host so not to start unlimited number of threads just
@@ -333,13 +338,13 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			// Check if Signer Cert is revoked
 			X509Certificate signerCert = submessages.getSignerCert();
 			
-			AuthenticationToken admin = userAdminSession.getAdmin(signerCert);
-			// Check that user exists in the database.
-			userAdminSession.checkIfCertificateBelongToUser(admin, signerCert.getSerialNumber(), signerCert.getIssuerDN().toString());
-			boolean isRevoked = certificateStoreSession.isRevoked(CertTools.stringToBCDNString(signerCert.getIssuerDN().toString()), signerCert.getSerialNumber());
-			if (isRevoked) {
-				throw new SignatureException("Error Signer certificate doesn't exist or is revoked.");
-			}
+	        final Set<X509Certificate> credentials = new HashSet<X509Certificate>();
+	        credentials.add(signerCert);
+	        AuthenticationSubject subject = new AuthenticationSubject(null, credentials);
+	        AuthenticationToken admin = authenticationSession.authenticate(subject);
+	        if (admin == null) {
+				throw new SignatureException("Error Signer certificate does not exist or is revoked.");
+	        }
 			return admin;
 		}
 		return internalUser;
