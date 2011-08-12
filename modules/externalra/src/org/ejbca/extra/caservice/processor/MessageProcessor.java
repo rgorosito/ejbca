@@ -36,6 +36,7 @@ import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
+import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.config.GlobalConfigurationSessionLocal;
@@ -73,6 +74,7 @@ public class MessageProcessor {
     protected ApprovalSessionLocal approvalSession;
     protected EndEntityAuthenticationSessionLocal authenticationSession;
     protected AccessControlSessionLocal authorizationSession;
+    protected ComplexAccessControlSessionLocal complexAccessControlSession;
     protected CaSessionLocal caSession;
     protected CertificateProfileSessionLocal certificateProfileSession;
     protected CertificateStoreSessionLocal certificateStoreSession;
@@ -98,6 +100,7 @@ public class MessageProcessor {
     	signSession = (SignSessionLocal) ejbs.get(SignSessionLocal.class);
     	userAdminSession = (UserAdminSessionLocal) ejbs.get(UserAdminSessionLocal.class);
     	certificateRequestSession = (CertificateRequestSessionLocal) ejbs.get(CertificateRequestSessionLocal.class);
+    	complexAccessControlSession = (ComplexAccessControlSessionLocal)ejbs.get(ComplexAccessControlSessionLocal.class);
     }
 
 	/**
@@ -253,7 +256,7 @@ public class MessageProcessor {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.HOUR_OF_DAY, -1);
 		query.add(cal.getTime(), now);
-        RAAuthorization raAuthorization = new RAAuthorization(admin, globalConfigurationSession, authorizationSession, caSession, endEntityProfileSession);
+        RAAuthorization raAuthorization = new RAAuthorization(admin, globalConfigurationSession, authorizationSession, complexAccessControlSession, caSession, endEntityProfileSession);
 		List<ApprovalDataVO> approvals = approvalSession.query(admin, query, 0, 25, raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString());
 		// If there is an request waiting for approval we don't have to go on and try to add the user
         if (approvals.size() > 0) {
