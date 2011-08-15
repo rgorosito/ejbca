@@ -55,7 +55,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			EndEntityInformation userdata = null;
 			
 			if(submessage.getReUseCertificate()){
-				userdata = userAdminSession.findUser(admin,submessage.getUsername());
+				userdata = endEntityAccessSession.findUser(admin,submessage.getUsername());
 			}else{
 			  userdata = generateUserDataVO(admin, submessage);
 			  userdata.setPassword("foo123");

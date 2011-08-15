@@ -58,7 +58,7 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 				if (username != null) {
 					if ( (submessage.getRevokeAll() || submessage.getRevokeUser()) ) {
 						// Revoke all users certificates by revoking the whole user
-						EndEntityInformation vo = userAdminSession.findUser(admin,username);
+						EndEntityInformation vo = endEntityAccessSession.findUser(admin,username);
 						if (vo != null) {
 							userAdminSession.revokeUser(admin,username, submessage.getRevocationReason());
 							if (!submessage.getRevokeUser()) {

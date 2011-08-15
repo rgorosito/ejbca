@@ -125,7 +125,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                 // Now start the actual work, we are ok and verified here
 				String username = certificateStoreSession.findUsernameByCertSerno(serno, CertTools.stringToBCDNString(issuerDN));
 				if (username != null) {
-		            final EndEntityInformation data = userAdminSession.findUser(admin, username);
+		            final EndEntityInformation data = endEntityAccessSession.findUser(admin, username);
 		            if ( data.getStatus() != UserDataConstants.STATUS_NEW) {
 		            	log.error("User status must be new for "+username);
 						retval = new ExtRAResponse(submessage.getRequestId(),false,"User status must be new for "+username);
@@ -191,7 +191,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                         userAdminSession.changeUser(admin, newUser, false); 
 
 		            	// We may have changed to a new auto generated password
-                        EndEntityInformation data1 = userAdminSession.findUser(admin, username);
+                        EndEntityInformation data1 = endEntityAccessSession.findUser(admin, username);
 		            	Certificate authcertOut=pkcs10CertRequest(admin, signSession, authPkcs10, username, data1.getPassword());
 
 		            	// Set certificate and CA for sign certificate
@@ -201,7 +201,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                         userAdminSession.changeUser(admin, newUser, false); 
 
                         // We may have changed to a new auto generated password
-			            data1 = userAdminSession.findUser(admin, username);
+			            data1 = endEntityAccessSession.findUser(admin, username);
 		            	Certificate signcertOut=pkcs10CertRequest(admin, signSession, signPkcs10, username, data1.getPassword());
 
 		            	// We are generated all right
