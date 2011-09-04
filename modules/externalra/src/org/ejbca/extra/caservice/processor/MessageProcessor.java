@@ -317,7 +317,7 @@ public class MessageProcessor {
 	private int getCertificateProfileId(AuthenticationToken admin, String certificateProfileName) throws EjbcaException {		
 		int retval = certificateProfileSession.getCertificateProfileId(certificateProfileName);
 		if(retval == 0){
-			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' doesn't exists.");
+			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' does not exist.");
 		}
 		return retval;
 	}
@@ -325,7 +325,7 @@ public class MessageProcessor {
 	private int getEndEntityProfileId(AuthenticationToken admin,String endEntityProfileName) throws EjbcaException {
 		int retval = endEntityProfileSession.getEndEntityProfileId(admin,endEntityProfileName);
 		if(retval == 0){
-			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' doesn't exists.");
+			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' does not exist.");
 		}
 		return retval;
 	}

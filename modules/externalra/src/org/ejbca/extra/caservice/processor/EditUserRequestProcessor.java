@@ -81,7 +81,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		}
 		int retval = hardTokenSession.getHardTokenProfileId(admin,tokenName);
 		if(retval == 0){
-			throw new EjbcaException("Error Token with name " + tokenName + " doesn't exists.");
+			throw new EjbcaException("Error Token with name " + tokenName + " does not exist.");
 		}
 		return retval;
 	}
