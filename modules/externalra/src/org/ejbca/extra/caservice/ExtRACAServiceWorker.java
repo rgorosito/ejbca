@@ -39,9 +39,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CaSessionLocal;
-import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.ejbca.core.ejb.authentication.WebAuthenticationProviderSessionLocal;
-import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
 import org.ejbca.extra.caservice.processor.MessageProcessor;
@@ -79,8 +77,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	private static HashMap<String,Object> running = new HashMap<String,Object>();
 
 	private CaSessionLocal caSession;
-	private CertificateStoreSessionLocal certificateStoreSession;
-	private UserAdminSessionLocal userAdminSession;
     private WebAuthenticationProviderSessionLocal authenticationSession;
 	
 	/**
@@ -93,8 +89,6 @@ public class ExtRACAServiceWorker extends BaseWorker {
 			log.debug(">work: "+serviceName);
 		}
         caSession = (CaSessionLocal)ejbs.get(CaSessionLocal.class);
-        certificateStoreSession = (CertificateStoreSessionLocal)ejbs.get(CertificateStoreSessionLocal.class);
-        userAdminSession = (UserAdminSessionLocal)ejbs.get(UserAdminSessionLocal.class);
         authenticationSession = (WebAuthenticationProviderSessionLocal)ejbs.get(WebAuthenticationProviderSessionLocal.class);
 		if (startWorking()) {
 			try {

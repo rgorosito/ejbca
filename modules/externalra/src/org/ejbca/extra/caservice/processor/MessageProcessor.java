@@ -225,7 +225,7 @@ public class MessageProcessor {
                    UserDataConstants.STATUS_INPROCESS,
                    SecConst.USER_ENDUSER,
                    getEndEntityProfileId(admin, submessage.getEndEntityProfileName()),
-                   getCertificateProfileId(admin, submessage.getCertificateProfileName()),
+                   getCertificateProfileId(submessage.getCertificateProfileName()),
                    null,
                    null,
                    SecConst.TOKEN_SOFT_BROWSERGEN,
@@ -314,7 +314,7 @@ public class MessageProcessor {
 		log.trace("<storeUserData()");
 	}
 
-	private int getCertificateProfileId(AuthenticationToken admin, String certificateProfileName) throws EjbcaException {		
+	private int getCertificateProfileId(String certificateProfileName) throws EjbcaException {		
 		int retval = certificateProfileSession.getCertificateProfileId(certificateProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error Certificate profile '" + certificateProfileName + "' does not exist.");
