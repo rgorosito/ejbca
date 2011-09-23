@@ -61,7 +61,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     	if (log.isDebugEnabled()) {
     		log.debug("Processing ExtRAPKCS12Request");
     	}
-		usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration(internalUser).getEnableKeyRecovery();
+		usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration().getEnableKeyRecovery();
     	if (log.isDebugEnabled()) {
     		log.debug("Key recovery enabled: "+ usekeyrecovery);
     	}
