@@ -247,7 +247,7 @@ public class MessageProcessor {
                 userdata.getEndEntityProfileId());
         int approvalid = aar.generateApprovalId();
 		// Check if user already exists
-        if (userAdminSession.existsUser(admin, userdata.getUsername())) {
+        if (userAdminSession.existsUser(userdata.getUsername())) {
         	// a user already exists, so this is an edit entity request we are preparing
         	log.debug("User already exist, we will look for an edit end entity request");
         	approvalid = ear.generateApprovalId();
