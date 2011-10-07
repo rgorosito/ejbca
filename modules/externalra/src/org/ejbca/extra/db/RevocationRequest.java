@@ -22,6 +22,9 @@ import java.math.BigInteger;
  * setting the parameter revokeuser to true. You can also optionally request revocation of all the users
  * certificates, but without revoking the user itself, do this by setting revokall to true.
  *  
+ * REVOKATION_REASON_REMOVEFROMCRL can be used to "unrevoke" a certificate that was previously revoked 
+ * with reason REVOKATION_REASON_CERTIFICATEHOLD
+ *
  * Parameters inherited from the base class ExtRARequest is ignored.
  * 
  * @author philip
@@ -44,6 +47,7 @@ public class RevocationRequest extends ExtRARequest {
     public static final int REVOKATION_REASON_SUPERSEDED           = 4;
     public static final int REVOKATION_REASON_CESSATIONOFOPERATION = 5;
     public static final int REVOKATION_REASON_CERTIFICATEHOLD      = 6;
+    /** REVOKATION_REASON_REMOVEFROMCRL can be used to "unrevoke" a certificate that was previously revoked with reason REVOKATION_REASON_CERTIFICATEHOLD */
     public static final int REVOKATION_REASON_REMOVEFROMCRL        = 8;
     public static final int REVOKATION_REASON_PRIVILEGESWITHDRAWN  = 9;
     public static final int REVOKATION_REASON_AACOMPROMISE         = 10;
