@@ -135,32 +135,6 @@ public class MessageProcessor {
 		final Class implClass = Class.forName(clazz);
 		proc = (ISubMessageProcessor)implClass.newInstance();
 		proc.setEjbs(ejbs);
-
-		/* The above replaces this more cumbersome code below
-		if(submessage instanceof ExtRAPKCS10Request){
-			proc = new PKCS10RequestProcessor();
-		}
-		if(submessage instanceof ExtRAPKCS12Request){
-			proc = new PKCS12RequestProcessor();
-		}
-		if(submessage instanceof ExtRAEditUserRequest){
-			proc = new EditUserRequestProcessor();
-		}
-		if(submessage instanceof ExtRAKeyRecoveryRequest){
-			proc = new KeyRecoveryRequestProcessor();
-		}
-		if(submessage instanceof ExtRARevocationRequest){
-			proc = new RevocationRequestProcessor();
-		}
-		if(submessage instanceof ExtRACardRenewalRequest){
-			proc = new CardRenewalRequestProcessor();
-		}
-		*/
-		
-		if (proc == null) {
-			log.error("Received an illegal submessage request :" + submessage.getClass().getName());
-			return null; // Should never happen.					
-		}
 		
 		ISubMessage ret = proc.process(admin, submessage, errormessage);
 		return ret;
