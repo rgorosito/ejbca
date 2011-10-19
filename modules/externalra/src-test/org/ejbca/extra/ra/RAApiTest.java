@@ -17,6 +17,7 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.cert.CertStore;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Iterator;
@@ -45,6 +46,7 @@ import org.ejbca.extra.db.Constants;
 import org.ejbca.extra.db.EditUserRequest;
 import org.ejbca.extra.db.ExtRAMessagesTest;
 import org.ejbca.extra.db.ExtRAResponse;
+import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.KeyStoreRetrievalRequest;
 import org.ejbca.extra.db.KeyStoreRetrievalResponse;
 import org.ejbca.extra.db.Message;
@@ -102,7 +104,7 @@ public class RAApiTest extends TestCase {
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 2);
 		
-		Iterator iter =  submessagesresp.getSubMessages().iterator();
+		Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
 		PKCS10Response resp = (PKCS10Response) iter.next();
 		assertTrue(resp.getRequestId() == 100);
 		assertTrue(resp.isSuccessful() == true);		
@@ -115,17 +117,19 @@ public class RAApiTest extends TestCase {
         CMSSignedData s = new CMSSignedData(pkcs7);
         // The signer, i.e. the CA, check it's the right CA
         SignerInformationStore signers = s.getSignerInfos();
-        Collection col = signers.getSigners();
+        @SuppressWarnings("unchecked")
+        Collection<SignerInformation> col = signers.getSigners();
         assertTrue(col.size() > 0);
-        Iterator siter = col.iterator();
+        Iterator<SignerInformation> siter = col.iterator();
         SignerInformation signerInfo = (SignerInformation)siter.next();
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuerAsString()));
         CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
-        Collection certs = certstore.getCertificates(null);
+        @SuppressWarnings({ "unchecked"})
+        Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);
         assertEquals(certs.size(), 2);                	
-        Iterator it = certs.iterator();
+        Iterator<Certificate> it = certs.iterator();
         boolean found = false;
         while (it.hasNext()) {
             X509Certificate retcert = (X509Certificate)it.next();
@@ -158,7 +162,7 @@ public class RAApiTest extends TestCase {
 		assertNotNull("No response", msg);
 		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);		
-		Iterator iter =  submessagesresp.getSubMessages().iterator();
+		Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
 		PKCS10Response resp = (PKCS10Response) iter.next();
 		assertTrue(resp.getRequestId() == 100);
 		assertTrue(resp.isSuccessful() == false);
@@ -196,17 +200,19 @@ public class RAApiTest extends TestCase {
         CMSSignedData s = new CMSSignedData(pkcs7);
         // The signer, i.e. the CA, check it's the right CA
         SignerInformationStore signers = s.getSignerInfos();
-        Collection col = signers.getSigners();
+        @SuppressWarnings("unchecked")
+        Collection<SignerInformation>col = signers.getSigners();
         assertTrue(col.size() > 0);
-        Iterator siter = col.iterator();
+        Iterator<SignerInformation> siter = col.iterator();
         SignerInformation signerInfo = (SignerInformation)siter.next();
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuerAsString()));
         CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
-        Collection certs = certstore.getCertificates(null);
+        @SuppressWarnings("unchecked")
+        Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);
         assertEquals(certs.size(), 2);                	
-        Iterator it = certs.iterator();
+        Iterator<Certificate> it = certs.iterator();
         boolean found = false;
         while (it.hasNext()) {
             X509Certificate retcert = (X509Certificate)it.next();
@@ -485,7 +491,7 @@ public class RAApiTest extends TestCase {
 		assertTrue(submessagesresp.getSubMessages().size() == 3);
 		
 		
-		Iterator iter = submessagesresp.getSubMessages().iterator();
+		Iterator<ISubMessage> iter = submessagesresp.getSubMessages().iterator();
 		PKCS10Response resp1 = (PKCS10Response) iter.next();
 		PKCS12Response resp2 = (PKCS12Response) iter.next();
 		PKCS12Response resp3 = (PKCS12Response) iter.next();
