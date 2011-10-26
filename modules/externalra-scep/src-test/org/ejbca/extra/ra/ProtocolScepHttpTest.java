@@ -13,6 +13,12 @@
 
 package org.ejbca.extra.ra;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,9 +45,6 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Iterator;
 
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
-
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Set;
@@ -67,6 +70,8 @@ import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Tests SCEP enrollment with an RA (SCEP polling RA mode).
@@ -74,7 +79,7 @@ import org.ejbca.core.protocol.scep.ScepRequestMessage;
  * 
  * @version $Id$
  */
-public class ProtocolScepHttpTest extends TestCase {
+public class ProtocolScepHttpTest {
     private static Logger log = Logger.getLogger(ProtocolScepHttpTest.class);
 
     private static final String httpReqPath = "http://127.0.0.1:8080";
@@ -92,16 +97,8 @@ public class ProtocolScepHttpTest extends TestCase {
     private String transId = null;
     private String senderNonce = null;
 
-    public static void main(String args[]) {
-        junit.textui.TestRunner.run(suite());
-    }
-
-    public static TestSuite suite() {
-        return new TestSuite(ProtocolScepHttpTest.class);
-    }
-
-    public ProtocolScepHttpTest(String name) throws Exception {
-        super(name);
+    @BeforeClass
+    public static void beforeClass() throws Exception {
         // Install BouncyCastle provider
         CryptoProviderTools.installBCProvider();
 		if (keys == null) {
@@ -109,16 +106,15 @@ public class ProtocolScepHttpTest extends TestCase {
 		}
     }
 
-    public void setUp() throws Exception { }
-    public void tearDown() throws Exception { }
-
     // GetCACert and GetCACertChain behaves the same if it is an RA that responds
+    @Test
     public void test02ScepGetCACert() throws Exception {
         log.debug(">test02ScepGetCACert()");
     	scepGetCACertChain("GetCACert", "application/x-x509-ca-ra-cert");    	
         log.debug(">test02ScepGetCACert()");
     }
 
+    @Test
     public void test03ScepGetCACertChain() throws Exception {
         log.debug(">test03ScepGetCACertChain()");
     	scepGetCACertChain("GetCACertChain", "application/x-x509-ca-ra-cert-chain");    	
@@ -169,6 +165,7 @@ public class ProtocolScepHttpTest extends TestCase {
         assertEquals(radn, racert.getSubjectDN().getName());
     }
     
+    @Test
     public void test04ScepGetCACaps() throws Exception {
         log.debug(">test04ScepGetCACaps()");
         String reqUrl = httpReqPath + '/' + resourceScep+"?operation=GetCACaps&message=test";
@@ -200,6 +197,7 @@ public class ProtocolScepHttpTest extends TestCase {
     // This test will send a request and expect back a pending response.
     // It will then start polling the RA waiting for a real reply.
     // When polling it will accept a pending or a success reply
+    @Test
     public void test05ScepRequestOKSHA1() throws Exception {
         log.debug(">test05ScepRequestOKSHA1()");
         // send SCEP req to RA server and get pending request, until the request is processed on the CA
@@ -238,6 +236,7 @@ public class ProtocolScepHttpTest extends TestCase {
     // This test will send a request and expect back a pending response.
     // It will then start polling the RA waiting for a real reply.
     // When polling it will accept a pending or a success reply
+    @Test
     public void test06ScepRequestOKSHA1PostNoCA() throws Exception {
         log.debug(">test06ScepRequestOKSHA1PostNoCA()");
         // send SCEP req to RA server and get pending request, until the request is processed on the CA
