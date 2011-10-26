@@ -12,29 +12,34 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-import junit.framework.TestCase;
-
 import org.cesecore.util.CryptoProviderTools;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Performs test related to encryption/signature of messages.
  *
  * @version $Id$
  */
-public class ExtRAMsgHelperTest extends TestCase {
-	
-	public void setUp() throws Exception {
-		super.setUp();
+public class ExtRAMsgHelperTest {
+
+    @BeforeClass
+	public static void beforeClass() throws Exception {
 		CryptoProviderTools.installBCProvider();
 	}
 
 	/*
 	 * Test method for 'org.ejbca.extra.db.ExtRAMsgHelper.encryptData(X509Certificate, byte[])'
 	 */
+    @Test
 	public void testEncryptDecryptData() throws Exception {
        String testdata = "TESTDATA";
        
@@ -53,6 +58,7 @@ public class ExtRAMsgHelperTest extends TestCase {
 	/*
 	 * Test method for 'org.ejbca.extra.db.ExtRAMsgHelper.signData(PrivateKey, X509Certificate, byte[])'
 	 */
+    @Test
 	public void testSignVerifyData() throws Exception {
 		
 		String testdata = "DATATOSIGN";

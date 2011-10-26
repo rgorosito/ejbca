@@ -12,28 +12,32 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import java.math.BigInteger;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import junit.framework.TestCase;
-
 import org.cesecore.util.CryptoProviderTools;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Makes sure that request and response classes are serialized properly.
  * 
  * @version $Id$
  */
-public class ExtRAMessagesTest extends TestCase {
+public class ExtRAMessagesTest {
 	
-	public void setUp() throws Exception {
-		super.setUp();
-		CryptoProviderTools.installBCProvider();
-	}
+    @BeforeClass
+    public static void beforeClass() throws Exception {
+        CryptoProviderTools.installBCProvider();
+    }
 	
+	@Test
 	public void testUnencryptedSubMessages() throws Exception {
 						
 		SubMessages submessages = new SubMessages(null,null,null);
@@ -59,6 +63,7 @@ public class ExtRAMessagesTest extends TestCase {
         checkSubMessages(loadedSubMessage.getSubMessages());		
 	}
 	
+    @Test
 	public void testEncryptedSubMessages() throws Exception {
 		
 		SubMessages submessages = new SubMessages(null,null,Constants.getUserCert());
@@ -84,6 +89,7 @@ public class ExtRAMessagesTest extends TestCase {
         checkSubMessages(loadedSubMessage.getSubMessages());		
 	}
 	
+    @Test
 	public void testSignedSubMessages() throws Exception {
 		
 		SubMessages submessages = new SubMessages(Constants.getUserCert(),Constants.getUserKey(),null);
@@ -114,6 +120,7 @@ public class ExtRAMessagesTest extends TestCase {
         checkSubMessages(loadedSubMessage.getSubMessages());		
 	}
 	
+    @Test
 	public void testSignedAndEncryptedSubMessages() throws Exception {
 		
 		SubMessages submessages = new SubMessages(Constants.getUserCert(),Constants.getUserKey(),Constants.getUserCert());
@@ -144,6 +151,7 @@ public class ExtRAMessagesTest extends TestCase {
 	}
 	
 	
+    // Not test methods below
 	public static PKCS10Request genExtRAPKCS10Request(long requestId, String username, String pkcs10, boolean createUser){
 		PKCS10Request req = new PKCS10Request(requestId,username, "CN=PKCS10REQ", "RFC822NAME=PKCS10Request@test.com",
 				                           "PKCS10Request@test.com", null, "EMPTY", "ENDUSER", 

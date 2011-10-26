@@ -12,34 +12,40 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 
 import javax.persistence.Persistence;
 
-import junit.framework.TestCase;
-
 import org.apache.log4j.Logger;
 import org.cesecore.util.CryptoProviderTools;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Makes basic database functionality tests.
  *
  * @version $Id$ 
  */
-public class MessageHomeTest extends TestCase {
+public class MessageHomeTest {
 
 	private static final Logger log = Logger.getLogger(MessageHomeTest.class);
 	
 	private static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test-notpolled"), MessageHome.MESSAGETYPE_EXTRA, true);
 
-	public void setUp() throws Exception {
-		super.setUp();
+	@BeforeClass
+	public static void beforClass() throws Exception {
 		CryptoProviderTools.installBCProvider();
 	}
 
 	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.create(String, String)'
 	 */
+	@Test
 	public void test01Create() throws Exception {
 		SubMessages submessages = new SubMessages(null,null,null);
 		submessages.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10Request(1, "PKCS10REQ", "PKCS10"));
@@ -103,6 +109,7 @@ public class MessageHomeTest extends TestCase {
 	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.update(Message)'
 	 */
+    @Test
 	public void test02Update() {
 		Message msg = msghome.findByMessageId("test1");
 		assertNotNull(msg);
@@ -123,6 +130,7 @@ public class MessageHomeTest extends TestCase {
 	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.findByUser(String)'
 	 */
+    @Test
 	public void test03FindByUser() {
 	  Message msg = msghome.findByMessageId("test1");
 	  assertNotNull(msg);
@@ -135,6 +143,7 @@ public class MessageHomeTest extends TestCase {
 	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.getNextWaitingUser()'
 	 */
+    @Test
 	public void test04GetNextWaitingUser() {
 		log.trace(">test04GetNextWaitingUser");
 		Message msg = msghome.getNextWaitingMessage();
@@ -154,6 +163,7 @@ public class MessageHomeTest extends TestCase {
 	/**
 	 * Test method for 'org.ejbca.extra.db.MessageHome.remove(String)'
 	 */
+    @Test
 	public void test05Remove() {
 		assertNotNull(msghome.findByMessageId("test1"));
 		msghome.remove("test1");

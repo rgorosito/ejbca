@@ -12,6 +12,11 @@
  *************************************************************************/
 package org.ejbca.extra.ra;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -24,8 +29,6 @@ import java.util.Iterator;
 import java.util.Random;
 
 import javax.persistence.Persistence;
-
-import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.cms.CMSSignedData;
@@ -56,6 +59,8 @@ import org.ejbca.extra.db.PKCS12Response;
 import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.util.NonEjbTestTools;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 
 /**
@@ -74,12 +79,12 @@ import org.ejbca.util.NonEjbTestTools;
  * @version $Id$
  */
 
-public class RAApiTest extends TestCase {
+public class RAApiTest {
 
 	private static final Logger log = Logger.getLogger(RAApiTest.class);
-			
-	public void setUp() throws Exception {
-		super.setUp();
+		
+	@BeforeClass
+	public static void beforeClass() throws Exception {
 		CryptoProviderTools.installBCProvider();			
 	}
 	
@@ -87,7 +92,8 @@ public class RAApiTest extends TestCase {
 	private static X509Certificate secondCertificate = null;
 	
 	private static MessageHome msghome = new MessageHome(Persistence.createEntityManagerFactory("external-ra-test"), MessageHome.MESSAGETYPE_EXTRA, true);
-	
+
+    @Test	
 	public void test01GenerateSimplePKCS10Request() throws Exception {
 
 		SubMessages smgs = new SubMessages(null,null,null);
@@ -152,6 +158,7 @@ public class RAApiTest extends TestCase {
 	
 	}
 	
+    @Test
 	public void test02GenerateSimplePKCS10RequestNoCreateUser() throws Exception {
 
 		// First test with a user that does not exist or has status generated, when the user it not created the request will fail
@@ -225,6 +232,7 @@ public class RAApiTest extends TestCase {
 	}
 
 	
+    @Test
 	public void test03GenerateSimplePKCS12Request() throws Exception {		
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS12Request(200,"SimplePKCS12Test1", false));
@@ -252,6 +260,7 @@ public class RAApiTest extends TestCase {
 	}
 	
 	/** This test requires that keyrecovery is enabled in the EJBCA Admin-GUI */
+    @Test
 	public void test04GenerateSimpleKeyRecoveryRequest() throws Exception {
 		// First generate keystore
 		SubMessages smgs = new SubMessages(null,null,null);
@@ -321,6 +330,7 @@ public class RAApiTest extends TestCase {
         assertFalse(keyRecCert.getSerialNumber().equals(orgCert.getSerialNumber()));
 	}
 	
+    @Test
 	public void test05GenerateSimpleRevokationRequest() throws Exception {
 		// revoke first certificate
 		SubMessages smgs = new SubMessages(null,null,null);
@@ -454,6 +464,7 @@ public class RAApiTest extends TestCase {
         assertEquals(resp8.getFailInfo(), "User not found from issuer/serno: issuer='CN=ffo558444,O=338qqwaa,C=qq', serno=123");
 	}
 	
+    @Test
 	public void test06GenerateSimpleEditUserRequest() throws Exception {
 		
 		// edit a user
@@ -474,6 +485,7 @@ public class RAApiTest extends TestCase {
 		assertTrue(resp.isSuccessful() == true);
 	}	
 	
+    @Test
 	public void test07GenerateComplexRequest() throws Exception {
 		
 		SubMessages smgs = new SubMessages(null,null,null);
@@ -503,6 +515,7 @@ public class RAApiTest extends TestCase {
 		assertTrue(resp3.isSuccessful() == true);
 	}
 	
+    @Test
 	public void test08GenerateLotsOfRequest() throws Exception {
 		
 		int numberOfRequests = 10;
@@ -523,6 +536,7 @@ public class RAApiTest extends TestCase {
 		}								
 	} 
 	
+    @Test
 	public void test09GenerateSimpleCardRenewalRequest() throws Exception {
 		
 		// First fail message
@@ -588,6 +602,7 @@ public class RAApiTest extends TestCase {
 	/**
 	 * Add a user and retrieve a keystore for this user.
 	 */
+    @Test
 	public void test10KeyStoreRetrieval() throws Exception {
 		Random random = new Random();
 		long requestId = random.nextLong();
@@ -633,6 +648,7 @@ public class RAApiTest extends TestCase {
 	/**
 	 * Add a user and fetch a certificate for this user.
 	 */
+    @Test
 	public void test11CertificateFromCSR() throws Exception {
 		Random random = new Random();
 		long requestId = random.nextLong();
@@ -674,6 +690,7 @@ public class RAApiTest extends TestCase {
 	/**
 	 * Request certificate for a new user using the OneshotCertReqRequest.
 	 */
+    @Test
 	public void test12OneshotCertReq() throws Exception {
 		final Random random = new Random();
 		final long requestId = random.nextLong();
