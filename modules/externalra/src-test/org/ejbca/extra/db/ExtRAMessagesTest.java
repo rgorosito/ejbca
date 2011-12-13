@@ -107,7 +107,7 @@ public class ExtRAMessagesTest {
 		
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		ArrayList cACerts = new ArrayList();
+		ArrayList<X509Certificate> cACerts = new ArrayList<X509Certificate>();
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
@@ -137,7 +137,7 @@ public class ExtRAMessagesTest {
 		String result = submessages.save();
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		ArrayList cACerts = new ArrayList();
+		ArrayList<X509Certificate> cACerts = new ArrayList<X509Certificate>();
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
@@ -209,8 +209,8 @@ public class ExtRAMessagesTest {
 	  return new PKCS12Response(5,true, "PKCS12RESFAILINFO", Constants.getUserKeyStore(),"foo123");
 	}
 	
-	static void checkSubMessages(List submessages) throws Exception{
-	  Iterator iter = submessages.iterator();
+	static void checkSubMessages(List<ISubMessage> submessages) throws Exception{
+	  Iterator<ISubMessage> iter = submessages.iterator();
 	  while(iter.hasNext()){
 		ISubMessage submessage = (ISubMessage) iter.next();
 		if(submessage instanceof PKCS10Request){

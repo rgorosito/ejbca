@@ -137,9 +137,9 @@ public class ScepRequestGenerator {
         } catch (IOException e) {
             throw new IllegalArgumentException("error encoding value: " + e);
         }
-        Vector oidvec = new Vector();
+        Vector<DERObjectIdentifier> oidvec = new Vector<DERObjectIdentifier>();
         oidvec.add(X509Extensions.SubjectAlternativeName);
-        Vector valuevec = new Vector();
+        Vector<X509Extension> valuevec = new Vector<X509Extension>();
         valuevec.add(new X509Extension(false, new DEROctetString(bOut.toByteArray())));
         X509Extensions exts = new X509Extensions(oidvec,valuevec);
         extensionattr.add(new DERSet(exts));
@@ -187,7 +187,7 @@ public class ScepRequestGenerator {
         CMSSignedDataGenerator gen1 = new CMSSignedDataGenerator();
 
         // add authenticated attributes...status, transactionId, sender- and more...
-        Hashtable attributes = new Hashtable();
+        Hashtable<DERObjectIdentifier, Attribute> attributes = new Hashtable<DERObjectIdentifier, Attribute>();
         DERObjectIdentifier oid;
         Attribute attr;
         DERSet value;
@@ -220,7 +220,7 @@ public class ScepRequestGenerator {
         }
 
         // Add our signer info and sign the message
-        ArrayList certList = new ArrayList();
+        ArrayList<X509Certificate> certList = new ArrayList<X509Certificate>();
         certList.add(cert);
         CertStore certs = CertStore.getInstance("Collection", new CollectionCertStoreParameters(certList), "BC");
         gen1.addCertificatesAndCRLs(certs);
