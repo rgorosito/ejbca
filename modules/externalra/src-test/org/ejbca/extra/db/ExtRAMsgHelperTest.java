@@ -16,6 +16,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -67,25 +68,25 @@ public class ExtRAMsgHelperTest {
 		byte[] signeddata = ExtRAMsgHelper.signData(Constants.getUserKey(),Constants.getUserCert(), testdata.getBytes());
 		assertNotNull(signeddata);
 		
-		List<X509Certificate> caCertChain = new ArrayList<X509Certificate>();
+		List<Certificate> caCertChain = new ArrayList<Certificate>();
 		caCertChain.add(Constants.getRootCert());
 		caCertChain.add(Constants.getIntermediateCert());
 		
 		assertTrue((ExtRAMsgHelper.verifySignature(caCertChain, null, signeddata)).isValid());
 		
 		// Test inverted certchain
-		List<X509Certificate> caCertChain2 = new ArrayList<X509Certificate>();
+		List<Certificate> caCertChain2 = new ArrayList<Certificate>();
 		caCertChain2.add(Constants.getIntermediateCert());
 		caCertChain2.add(Constants.getRootCert());
 		assertTrue((ExtRAMsgHelper.verifySignature(caCertChain2, null, signeddata)).isValid());  
 		
 		// Test to sign with incomplete Certchain, no intermediate
-		List<X509Certificate> caCertChain3 = new ArrayList<X509Certificate>();
+		List<Certificate> caCertChain3 = new ArrayList<Certificate>();
 		caCertChain3.add(Constants.getRootCert());
 		assertFalse((ExtRAMsgHelper.verifySignature(caCertChain3, null, signeddata)).isValid());
 		
         //	Test to sign with incomplete Certchain, no admin
-		List<X509Certificate> caCertChain4 = new ArrayList<X509Certificate>();
+		List<Certificate> caCertChain4 = new ArrayList<Certificate>();
 		caCertChain4.add(Constants.getIntermediateCert());
 		assertFalse((ExtRAMsgHelper.verifySignature(caCertChain4, null, signeddata)).isValid());
 		
@@ -101,7 +102,7 @@ public class ExtRAMsgHelperTest {
 		byte[] signeddata2 = ExtRAMsgHelper.signData(Constants.getUserKey(),Constants.getIntermediateCert(), testdata.getBytes());
 		assertNotNull(signeddata);
 		
-		List<X509Certificate> caCertChain5 = new ArrayList<X509Certificate>();
+		List<Certificate> caCertChain5 = new ArrayList<Certificate>();
 		caCertChain5.add(Constants.getRootCert());
 				
 		assertFalse((ExtRAMsgHelper.verifySignature(caCertChain5, null, signeddata2)).isValid());

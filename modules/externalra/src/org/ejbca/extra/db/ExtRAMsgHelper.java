@@ -15,6 +15,7 @@ package org.ejbca.extra.db;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.PrivateKey;
+import java.security.cert.CRL;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
 import java.security.cert.CertPathValidatorException;
@@ -159,7 +160,7 @@ public class ExtRAMsgHelper {
      * @param signedData the data to verify
      * @return true if signature verifes
      */
-    public static ParsedSignatureResult verifySignature(Collection<X509Certificate> cACertChain, Collection trustedCRLs, byte[] signedData) {
+    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, Collection<CRL> trustedCRLs, byte[] signedData) {
         return verifySignature(cACertChain, trustedCRLs, signedData, new Date());
     }
 
@@ -172,7 +173,7 @@ public class ExtRAMsgHelper {
      * @param date the date used to check the validity against.
      * @return a ParsedSignatureResult.
      */
-    public static ParsedSignatureResult verifySignature(Collection<X509Certificate> cACertChain, Collection trustedCRLs, byte[] signedData, Date date) {
+    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, Collection<CRL> trustedCRLs, byte[] signedData, Date date) {
         boolean verifies = false;
         X509Certificate usercert = null;
         ParsedSignatureResult retval = new ParsedSignatureResult(false, null, null);
@@ -205,7 +206,7 @@ public class ExtRAMsgHelper {
 
             // Second validate the certificate           
             X509Certificate rootCert = null;
-            Iterator<X509Certificate> iter = cACertChain.iterator();
+            Iterator<Certificate> iter = cACertChain.iterator();
             while (iter.hasNext()) {
                 X509Certificate cert = (X509Certificate) iter.next();
                 if (cert.getIssuerDN().equals(cert.getSubjectDN())) {

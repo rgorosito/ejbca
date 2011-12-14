@@ -38,6 +38,7 @@ import java.security.SignatureException;
 import java.security.cert.CRLException;
 import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
@@ -146,14 +147,15 @@ public class ProtocolScepHttpTest {
         CMSSignedData s = new CMSSignedData(respBytes);
         assertNotNull(s);
         SignerInformationStore signers = s.getSignerInfos();
-        Collection col = signers.getSigners();
+        @SuppressWarnings("unchecked")
+        Collection<SignerInformation> col = signers.getSigners();
         assertTrue(col.size() == 0);
         CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
-        Collection certs = certstore.getCertificates(null);
+        Collection<? extends Certificate> certs = certstore.getCertificates(null);
         // Length two if the Scep RA server is signed directly by a Root CA
         // Length three if the Scep RA server is signed by a CA which is signed by a Root CA
         assertEquals(3, certs.size());	                	
-        Iterator it = certs.iterator();
+        Iterator<? extends Certificate> it = certs.iterator();
         racert = (X509Certificate)it.next();
         cacert = (X509Certificate)it.next();
         rootcacert = (X509Certificate)it.next();
@@ -315,9 +317,10 @@ public class ProtocolScepHttpTest {
         CMSSignedData s = new CMSSignedData(retMsg);
         // The signer, i.e. the CA, check it's the right CA
         SignerInformationStore signers = s.getSignerInfos();
-        Collection col = signers.getSigners();
+        @SuppressWarnings("unchecked")
+        Collection<SignerInformation> col = signers.getSigners();
         assertTrue(col.size() > 0);
-        Iterator iter = col.iterator();
+        Iterator<SignerInformation> iter = col.iterator();
         SignerInformation signerInfo = (SignerInformation)iter.next();
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
@@ -357,10 +360,11 @@ public class ProtocolScepHttpTest {
         CMSSignedData s = new CMSSignedData(retMsg);
         // The signer, i.e. the CA, check it's the right CA
         SignerInformationStore signers = s.getSignerInfos();
-        Collection col = signers.getSigners();
+        @SuppressWarnings("unchecked")
+        Collection<SignerInformation> col = signers.getSigners();
         assertTrue(col.size() > 0);
-        Iterator iter = col.iterator();
-        SignerInformation signerInfo = (SignerInformation)iter.next();
+        Iterator<SignerInformation> iter = col.iterator();
+        SignerInformation signerInfo = iter.next();
         // Check that the message is signed with the correct digest alg
         assertEquals(signerInfo.getDigestAlgOID(), digestOid);
         SignerId sinfo = signerInfo.getSID();

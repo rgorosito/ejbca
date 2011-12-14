@@ -14,6 +14,8 @@ package org.ejbca.extra.db;
 
 import java.io.Serializable;
 import java.security.PrivateKey;
+import java.security.cert.CRL;
+import java.security.cert.Certificate;
 import java.util.Collection;
 import java.util.Date;
 
@@ -148,7 +150,7 @@ public class Message implements Serializable, Cloneable {
      * @return a byte[] array containing the message.
      */
     @Transient
-    public SubMessages getSubMessages(PrivateKey userKey, Collection cACertChain, Collection crls){
+    public SubMessages getSubMessages(PrivateKey userKey, Collection<Certificate> cACertChain, Collection<CRL> crls){
        SubMessages retval = new SubMessages();
        retval.load(getMessage(),  userKey, cACertChain, crls);
        return retval;

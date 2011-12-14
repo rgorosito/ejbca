@@ -17,6 +17,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.PrivateKey;
 import java.security.SignatureException;
+import java.security.cert.CRL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -83,7 +84,7 @@ public class SubMessages {
      * @param cACertChain is the CA chain that signed the RA and CAService keystore
      * @param crls could be set to null to disable CRL checking
      */
-	void load(String data, PrivateKey userKey, Collection cACertChain, Collection crls){
+	void load(String data, PrivateKey userKey, Collection<java.security.cert.Certificate> cACertChain, Collection<CRL> crls){
 		try {		
 			submessages.clear();
 			java.beans.XMLDecoder decoder = new  java.beans.XMLDecoder(new java.io.ByteArrayInputStream(data.getBytes("UTF8")));
@@ -128,7 +129,7 @@ public class SubMessages {
 	String save(){
 		String retval = null;
 
-		ArrayList savearray = new ArrayList();
+		ArrayList<Object> savearray = new ArrayList<Object>();
 		
 		Iterator<ISubMessage> iter = submessages.iterator();
 		while(iter.hasNext()){

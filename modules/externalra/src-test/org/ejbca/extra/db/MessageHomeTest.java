@@ -17,6 +17,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 
 import javax.persistence.Persistence;
@@ -90,7 +92,7 @@ public class MessageHomeTest {
 		submessages.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10Response());
 		submessages.addSubMessage(ExtRAMessagesTest.genExtRAPKCS12Response());
 		
-		ArrayList cACerts = new ArrayList();
+		ArrayList<Certificate> cACerts = new ArrayList<Certificate>();
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		

@@ -16,6 +16,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigInteger;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -107,7 +108,7 @@ public class ExtRAMessagesTest {
 		
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		ArrayList<X509Certificate> cACerts = new ArrayList<X509Certificate>();
+		ArrayList<Certificate> cACerts = new ArrayList<Certificate>();
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
@@ -137,7 +138,7 @@ public class ExtRAMessagesTest {
 		String result = submessages.save();
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		ArrayList<X509Certificate> cACerts = new ArrayList<X509Certificate>();
+		ArrayList<Certificate> cACerts = new ArrayList<Certificate>();
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
