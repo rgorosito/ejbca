@@ -135,31 +135,32 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		// Second we try to override this value with a value from the properties of this specific worker, configured in the GUI
 		// Oh, and if no configuration exist it uses the hard coded values from the top of this file.
 		
-		String persistenceUnit = this.properties.getProperty("externalra-caservice.persistenceunit", "RAMessage1DS");
+		String persistenceUnit = this.properties.getProperty("externalra-caservice.persistenceunit", "RAMessage1DS").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.hibernateresource: " + persistenceUnit);
 		}
-		String keystorePath = this.properties.getProperty("externalra-caservice.keystore.path", "keystore/extrakeystore.p12");
+		String keystorePath = this.properties.getProperty("externalra-caservice.keystore.path", "keystore/extrakeystore.p12").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.keystore.path: "+keystorePath);
 		}
-		keystorePwd = this.properties.getProperty("externalra-caservice.keystore.pwd", "foo123");
+		keystorePwd = this.properties.getProperty("externalra-caservice.keystore.pwd", "foo123").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.keystore.pwd: "+keystorePwd);
 		}
-		encryptionRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.encryption.required", "false"));
+		// Always fallback to safe value (true) if we enter something stupid
+		encryptionRequired = !"false".equals(this.properties.getProperty("externalra-caservice.encryption.required", "false").trim());
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.encryption.required: "+encryptionRequired);
 		}
-		signatureRequired = Boolean.valueOf(this.properties.getProperty("externalra-caservice.signature.required", "false"));
+		signatureRequired = !"false".equals(this.properties.getProperty("externalra-caservice.signature.required", "false").trim());
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.signature.required: "+signatureRequired);
 		}
-		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1");
+		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.raissuer: "+caname);
 		}		
-		whiteList = this.properties.getProperty("externalra-caservice.whitelist", "");
+		whiteList = this.properties.getProperty("externalra-caservice.whitelist", "").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.whitelist: "+whiteList);
 		}		
