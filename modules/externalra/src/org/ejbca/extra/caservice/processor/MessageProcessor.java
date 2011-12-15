@@ -151,12 +151,7 @@ public class MessageProcessor {
 	 */
 	public static Collection<Certificate> getCACertChain(AuthenticationToken admin, String cAName, boolean checkRevokation, CaSession caSession) throws ConfigurationException{		
 		try{
-			CAInfo cainfo = caSession.getCAInfo(admin, cAName);
-			if(cainfo == null){
-				log.error("Misconfigured CA Name in RAService");
-				throw new ConfigurationException("Misconfigured CA Name in RAService");
-			}
-			
+		    CAInfo cainfo = caSession.getCAInfo(admin, cAName);			
 			if(checkRevokation){
 			  if(cainfo.getStatus()==SecConst.CA_REVOKED){
 				throw new ConfigurationException("CA " + cainfo.getName() + " Have been revoked");
@@ -174,12 +169,15 @@ public class MessageProcessor {
 			  }
 			}  
 			return cainfo.getCertificateChain();
+        } catch (CADoesntExistsException e) {
+            log.error("Misconfigured CA Name in RAService, CA does not exist: "+cAName, e);
+            throw new ConfigurationException("Misconfigured CA Name in RAService");
 		}catch(Exception e){
 			if (e instanceof ConfigurationException) {
 				throw (ConfigurationException)e;
 			}
 			log.error("Exception getting CA cert chain: ", e);
-			throw new ConfigurationException("Couldn't instantiate CAAdminSessionBean");
+			throw new ConfigurationException("Could not instantiate CAAdminSessionBean");
 		}	
 	}
 	
