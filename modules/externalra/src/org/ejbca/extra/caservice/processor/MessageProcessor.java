@@ -295,7 +295,7 @@ public class MessageProcessor {
 	}
 
 	private int getEndEntityProfileId(AuthenticationToken admin,String endEntityProfileName) throws EjbcaException {
-		int retval = endEntityProfileSession.getEndEntityProfileId(admin,endEntityProfileName);
+		int retval = endEntityProfileSession.getEndEntityProfileId(endEntityProfileName);
 		if(retval == 0){
 			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' does not exist.");
 		}
