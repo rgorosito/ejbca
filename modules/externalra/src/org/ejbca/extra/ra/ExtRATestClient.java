@@ -69,7 +69,7 @@ public class ExtRATestClient {
 
     protected PrivateKey raKey = null;
     protected X509Certificate raCert = null;
-    protected Vector cAChain = null;
+    protected Vector<Certificate> cAChain = null;
     protected X509Certificate encCert = null;
     protected String securitylevel = SECURITY_UNSECURED;
 	
@@ -116,7 +116,7 @@ public class ExtRATestClient {
 			if(securitylevel.equalsIgnoreCase(SECURITY_SIGNED) || securitylevel.equalsIgnoreCase(SECURITY_SIGNEDENCRYPTED)){
 			  RAKeyStore rakeystore = new RAKeyStore(args[ARG_KEYSTOREPATH], args[ARG_PASSWORD]);			 
 			  Certificate[] chain = rakeystore.getKeyStore().getCertificateChain(rakeystore.getAlias());
-			  cAChain = new Vector();
+			  cAChain = new Vector<Certificate>();
 			  for(int i=0; i< chain.length ; i++){
 				  if(((X509Certificate) chain[i]).getBasicConstraints() != -1){
 				    cAChain.add(chain[i]);
