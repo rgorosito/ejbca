@@ -35,6 +35,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.cert.CRL;
 import java.security.cert.CRLException;
 import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
@@ -433,11 +434,12 @@ public class ProtocolScepHttpTest {
             byte[] content = (byte[])sp.getContent();
             CMSEnvelopedData ed = new CMSEnvelopedData(content);
             RecipientInformationStore recipients = ed.getRecipientInfos();
-            Collection c = recipients.getRecipients();
+            @SuppressWarnings("unchecked")
+            Collection<RecipientInformation> c = recipients.getRecipients();
             assertEquals(c.size(), 1);
-            Iterator it = c.iterator();
+            Iterator<RecipientInformation> recipientIterator = c.iterator();
             byte[] decBytes = null;
-            RecipientInformation recipient = (RecipientInformation) it.next();
+            RecipientInformation recipient = (RecipientInformation) recipientIterator.next();
             decBytes = recipient.getContent(keys.getPrivate(), "BC");
             // This is yet another CMS signed data
             CMSSignedData sd = new CMSSignedData(decBytes);
@@ -445,24 +447,19 @@ public class ProtocolScepHttpTest {
             CertStore certstore = sd.getCertificatesAndCRLs("Collection","BC");
             if (crlRep) {
                 // We got a reply with a requested CRL
-                Collection crls = certstore.getCRLs(null);
+                Collection<? extends CRL> crls = certstore.getCRLs(null);
                 assertEquals(crls.size(), 1);
-                it = crls.iterator();
+                Iterator<? extends CRL> it = crls.iterator();
                 X509CRL retCrl = null;
                 // CRL is first (and only)
-                retCrl = (X509CRL)it.next();
+                retCrl = (X509CRL) it.next();
                 log.info("Got CRL with DN: "+ retCrl.getIssuerDN().getName());
-//                try {
-//                    FileOutputStream fos = new FileOutputStream("sceptest.der");
-//                    fos.write(retCrl.getEncoded());
-//                    fos.close();
-//                } catch (Exception e) {}
                 // check the returned CRL
                 assertEquals(cacert.getSubjectDN().getName(), retCrl.getIssuerDN().getName());
                 retCrl.verify(cacert.getPublicKey());
             } else {
                 // We got a reply with a requested certificate 
-                Collection certs = certstore.getCertificates(null);
+                Collection<? extends Certificate> certs = certstore.getCertificates(null);
                 log.info("Got certificate reply with certchain of length: "+certs.size());
                 // EJBCA returns the issued cert and the CA cert (cisco vpn client requires that the ca cert is included)
                 if (noca) {
@@ -470,28 +467,21 @@ public class ProtocolScepHttpTest {
                 } else {
                     assertEquals(certs.size(), 2);                	
                 }
-                it = certs.iterator();
+
                 // Issued certificate must be first
                 boolean verified = false;
                 boolean gotcacert = false;
                 String mysubjectdn = CertTools.stringToBCDNString("C=SE,O=PrimeKey,CN=sceptest");
                 X509Certificate usercert = null;
-                while (it.hasNext()) {
-                    X509Certificate retcert = (X509Certificate)it.next();
-//                    try {
-//                        FileOutputStream fos = new FileOutputStream("sceptest.der");
-//                        fos.write(retcert.getEncoded());
-//                        fos.close();
-//                    } catch (Exception e) {}
-                
+                for (Certificate cert : certs) {
+                    X509Certificate retcert = (X509Certificate) cert;
+
                     // check the returned certificate
                     String subjectdn = CertTools.stringToBCDNString(retcert.getSubjectDN().getName());
                     if (mysubjectdn.equals(subjectdn)) {
                         System.out.println("Got user cert with DN: "+ retcert.getSubjectDN().getName());
                         // issued certificate
                         assertEquals(CertTools.stringToBCDNString("C=SE,O=PrimeKey,CN=sceptest"), subjectdn);
-                        //System.out.println(retcert);
-                        //System.out.println(cacert);
                         retcert.verify(cacert.getPublicKey());
                         assertTrue(checkKeys(keys.getPrivate(), retcert.getPublicKey()));
                         verified = true;

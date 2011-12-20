@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -107,11 +108,12 @@ public class SubMessages {
 			}
 			
 			ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(messagedata));
-			ArrayList<HashMap> savearray = (ArrayList<HashMap>) ois.readObject(); 
+			@SuppressWarnings("unchecked")
+            List<HashMap<String, Integer>> savearray = (ArrayList<HashMap<String, Integer>>) ois.readObject(); 
 							        	        
-	        Iterator<HashMap> iter = savearray.iterator();
+	        Iterator<HashMap<String, Integer>> iter = savearray.iterator();
 	        while(iter.hasNext()){
-	        	HashMap map = iter.next();
+	        	HashMap<String, Integer> map = iter.next();
 	        	ISubMessage submessage = SubMessageFactory.createInstance(map);
 	        	submessage.loadData(map);
 	        	submessages.add(submessage);

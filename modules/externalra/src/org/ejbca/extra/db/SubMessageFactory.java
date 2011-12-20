@@ -30,9 +30,9 @@ class SubMessageFactory {
 	
 	private static final Log log = LogFactory.getLog(SubMessageFactory.class);
 	
-	static ISubMessage createInstance(HashMap data){
+	static ISubMessage createInstance(HashMap<String, Integer> data){
 		ISubMessage retval = null;
-		int classType = ((Integer) data.get(ISubMessage.CLASSTYPE)).intValue();
+		int classType = (data.get(ISubMessage.CLASSTYPE)).intValue();
 		switch(classType){
 		case PKCS10Request.CLASS_TYPE:
 			retval =  new PKCS10Request();
