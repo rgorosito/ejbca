@@ -18,7 +18,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 
 import javax.persistence.Persistence;
@@ -62,7 +61,7 @@ public class MessageHomeTest {
 		assertTrue(msg.getMessageid().equals("test1"));
 		assertTrue(msg.getType().equals(MessageHome.MESSAGETYPE_EXTRA));
 		assertTrue(msg.getStatus().equals(Message.STATUS_WAITING));
-		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(null,null,null).getSubMessages());
+		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(null,null).getSubMessages());
 		assertTrue(msg.getCreatetime()== msg.getModifytime());
 		
 		//Thread.sleep(500);
@@ -80,7 +79,7 @@ public class MessageHomeTest {
 		assertTrue(msg.getMessageid().equals("test2"));
 		assertTrue(msg.getType().equals(MessageHome.MESSAGETYPE_EXTRA));
 		assertTrue(msg.getStatus().equals(Message.STATUS_WAITING));
-		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(Constants.getUserKey(),null,null).getSubMessages());
+		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(Constants.getUserKey(),null).getSubMessages());
 		assertTrue(msg.getCreatetime()== msg.getModifytime());   
 		
 		//Thread.sleep(500);       
@@ -102,7 +101,7 @@ public class MessageHomeTest {
 		assertTrue(msg.getMessageid().equals("test3"));
 		assertTrue(msg.getType().equals(MessageHome.MESSAGETYPE_EXTRA));
 		assertTrue(msg.getStatus().equals(Message.STATUS_WAITING));
-		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(Constants.getUserKey(),cACerts,null).getSubMessages());
+		ExtRAMessagesTest.checkSubMessages(msg.getSubMessages(Constants.getUserKey(),cACerts).getSubMessages());
 		assertTrue(msg.getCreatetime()== msg.getModifytime());   
 		
 		//Thread.sleep(500); 
@@ -116,7 +115,7 @@ public class MessageHomeTest {
 		Message msg = msghome.findByMessageId("test1");
 		assertNotNull(msg);
 		
-		SubMessages submgs = msg.getSubMessages(null,null,null);
+		SubMessages submgs = msg.getSubMessages(null,null);
 		assertTrue(submgs.getSubMessages().size() == 5);
 		submgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10Request(1, "PKCS10REQ", "PKCS10"));
 		msg.setSubMessages(submgs);
@@ -125,7 +124,7 @@ public class MessageHomeTest {
 		
 		msg = msghome.findByMessageId("test1");
 		assertNotNull(msg);
-		assertTrue(msg.getSubMessages(null,null,null).getSubMessages().size() == 6);		
+		assertTrue(msg.getSubMessages(null,null).getSubMessages().size() == 6);		
 		assertTrue(msg.getCreatetime() != msg.getModifytime());
 	}
 

@@ -269,9 +269,9 @@ public class ExtRATestClient {
 			} else {
 				SubMessages respmsgs = null;
 				if (raKey != null) {					
-					respmsgs = msg.getSubMessages(raKey,cAChain,null);
+					respmsgs = msg.getSubMessages(raKey,cAChain);
 				} else {
-					respmsgs = msg.getSubMessages(null,null,null);
+					respmsgs = msg.getSubMessages(null,null);
 				}
 				PKCS10Response pkcs10resp = (PKCS10Response) respmsgs.getSubMessages().get(0);
 				PKCS12Response pkcs12resp = null;

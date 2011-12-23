@@ -85,7 +85,7 @@ public class SubMessages {
      * @param cACertChain is the CA chain that signed the RA and CAService keystore
      * @param crls could be set to null to disable CRL checking
      */
-	void load(String data, PrivateKey userKey, Collection<java.security.cert.Certificate> cACertChain, Collection<CRL> crls){
+	void load(String data, PrivateKey userKey, Collection<java.security.cert.Certificate> cACertChain){
 		try {		
 			submessages.clear();
 			java.beans.XMLDecoder decoder = new  java.beans.XMLDecoder(new java.io.ByteArrayInputStream(data.getBytes("UTF8")));
@@ -99,7 +99,7 @@ public class SubMessages {
 			}
 			
 			if(isSigned){
-				ParsedSignatureResult result = ExtRAMsgHelper.verifySignature(cACertChain,crls,messagedata);
+				ParsedSignatureResult result = ExtRAMsgHelper.verifySignature(cACertChain,messagedata);
 				if(!result.isValid()){
 					throw new SignatureException("Signature not valid");
 				}

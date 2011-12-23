@@ -156,24 +156,22 @@ public class ExtRAMsgHelper {
      * Method used to verify signed data.
      * 
      * @param TrustedCACerts a Collection of trusted certifcates, should contain the entire chains
-     * @param TrustedCRLs a Collection of trusted CRLS, use null if no CRL check should be used.
      * @param signedData the data to verify
      * @return true if signature verifes
      */
-    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, Collection<CRL> trustedCRLs, byte[] signedData) {
-        return verifySignature(cACertChain, trustedCRLs, signedData, new Date());
+    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, byte[] signedData) {
+        return verifySignature(cACertChain, signedData, new Date());
     }
 
     /**
      * Method used to verify signed data.
      * 
      * @param TrustedCACerts a Collection of trusted certificates, should contain the entire chains
-     * @param TrustedCRLs a Collection of trusted CRLS, use null if no CRL check should be used.
      * @param signedData the data to verify
      * @param date the date used to check the validity against.
      * @return a ParsedSignatureResult.
      */
-    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, Collection<CRL> trustedCRLs, byte[] signedData, Date date) {
+    public static ParsedSignatureResult verifySignature(Collection<Certificate> cACertChain, byte[] signedData, Date date) {
         boolean verifies = false;
         X509Certificate usercert = null;
         ParsedSignatureResult retval = new ParsedSignatureResult(false, null, null);
@@ -222,9 +220,6 @@ public class ExtRAMsgHelper {
             List<Object> list = new ArrayList<Object>();
             list.add(usercert);
             list.add(cACertChain);
-            if (trustedCRLs != null) {
-                list.add(trustedCRLs);
-            }
 
             CollectionCertStoreParameters ccsp = new CollectionCertStoreParameters(list);
             CertStore store = CertStore.getInstance("Collection", ccsp);
@@ -242,11 +237,7 @@ public class ExtRAMsgHelper {
             PKIXParameters param = new PKIXParameters(trust);
             param.addCertStore(store);
             param.setDate(date);
-            if (trustedCRLs == null) {
-                param.setRevocationEnabled(false);
-            } else {
-                param.setRevocationEnabled(true);
-            }
+            param.setRevocationEnabled(false);      
             cpv.validate(cp, param);
             retval = new ParsedSignatureResult(verifies, usercert, content);
         } catch (Exception e) {

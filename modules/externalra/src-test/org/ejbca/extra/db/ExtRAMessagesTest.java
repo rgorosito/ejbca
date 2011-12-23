@@ -55,7 +55,7 @@ public class ExtRAMessagesTest {
 		String result = submessages.save();		
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		loadedSubMessage.load(result,null,null,null);
+		loadedSubMessage.load(result,null,null);
 		
 		assertFalse(loadedSubMessage.isEncrypted());
 		assertFalse(loadedSubMessage.isSigned());
@@ -81,7 +81,7 @@ public class ExtRAMessagesTest {
 		String result = submessages.save();
 		
 		SubMessages loadedSubMessage = new SubMessages();
-		loadedSubMessage.load(result,Constants.getUserKey(),null,null);
+		loadedSubMessage.load(result,Constants.getUserKey(),null);
 		
 		assertTrue(loadedSubMessage.isEncrypted());
 		assertFalse(loadedSubMessage.isSigned());
@@ -112,7 +112,7 @@ public class ExtRAMessagesTest {
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
-		loadedSubMessage.load(result,null,cACerts,null);
+		loadedSubMessage.load(result,null,cACerts);
 		
 		assertFalse(loadedSubMessage.isEncrypted());
 		assertTrue(loadedSubMessage.isSigned());
@@ -142,7 +142,7 @@ public class ExtRAMessagesTest {
 		cACerts.add(Constants.getRootCert());
 		cACerts.add(Constants.getIntermediateCert());
 		
-		loadedSubMessage.load(result,Constants.getUserKey(),cACerts,null);
+		loadedSubMessage.load(result,Constants.getUserKey(),cACerts);
 		
 		assertTrue(loadedSubMessage.isEncrypted());
 		assertTrue(loadedSubMessage.isSigned());

@@ -183,7 +183,7 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
 		Message response = waitForResponse(messageHome, messageId);
 		if (response != null) {
 			log.debug("Got processed message");
-			SubMessages subMessages = response.getSubMessages(extRaKey, caCerts, null);
+			SubMessages subMessages = response.getSubMessages(extRaKey, caCerts);
 			if (subMessages.getSubMessages().size() > 0) {
 				log.debug("Got submessage message");
 				extRAResponse = (ExtRAResponse) subMessages.getSubMessages().get(0);

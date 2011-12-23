@@ -263,7 +263,7 @@ public class ScepRAServlet extends HttpServlet {
                 	    	if (log.isDebugEnabled()) {
                 	    		log.debug("Request is processed with status: "+msg.getStatus());
                 	    	}
-                			SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+                			SubMessages submessagesresp = msg.getSubMessages(null,null);
                 			Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
                 			PKCS10Response resp = (PKCS10Response)iter.next();
                 			// create proper ScepResponseMessage

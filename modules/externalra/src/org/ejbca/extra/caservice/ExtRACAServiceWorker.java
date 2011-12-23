@@ -235,9 +235,9 @@ public class ExtRACAServiceWorker extends BaseWorker {
 						if (serviceKeyStore != null) {
 							submgs = msg.getSubMessages(
 									(PrivateKey) serviceKeyStore.getKeyStore().getKey(serviceKeyStore.getAlias(), keystorePwd.toCharArray()),
-									cACertChain,null);
+									cACertChain);
 						} else {
-							submgs =  msg.getSubMessages(null,null,null);
+							submgs =  msg.getSubMessages(null,null);
 						}
 						if (log.isDebugEnabled()) {
 							if (submgs.isSigned()) {

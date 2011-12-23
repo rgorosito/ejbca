@@ -106,7 +106,7 @@ public class RAApiTest {
 		
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 2);
 		
@@ -167,7 +167,7 @@ public class RAApiTest {
 		msghome.create("SimplePKCS10Test1", smgs);
         Message msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull("No response", msg);
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);		
 		Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
 		PKCS10Response resp = (PKCS10Response) iter.next();
@@ -180,7 +180,7 @@ public class RAApiTest {
 		msghome.create("SimplePKCS10Test1", smgs);		
         msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull(msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse editresp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + editresp.getRequestId(), editresp.getRequestId() == 101);
@@ -192,7 +192,7 @@ public class RAApiTest {
 		msghome.create("SimplePKCS10Test1", smgs);		
         msg = waitForUser("SimplePKCS10Test1");
 		assertNotNull(msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
 		iter =  submessagesresp.getSubMessages().iterator();
 		resp = (PKCS10Response) iter.next();
@@ -242,7 +242,7 @@ public class RAApiTest {
         Message msg = waitForUser("SimplePKCS12Test1");
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
 		
@@ -271,7 +271,7 @@ public class RAApiTest {
         Message msg = waitForUser("SimplePKCS12Test1");
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
 		
@@ -296,7 +296,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg);
 		
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
 		
@@ -318,7 +318,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg);
 		
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 1);
 		
@@ -342,7 +342,7 @@ public class RAApiTest {
         Message msg = waitForUser("SimpleRevocationTest");
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		
@@ -361,7 +361,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg2);
 		
-		SubMessages submessagesresp2 = msg2.getSubMessages(null,null,null);
+		SubMessages submessagesresp2 = msg2.getSubMessages(null,null);
 		
 		assertTrue("Number of submessages " + submessagesresp2.getSubMessages().size() ,  submessagesresp2.getSubMessages().size() == 1);
 		
@@ -379,7 +379,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg3);
 		
-		SubMessages submessagesresp3 = msg3.getSubMessages(null,null,null);
+		SubMessages submessagesresp3 = msg3.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp3.getSubMessages().size() == 1);
 		
@@ -397,7 +397,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg4);
 		
-		SubMessages submessagesresp4 = msg4.getSubMessages(null,null,null);
+		SubMessages submessagesresp4 = msg4.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp4.getSubMessages().size() == 1);
 		
@@ -415,7 +415,7 @@ public class RAApiTest {
 		
 		assertNotNull(msg5);
 		
-		SubMessages submessagesresp5 = msg5.getSubMessages(null,null,null);
+		SubMessages submessagesresp5 = msg5.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp5.getSubMessages().size() == 1);
 		
@@ -430,7 +430,7 @@ public class RAApiTest {
 		msghome.create("SimpleRevocationTest", smgs6);
         Message msg6 = waitForUser("SimpleRevocationTest");
 		assertNotNull(msg6);
-		SubMessages submessagesresp6 = msg6.getSubMessages(null,null,null);
+		SubMessages submessagesresp6 = msg6.getSubMessages(null,null);
 		assertTrue(submessagesresp6.getSubMessages().size() == 1);
 		ExtRAResponse resp6 = (ExtRAResponse) submessagesresp6.getSubMessages().iterator().next();
 		assertTrue(resp6.getRequestId() == 10);
@@ -443,7 +443,7 @@ public class RAApiTest {
         msghome.create("SimpleRevocationTest", smgs7);
         Message msg7 = waitForUser("SimpleRevocationTest");
         assertNotNull(msg7);
-        SubMessages submessagesresp7 = msg7.getSubMessages(null,null,null);
+        SubMessages submessagesresp7 = msg7.getSubMessages(null,null);
         assertTrue(submessagesresp7.getSubMessages().size() == 1);
         ExtRAResponse resp7 = (ExtRAResponse) submessagesresp7.getSubMessages().iterator().next();
         assertTrue(resp7.getRequestId() == 11);
@@ -456,7 +456,7 @@ public class RAApiTest {
         msghome.create("SimpleRevocationTest", smgs8);
         Message msg8 = waitForUser("SimpleRevocationTest");
         assertNotNull(msg8);
-        SubMessages submessagesresp8 = msg8.getSubMessages(null,null,null);
+        SubMessages submessagesresp8 = msg8.getSubMessages(null,null);
         assertTrue(submessagesresp8.getSubMessages().size() == 1);
         ExtRAResponse resp8 = (ExtRAResponse) submessagesresp8.getSubMessages().iterator().next();
         assertTrue(resp8.getRequestId() == 12);
@@ -476,7 +476,7 @@ public class RAApiTest {
         Message msg = waitForUser("SimpleEditUserTest");
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		
@@ -498,7 +498,7 @@ public class RAApiTest {
         Message msg = waitForUser("COMPLEXREQ_1");
 		assertNotNull("No response.", msg);
 		
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
 		assertTrue(submessagesresp.getSubMessages().size() == 3);
 		
@@ -530,7 +530,7 @@ public class RAApiTest {
 		for(int i=0; i < numberOfRequests; i++){
 			resps[i] = waitForUser("LotsOfReq"+i);
 			assertNotNull("No response.", resps[i]);
-			SubMessages submessagesresp = resps[i].getSubMessages(null,null,null);
+			SubMessages submessagesresp = resps[i].getSubMessages(null,null);
 			PKCS10Response resp = (PKCS10Response) submessagesresp.getSubMessages().iterator().next();
 			assertTrue(resp.isSuccessful() == true);
 		}								
@@ -549,7 +549,7 @@ public class RAApiTest {
 		msghome.create("SimpleCardRenewalTest", smgs);
         Message msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull("No response.", msg);
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == 10);
@@ -562,7 +562,7 @@ public class RAApiTest {
 		msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull(msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == 11);
@@ -575,7 +575,7 @@ public class RAApiTest {
 		msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
 		assertNotNull(msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == 12);
@@ -588,7 +588,7 @@ public class RAApiTest {
         msghome.create("SimpleCardRenewalTest", smgs);
         msg = waitForUser("SimpleCardRenewalTest");
         assertNotNull(msg);
-        submessagesresp = msg.getSubMessages(null,null,null);
+        submessagesresp = msg.getSubMessages(null,null);
         assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
         resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
         assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == 12);
@@ -616,7 +616,7 @@ public class RAApiTest {
 		msghome.create(username, smgs);
         Message msg = waitForUser(username);
 		assertNotNull("No response.", msg);
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID: " + resp.getRequestId(), resp.getRequestId() == requestId);
@@ -629,7 +629,7 @@ public class RAApiTest {
 		msghome.create(username+"ks", smgs);
         msg = waitForUser(username+"ks");
 		assertNotNull("No response.", msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID: " + resp.getRequestId(), resp.getRequestId() == requestId);
@@ -662,7 +662,7 @@ public class RAApiTest {
 		msghome.create(username, smgs);
         Message msg = waitForUser(username);
 		assertNotNull("No response.", msg);
-		SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == requestId);
@@ -676,7 +676,7 @@ public class RAApiTest {
 		msghome.create(username+"csr", smgs);
         msg = waitForUser(username+"csr");
 		assertNotNull("No response.", msg);
-		submessagesresp = msg.getSubMessages(null,null,null);
+		submessagesresp = msg.getSubMessages(null,null);
 		assertTrue("Number of submessages " + submessagesresp.getSubMessages().size(), submessagesresp.getSubMessages().size() == 1);
 		resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertTrue("Wrong Request ID" + resp.getRequestId(), resp.getRequestId() == requestId);
@@ -725,7 +725,7 @@ public class RAApiTest {
         
 		final Message msg = waitForUser(username + "csr");
         assertNotNull("No response.", msg);
-		final SubMessages submessagesresp = msg.getSubMessages(null,null,null);
+		final SubMessages submessagesresp = msg.getSubMessages(null,null);
 		assertEquals("Number of submessages " + submessagesresp.getSubMessages().size(), 1, submessagesresp.getSubMessages().size());
 		final ExtRAResponse resp = (ExtRAResponse) submessagesresp.getSubMessages().iterator().next();
 		assertEquals("Wrong Request ID" + resp.getRequestId(), requestId, resp.getRequestId());
