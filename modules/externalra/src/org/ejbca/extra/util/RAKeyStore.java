@@ -61,7 +61,7 @@ public class RAKeyStore {
 	 */
 	public String getAlias() throws KeyStoreException {
 		if(alias == null){		
-			Enumeration enumeration = keystore.aliases();
+			Enumeration<String> enumeration = keystore.aliases();
 			while(enumeration.hasMoreElements()){
 				alias = (String) enumeration.nextElement();
 				X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
