@@ -132,7 +132,8 @@ public class MessageProcessor {
 		clazz = clazz + "Processor";
 		log.debug("Creating message processor of class "+clazz);
 		// Finally create a new message processor using reflection
-		final Class implClass = Class.forName(clazz);
+		@SuppressWarnings("unchecked")
+        final Class<? extends ISubMessageProcessor> implClass = (Class<? extends ISubMessageProcessor>) Class.forName(clazz);
 		proc = (ISubMessageProcessor)implClass.newInstance();
 		proc.setEjbs(ejbs);
 		
