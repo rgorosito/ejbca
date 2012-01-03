@@ -21,9 +21,7 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 
 import org.apache.log4j.Logger;
-import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
@@ -45,9 +43,6 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     private static final Logger log = Logger.getLogger(PKCS12RequestProcessor.class);
 
 	private boolean usekeyrecovery = false;
-
-	//private Admin internalUser = Admin.getInternalAdmin();
-	private AuthenticationToken internalUser = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("PKCS12RequestProcessr"));
 
     public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
     	if(errormessage == null){
