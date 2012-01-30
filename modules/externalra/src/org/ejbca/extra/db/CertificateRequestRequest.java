@@ -16,7 +16,7 @@ package org.ejbca.extra.db;
 import java.math.BigInteger;
 
 import org.bouncycastle.util.encoders.Base64;
-import org.ejbca.core.model.SecConst;
+import org.cesecore.certificates.certificate.CertificateConstants;
 
 /**
  * Certificate signing request message.
@@ -40,17 +40,17 @@ public class CertificateRequestRequest extends BaseCertRequest {
 	private static final String REQUEST_TYPE  = "requestType";
 	private static final String RESPONSE_TYPE = "responseType";
 	
-	public static final int REQUEST_TYPE_PKCS10 = SecConst.CERT_REQ_TYPE_PKCS10;
-	public static final int REQUEST_TYPE_CRMF = SecConst.CERT_REQ_TYPE_CRMF;
-	public static final int REQUEST_TYPE_SPKAC = SecConst.CERT_REQ_TYPE_SPKAC;
-	public static final int REQUEST_TYPE_PUBLICKEY = SecConst.CERT_REQ_TYPE_PUBLICKEY;
+	public static final int REQUEST_TYPE_PKCS10 = CertificateConstants.CERT_REQ_TYPE_PKCS10;
+	public static final int REQUEST_TYPE_CRMF = CertificateConstants.CERT_REQ_TYPE_CRMF;
+	public static final int REQUEST_TYPE_SPKAC = CertificateConstants.CERT_REQ_TYPE_SPKAC;
+	public static final int REQUEST_TYPE_PUBLICKEY = CertificateConstants.CERT_REQ_TYPE_PUBLICKEY;
 	
 	/** A DER encoded certificate */
-	public static final int RESPONSE_TYPE_CERTIFICATE       = SecConst.CERT_RES_TYPE_CERTIFICATE;
+	public static final int RESPONSE_TYPE_CERTIFICATE       = CertificateConstants.CERT_RES_TYPE_CERTIFICATE;
 	/** A PKCS7 signed by the CA */
-	public static final int RESPONSE_TYPE_PKCS7           	= SecConst.CERT_RES_TYPE_PKCS7;
+	public static final int RESPONSE_TYPE_PKCS7           	= CertificateConstants.CERT_RES_TYPE_PKCS7;
 	/** For requests where "createOrEdit==false" this gives an unsigned PKCS7, for "createOrEdit==true" a signed PKCS7 */
-	public static final int RESPONSE_TYPE_PKCS7WITHCHAIN    = SecConst.CERT_RES_TYPE_PKCS7WITHCHAIN;
+	public static final int RESPONSE_TYPE_PKCS7WITHCHAIN    = CertificateConstants.CERT_RES_TYPE_PKCS7WITHCHAIN;
 
 	/** Kept for reasons to not change to much code in a small fix, should be removed during bigger refactoring */
 	public static final int REQUEST_TYPE_KEYGEN = CertificateRequestRequest.REQUEST_TYPE_SPKAC;
