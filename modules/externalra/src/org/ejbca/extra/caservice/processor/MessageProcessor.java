@@ -25,6 +25,7 @@ import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSession;
@@ -154,7 +155,7 @@ public class MessageProcessor {
 		try{
 		    CAInfo cainfo = caSession.getCAInfo(admin, cAName);			
 			if(checkRevokation){
-			  if(cainfo.getStatus()==SecConst.CA_REVOKED){
+			  if(cainfo.getStatus()==CAConstants.CA_REVOKED){
 				throw new ConfigurationException("CA " + cainfo.getName() + " Have been revoked");
 			  }
 			
@@ -164,7 +165,7 @@ public class MessageProcessor {
 				X509Certificate cacert = (X509Certificate) iter.next();
 				CAInfo cainfo2 = caSession.getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
 				// This CA may be an external CA, so we don't bother if we can not find it.
-				if ((cainfo2 != null) && (cainfo2.getStatus()==SecConst.CA_REVOKED) ) {
+				if ((cainfo2 != null) && (cainfo2.getStatus()==CAConstants.CA_REVOKED) ) {
 					throw new ConfigurationException("CA " + cainfo2.getName() + " Have been revoked");
 				}
 			  }
