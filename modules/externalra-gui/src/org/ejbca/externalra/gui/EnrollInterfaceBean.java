@@ -65,7 +65,7 @@ public class EnrollInterfaceBean {
 	private static final String PEM_PKCS7_END       = "-----END PKCS7-----";
 
 	private static final Logger log = Logger.getLogger(EnrollInterfaceBean.class);
-T
+
 	private IRequestDispatcher requestDispatcher = null;
 	
 	// General variables
