@@ -24,6 +24,7 @@ import org.apache.tools.ant.Task;
  * @version $Id$
  *
  */
+
 public class SetupDatabaseMappingsTask extends Task {
 
     @Override
