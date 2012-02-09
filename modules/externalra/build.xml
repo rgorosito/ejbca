@@ -33,6 +33,7 @@
 	<path id="compile.classpath">
 		<path refid="compile-client.classpath"/>
 		<path refid="compile-service.classpath"/>
+		<path location="${ant.home}/lib/ant.jar"/>
 	</path>
 
 	<path id="test.classpath">
@@ -185,63 +186,44 @@
 		</junit>
 		<antcall target="createreport"/>
 	</target>
-	
-    <target name="setup-database-mapping-files" >
+
+	<target name="declare-task" depends="compile">
+		<echo>${build.dir}</echo>
+		<taskdef name="setup-database-mapping"
+		classname="org.ejbca.extra.build.SetupDatabaseMappingsTask"
+		classpath="${build.dir}"/>
+	</target>
+		
+    <target name="setup-database-mapping-files" depends="declare-task">
     	<fail message="Java version ${ant.java.version} cannot be used for building this module.">
     		<condition><equals arg1="${ant.java.version}" arg2="1.5"/></condition>
     	</fail>
     	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml.template" overwrite="true"/>
-		<script language="javascript"><![CDATA[
-    	    for (i=1; i<=25; i++) {
-				project.setProperty("number", i);
-				jdbcUrl = project.getProperty("externalra.source-"+i+".jdbc-url");
-				username = project.getProperty("externalra.source-"+i+".username");
-				password = project.getProperty("externalra.source-"+i+".password");
-				if (jdbcUrl != null && jdbcUrl.length()>0 && username != null && username.length()>0 && password != null) {
-					project.setProperty("jdbcurl", jdbcUrl);
-					project.setProperty("username", username);
-					project.setProperty("password", password);
-					antcall = project.createTask("antcall");
-					antcall.setTarget("setup-database-mapping-file");
-					try {
-						antcall.perform();
-					} catch (e) {
-						self.log(e.message);
-					}
-				}
-			}]]>
-		</script>
+    	<setup-database-mapping/>
     	<copy todir="${mod.externalra-datasources.dist}"><fileset dir="${build.dir}" includes="ramessage*-ds.xml"/></copy>
     </target>
 	
-    <target name="setup-database-mapping-file" >
-    	<!-- See https://www.hibernate.org/hib_docs/v3/api/org/hibernate/dialect/package-summary.html -->
-    	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${jdbcurl}"/></condition>
-    	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${jdbcurl}"/></condition>
-    	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${jdbcurl}"/></condition>
-    	<condition property="driver-class" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${jdbcurl}"/></condition>
-    	<condition property="driver-class" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${jdbcurl}"/></condition>
-    	<condition property="driver-class" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${jdbcurl}"/></condition>
-    	<fail message="Unsupported database with JDBC URL '${jdbcurl}'." unless="driver-class"/>
+    <target name="setup-database-mapping-file">
     	<loadfile property="test" srcfile="${this.dir}/resources/persistence-unit.template">
     		<filterchain>
-				<expandproperties/>
-    		</filterchain>
-    	</loadfile>
-    	<copy tofile="${build.dir}/META-INF/persistence.xml.template" file="${build.dir}/META-INF/persistence.xml" overwrite="true"/>
-    	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${build.dir}/META-INF/persistence.xml.template" overwrite="true">
-    		<filterchain>
-    			<tokenfilter>
-    				<replacestring from="&lt;!-- @next@ --&gt;" to="${test}"/>
-    			</tokenfilter>
-    		</filterchain>
-    	</copy>
-    	<delete file="${build.dir}/META-INF/persistence.xml.template"/>
-    	<copy tofile="${build.dir}/ramessage${number}-ds.xml" file="${this.dir}/resources/ramessage-ds.xml" overwrite="true">
-    		<filterchain>
     			<expandproperties/>
-    		</filterchain>
-    	</copy>
+    	    </filterchain>
+    	</loadfile>
+
+		<copy tofile="${build.dir}/META-INF/persistence.xml.template" file="${build.dir}/META-INF/persistence.xml" overwrite="true"/>
+		<copy tofile="${build.dir}/META-INF/persistence.xml" file="${build.dir}/META-INF/persistence.xml.template" overwrite="true">
+			<filterchain>
+				<tokenfilter>
+					<replacestring from="&lt;!-- @next@ --&gt;" to="${test}"/>
+				</tokenfilter>
+			</filterchain>
+		</copy>
+		<delete file="${build.dir}/META-INF/persistence.xml.template"/>
+		<copy tofile="${build.dir}/ramessage${number}-ds.xml" file="${this.dir}/resources/ramessage-ds.xml" overwrite="true">
+			<filterchain>
+				<expandproperties/>
+			</filterchain>
+		</copy>
     </target>
 
 </project>
