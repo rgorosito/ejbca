@@ -18,13 +18,12 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 
 /**
- * A custom Ant task to run the setup-database-mappings-fil Ant target
+ * A custom Ant task to run the setup-database-mapping-file Ant target
  * for each instance of the externalra.source properties in externalra.properties
  * 
  * @version $Id$
  *
  */
-
 public class SetupDatabaseMappingsTask extends Task {
 
     @Override
