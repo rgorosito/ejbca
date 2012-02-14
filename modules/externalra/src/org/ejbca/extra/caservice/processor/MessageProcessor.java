@@ -32,6 +32,7 @@ import org.cesecore.certificates.ca.CaSession;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
@@ -197,7 +198,7 @@ public class MessageProcessor {
                    submessage.getSubjectAltName(),
                    submessage.getEmail(),
                    UserDataConstants.STATUS_INPROCESS,
-                   SecConst.USER_ENDUSER,
+                   EndEntityConstants.USER_ENDUSER,
                    getEndEntityProfileId(admin, submessage.getEndEntityProfileName()),
                    getCertificateProfileId(submessage.getCertificateProfileName()),
                    null,
