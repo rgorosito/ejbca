@@ -38,7 +38,7 @@
 
 	<path id="test.classpath">
 		<path location="${build-test.dir}" />
-		<path location="${mod.externalra-cli.lib}" />
+        <path location="${build.dir}" />
 		<path refid="compile.classpath"/>
 		<path refid="lib.junit.classpath"/>
 	</path>
