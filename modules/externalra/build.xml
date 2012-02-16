@@ -38,7 +38,7 @@
 
 	<path id="test.classpath">
 		<path location="${build-test.dir}" />
-        <path location="${build.dir}" />
+        <path location="${mod.externalra-cli.lib}" />
 		<path refid="compile.classpath"/>
 		<path refid="lib.junit.classpath"/>
 	</path>
@@ -85,7 +85,7 @@
     	    <path>
 	        	<fileset dir="${mod.externalra-cli.lib.dir}" includes="lib/*.jar"/>
     	    </path>
-    		<map from="${mod.externalra-cli.dist}/" to=""/>
+    		<map from="${mod.externalra-cli.lib.dir}/" to=""/>
     	</pathconvert>
     	<jar destfile="${mod.externalra-cli.lib}">
     		<manifest>
