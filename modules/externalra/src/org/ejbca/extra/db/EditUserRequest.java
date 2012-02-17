@@ -12,6 +12,8 @@
  *************************************************************************/
 package org.ejbca.extra.db;
 
+import org.cesecore.certificates.endentity.EndEntityType;
+
 /**
  * External RA Request sub message containing userdata used to add or edit a user. Mostly used
  * with hard token issuing.
@@ -101,8 +103,8 @@ public class EditUserRequest extends ExtRARequest {
 	/**
 	 * Returns the type settings of the user used in this request.
 	 */	
-	public int getType(){
-		return ((Integer) data.get(TYPE)).intValue();
+	public EndEntityType getType(){
+		return new EndEntityType(((Integer) data.get(TYPE)).intValue());
 	}
 	
 	public void upgrade() {

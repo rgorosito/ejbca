@@ -32,8 +32,9 @@ import org.cesecore.certificates.ca.CaSession;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
-import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.endentity.EndEntityType;
+import org.cesecore.certificates.endentity.EndEntityTypes;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
@@ -198,7 +199,7 @@ public class MessageProcessor {
                    submessage.getSubjectAltName(),
                    submessage.getEmail(),
                    UserDataConstants.STATUS_INPROCESS,
-                   EndEntityConstants.USER_ENDUSER,
+                   new EndEntityType(EndEntityTypes.ENDUSER),
                    getEndEntityProfileId(admin, submessage.getEndEntityProfileName()),
                    getCertificateProfileId(submessage.getCertificateProfileName()),
                    null,
