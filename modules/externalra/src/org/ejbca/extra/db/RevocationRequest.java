@@ -75,8 +75,8 @@ public class RevocationRequest extends ExtRARequest {
 		data.put(CERTIFICATESN, certificatesn);
         data.put(USERNAME, "");
 		data.put(REVOKATIONREASON, Integer.valueOf(revocationReason));
-		data.put(REVOKEALL, Boolean.valueOf(false));
-		data.put(REVOKEUSER, Boolean.valueOf(false));
+		data.put(REVOKEALL, Boolean.FALSE);
+		data.put(REVOKEUSER, Boolean.FALSE);
 	}
 	/**
      * Constructor revoking a specific certificate, or optionally all certificates of the user owning this certificate, and optionally the user as well
@@ -103,7 +103,7 @@ public class RevocationRequest extends ExtRARequest {
         data.put(CERTIFICATESN, new BigInteger("-1"));
         data.put(USERNAME, username);
         data.put(REVOKATIONREASON, Integer.valueOf(revocationReason));
-        data.put(REVOKEALL, Boolean.valueOf(true));
+        data.put(REVOKEALL, Boolean.TRUE);
         data.put(REVOKEUSER, Boolean.valueOf(revokeuser));
     }
 
@@ -156,10 +156,10 @@ public class RevocationRequest extends ExtRARequest {
         if(Float.compare(LATEST_VERSION, getVersion()) != 0) {
             
             if(data.get(REVOKEALL) == null) {
-                data.put(REVOKEALL, Boolean.valueOf(false));
+                data.put(REVOKEALL, Boolean.FALSE);
             }
             if(data.get(REVOKEUSER) == null) {
-                data.put(REVOKEUSER, Boolean.valueOf(false));
+                data.put(REVOKEUSER, Boolean.FALSE);
             }
             if(data.get(USERNAME) == null) {
                 data.put(USERNAME, "");

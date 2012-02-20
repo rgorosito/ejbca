@@ -57,7 +57,7 @@ public class KeyRecoveryRequest extends ExtRARequest {
 		data.put(VERSION, Float.valueOf(LATEST_VERSION));
 		data.put(USERNAME, username);
 		data.put(PASSWORD, password);
-		data.put(REUSECERTIFICATE, Boolean.valueOf(true));
+		data.put(REUSECERTIFICATE, Boolean.TRUE);
 		data.put(ISSUERDN, issuerdn);
 		data.put(CERTIFICATESN, certificatesn);
 	}
@@ -72,7 +72,7 @@ public class KeyRecoveryRequest extends ExtRARequest {
 		data.put(CLASSTYPE, Integer.valueOf(CLASS_TYPE));
 		data.put(VERSION, Float.valueOf(LATEST_VERSION));
 		data.put(PASSWORD, password);
-		data.put(REUSECERTIFICATE, Boolean.valueOf(false));
+		data.put(REUSECERTIFICATE, Boolean.FALSE);
 		data.put(ISSUERDN, issuerdn);
 		data.put(CERTIFICATESN, certificatesn);
 	}

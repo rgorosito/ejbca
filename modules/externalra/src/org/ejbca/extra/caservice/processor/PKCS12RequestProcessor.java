@@ -42,8 +42,6 @@ import org.ejbca.extra.db.PKCS12Response;
 public class PKCS12RequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(PKCS12RequestProcessor.class);
 
-	private boolean usekeyrecovery = false;
-
     public ISubMessage process(AuthenticationToken admin, ISubMessage submessage, String errormessage) {
     	if(errormessage == null){
     		return processExtRAPKCS12Request(admin, (PKCS12Request) submessage);
@@ -56,7 +54,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     	if (log.isDebugEnabled()) {
     		log.debug("Processing ExtRAPKCS12Request");
     	}
-		usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration().getEnableKeyRecovery();
+        final boolean usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration().getEnableKeyRecovery();
     	if (log.isDebugEnabled()) {
     		log.debug("Key recovery enabled: "+ usekeyrecovery);
     	}
