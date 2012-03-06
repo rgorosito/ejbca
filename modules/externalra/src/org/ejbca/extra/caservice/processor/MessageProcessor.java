@@ -47,7 +47,7 @@ import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
 import org.ejbca.core.ejb.keyrecovery.KeyRecoverySessionLocal;
 import org.ejbca.core.ejb.ra.CertificateRequestSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
-import org.ejbca.core.ejb.ra.UserAdminSessionLocal;
+import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalDataVO;
@@ -88,7 +88,7 @@ public class MessageProcessor {
     protected KeyRecoverySessionLocal keyRecoverySession;
     protected GlobalConfigurationSessionLocal globalConfigurationSession;
     protected SignSessionLocal signSession;
-    protected UserAdminSessionLocal userAdminSession;
+    protected EndEntityManagementSessionLocal userAdminSession;
     protected CertificateRequestSessionLocal certificateRequestSession;
     
     public void setEjbs(Map<Class<?>, Object> ejbs) {
@@ -103,7 +103,7 @@ public class MessageProcessor {
     	keyRecoverySession = (KeyRecoverySessionLocal) ejbs.get(KeyRecoverySessionLocal.class);
     	globalConfigurationSession = (GlobalConfigurationSessionLocal) ejbs.get(GlobalConfigurationSessionLocal.class);
     	signSession = (SignSessionLocal) ejbs.get(SignSessionLocal.class);
-    	userAdminSession = (UserAdminSessionLocal) ejbs.get(UserAdminSessionLocal.class);
+    	userAdminSession = (EndEntityManagementSessionLocal) ejbs.get(EndEntityManagementSessionLocal.class);
     	certificateRequestSession = (CertificateRequestSessionLocal) ejbs.get(CertificateRequestSessionLocal.class);
     	complexAccessControlSession = (ComplexAccessControlSessionLocal)ejbs.get(ComplexAccessControlSessionLocal.class);
     	endEntityAccessSession = (EndEntityAccessSessionLocal) ejbs.get(EndEntityAccessSessionLocal.class);
