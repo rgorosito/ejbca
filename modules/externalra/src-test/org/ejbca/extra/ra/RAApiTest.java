@@ -130,7 +130,7 @@ public class RAApiTest {
         SignerInformation signerInfo = (SignerInformation)siter.next();
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
-        assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuerAsString()));
+        assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
         @SuppressWarnings({ "unchecked"})
         Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);
@@ -214,7 +214,7 @@ public class RAApiTest {
         SignerInformation signerInfo = (SignerInformation)siter.next();
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
-        assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuerAsString()));
+        assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
         @SuppressWarnings("unchecked")
         Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);

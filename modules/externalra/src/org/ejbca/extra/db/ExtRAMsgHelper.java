@@ -45,6 +45,7 @@ import org.bouncycastle.cms.RecipientInformation;
 import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.cms.jcajce.JcaX509CertSelectorConverter;
 
 /**
  * Class containing static help methods used to encrypt, decrypt, sign  and verify ExtRASubMessages
@@ -190,7 +191,8 @@ public class ExtRAMsgHelper {
 
             for (Object o : signers.getSigners()) {
                 SignerInformation signer = (SignerInformation) o;
-                Collection<? extends Certificate> certCollection = certs.getCertificates(signer.getSID());
+                JcaX509CertSelectorConverter conv = new JcaX509CertSelectorConverter();
+                Collection<? extends Certificate> certCollection = certs.getCertificates(conv.getCertSelector(signer.getSID()));
 
                 Iterator<? extends Certificate> certIt = certCollection.iterator();
                 usercert = (X509Certificate) certIt.next();
