@@ -47,8 +47,8 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
             userdata = generateUserDataVO(admin, submessage);
             userdata.setPassword(submessage.getPassword());			   
 			userdata.setType(submessage.getType());
-			userdata.setTokenType(getTokenTypeId(admin, submessage.getTokenName()));
-			userdata.setHardTokenIssuerId(getHardTokenIssuerId(admin, submessage.getHardTokenIssuerName()));
+			userdata.setTokenType(getTokenTypeId(submessage.getTokenName()));
+			userdata.setHardTokenIssuerId(getHardTokenIssuerId(submessage.getHardTokenIssuerName()));
 	        storeUserData(admin, userdata, false, submessage.getStatus());
 	        retval = new ExtRAResponse(submessage.getRequestId(),true,null);
 		}catch(Exception e){
@@ -73,20 +73,20 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		SecConst.TOKEN_SOFT_JKS, 
 		SecConst.TOKEN_SOFT_PEM};	
 
-	private int getTokenTypeId(AuthenticationToken admin, String tokenName) throws EjbcaException, ClassCastException {
+	private int getTokenTypeId(String tokenName) throws EjbcaException, ClassCastException {
 		for(int i=0; i< AVAILABLESOFTTOKENNAMES.length ; i++){
 			if(tokenName.equalsIgnoreCase(AVAILABLESOFTTOKENNAMES[i])){
 				return AVAILABLESOFTTOKENIDS[i];
 			}
 		}
-		int retval = hardTokenSession.getHardTokenProfileId(admin,tokenName);
+		int retval = hardTokenSession.getHardTokenProfileId(tokenName);
 		if(retval == 0){
 			throw new EjbcaException("Error Token with name " + tokenName + " does not exist.");
 		}
 		return retval;
 	}
 
-	private int getHardTokenIssuerId(AuthenticationToken admin, String hardTokenIssuerName) throws ClassCastException {
-		return hardTokenSession.getHardTokenIssuerId(admin,hardTokenIssuerName);
+	private int getHardTokenIssuerId(String hardTokenIssuerName) {
+		return hardTokenSession.getHardTokenIssuerId(hardTokenIssuerName);
 	}
 }

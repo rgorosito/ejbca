@@ -148,7 +148,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	if (submessage.getSignCA() != -1) {
 		            		signCA = submessage.getSignCA();
 		            	}
-                        HardTokenProfile htp = hardTokenSession.getHardTokenProfile(admin, data.getTokenType());
+                        HardTokenProfile htp = hardTokenSession.getHardTokenProfile(data.getTokenType());
                         if ( htp!=null && htp instanceof EIDProfile ) {
                         	EIDProfile hardTokenProfile = (EIDProfile)htp;
                         	if (authCertProfile == -1) {
