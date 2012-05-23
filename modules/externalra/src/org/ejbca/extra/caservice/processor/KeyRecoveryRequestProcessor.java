@@ -70,7 +70,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			if(!userAdminSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
-			KeyRecoveryData keyData = keyRecoverySession.keyRecovery(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
+			KeyRecoveryData keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
 			if(keyData == null){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}			
