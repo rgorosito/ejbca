@@ -391,6 +391,7 @@ public class ScepRAServlet extends HttpServlet {
                     sendBinaryBytes(cert.getEncoded(), response, "application/x-x509-ca-cert", null);
                 }                
             } else if (operation.equals("GetCACertChain")) {                
+                // NOTE: This method is not part of the SCEP spec since draft 19.
                 // The response for GetCACertChain is a certificates-only PKCS#7 
                 // SignedDatato carry the certificates to the end entity, with a 
                 // Content-Type of application/x-x509-ca-ra-cert-chain.
