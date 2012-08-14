@@ -378,25 +378,17 @@ public class ScepRAServlet extends HttpServlet {
                 // For example: "Content-Type:application/x-x509-ca-cert\n\n"<BER-encoded X509>
             	// IF we are not an RA, which in case we should return the same thing as GetCACertChain
                 log.info("Got SCEP cert request for CA '" + message + "'");
-                if (chain != null) {
-                	if (chain.length > 1) {
-                		// We are an RA, so return the same as GetCACertChain, but with other content type
-                        getCACertChain(message, remoteAddr, response, alias, raks, false);
-                	} else {
-                    	// The CA certificate is no 0
-                    	X509Certificate cert = (X509Certificate)chain[0];
-                    	if (chain.length > 1) {
-                    		cert = (X509Certificate)chain[1];
-                    	}
-            	    	if (log.isDebugEnabled()) {
-            	    		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
-            	    	}
-                        log.info("Sent certificate for CA '" + message + "' to SCEP client with ip " + remoteAddr);
-                        sendBinaryBytes(cert.getEncoded(), response, "application/x-x509-ca-cert", null);
-                	}
+                if (chain.length > 1) {
+                	// We are an RA, so return the same as GetCACertChain, but with other content type
+                    getCACertChain(message, remoteAddr, response, alias, raks, false);
                 } else {
-                    log.error("No CA certificates found");
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "No CA certificates found.");
+                	// The CA certificate is no 0
+                	X509Certificate cert = (X509Certificate)chain[0];
+                	if (log.isDebugEnabled()) {
+                		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
+                	}
+                    log.info("Sent certificate for CA '" + message + "' to SCEP client with ip " + remoteAddr);
+                    sendBinaryBytes(cert.getEncoded(), response, "application/x-x509-ca-cert", null);
                 }                
             } else if (operation.equals("GetCACertChain")) {                
                 // The response for GetCACertChain is a certificates-only PKCS#7 
