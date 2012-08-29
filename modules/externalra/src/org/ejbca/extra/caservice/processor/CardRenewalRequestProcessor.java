@@ -27,6 +27,7 @@ import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
 import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
@@ -34,7 +35,6 @@ import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.model.hardtoken.profiles.EIDProfile;
 import org.ejbca.core.model.hardtoken.profiles.HardTokenProfile;
 import org.ejbca.core.model.hardtoken.profiles.SwedishEIDProfile;
-import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.extra.db.CardRenewalRequest;
 import org.ejbca.extra.db.CardRenewalResponse;
 import org.ejbca.extra.db.ExtRARequest;
@@ -126,7 +126,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 				String username = certificateStoreSession.findUsernameByCertSerno(serno, CertTools.stringToBCDNString(issuerDN));
 				if (username != null) {
 		            final EndEntityInformation data = endEntityAccessSession.findUser(admin, username);
-		            if ( data.getStatus() != UserDataConstants.STATUS_NEW) {
+		            if ( data.getStatus() != EndEntityConstants.STATUS_NEW) {
 		            	log.error("User status must be new for "+username);
 						retval = new ExtRAResponse(submessage.getRequestId(),false,"User status must be new for "+username);
 		            } else {
@@ -187,7 +187,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// Set certificate profile and CA for auth certificate
                         EndEntityInformation newUser = new EndEntityInformation(username, data.getDN(), authCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), authCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
+                        userAdminSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
                         userAdminSession.changeUser(admin, newUser, false); 
 
 		            	// We may have changed to a new auto generated password
@@ -197,7 +197,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// Set certificate and CA for sign certificate
                         newUser = new EndEntityInformation(username, data.getDN(), signCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), signCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        userAdminSession.setUserStatus(admin, username, UserDataConstants.STATUS_NEW);
+                        userAdminSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
                         userAdminSession.changeUser(admin, newUser, false); 
 
                         // We may have changed to a new auto generated password
@@ -205,7 +205,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	Certificate signcertOut=pkcs10CertRequest(admin, signSession, signPkcs10, username, data1.getPassword());
 
 		            	// We are generated all right
-		            	data.setStatus(UserDataConstants.STATUS_GENERATED);
+		            	data.setStatus(EndEntityConstants.STATUS_GENERATED);
 		            	// set back to original values (except for generated)
 		            	userAdminSession.changeUser(admin, data, true); 
 		            	retval = new CardRenewalResponse(submessage.getRequestId(), true, null, authcertOut, signcertOut);

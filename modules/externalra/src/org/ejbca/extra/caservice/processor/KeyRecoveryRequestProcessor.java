@@ -19,12 +19,12 @@ import java.security.cert.X509Certificate;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.keyrecovery.KeyRecoveryData;
-import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
@@ -81,7 +81,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 				cert= orgcert;
 				
 			}else{
-				storeUserData(admin, userdata,false, UserDataConstants.STATUS_INPROCESS);
+				storeUserData(admin, userdata,false, EndEntityConstants.STATUS_INPROCESS);
 				
 				// Generate Certificate
 				cert = (X509Certificate) signSession.createCertificate(admin,submessage.getUsername(),"foo123", savedKeys.getPublic());			  

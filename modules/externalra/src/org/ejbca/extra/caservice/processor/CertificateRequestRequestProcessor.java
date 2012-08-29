@@ -36,11 +36,11 @@ import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
 import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
-import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.core.protocol.cmp.CrmfRequestMessage;
 import org.ejbca.extra.db.CertificateRequestRequest;
 import org.ejbca.extra.db.CertificateRequestResponse;
@@ -196,7 +196,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	private EndEntityInformation getUserDataVO(final AuthenticationToken admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
 		final EndEntityInformation result = generateUserDataVO(admin, submessage);
 		
-		result.setStatus(UserDataConstants.STATUS_NEW);
+		result.setStatus(EndEntityConstants.STATUS_NEW);
 		
 		// Not yet supported: hardtokenissuerid
 		// Not yet supported: custom start time

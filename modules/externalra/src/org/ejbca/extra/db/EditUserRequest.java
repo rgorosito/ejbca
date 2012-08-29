@@ -78,7 +78,7 @@ public class EditUserRequest extends ExtRARequest {
 	}
 
 	/**
-	 * Returns status (One of the UserDataConstants.STATUS_ constants) used in this request.
+	 * Returns status (One of the EndEntityConstants.STATUS_ constants) used in this request.
 	 */
 	public int getStatus(){
 		return ((Integer) data.get(STATUS)).intValue();

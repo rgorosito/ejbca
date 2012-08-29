@@ -32,6 +32,7 @@ import org.cesecore.certificates.ca.CaSession;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityType;
 import org.cesecore.certificates.endentity.EndEntityTypes;
@@ -55,7 +56,6 @@ import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalRequest;
 import org.ejbca.core.model.ra.RAAuthorization;
-import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
@@ -198,7 +198,7 @@ public class MessageProcessor {
                    getCAId(admin,submessage.getCAName()),
                    submessage.getSubjectAltName(),
                    submessage.getEmail(),
-                   UserDataConstants.STATUS_INPROCESS,
+                   EndEntityConstants.STATUS_INPROCESS,
                    new EndEntityType(EndEntityTypes.ENDUSER),
                    getEndEntityProfileId(admin, submessage.getEndEntityProfileName()),
                    getCertificateProfileId(submessage.getCertificateProfileName()),
@@ -276,7 +276,7 @@ public class MessageProcessor {
 		EndEntityInformation oldUserData = endEntityAccessSession.findUser(admin, userdata.getUsername());
 		if (oldUserData != null) {
 			log.debug("User '"+userdata.getUsername()+"' already exist, edit user.");
-			if ( (oldUserData.getStatus() == UserDataConstants.STATUS_INPROCESS) || (oldUserData.getStatus() == UserDataConstants.STATUS_NEW) ) {
+			if ( (oldUserData.getStatus() == EndEntityConstants.STATUS_INPROCESS) || (oldUserData.getStatus() == EndEntityConstants.STATUS_NEW) ) {
 				log.info("User '"+userdata.getUsername()+"' have status NEW or INPROCESS, we will NOT edit it");
 			} else {
 				userdata.setStatus(status);

@@ -22,13 +22,13 @@ import java.security.cert.X509Certificate;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ra.UserDataConstants;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS12Request;
@@ -63,7 +63,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 		try{
             userdata = generateUserDataVO(admin, submessage);
             userdata.setPassword("foo123");
-	      storeUserData(admin, userdata, false, UserDataConstants.STATUS_INPROCESS);
+	      storeUserData(admin, userdata, false, EndEntityConstants.STATUS_INPROCESS);
 	      
 	      // Generate keys
 	      KeyPair keys = generateKeys(submessage);
@@ -86,7 +86,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	        }
 
 	      retval = new PKCS12Response(submessage.getRequestId(),true,null,pkcs12,submessage.getPassword());
-          storeUserData(admin, userdata, false, UserDataConstants.STATUS_GENERATED);
+          storeUserData(admin, userdata, false, EndEntityConstants.STATUS_GENERATED);
 		} catch (ApprovalException ae) {
 			// there might be an already saved approval for this user or a new approval will be created, 
 			// so catch the exception thrown when this is the case and let the method return null to leave the message in the queue to be tried the next round.
@@ -100,7 +100,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 			log.error("Error processing ExtRAPKCS12Requset : ", e);
             if (userdata != null) {
                 try {
-                    storeUserData(admin, userdata, false, UserDataConstants.STATUS_FAILED);                    
+                    storeUserData(admin, userdata, false, EndEntityConstants.STATUS_FAILED);                    
                 } catch (Exception ignore) {/*ignore*/}
             }
 			retval = new PKCS12Response(submessage.getRequestId(),false,e.getMessage(),null,null);
