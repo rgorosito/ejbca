@@ -60,17 +60,17 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 						// Revoke all users certificates by revoking the whole user
 						EndEntityInformation vo = endEntityAccessSession.findUser(admin,username);
 						if (vo != null) {
-							userAdminSession.revokeUser(admin,username, submessage.getRevocationReason());
+							endEntityManagementSession.revokeUser(admin,username, submessage.getRevocationReason());
 							if (!submessage.getRevokeUser()) {
 								// If we were not to revoke the user itself, but only the certificates, we should set back status
-								userAdminSession.setUserStatus(admin, username, vo.getStatus());
+								endEntityManagementSession.setUserStatus(admin, username, vo.getStatus());
 							}					
 						} else {
 							retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from username: username="+username);							
 						}
 					} else {
 						// Revoke only this certificate
-						userAdminSession.revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), submessage.getRevocationReason());				
+						endEntityManagementSession.revokeCert(admin, serno, CertTools.stringToBCDNString(issuerDN), submessage.getRevocationReason());				
 					}					
 				} else {
 					retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);					

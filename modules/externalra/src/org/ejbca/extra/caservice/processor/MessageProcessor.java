@@ -88,7 +88,7 @@ public class MessageProcessor {
     protected KeyRecoverySessionLocal keyRecoverySession;
     protected GlobalConfigurationSessionLocal globalConfigurationSession;
     protected SignSessionLocal signSession;
-    protected EndEntityManagementSessionLocal userAdminSession;
+    protected EndEntityManagementSessionLocal endEntityManagementSession;
     protected CertificateRequestSessionLocal certificateRequestSession;
     
     public void setEjbs(Map<Class<?>, Object> ejbs) {
@@ -103,7 +103,7 @@ public class MessageProcessor {
     	keyRecoverySession = (KeyRecoverySessionLocal) ejbs.get(KeyRecoverySessionLocal.class);
     	globalConfigurationSession = (GlobalConfigurationSessionLocal) ejbs.get(GlobalConfigurationSessionLocal.class);
     	signSession = (SignSessionLocal) ejbs.get(SignSessionLocal.class);
-    	userAdminSession = (EndEntityManagementSessionLocal) ejbs.get(EndEntityManagementSessionLocal.class);
+    	endEntityManagementSession = (EndEntityManagementSessionLocal) ejbs.get(EndEntityManagementSessionLocal.class);
     	certificateRequestSession = (CertificateRequestSessionLocal) ejbs.get(CertificateRequestSessionLocal.class);
     	complexAccessControlSession = (ComplexAccessControlSessionLocal)ejbs.get(ComplexAccessControlSessionLocal.class);
     	endEntityAccessSession = (EndEntityAccessSessionLocal) ejbs.get(EndEntityAccessSessionLocal.class);
@@ -223,7 +223,7 @@ public class MessageProcessor {
                 userdata.getEndEntityProfileId());
         int approvalid = aar.generateApprovalId();
 		// Check if user already exists
-        if (userAdminSession.existsUser(userdata.getUsername())) {
+        if (endEntityManagementSession.existsUser(userdata.getUsername())) {
         	// a user already exists, so this is an edit entity request we are preparing
         	log.debug("User already exist, we will look for an edit end entity request");
         	approvalid = ear.generateApprovalId();
@@ -280,12 +280,12 @@ public class MessageProcessor {
 				log.info("User '"+userdata.getUsername()+"' have status NEW or INPROCESS, we will NOT edit it");
 			} else {
 				userdata.setStatus(status);
-				userAdminSession.changeUser(admin,userdata,clearpwd);			  
+				endEntityManagementSession.changeUser(admin,userdata,clearpwd);			  
 			}
 		} else {
 			log.debug("User '"+userdata.getUsername()+"' does not exist, add user.");
-			userAdminSession.addUser(admin,userdata,clearpwd);
-			userAdminSession.setUserStatus(admin,userdata.getUsername(), status);
+			endEntityManagementSession.addUser(admin,userdata,clearpwd);
+			endEntityManagementSession.setUserStatus(admin,userdata.getUsername(), status);
 		}
 		log.trace("<storeUserData()");
 	}

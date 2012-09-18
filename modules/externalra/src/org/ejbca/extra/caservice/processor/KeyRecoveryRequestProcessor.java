@@ -33,7 +33,6 @@ import org.ejbca.extra.db.PKCS12Response;
 
 /**
  * 
- * @author tomas
  * @version $Id$
  */
 public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
@@ -67,7 +66,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			if(orgcert == null){
 				throw new EjbcaException("Error in Key Recovery Request, couldn't find specified certificate");
 			}
-			if(!userAdminSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
+			if(!endEntityManagementSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
 			KeyRecoveryData keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), userdata.getEndEntityProfileId());

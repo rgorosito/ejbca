@@ -187,8 +187,8 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// Set certificate profile and CA for auth certificate
                         EndEntityInformation newUser = new EndEntityInformation(username, data.getDN(), authCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), authCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        userAdminSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
-                        userAdminSession.changeUser(admin, newUser, false); 
+                        endEntityManagementSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
+                        endEntityManagementSession.changeUser(admin, newUser, false); 
 
 		            	// We may have changed to a new auto generated password
                         EndEntityInformation data1 = endEntityAccessSession.findUser(admin, username);
@@ -197,8 +197,8 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// Set certificate and CA for sign certificate
                         newUser = new EndEntityInformation(username, data.getDN(), signCA, data.getSubjectAltName(), data.getEmail(), data.getType(), data.getEndEntityProfileId(), signCertProfile, data.getTokenType(), data.getHardTokenIssuerId(), null);
                         newUser.setPassword(data.getPassword());
-                        userAdminSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
-                        userAdminSession.changeUser(admin, newUser, false); 
+                        endEntityManagementSession.setUserStatus(admin, username, EndEntityConstants.STATUS_NEW);
+                        endEntityManagementSession.changeUser(admin, newUser, false); 
 
                         // We may have changed to a new auto generated password
 			            data1 = endEntityAccessSession.findUser(admin, username);
@@ -207,7 +207,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	// We are generated all right
 		            	data.setStatus(EndEntityConstants.STATUS_GENERATED);
 		            	// set back to original values (except for generated)
-		            	userAdminSession.changeUser(admin, data, true); 
+		            	endEntityManagementSession.changeUser(admin, data, true); 
 		            	retval = new CardRenewalResponse(submessage.getRequestId(), true, null, authcertOut, signcertOut);
 		            }
 				} else {
