@@ -204,17 +204,21 @@
     </target>
 	
     <target name="setup-database-mapping-file">
-    	<loadfile property="test" srcfile="${this.dir}/resources/persistence-unit.template">
+		<antcall target="setup-database-mapping-file-internal"/>
+    </target>
+    
+    <target name="setup-database-mapping-file-internal">
+		<fail if="loaderholder" message="antcall must be used to access this method to avoid setting a variable forever.."/>
+    	<loadfile property="loaderholder" srcfile="${this.dir}/resources/persistence-unit.template">
     		<filterchain>
     			<expandproperties/>
     	    </filterchain>
     	</loadfile>
-
 		<copy tofile="${build.dir}/META-INF/persistence.xml.template" file="${build.dir}/META-INF/persistence.xml" overwrite="true"/>
 		<copy tofile="${build.dir}/META-INF/persistence.xml" file="${build.dir}/META-INF/persistence.xml.template" overwrite="true">
 			<filterchain>
 				<tokenfilter>
-					<replacestring from="&lt;!-- @next@ --&gt;" to="${test}"/>
+					<replacestring from="&lt;!-- @next@ --&gt;" to="${loaderholder}"/>
 				</tokenfilter>
 			</filterchain>
 		</copy>
