@@ -40,7 +40,6 @@ import java.security.cert.CRLException;
 import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
@@ -65,6 +64,7 @@ import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.util.AlgorithmConstants;
@@ -277,7 +277,7 @@ public class ProtocolScepHttpTest {
     //
     //
     
-    private byte[] genScepRequest(ScepRequestGenerator gen, String digestoid) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignatureException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, CertificateEncodingException, IllegalStateException {
+    private byte[] genScepRequest(ScepRequestGenerator gen, String digestoid) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignatureException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException, OperatorCreationException, CertificateException {
         gen.setKeys(keys);
         gen.setDigestOid(digestoid);
         byte[] msgBytes = null;

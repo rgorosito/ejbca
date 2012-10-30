@@ -35,7 +35,6 @@ import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
-import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.Base64;
@@ -700,8 +699,8 @@ public class RAApiTest {
 		// Create request
 		final KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
 		final byte[] requestData = new String("-----BEGIN CERTIFICATE REQUEST-----\n"
-				+ new String(Base64.encode(new PKCS10CertificationRequest("SHA1WithRSA",
-		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate()).getEncoded()))
+				+ new String(Base64.encode(CertTools.genPKCS10CertificationRequest("SHA1WithRSA",
+		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate(), null).getEncoded()))
 				+ "\n-----END CERTIFICATE REQUEST-----").getBytes();
 		
 		final CertificateRequestRequest request = new CertificateRequestRequest(

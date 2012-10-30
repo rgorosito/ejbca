@@ -23,12 +23,11 @@ import java.security.SecureRandom;
 import java.security.SignatureException;
 import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
-import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
 import java.security.cert.CollectionCertStoreParameters;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -44,10 +43,11 @@ import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.IssuerAndSerialNumber;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.smime.SMIMECapability;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralNames;
-import org.bouncycastle.asn1.x509.X509Extension;
-import org.bouncycastle.asn1.x509.X509Extensions;
-import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.CMSEnvelopedDataGenerator;
 import org.bouncycastle.cms.CMSException;
@@ -56,7 +56,8 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSSignedGenerator;
-import org.bouncycastle.jce.PKCS10CertificationRequest;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.util.CertTools;
@@ -89,12 +90,14 @@ public class ScepRequestGenerator {
         return transactionId;
     }
     /** Generates a SCEP CrlReq. Keys must have been set in the generator for this to succeed 
+     * @throws CertificateException 
+     * @throws OperatorCreationException 
      * 
      */
-    public byte[] generateCrlReq(String dn, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, SignatureException, IOException, CMSException, InvalidAlgorithmParameterException, CertStoreException, CertificateEncodingException, IllegalStateException {
+    public byte[] generateCrlReq(String dn, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, SignatureException, IOException, CMSException, InvalidAlgorithmParameterException, CertStoreException, IllegalStateException, OperatorCreationException, CertificateException {
         this.cacert = ca;
         this.reqdn = dn;
-        X509Name name = CertTools.stringToBcX509Name(cacert.getIssuerDN().getName());
+        X500Name name = CertTools.stringToBcX509Name(cacert.getIssuerDN().getName());
         IssuerAndSerialNumber ias = new IssuerAndSerialNumber(name, cacert.getSerialNumber());
         // Create self signed cert, validity 1 day
         cert = CertTools.genSelfCert(reqdn,24*60*60*1000,null,keys.getPrivate(),keys.getPublic(),AlgorithmConstants.SIGALG_SHA1_WITH_RSA,false);
@@ -105,9 +108,11 @@ public class ScepRequestGenerator {
     }
 
     /** Generates a SCEP CertReq. Keys must have been set in the generator for this to succeed 
+     * @throws CertificateException 
+     * @throws OperatorCreationException 
      * 
      */
-    public byte[] generateCertReq(String dn, String password, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, SignatureException, IOException, CMSException, InvalidAlgorithmParameterException, CertStoreException, CertificateEncodingException, IllegalStateException {
+    public byte[] generateCertReq(String dn, String password, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, SignatureException, IOException, CMSException, InvalidAlgorithmParameterException, CertStoreException, IllegalStateException, OperatorCreationException, CertificateException {
         this.cacert = ca;
         this.reqdn = dn;
 
@@ -136,11 +141,9 @@ public class ScepRequestGenerator {
         } catch (IOException e) {
             throw new IllegalArgumentException("error encoding value: " + e);
         }
-        Vector<ASN1ObjectIdentifier> oidvec = new Vector<ASN1ObjectIdentifier>();
-        oidvec.add(X509Extensions.SubjectAlternativeName);
-        Vector<X509Extension> valuevec = new Vector<X509Extension>();
-        valuevec.add(new X509Extension(false, new DEROctetString(bOut.toByteArray())));
-        X509Extensions exts = new X509Extensions(oidvec,valuevec);
+        ExtensionsGenerator extgen = new ExtensionsGenerator();
+        extgen.addExtension(Extension.subjectAlternativeName, false, new DEROctetString(bOut.toByteArray()));
+        Extensions exts = extgen.generate();
         extensionattr.add(new DERSet(exts));
         // Complete the Attribute section of the request, the set (Attributes) contains two sequences (Attribute)
         ASN1EncodableVector v = new ASN1EncodableVector();
@@ -148,8 +151,8 @@ public class ScepRequestGenerator {
         v.add(new DERSequence(extensionattr));
         DERSet attributes = new DERSet(v);
         // Create PKCS#10 certificate request
-        final PKCS10CertificationRequest p10request = new PKCS10CertificationRequest("SHA1WithRSA",
-                CertTools.stringToBcX509Name(reqdn), keys.getPublic(), attributes, keys.getPrivate());
+        final PKCS10CertificationRequest p10request = CertTools.genPKCS10CertificationRequest("SHA1WithRSA",
+                CertTools.stringToBcX509Name(reqdn), keys.getPublic(), attributes, keys.getPrivate(), null);
         
         // Create self signed cert, validity 1 day
         cert = CertTools.genSelfCert(reqdn,24*60*60*1000,null,keys.getPrivate(),keys.getPublic(),AlgorithmConstants.SIGALG_SHA1_WITH_RSA,false);

@@ -35,6 +35,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
 import org.cesecore.util.Base64;
@@ -48,7 +49,6 @@ import com.icesoft.faces.component.inputfile.InputFile;
 import com.icesoft.faces.context.ByteArrayResource;
 import com.icesoft.faces.context.Resource;
 import com.icesoft.faces.context.effects.JavascriptContext;
-import com.novosec.pkix.asn1.crmf.CertReqMessages;
 
 /**
  * This is the backing bean for the enrollment part of the External RA GUI.
@@ -381,7 +381,7 @@ public class EnrollInterfaceBean {
 			ASN1InputStream asn1InputStream = new ASN1InputStream(buf);
 			try {
 				// Verify that we can parse this as a CRMF object
-				CertReqMessages.getInstance(asn1InputStream.readObject()).getCertReqMsg(0);
+				CertReqMessages.getInstance(asn1InputStream.readObject()).toCertReqMsgArray()[0].toASN1Primitive();
 			} catch (IOException e) {
 				context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.invalidreqdata"), null));
 				log.error("",e);

@@ -23,9 +23,13 @@ import java.util.ArrayList;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.DERInteger;
+import org.bouncycastle.asn1.cmp.CertRepMessage;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.jce.netscape.NetscapeCertRequest;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -48,12 +52,6 @@ import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.util.passgen.IPasswordGenerator;
 import org.ejbca.util.passgen.PasswordGeneratorFactory;
-
-import com.novosec.pkix.asn1.cmp.CertRepMessage;
-import com.novosec.pkix.asn1.cmp.PKIBody;
-import com.novosec.pkix.asn1.cmp.PKIHeader;
-import com.novosec.pkix.asn1.cmp.PKIMessage;
-import com.novosec.pkix.asn1.crmf.CertReqMessages;
 
 /**
  * Process certificate signing requests.
@@ -148,16 +146,16 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        	// Extract request in a format that EJBCA can process
 					CertReqMessages certReqMessages = CertReqMessages.getInstance(new ASN1InputStream(submessage.getRequestData()).readObject());
 					PKIMessage msg = new PKIMessage(new PKIHeader(
-							new DERInteger(2), new GeneralName(new X509Name("CN=unused")), new GeneralName(new X509Name("CN=unused"))),
-							new PKIBody(certReqMessages, 2)); // [2] CertReqMessages --Certification Request
+							2, new GeneralName(new X500Name("CN=unused")), new GeneralName(new X500Name("CN=unused"))),
+							new PKIBody(2, certReqMessages)); // [2] CertReqMessages --Certification Request
 		        	CrmfRequestMessage crmfReq = new CrmfRequestMessage(msg, null, true, null);
 		        	crmfReq.setUsername(submessage.getUsername());
 		        	crmfReq.setPassword(submessage.getPassword());
 		        	// Request and extract certificate from response
 		        	ResponseMessage response = signSession.createCertificate(admin, crmfReq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, null);
 		        	ASN1InputStream ais = new ASN1InputStream(new ByteArrayInputStream(response.getResponseMessage()));
-		        	CertRepMessage certRepMessage = PKIMessage.getInstance(ais.readObject()).getBody().getCp();
-					InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse(0).getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
+		        	CertRepMessage certRepMessage = (CertRepMessage) PKIMessage.getInstance(ais.readObject()).getBody().getContent();
+					InputStream inStream = new ByteArrayInputStream(certRepMessage.getResponse()[0].getCertifiedKeyPair().getCertOrEncCert().getCertificate().getEncoded());
 					cert = CertificateFactory.getInstance("X.509").generateCertificate(inStream);
 					inStream.close();
 					// Convert to the right response type
