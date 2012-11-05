@@ -700,7 +700,7 @@ public class RAApiTest {
 		final KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
 		final byte[] requestData = new String("-----BEGIN CERTIFICATE REQUEST-----\n"
 				+ new String(Base64.encode(CertTools.genPKCS10CertificationRequest("SHA1WithRSA",
-		                CertTools.stringToBcX509Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate(), null).getEncoded()))
+		                CertTools.stringToBcX500Name("CN=oneshot-dummyname"), keys.getPublic(), null, keys.getPrivate(), null).getEncoded()))
 				+ "\n-----END CERTIFICATE REQUEST-----").getBytes();
 		
 		final CertificateRequestRequest request = new CertificateRequestRequest(
