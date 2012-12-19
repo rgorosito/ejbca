@@ -56,6 +56,7 @@ import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalRequest;
 import org.ejbca.core.model.ra.RAAuthorization;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.extra.caservice.ConfigurationException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
@@ -298,13 +299,14 @@ public class MessageProcessor {
 		return retval;
 	}
 
-	private int getEndEntityProfileId(AuthenticationToken admin,String endEntityProfileName) throws EjbcaException {
-		int retval = endEntityProfileSession.getEndEntityProfileId(endEntityProfileName);
-		if(retval == 0){
-			throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' does not exist.");
-		}
-		return retval;
-	}
+    private int getEndEntityProfileId(AuthenticationToken admin, String endEntityProfileName) throws EjbcaException {
+        try {
+            return endEntityProfileSession.getEndEntityProfileId(endEntityProfileName);
+        } catch (EndEntityProfileNotFoundException e) {
+            throw new EjbcaException("Error End Entity profile '" + endEntityProfileName + "' does not exist.", e);
+        }
+
+    }
 
 	private int getCAId(AuthenticationToken admin, String cAName) throws CADoesntExistsException, AuthorizationDeniedException {
 		CAInfo info = caSession.getCAInfo(admin,cAName);
