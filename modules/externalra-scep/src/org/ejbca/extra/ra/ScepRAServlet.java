@@ -56,6 +56,7 @@ import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.core.protocol.scep.ScepResponseMessage;
@@ -525,7 +526,7 @@ public class ScepRAServlet extends HttpServlet {
         if (filename != null) {
             // We must remove cache headers for IE
             removeCacheHeaders(out);
-            out.setHeader("Content-disposition", "filename=\""+filename+"\"");        	
+            out.setHeader("Content-disposition", "filename=\""+StringTools.stripFilename(filename)+"\"");        	
         }
         // Set content-type to general file
         out.setContentType(contentType);
