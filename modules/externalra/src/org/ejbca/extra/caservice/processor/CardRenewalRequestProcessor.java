@@ -43,8 +43,8 @@ import org.ejbca.extra.db.ISubMessage;
 
 /**
  * 
- * @author tomas
  * @version $Id$
+ * 
  */
 public class CardRenewalRequestProcessor extends MessageProcessor implements ISubMessageProcessor {
     private static final Logger log = Logger.getLogger(CardRenewalRequestProcessor.class);

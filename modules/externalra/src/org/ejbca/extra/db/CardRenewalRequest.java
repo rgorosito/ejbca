@@ -41,7 +41,6 @@ import org.cesecore.util.CertTools;
  * 
  * Parameters inherited from the base class ExtRARequset is ignored.
  * 
- * @author tomas
  * @version $Id$
  */
 public class CardRenewalRequest extends ExtRARequest {
