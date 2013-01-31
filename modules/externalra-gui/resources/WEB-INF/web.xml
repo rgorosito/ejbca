@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+
+	<!-- In JBoss AS 6/7 we don't want to use JSF2, because the Tomahawk library is not compatible with that. -->
+	<context-param>
+    	<param-name>org.jboss.jbossfaces.JSF_CONFIG_NAME</param-name>
+    	<param-value>Mojarra-1.2</param-value>
+ 	</context-param>
+
 	<context-param>
        <param-name>facelets.DEVELOPMENT</param-name>
        <param-value>true</param-value>

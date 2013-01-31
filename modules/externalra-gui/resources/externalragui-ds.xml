@@ -9,7 +9,7 @@
        <jndi-name>ExternalRAGUIMessageDS</jndi-name>
 
        <connection-url>${externalra-gui.datasource.jdbc-url}</connection-url>
-       <driver-class>${driver-class}</driver-class>
+       <driver-class>${externalra-database.driver}</driver-class>
        <user-name>${externalra-gui.datasource.username}</user-name>
        <password>${externalra-gui.datasource.password}</password>
 

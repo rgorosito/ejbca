@@ -59,7 +59,7 @@ public class SetupDatabaseMappingsTask extends Task {
                 project.setProperty("jdbcurl", jdbcUrl);
                 project.setProperty("username", username);
                 project.setProperty("password", password);
-                project.setProperty("driver-class", driverClass);
+                project.setProperty("externalra-database.driver", driverClass);
                 project.setProperty("hibernate.dialect", hibernateDialect);
                                 
                 project.executeTarget("setup-database-mapping-file");

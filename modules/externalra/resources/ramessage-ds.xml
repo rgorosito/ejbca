@@ -9,7 +9,7 @@
        <jndi-name>RAMessage${number}DS</jndi-name>
 
        <connection-url>${jdbcurl}</connection-url>
-       <driver-class>${driver-class}</driver-class>
+       <driver-class>${externalra-database.driver}</driver-class>
        <user-name>${username}</user-name>
        <password>${password}</password>
 

@@ -19,6 +19,7 @@
 		<path refid="lib.jpa.classpath"/>
 		<path refid="lib.commons-lang.classpath"/>
 		<path refid="lib.commons-config.classpath"/>
+		<path refid="lib.commons-collections.classpath"/>
 	</path>
 	
 	<path id="lib.icefaces.classpath">
@@ -98,10 +99,10 @@
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<fail message="Unsupported database with JDBC URL '${externalra-gui.datasource.jdbc-url}'." unless="driver-class"/>
+    	<condition property="externalra-database.driver" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
+    	<condition property="externalra-database.driver" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
+    	<condition property="externalra-database.driver" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
+    	<fail message="Unsupported database with JDBC URL '${externalra-gui.datasource.jdbc-url}'." unless="externalra-database.driver"/>
     	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml" overwrite="true">
     		<filterchain>
 				<expandproperties/>

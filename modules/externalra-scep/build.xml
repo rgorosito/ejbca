@@ -151,10 +151,10 @@
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="driver-class" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<fail message="Unsupported database with JDBC URL '${scep.ra.datasource.jdbc-url}'." unless="driver-class"/>
+    	<condition property="externalra-database.driver" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
+    	<condition property="externalra-database.driver" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
+    	<condition property="externalra-database.driver" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
+    	<fail message="Unsupported database with JDBC URL '${scep.ra.datasource.jdbc-url}'." unless="externalra-database.driver"/>
 		<mkdir dir="${build.dir}/WEB-INF/classes/META-INF"/>
     	<copy tofile="${build.dir}/WEB-INF/classes/META-INF/persistence.xml" file="${resources.dir}/persistence.xml" overwrite="true">
     		<filterchain>
