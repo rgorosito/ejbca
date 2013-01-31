@@ -47,6 +47,7 @@ import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
 import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.request.CertificateResponseMessage;
@@ -420,6 +421,10 @@ public class ScepRAServlet extends HttpServlet {
             log.error("Empty or invalid request received.", ae);            
             // TODO: Send back proper Failure Response
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, ae.getMessage());
+        } catch (DecoderException de) {
+            log.error("Empty or invalid request received.", de);            
+            // TODO: Send back proper Failure Response
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, de.getMessage());
         } catch (Exception e) {
             log.error("Error in ScepRAServlet:", e);
             // TODO: Send back proper Failure Response
