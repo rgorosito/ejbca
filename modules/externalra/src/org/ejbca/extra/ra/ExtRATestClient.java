@@ -305,7 +305,7 @@ public class ExtRATestClient {
 		private long createPKCS10Request(String username, SubMessages submessages) {
 			long requestId = random.nextLong();			
 			submessages.addSubMessage(new PKCS10Request(requestId,username, "CN=PKCS10REQ", "RFC822NAME=PKCS10Request@test.com",
-                    "PKCS10Request@test.com", null, "EMPTY", "ENDUSER", "AdminCA1",pkcs10_1));					
+                    "PKCS10Request@test.com", null, "EMPTY", "ENDUSER", "ManagementCA",pkcs10_1));					
 			return requestId;
 		}
 		
@@ -313,7 +313,7 @@ public class ExtRATestClient {
 			long requestId = random.nextLong();			
 			submessages.addSubMessage(new PKCS12Request(requestId,username, "CN=PKCS12REQ", "RFC822NAME=PKCS12Request@test.com",
                     "PKCS12Request@test.com", null, "EMPTY", "ENDUSER", 
-                    "AdminCA1","foo123",PKCS12Request.KEYALG_RSA, "1024", true)); 
+                    "ManagementCA","foo123",PKCS12Request.KEYALG_RSA, "1024", true)); 
 			return requestId;
 		}
 		

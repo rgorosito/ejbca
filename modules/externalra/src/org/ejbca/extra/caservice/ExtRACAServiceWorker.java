@@ -156,7 +156,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.signature.required: "+signatureRequired);
 		}
-		caname = this.properties.getProperty("externalra-caservice.raissuer", "AdminCA1").trim();
+		caname = this.properties.getProperty("externalra-caservice.raissuer", "ManagementCA").trim();
 		if (log.isDebugEnabled()) {
 			log.debug("externalra-caservice.raissuer: "+caname);
 		}		

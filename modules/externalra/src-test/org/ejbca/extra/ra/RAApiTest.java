@@ -609,7 +609,7 @@ public class RAApiTest {
 		String password = "foo123";
 		// Add a new user
 		EditUserRequest editUserRequest = new EditUserRequest(requestId, username, "CN=" + username, null, null, null, "EMPTY", "ENDUSER", 
-                   "AdminCA1", password, 10, 1, EditUserRequest.SOFTTOKENNAME_P12, null);
+                   "ManagementCA", password, 10, 1, EditUserRequest.SOFTTOKENNAME_P12, null);
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(editUserRequest);
 		msghome.create(username, smgs);
@@ -655,7 +655,7 @@ public class RAApiTest {
 		String password = "foo123";
 		// Add a new user
 		EditUserRequest editUserRequest = new EditUserRequest(requestId, username, "CN=" + username, null, null, null, "EMPTY", "ENDUSER", 
-                   "AdminCA1", password, 10, 1, EditUserRequest.SOFTTOKENNAME_USERGENERATED, null);
+                   "ManagementCA", password, 10, 1, EditUserRequest.SOFTTOKENNAME_USERGENERATED, null);
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(editUserRequest);
 		msghome.create(username, smgs);
@@ -712,7 +712,7 @@ public class RAApiTest {
 				null, 
 				"EMPTY", 
 				"ENDUSER", 
-				"AdminCA1", 
+				"ManagementCA", 
 				null, 
 				password, 
 				CertificateRequestRequest.REQUEST_TYPE_PKCS10, requestData, CertificateRequestRequest.RESPONSE_TYPE_CERTIFICATE);

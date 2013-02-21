@@ -77,7 +77,7 @@ import org.junit.Test;
 
 /**
  * Tests SCEP enrollment with an RA (SCEP polling RA mode).
- * This test assumes a CA hierarchy. One root CA AdminCA1 and one sub CA ScepCA.
+ * This test assumes a CA hierarchy. One root CA ManagementCA and one sub CA ScepCA.
  * 
  * @version $Id$
  */
@@ -89,7 +89,7 @@ public class ProtocolScepHttpTest {
     private static final String resourceScepNoCA = "/scepraserver/scep/noca/pkiclient.exe";
     private static final String radn = "CN=Scep RA,O=PrimeKey,C=SE";
     private static final String cadn = "CN=Scep CA,O=EJBCA Sample,C=SE";
-    private static final String rootcadn = "CN=AdminCA1,O=EJBCA Sample,C=SE";
+    private static final String rootcadn = "CN=ManagementCA,O=EJBCA Sample,C=SE";
 
     private static X509Certificate rootcacert = null;
     private static X509Certificate cacert = null;

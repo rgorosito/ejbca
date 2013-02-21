@@ -156,7 +156,7 @@ public class ExtRAMessagesTest {
 	public static PKCS10Request genExtRAPKCS10Request(long requestId, String username, String pkcs10, boolean createUser){
 		PKCS10Request req = new PKCS10Request(requestId,username, "CN=PKCS10REQ", "RFC822NAME=PKCS10Request@test.com",
 				                           "PKCS10Request@test.com", null, "EMPTY", "ENDUSER", 
-				                           "AdminCA1",pkcs10);
+				                           "ManagementCA",pkcs10);
 		req.setCreateOrEditUser(createUser);
 		return req;
 		}
@@ -166,26 +166,26 @@ public class ExtRAMessagesTest {
 	public static EditUserRequest genExtRAPKCS10UserRequest(long requestId, String username, String password){
 		   return new EditUserRequest(requestId,username, "CN=PKCS10REQ", "RFC822NAME=PKCS10Request@test.com",
 				                           "PKCS10Request@test.com", null, "EMPTY", "ENDUSER", 
-				                           "AdminCA1",password,10, 1, "USERGENERATED", null);
+				                           "ManagementCA",password,10, 1, "USERGENERATED", null);
 	    }
 	
 	public static PKCS12Request genExtRAPKCS12Request(long requestId, String username, boolean store){
 	   return new PKCS12Request(requestId,username, "CN=PKCS12REQ", "RFC822NAME=PKCS12Request@test.com",
 			                           "PKCS12Request@test.com", null, "EMPTY", "ENDUSER", 
-			                           "AdminCA1","foo123",PKCS12Request.KEYALG_RSA, "1024", store);
+			                           "ManagementCA","foo123",PKCS12Request.KEYALG_RSA, "1024", store);
     }
 	
 	public static EditUserRequest genExtRAEditUserRequest(long requestId, String username){
 		   return new EditUserRequest(requestId,username, "CN=PKCS12REQ", "RFC822NAME=PKCS12Request@test.com",
 				                           "PKCS12Request@test.com", null, "EMPTY", "ENDUSER", 
-				                           "AdminCA1","foo123",10, 1, "USERGENERATED", null);
+				                           "ManagementCA","foo123",10, 1, "USERGENERATED", null);
 	    }
 	
 	
 	public static KeyRecoveryRequest genExtRAKeyRecoveryRequest(long requestId, String username, boolean orgCert, X509Certificate cert){
 		if(cert == null){
 		      return new KeyRecoveryRequest(requestId, username, "KEYRECPWD", 
-                      "CN=AdminCA1,O=EJBCA Sample,C=SE", 
+                      "CN=ManagementCA,O=EJBCA Sample,C=SE", 
                       new BigInteger("1"));			
 		}
 		if(orgCert){
@@ -196,7 +196,7 @@ public class ExtRAMessagesTest {
 		      return new KeyRecoveryRequest(requestId,username, 
 		    		  "CN=KEYRECREQ", "RFC822NAME=KEYRECRequest@test.com",
                       "KEYRECRequest@test.com", null, "EMPTY", "ENDUSER", 
-                      "AdminCA1","foo123",
+                      "ManagementCA","foo123",
                       cert.getIssuerDN().toString(), 
                       cert.getSerialNumber());	
 		}
@@ -242,7 +242,7 @@ public class ExtRAMessagesTest {
 		assertTrue(submessage.getEmail().equals("PKCS10Request@test.com"));
 		assertTrue(submessage.getEndEntityProfileName().equals("EMPTY"));
 		assertTrue(submessage.getCertificateProfileName().equals("ENDUSER"));
-		assertTrue(submessage.getCAName().equals("AdminCA1"));	
+		assertTrue(submessage.getCAName().equals("ManagementCA"));	
 		assertTrue(submessage.getPKCS10().equals("PKCS10"));
 	}
 
@@ -254,7 +254,7 @@ public class ExtRAMessagesTest {
 		assertTrue(submessage.getEmail().equals("PKCS12Request@test.com"));
 		assertTrue(submessage.getEndEntityProfileName().equals("EMPTY"));
 		assertTrue(submessage.getCertificateProfileName().equals("ENDUSER"));
-		assertTrue(submessage.getCAName().equals("AdminCA1"));
+		assertTrue(submessage.getCAName().equals("ManagementCA"));
 		assertTrue(submessage.getPassword().equals("foo123"));
 		assertTrue(submessage.getKeyAlg() == PKCS12Request.KEYALG_RSA);
 		assertTrue(submessage.getKeySpec().equals("1024"));
@@ -265,7 +265,7 @@ public class ExtRAMessagesTest {
         assertTrue(submessage.getRequestId() == 3);
         assertTrue(submessage.getPassword().equals("KEYRECPWD"));
         assertTrue(submessage.getReUseCertificate() == true);
-        assertTrue(submessage.getIssuerDN().equals("CN=AdminCA1,O=EJBCA Sample,C=SE"));
+        assertTrue(submessage.getIssuerDN().equals("CN=ManagementCA,O=EJBCA Sample,C=SE"));
         assertTrue(submessage.getCertificateSN().equals(new BigInteger("1")));
 	}
 
