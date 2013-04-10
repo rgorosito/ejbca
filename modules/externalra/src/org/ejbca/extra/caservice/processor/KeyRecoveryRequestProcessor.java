@@ -51,13 +51,13 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 		PKCS12Response retval = null;
 		try{
 			
-			EndEntityInformation userdata = null;
+			EndEntityInformation endEntity = null;
 			
 			if(submessage.getReUseCertificate()){
-				userdata = endEntityAccessSession.findUser(admin,submessage.getUsername());
+				endEntity = endEntityAccessSession.findUser(admin,submessage.getUsername());
 			}else{
-			  userdata = generateUserDataVO(admin, submessage);
-			  userdata.setPassword("foo123");
+			  endEntity = generateEndEntityInformation(admin, submessage);
+			  endEntity.setPassword("foo123");
 			}
 			
 			// Get KeyPair
@@ -66,10 +66,10 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			if(orgcert == null){
 				throw new EjbcaException("Error in Key Recovery Request, couldn't find specified certificate");
 			}
-			if(!endEntityManagementSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), orgcert)){
+			if(!endEntityManagementSession.prepareForKeyRecovery(admin, endEntity.getUsername(), endEntity.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
-			KeyRecoveryData keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), userdata.getEndEntityProfileId());
+			KeyRecoveryData keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), endEntity.getEndEntityProfileId());
 			if(keyData == null){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}			
@@ -80,7 +80,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 				cert= orgcert;
 				
 			}else{
-				storeUserData(admin, userdata,false, EndEntityConstants.STATUS_INPROCESS);
+				storeUserData(admin, endEntity,false, EndEntityConstants.STATUS_INPROCESS);
 				
 				// Generate Certificate
 				cert = (X509Certificate) signSession.createCertificate(admin,submessage.getUsername(),"foo123", savedKeys.getPublic());			  

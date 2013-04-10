@@ -44,7 +44,7 @@ public class EditUserRequestProcessor extends MessageProcessor implements ISubMe
 		ExtRAResponse retval = null;
         EndEntityInformation userdata = null;
 		try{
-            userdata = generateUserDataVO(admin, submessage);
+            userdata = generateEndEntityInformation(admin, submessage);
             userdata.setPassword(submessage.getPassword());			   
 			userdata.setType(submessage.getType());
 			userdata.setTokenType(getTokenTypeId(submessage.getTokenName()));

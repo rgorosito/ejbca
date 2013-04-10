@@ -187,7 +187,7 @@ public class MessageProcessor {
 	}
 	
 
-    protected EndEntityInformation generateUserDataVO(AuthenticationToken admin, ExtRARequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
+    protected EndEntityInformation generateEndEntityInformation(AuthenticationToken admin, ExtRARequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
         String dirAttributes = submessage.getSubjectDirectoryAttributes();
         ExtendedInformation ext = null;
         if (dirAttributes != null) {

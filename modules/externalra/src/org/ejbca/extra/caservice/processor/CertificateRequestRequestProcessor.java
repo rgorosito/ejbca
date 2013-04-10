@@ -90,7 +90,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 				if (log.isDebugEnabled()) {
 					log.debug("createOrEditUser == true, will use one-shot request processing.");
 				}
-		        final EndEntityInformation userdatavo = getUserDataVO(admin, submessage);
+		        final EndEntityInformation endEntityInformation = getEndEntityInformation(admin, submessage);
 		        final String requestData = new String(submessage.getRequestData()); 
 		        final int requestTypeInt = submessage.getRequestType();
 		        final int responseTypeInt = submessage.getResponseType();
@@ -98,7 +98,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		        final String hardTokenSN = null;
 		        result = certificateRequestSession.processCertReq(
 		        		admin, 
-		        		userdatavo, 
+		        		endEntityInformation, 
 		        		requestData, 
 		        		requestTypeInt,
 		        		hardTokenSN, 
@@ -191,8 +191,8 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 		}
 	}
 	
-	private EndEntityInformation getUserDataVO(final AuthenticationToken admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
-		final EndEntityInformation result = generateUserDataVO(admin, submessage);
+	private EndEntityInformation getEndEntityInformation(final AuthenticationToken admin, final CertificateRequestRequest submessage) throws ClassCastException, EjbcaException, CADoesntExistsException, AuthorizationDeniedException {
+		final EndEntityInformation result = generateEndEntityInformation(admin, submessage);
 		
 		result.setStatus(EndEntityConstants.STATUS_NEW);
 		

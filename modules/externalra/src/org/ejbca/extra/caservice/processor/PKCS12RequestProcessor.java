@@ -61,7 +61,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 		PKCS12Response retval = null;
         EndEntityInformation userdata = null;
 		try{
-            userdata = generateUserDataVO(admin, submessage);
+            userdata = generateEndEntityInformation(admin, submessage);
             userdata.setPassword("foo123");
 	      storeUserData(admin, userdata, false, EndEntityConstants.STATUS_INPROCESS);
 	      

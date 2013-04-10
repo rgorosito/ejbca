@@ -58,7 +58,7 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 		    	  log.debug("Empty password received, createOrEditUser=true so setting default password.");
 		    	  password = "foo123";
 		      }
-	          EndEntityInformation userdata = generateUserDataVO(admin, submessage);
+	          EndEntityInformation userdata = generateEndEntityInformation(admin, submessage);
 	          userdata.setPassword(password);
 	          log.info("Creating/editing user: "+userdata.getUsername()+", with dn: "+userdata.getDN());
 	    	  // See if the user already exists, if it exists and have status NEW or INPROCESS we will not try to change it
