@@ -24,7 +24,7 @@ import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.EjbcaException;
-import org.ejbca.core.model.keyrecovery.KeyRecoveryData;
+import org.ejbca.core.model.keyrecovery.KeyRecoveryInformation;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
@@ -69,7 +69,7 @@ public class KeyRecoveryRequestProcessor extends MessageProcessor implements ISu
 			if(!endEntityManagementSession.prepareForKeyRecovery(admin, endEntity.getUsername(), endEntity.getEndEntityProfileId(), orgcert)){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}
-			KeyRecoveryData keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), endEntity.getEndEntityProfileId());
+			KeyRecoveryInformation keyData = keyRecoverySession.recoverKeys(admin, submessage.getUsername(), endEntity.getEndEntityProfileId());
 			if(keyData == null){
 				throw new EjbcaException("Error in Key Recovery Request, no keys saved for specified request");
 			}			

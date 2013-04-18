@@ -247,7 +247,7 @@ public class EnrollInterfaceBean {
 			return;
 		}
 		// Request the KeyStore from the CA
-		ResponseData keyStoreResponse = getRequestDispatcher().getKeyStoreResponse(username, password);
+		ResponseInformation keyStoreResponse = getRequestDispatcher().getKeyStoreResponse(username, password);
 		// Check if got a valid result
 		if (keyStoreResponse == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
@@ -259,7 +259,7 @@ public class EnrollInterfaceBean {
 			return;
 		}
 		// Handle response
-		resource = new ByteArrayResource(keyStoreResponse.getResponseData());
+		resource = new ByteArrayResource(keyStoreResponse.getResponseInformation());
 		switch (keyStoreResponse.getResponseType()) {
 		case SecConst.TOKEN_SOFT_JKS:
 			filename = username + ".jks";
@@ -312,7 +312,7 @@ public class EnrollInterfaceBean {
 			responseType = CertificateRequestRequest.RESPONSE_TYPE_PKCS7;
 		}
 		// Request the certificate from the CA
-		ResponseData csrResponse = getRequestDispatcher().getCertificateSigningRequestResponse(username, password, certificateRequest, responseType);
+		ResponseInformation csrResponse = getRequestDispatcher().getCertificateSigningRequestResponse(username, password, certificateRequest, responseType);
 		// Check if got a valid result
 		if (csrResponse == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
@@ -329,7 +329,7 @@ public class EnrollInterfaceBean {
 			if ("pem".equals(requestedResponseType)) {
 				Certificate[] certs = new Certificate[1];
 				try {
-					certs[0] = CertTools.getCertfromByteArray(csrResponse.getResponseData());
+					certs[0] = CertTools.getCertfromByteArray(csrResponse.getResponseInformation());
 					resource = new ByteArrayResource(CertTools.getPEMFromCerts(CertTools.getCertCollectionFromArray(certs, "BC")));
 					filename = username + ".pem";
 					mimeType = "application/x-pem-file";
@@ -338,13 +338,13 @@ public class EnrollInterfaceBean {
 					context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.invalidresponse"), null));
 				}
 			} else {
-				resource = new ByteArrayResource(csrResponse.getResponseData());
+				resource = new ByteArrayResource(csrResponse.getResponseInformation());
 				filename = username + ".der";
 				mimeType = "application/pkix-cert";
 			}
 			break;
 		case CertificateRequestRequest.RESPONSE_TYPE_PKCS7:
-			resource = new ByteArrayResource(csrResponse.getResponseData());
+			resource = new ByteArrayResource(csrResponse.getResponseInformation());
 			filename = username + ".p7b";
 			mimeType = "application/x-pkcs7-certificates";
 			break;
@@ -438,7 +438,7 @@ public class EnrollInterfaceBean {
 		if (log.isDebugEnabled()) {
 			log.debug("Got requestType " + requestType + " and is expecting responseType " + responseType + " for user " + username);
 		}
-		ResponseData responseData = getRequestDispatcher().getCertificateResponse(username, password, requestType, buf, responseType);
+		ResponseInformation responseData = getRequestDispatcher().getCertificateResponse(username, password, requestType, buf, responseType);
 		// Check if got a valid result
 		if (responseData == null) {
 			context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, getMessage("enroll.noresponse"), null));
@@ -455,20 +455,20 @@ public class EnrollInterfaceBean {
 		case CertificateRequestRequest.RESPONSE_TYPE_PKCS7:
 			if (isInternetExplorer()) {
 				// Working for XP+IE7
-				certificateResponse = new String(Base64.encode(responseData.getResponseData(), false));
+				certificateResponse = new String(Base64.encode(responseData.getResponseInformation(), false));
 			} else {
-				resource = new ByteArrayResource(responseData.getResponseData());
+				resource = new ByteArrayResource(responseData.getResponseInformation());
 				mimeType = "application/x-x509-user-cert";
 			}
 			break;
 		case CertificateRequestRequest.RESPONSE_TYPE_UNSIGNEDPKCS7:
 			// Working for Vista+IE8
-			certificateResponse = new String(Base64.encode(responseData.getResponseData(), false));
+			certificateResponse = new String(Base64.encode(responseData.getResponseInformation(), false));
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                String pkcs7 = PEM_PKCS7_BEGIN + "\n" + new String(Base64.encode(responseData.getResponseData(), true)) + "\n" + PEM_PKCS7_END + "\n";
+                String pkcs7 = PEM_PKCS7_BEGIN + "\n" + new String(Base64.encode(responseData.getResponseInformation(), true)) + "\n" + PEM_PKCS7_END + "\n";
                 log.debug("pkcs7="+pkcs7);
-            	CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(responseData.getResponseData()), "PKCS7");
+            	CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(responseData.getResponseInformation()), "PKCS7");
             	List<? extends Certificate> certList = certPath.getCertificates();
             	Certificate caCert = certList.get(certList.size()-1);
             	String caCertificate = new String(Base64.encode(caCert.getEncoded(), false));

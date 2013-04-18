@@ -18,19 +18,19 @@ package org.ejbca.externalra.gui;
  * 
  * @version $Id$
  */
-public class ResponseData {
-	final private byte[] responseData;
+public class ResponseInformation {
+	final private byte[] responseInformation;
 	final private int responseType;
 	final private String errorMessage;
 	
-	public ResponseData(byte[] responseData, int responseType, String errorMessage) {
-		this.responseData = responseData;
+	public ResponseInformation(byte[] responseInformation, int responseType, String errorMessage) {
+		this.responseInformation = responseInformation;
 		this.responseType = responseType;
 		this.errorMessage = errorMessage;
 	}
 	
 	/** @return the encoded KeyStore or certificate(s) */
-	public byte[] getResponseData() { return responseData; }
+	public byte[] getResponseInformation() { return responseInformation; }
 	
 	/** @return one of CertificateRequestRequest.RESPONSE_TYPE_... */
 	public int getResponseType() { return responseType; }

@@ -28,7 +28,7 @@ public interface IRequestDispatcher {
 	 * @param password The shared secret
 	 * @return a populated ResponseData object
 	 */
-	public ResponseData getKeyStoreResponse(String username, String password);
+	public ResponseInformation getKeyStoreResponse(String username, String password);
 
 	/**
 	 * Create a certificate or certificate chain from a Certificate Signing Request
@@ -38,7 +38,7 @@ public interface IRequestDispatcher {
 	 * @param responseType the desired response format. One of CertificateRequestRequest.RESPONSE_TYPE_..
 	 * @return a populated ResponseData object
 	 */
-	public ResponseData getCertificateSigningRequestResponse(String username,
+	public ResponseInformation getCertificateSigningRequestResponse(String username,
 			String password, String certificateRequest, int responseType);
 
 	/**
@@ -50,7 +50,7 @@ public interface IRequestDispatcher {
 	 * @param responseType the desired response format. One of CertificateRequestRequest.RESPONSE_TYPE_..
 	 * @return a populated ResponseData object
 	 */
-	public ResponseData getCertificateResponse(String username,
+	public ResponseInformation getCertificateResponse(String username,
 			String password, int requestType, byte[] buf, int responseType);
 
 }

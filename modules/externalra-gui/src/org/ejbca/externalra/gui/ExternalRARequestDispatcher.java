@@ -120,14 +120,14 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
 	/**
 	 * @see org.ejbca.externalra.gui.IRequestDispatcher#getKeyStoreResponse(java.lang.String, java.lang.String)
 	 */
-	public ResponseData getKeyStoreResponse(String username, String password) {
-		ResponseData keyStoreResponse = null;
+	public ResponseInformation getKeyStoreResponse(String username, String password) {
+		ResponseInformation keyStoreResponse = null;
 		KeyStoreRetrievalResponse responseSub = (KeyStoreRetrievalResponse) getResponseFromCA(new KeyStoreRetrievalRequest(random.nextLong(), username, password));
 		if (responseSub != null) {
 			if (responseSub.isSuccessful()) {
-				keyStoreResponse = new ResponseData(responseSub.getKeyStoreData(), responseSub.getKeyStoreType(), null);
+				keyStoreResponse = new ResponseInformation(responseSub.getKeyStoreData(), responseSub.getKeyStoreType(), null);
 			} else {
-				keyStoreResponse = new ResponseData(null, 0, responseSub.getFailInfo());
+				keyStoreResponse = new ResponseInformation(null, 0, responseSub.getFailInfo());
 			}
 		}
 		return keyStoreResponse;
@@ -136,15 +136,15 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
 	/**
 	 * @see org.ejbca.externalra.gui.IRequestDispatcher#getCertificateSigningRequestResponse(java.lang.String, java.lang.String, java.lang.String, int)
 	 */
-	public ResponseData getCertificateSigningRequestResponse(String username, String password, String certificateRequest, int responseType) {
-		ResponseData csrResponse = null;
+	public ResponseInformation getCertificateSigningRequestResponse(String username, String password, String certificateRequest, int responseType) {
+		ResponseInformation csrResponse = null;
 		CertificateRequestResponse responseSub = (CertificateRequestResponse) getResponseFromCA(new CertificateRequestRequest(
 				random.nextLong(), username, password, CertificateRequestRequest.REQUEST_TYPE_PKCS10, certificateRequest.getBytes(), responseType));
 		if (responseSub != null) {
 			if (responseSub.isSuccessful()) {
-				csrResponse = new ResponseData(responseSub.getResponseData(), responseSub.getResponseType(), null);
+				csrResponse = new ResponseInformation(responseSub.getResponseData(), responseSub.getResponseType(), null);
 			} else {
-				csrResponse = new ResponseData(null, 0, responseSub.getFailInfo());
+				csrResponse = new ResponseInformation(null, 0, responseSub.getFailInfo());
 			}
 		}
 		return csrResponse;
@@ -153,15 +153,15 @@ public class ExternalRARequestDispatcher implements IRequestDispatcher {
 	/**
 	 * @see org.ejbca.externalra.gui.IRequestDispatcher#getCertificateResponse(java.lang.String, java.lang.String, int, byte[], int)
 	 */
-	public ResponseData getCertificateResponse(String username, String password, int requestType, byte[] buf, int responseType) {
-		ResponseData certificateResponse = null;
+	public ResponseInformation getCertificateResponse(String username, String password, int requestType, byte[] buf, int responseType) {
+		ResponseInformation certificateResponse = null;
 		CertificateRequestResponse responseSub = (CertificateRequestResponse) getResponseFromCA(new CertificateRequestRequest(
 				random.nextLong(), username, password, requestType, buf, responseType));
 		if (responseSub != null) {
 			if (responseSub.isSuccessful()) {
-				certificateResponse = new ResponseData(responseSub.getResponseData(), responseSub.getResponseType(), null);
+				certificateResponse = new ResponseInformation(responseSub.getResponseData(), responseSub.getResponseType(), null);
 			} else {
-				certificateResponse = new ResponseData(null, 0, responseSub.getFailInfo());
+				certificateResponse = new ResponseInformation(null, 0, responseSub.getFailInfo());
 			}
 		}
 		return certificateResponse;
