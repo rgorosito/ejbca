@@ -198,7 +198,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 
 		Collection<Certificate> cACertChain = null;
 		try {
-			cACertChain = MessageProcessor.getCACertChain(internalUser, caname, true, caSession);
+			cACertChain = MessageProcessor.getCACertChain(caname, true, caSession);
 		} catch (ConfigurationException e) {
 			if(encryptionRequired || signatureRequired){
 				log.error("RAIssuer is misconfigured: ", e);

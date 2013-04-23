@@ -28,7 +28,6 @@ import org.cesecore.authorization.control.AccessControlSessionLocal;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
-import org.cesecore.certificates.ca.CaSession;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
@@ -127,14 +126,18 @@ public class MessageProcessor {
 		ISubMessageProcessor proc = null;
 		
 		String clazz = submessage.getClass().getName();
-		log.debug("Received message of class "+clazz);
+		if (log.isDebugEnabled()) {
+		    log.debug("Received message of class "+clazz);
+		}
 		// We can keep the messages and processors in different packages
 		if (clazz.startsWith("org.ejbca.extra.db.")) {
 			clazz = clazz.replaceFirst("org.ejbca.extra.db.", "org.ejbca.extra.caservice.processor.");
 		}
 		// Add "Processor", a message processor must always be named MyRequestProcessor, where MyRequest is the classname of the request message
 		clazz = clazz + "Processor";
-		log.debug("Creating message processor of class "+clazz);
+		if (log.isDebugEnabled()) {
+		    log.debug("Creating message processor of class "+clazz);
+		}
 		// Finally create a new message processor using reflection
 		@SuppressWarnings("unchecked")
         final Class<? extends ISubMessageProcessor> implClass = (Class<? extends ISubMessageProcessor>) Class.forName(clazz);
@@ -154,9 +157,9 @@ public class MessageProcessor {
 	 * @return the CACertChain.
 	 * @throws ConfigurationException if any of the CAs doesn't exist or is revoked
 	 */
-	public static Collection<Certificate> getCACertChain(AuthenticationToken admin, String cAName, boolean checkRevokation, CaSession caSession) throws ConfigurationException{		
+	public static Collection<Certificate> getCACertChain(String cAName, boolean checkRevokation, CaSessionLocal caSession) throws ConfigurationException{		
 		try{
-		    CAInfo cainfo = caSession.getCAInfo(admin, cAName);			
+		    CAInfo cainfo = caSession.getCAInfoInternal(-1, cAName, true);			
 			if(checkRevokation){
 			  if(cainfo.getStatus()==CAConstants.CA_REVOKED){
 				throw new ConfigurationException("CA " + cainfo.getName() + " Have been revoked");
@@ -166,7 +169,7 @@ public class MessageProcessor {
 			  iter.next(); // Throw away the first one.
 			  while(iter.hasNext()){
 				X509Certificate cacert = (X509Certificate) iter.next();
-				CAInfo cainfo2 = caSession.getCAInfo(admin,CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode());
+				CAInfo cainfo2 = caSession.getCAInfoInternal(CertTools.stringToBCDNString(cacert.getSubjectDN().toString()).hashCode(), null, true);
 				// This CA may be an external CA, so we don't bother if we can not find it.
 				if ((cainfo2 != null) && (cainfo2.getStatus()==CAConstants.CA_REVOKED) ) {
 					throw new ConfigurationException("CA " + cainfo2.getName() + " Have been revoked");

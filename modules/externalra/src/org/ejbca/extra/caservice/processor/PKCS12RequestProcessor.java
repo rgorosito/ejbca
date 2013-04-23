@@ -72,7 +72,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	      
 	      // Generate Keystore
 	      // Fetch CA Cert Chain.	        
-	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(admin, submessage.getCAName(), false, caSession).toArray(new Certificate[0]);
+	      Certificate[] chain = (Certificate[]) MessageProcessor.getCACertChain(submessage.getCAName(), false, caSession).toArray(new Certificate[0]);
 	      String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 	      if (alias == null){
 	    	  alias = submessage.getUsername();
