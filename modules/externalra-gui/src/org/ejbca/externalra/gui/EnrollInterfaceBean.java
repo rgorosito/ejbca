@@ -330,7 +330,7 @@ public class EnrollInterfaceBean {
 				Certificate[] certs = new Certificate[1];
 				try {
 					certs[0] = CertTools.getCertfromByteArray(csrResponse.getResponseInformation());
-					resource = new ByteArrayResource(CertTools.getPEMFromCerts(CertTools.getCertCollectionFromArray(certs, "BC")));
+					resource = new ByteArrayResource(CertTools.getPemFromCertificateChain(CertTools.getCertCollectionFromArray(certs, "BC")));
 					filename = username + ".pem";
 					mimeType = "application/x-pem-file";
 				} catch (Exception e) {

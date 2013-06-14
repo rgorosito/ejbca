@@ -136,7 +136,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	                    certList.addAll(caSession.getCAInfo(intAdmin, CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
 	                    // Create large certificate-only PKCS7
 	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
-	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
+	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPemFromCertificateChain(certList)));
 	                    result = certPath.getEncoded("PKCS7");
 		        	} else {  
 		    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
@@ -170,7 +170,7 @@ public class CertificateRequestRequestProcessor extends MessageProcessor impleme
 	                    certList.addAll(caSession.getCAInfo(intAdmin, CertTools.getIssuerDN(cert).hashCode()).getCertificateChain());
 	                    // Create large certificate-only PKCS7
 	                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
-	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPEMFromCerts(certList)));
+	                    CertPath certPath = cf.generateCertPath(new ByteArrayInputStream(CertTools.getPemFromCertificateChain(certList)));
 	                    result = certPath.getEncoded("PKCS7");
 		        	} else {
 		    			return new CertificateRequestResponse(submessage.getRequestId(), false, MSG_UNSUPPORTED_RESPONSE_TYPE, null, null);
