@@ -22,6 +22,7 @@
 		<path location="${mod.externalra.lib}" />
 		<path refid="lib.commons-lang.classpath"/>
 		<path refid="lib.commons-config.classpath"/>
+		<path refid="lib.commons-collections.classpath"/>
 		<!-- Hibernate's JPA libs are handled separately -->
 	</path>
 
@@ -151,20 +152,11 @@
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<fail message="Unsupported database with JDBC URL '${scep.ra.datasource.jdbc-url}'." unless="externalra-database.driver"/>
 		<mkdir dir="${build.dir}/WEB-INF/classes/META-INF"/>
     	<copy tofile="${build.dir}/WEB-INF/classes/META-INF/persistence.xml" file="${resources.dir}/persistence.xml" overwrite="true">
     		<filterchain>
 				<expandproperties/>
-    		</filterchain>
-    	</copy>
-    	<mkdir dir="${mod.externalra-datasources.dist}"/>
-    	<copy todir="${mod.externalra-datasources.dist}" file="${resources.dir}/ramessage-ds.xml" overwrite="true">
-    		<filterchain>
-    			<expandproperties/>
     		</filterchain>
     	</copy>
     </target>

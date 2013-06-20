@@ -99,19 +99,10 @@
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="com.mysql.jdbc.Driver"><matches pattern="jdbc:mysql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="org.postgresql.Driver"><matches pattern="jdbc:postgresql:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
-    	<condition property="externalra-database.driver" value="org.hsqldb.jdbcDriver"><matches pattern="jdbc:hsqldb:" string="${externalra-gui.datasource.jdbc-url}"/></condition>
     	<fail message="Unsupported database with JDBC URL '${externalra-gui.datasource.jdbc-url}'." unless="externalra-database.driver"/>
     	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml" overwrite="true">
     		<filterchain>
 				<expandproperties/>
-    		</filterchain>
-    	</copy>
-    	<mkdir dir="${mod.externalra-gui.dist}"/>
-    	<copy todir="${mod.externalra-gui.dist}" file="${this.dir}/resources/externalragui-ds.xml" overwrite="true">
-    		<filterchain>
-    			<expandproperties/>
     		</filterchain>
     	</copy>
     </target>
