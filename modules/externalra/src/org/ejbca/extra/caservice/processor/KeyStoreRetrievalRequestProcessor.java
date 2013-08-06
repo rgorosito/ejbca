@@ -70,7 +70,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			boolean loadkeys = (data.getStatus() == EndEntityConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
 			boolean reusecertificate = endEntityProfileSession.getEndEntityProfile(endEntityProfileId).getReUseKeyRecoveredCertificate();
 			// Generate or recover keystore and save it in the configured format 
-			GenerateToken tgen = new GenerateToken(authenticationSession, endEntityAccessSession, caSession, keyRecoverySession, signSession);
+			GenerateToken tgen = new GenerateToken(authenticationSession, endEntityAccessSession, endEntityManagementSession, caSession, keyRecoverySession, signSession);
 			byte[] buf = null;
 			int tokentype = data.getTokenType();
 			boolean createJKS = (tokentype == SecConst.TOKEN_SOFT_JKS);
