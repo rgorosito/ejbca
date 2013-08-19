@@ -25,6 +25,7 @@ import java.security.cert.CertStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Random;
 
@@ -252,12 +253,18 @@ public class RAApiTest {
 		assertTrue(resp.isSuccessful());
 		assertNotNull(resp.getKeyStore("foo123"));
 		KeyStore ks = resp.getKeyStore("foo123");
-		String alias = ks.aliases().nextElement();
-		
-		assertEquals("Returned subject DN in generated certificate is not what we expected", "CN=PKCS12REQ", ((X509Certificate) resp.getKeyStore("foo123").getCertificate(alias)).getSubjectDN().toString());
-			
-		
-		
+		Enumeration<String> aliases = ks.aliases();
+		String alias = null;
+		while (aliases.hasMoreElements()) {
+		    // Keystore aliases do not have a pre-defined order, so we have to look for the key entry.
+		    // There are two entries, a key entry and a certificate entry for the CA certificate(s)
+		    alias = aliases.nextElement();
+	        if (ks.isKeyEntry(alias)) {
+	            // We found the key entry and not the CA certificate entry
+	            break;
+	        }
+		}
+		assertEquals("Returned subject DN in generated certificate is not what we expected for alias: "+alias, "CN=PKCS12REQ", ((X509Certificate) ks.getCertificate(alias)).getSubjectDN().toString());
 	}
 	
 	/** This test requires that keyrecovery is enabled in the EJBCA Admin-GUI */
