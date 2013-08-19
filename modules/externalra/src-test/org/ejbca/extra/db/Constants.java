@@ -120,6 +120,17 @@ public class Constants {
 			+"b6n+bj33rW7EGeTBujOMO+gCuoSURodb2gaWuk0zOPccJuuirgfuWb7FI52TsUiG"
 			+"km6kad9HdUb6YuBB3gM7s1udTHCb6Wxm9jL9Qx8XX99XhL5e0E0nFAL6nD7my4aN"
 			+"CLatc4drxI/EVc+NI8Qu4rkoIztSyb63RSBKSuufgb8=";
+	// Same as above but with challenge password bar123
+	public static final String pkcs10_3 = 
+	        "MIIBnDCCAQUCAQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUx"
+            +"ITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDCBnzANBgkqhkiG9w0B"
+            +"AQEFAAOBjQAwgYkCgYEAw1dQQq133StQ+lGaaADQ86EXXWRGDNblw+L4/8qCsfjg"
+            +"xpVv6kYEavIVOeeKn6Uv7ajmS8+mVUaaBqyxiNIBH4QNo8ZA9GP8ALytCIujRiSg"
+            +"ecBBKeYePp2XZE8z0GwetP9PlevWH1YO+Q5B25/oHU9npJ87zbr1Fz+3QyRp1DcC"
+            +"AwEAAaAXMBUGCSqGSIb3DQEJBzEIDAZiYXIxMjMwDQYJKoZIhvcNAQEFBQADgYEA"
+            +"UbIqhGWb7y+AGLcXQWUMoDCkyZXNeSX6X3Pe2vrV8181hK7I3OsZMsbsRWVyZwqq"
+            +"qSyu5JmVjG8YUldv0k94aStWmfu72yIlDtDaFq0dWqUj+EkH17IoG09EK8aU2etA"
+            +"BAmIuKs0p1vmWsSCj0wOgfQusMZIlhjpgrXMq/7tMS4=";
 	
 	public static final String pkcs10_2 = 
 		"-----BEGIN CERTIFICATE REQUEST-----\n"

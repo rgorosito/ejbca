@@ -155,9 +155,6 @@ public class RAApiTest {
 		assertNotNull(secondCertificate);
 		pkcs7 = resp.getCertificateAsPKCS7();
 		assertNotNull(pkcs7);
-		
-		// TODO: test with createUser = false
-	
 	}
 	
     @Test
@@ -176,7 +173,7 @@ public class RAApiTest {
 		assertTrue(resp.getRequestId() == 100);
 		assertTrue(resp.isSuccessful() == false);
 		
-		// if we create the user first, with correct status, the request should be ok
+		// if we create the user first, with correct status, the request should be ok, but only if we use the right password
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10UserRequest(101,"SimplePKCS10Test1", "foo123"));
 		msghome.create("SimplePKCS10Test1", smgs);		
@@ -188,7 +185,20 @@ public class RAApiTest {
 		assertTrue("Wrong Request ID" + editresp.getRequestId(), editresp.getRequestId() == 101);
 		assertTrue("External RA CA Service was not successful.", editresp.isSuccessful() == true);
 
-		// Create a new request, now it should be ok
+		// First test a request with wrong password, should not work
+		smgs = new SubMessages(null,null,null);
+		smgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10Request(100,"SimplePKCS10Test1", Constants.pkcs10_3, false));
+		msghome.create("SimplePKCS10Test1", smgs);
+		msg = waitForUser("SimplePKCS10Test1");
+		assertNotNull("No response", msg);
+		submessagesresp = msg.getSubMessages(null,null);
+		assertTrue(submessagesresp.getSubMessages().size() == 1);       
+		iter =  submessagesresp.getSubMessages().iterator();
+		resp = (PKCS10Response) iter.next();
+		assertTrue(resp.getRequestId() == 100);
+		assertTrue(resp.isSuccessful() == false);
+
+		// Create a new request with right password, now it should be ok
 		smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS10Request(102,"SimplePKCS10Test1", Constants.pkcs10_1, false));
 		msghome.create("SimplePKCS10Test1", smgs);		
@@ -230,10 +240,8 @@ public class RAApiTest {
             }
         }
         assertTrue(found);
-
 	}
 
-	
     @Test
 	public void test03GenerateSimplePKCS12Request() throws Exception {		
 		SubMessages smgs = new SubMessages(null,null,null);
@@ -269,7 +277,7 @@ public class RAApiTest {
 	
 	/** This test requires that keyrecovery is enabled in the EJBCA Admin-GUI */
     @Test
-	public void test04GenerateSimpleKeyRecoveryRequest() throws Exception {
+    public void test04GenerateSimpleKeyRecoveryRequest() throws Exception {
 		// First generate keystore
 		SubMessages smgs = new SubMessages(null,null,null);
 		smgs.addSubMessage(ExtRAMessagesTest.genExtRAPKCS12Request(300,"SimplePKCS12Test1", true));
@@ -339,7 +347,7 @@ public class RAApiTest {
 	}
 	
     @Test
-	public void test05GenerateSimpleRevokationRequest() throws Exception {
+    public void test05GenerateSimpleRevokationRequest() throws Exception {
 		// revoke first certificate
 		SubMessages smgs = new SubMessages(null,null,null);
 		assertNotNull("Missing certificate from previous test.", firstCertificate);

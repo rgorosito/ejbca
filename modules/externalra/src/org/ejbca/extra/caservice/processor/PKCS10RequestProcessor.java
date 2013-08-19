@@ -47,6 +47,7 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
     private ISubMessage processExtRAPKCS10Request(AuthenticationToken admin, PKCS10Request submessage) {
 		log.debug("Processing PKCS10Request");
 		PKCS10Response retval = null;
+        EndEntityInformation userdata = null;
 		try {
 	      // Create a PKCS10
 	      PKCS10RequestMessage pkcs10 = RequestMessageUtils.genPKCS10RequestMessage(submessage.getPKCS10().getBytes());
@@ -58,7 +59,7 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 		    	  log.debug("Empty password received, createOrEditUser=true so setting default password.");
 		    	  password = "foo123";
 		      }
-	          EndEntityInformation userdata = generateEndEntityInformation(admin, submessage);
+	          userdata = generateEndEntityInformation(admin, submessage);
 	          userdata.setPassword(password);
 	          log.info("Creating/editing user: "+userdata.getUsername()+", with dn: "+userdata.getDN());
 	    	  // See if the user already exists, if it exists and have status NEW or INPROCESS we will not try to change it
@@ -83,8 +84,15 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 			// so catch the exception thrown when this is the case and let the method return null to leave the message in the queue to be tried the next round.
 			log.info("WaitingForApprovalException: "+wae.getMessage());
 		}catch(Exception e){
-			// We should end up here if an approval is rejected, or some other error occur. We will then send back a failed message
+			// We should end up here if an approval is rejected or approval execution failed, or some other error occur. We will then send back a failed message
+		    // Since the request can not be processed any more, we will also set user status to failed, so that the user can be edited again.
+		    // We do not end up here if the request is waiting for approval, then we end up above on the ApprovalExceptions.
 			log.error("Error processing PKCS10Request: ", e);
+            if (userdata != null) {
+                try {
+                    storeUserData(admin, userdata, false, EndEntityConstants.STATUS_FAILED);                    
+                } catch (Exception ignore) {/*ignore*/}
+            }
 			retval = new PKCS10Response(submessage.getRequestId(),false,e.getMessage(),null,null);
 		}
 		
