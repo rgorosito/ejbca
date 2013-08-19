@@ -4,6 +4,7 @@
    		<jta-data-source>java:/RAMessage${number}DS</jta-data-source>
    		-->
    		<non-jta-data-source>${datasource.jndi-name-prefix}RAMessage${number}DS</non-jta-data-source>
+   		<class>org.ejbca.extra.db.Message</class>
 		<properties>
 			<property name="hibernate.dialect" value="${hibernate.dialect}"/>
 			<property name="hibernate.show-sql" value="true"/>

@@ -25,13 +25,16 @@ import javax.persistence.Persistence;
 import org.apache.log4j.Logger;
 import org.cesecore.util.CryptoProviderTools;
 import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 
 /**
  * Makes basic database functionality tests.
  *
  * @version $Id$ 
  */
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class MessageHomeTest {
 
 	private static final Logger log = Logger.getLogger(MessageHomeTest.class);

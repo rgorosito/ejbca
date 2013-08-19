@@ -46,6 +46,7 @@
     <target name="build" description="Build this module" depends="build-service, build-client"/>
 
     <target name="build-service" description="Build External RA service" depends="compile, setup-database-mapping-files">
+    	<copy tofile="${build.dir}/META-INF/services/org.ejbca.core.model.services.IWorker" file="${this.dir}/resources/services/org.ejbca.core.model.services.IWorker" overwrite="true"/>
     	<dirname file="${mod.externalra-service.lib}" property="mod.externalra-service.lib.dir"/>
     	<mkdir dir="${mod.externalra-service.lib.dir}" />
     	<jar destfile="${mod.externalra-service.lib}">
@@ -54,7 +55,7 @@
                 <include name="org/ejbca/extra/util/**/*.class" />
                 <include name="org/ejbca/extra/db/**/*.class" />
     		</fileset>
-   			<fileset dir="${build.dir}" includes="META-INF/*.xml"/>
+   			<fileset dir="${build.dir}" includes="META-INF/**"/>
     	</jar>
     </target>
 
@@ -198,7 +199,6 @@
     	<fail message="Java version ${ant.java.version} cannot be used for building this module.">
     		<condition><equals arg1="${ant.java.version}" arg2="1.5"/></condition>
     	</fail>
-    	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml.template" overwrite="true"/>
     	<setup-database-mapping/>
     	<copy todir="${mod.externalra-datasources.dist}"><fileset dir="${build.dir}" includes="ramessage*-ds.xml"/></copy>
     </target>
@@ -214,8 +214,7 @@
     			<expandproperties/>
     	    </filterchain>
     	</loadfile>
-		<copy tofile="${build.dir}/META-INF/persistence.xml.template" file="${build.dir}/META-INF/persistence.xml" overwrite="true"/>
-		<copy tofile="${build.dir}/META-INF/persistence.xml" file="${build.dir}/META-INF/persistence.xml.template" overwrite="true">
+    	<copy tofile="${build.dir}/META-INF/persistence.xml" file="${this.dir}/resources/persistence.xml.template" overwrite="true">
 			<filterchain>
 				<tokenfilter>
 					<replacestring from="&lt;!-- @next@ --&gt;" to="${loaderholder}"/>

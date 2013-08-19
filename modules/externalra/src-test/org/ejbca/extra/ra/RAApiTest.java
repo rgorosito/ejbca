@@ -59,7 +59,9 @@ import org.ejbca.extra.db.RevocationRequest;
 import org.ejbca.extra.db.SubMessages;
 import org.ejbca.util.NonEjbTestTools;
 import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 
 
 /**
@@ -71,13 +73,13 @@ import org.junit.Test;
  * some of the generated certificates is also tested.
  * 
  * The following requirements should be set in order to run the tests.
- * - Properly configured database
- * - External RA CA-service worker installed on EJBCA machine
+ * - Properly configured database, see persistence-test.xml, default database 'messages' on localhost with user/pass ejbca/ejbca.
+ * - External RA CA-service worker installed on EJBCA machine with datasource configured, see conf/externalra.properties
  * 
- * @author philip
  * @version $Id$
  */
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class RAApiTest {
 
 	private static final Logger log = Logger.getLogger(RAApiTest.class);
@@ -243,16 +245,16 @@ public class RAApiTest {
 		
 		SubMessages submessagesresp = msg.getSubMessages(null,null);
 		
-		assertTrue(submessagesresp.getSubMessages().size() == 1);
+		assertEquals(1, submessagesresp.getSubMessages().size());
 		
 		PKCS12Response resp = (PKCS12Response) submessagesresp.getSubMessages().iterator().next();
-		assertTrue(resp.getRequestId() == 200);
-		assertTrue(resp.isSuccessful() == true);
+		assertEquals(200, resp.getRequestId());
+		assertTrue(resp.isSuccessful());
 		assertNotNull(resp.getKeyStore("foo123"));
 		KeyStore ks = resp.getKeyStore("foo123");
 		String alias = ks.aliases().nextElement();
 		
-		assertTrue(((X509Certificate) resp.getKeyStore("foo123").getCertificate(alias)).getSubjectDN().toString().equals("CN=PKCS12REQ"));
+		assertEquals("Returned subject DN in generated certificate is not what we expected", "CN=PKCS12REQ", ((X509Certificate) resp.getKeyStore("foo123").getCertificate(alias)).getSubjectDN().toString());
 			
 		
 		
