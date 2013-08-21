@@ -152,6 +152,7 @@
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect"><matches pattern="jdbc:mysql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"><matches pattern="jdbc:postgresql:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<condition property="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"><matches pattern="jdbc:hsqldb:" string="${scep.ra.datasource.jdbc-url}"/></condition>
+    	<condition property="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"><matches pattern="jdbc:h2:" string="${scep.ra.datasource.jdbc-url}"/></condition>
     	<fail message="Unsupported database with JDBC URL '${scep.ra.datasource.jdbc-url}'." unless="externalra-database.driver"/>
 		<mkdir dir="${build.dir}/WEB-INF/classes/META-INF"/>
     	<copy tofile="${build.dir}/WEB-INF/classes/META-INF/persistence.xml" file="${resources.dir}/persistence.xml" overwrite="true">
