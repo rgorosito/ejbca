@@ -23,6 +23,8 @@ import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
+import org.ejbca.config.Configuration;
+import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.extra.db.ExtRARequest;
@@ -65,7 +67,7 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 			}
 			// Find out if are doing key recovery
 			int endEntityProfileId = data.getEndEntityProfileId();	// TODO should probably also be used to get keysize and algorithm in the future..
-			boolean usekeyrecovery = globalConfigurationSession.getCachedGlobalConfiguration().getEnableKeyRecovery();
+			boolean usekeyrecovery = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(Configuration.GlobalConfigID)).getEnableKeyRecovery();
 			boolean savekeys = data.getKeyRecoverable() && usekeyrecovery &&  (data.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY);
 			boolean loadkeys = (data.getStatus() == EndEntityConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
 			boolean reusecertificate = endEntityProfileSession.getEndEntityProfile(endEntityProfileId).getReUseKeyRecoveredCertificate();

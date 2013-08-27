@@ -27,6 +27,8 @@ import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
+import org.ejbca.config.Configuration;
+import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.extra.db.ExtRARequest;
@@ -54,7 +56,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
     	if (log.isDebugEnabled()) {
     		log.debug("Processing ExtRAPKCS12Request");
     	}
-        final boolean usekeyrecovery  = globalConfigurationSession.getCachedGlobalConfiguration().getEnableKeyRecovery();
+        final boolean usekeyrecovery  = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(Configuration.GlobalConfigID)).getEnableKeyRecovery();
     	if (log.isDebugEnabled()) {
     		log.debug("Key recovery enabled: "+ usekeyrecovery);
     	}
