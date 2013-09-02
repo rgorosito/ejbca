@@ -105,9 +105,9 @@
 						return false;
 					}
 					document.objXenroll.reset();
-					document.objXenroll.HashAlgorithm = "MD5";	// WTF!
-					document.objXenroll.ProviderName = document.getElementById("csps").text;
-					document.objXenroll.ProviderType = document.getElementById("csps").value;
+					document.objXenroll.HashAlgorithm = "SHA1";
+					document.objXenroll.ProviderName = document.getElementById("csps").options(document.getElementById("csps").selectedIndex).text;
+					document.objXenroll.ProviderType = document.getElementById("csps").options(document.getElementById("csps").selectedIndex).value;
 					if (document.objXenroll.ProviderType < 2) {
 						document.objXenroll.KeySpec = 1;
 					} else {
