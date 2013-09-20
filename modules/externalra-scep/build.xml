@@ -20,6 +20,9 @@
 		<path refid="lib.cert-cvc.classpath"/>
 		<path location="${mod.ejbca-util.lib}" />
 		<path location="${mod.externalra.lib}" />
+                <path location="${mod.cesecore-entity.lib}"/>
+                <path location="${mod.cesecore-common.lib}"/>
+                <path location="${mod.cesecore-ejb-interface.lib}"/>
 		<path refid="lib.commons-lang.classpath"/>
 		<path refid="lib.commons-config.classpath"/>
 		<path refid="lib.commons-collections.classpath"/>
