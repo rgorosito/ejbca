@@ -129,7 +129,7 @@
 			<param name="ejbca-cli.arg" value='ca init ScepCA "CN=Scep CA,O=EJBCA Sample,C=SE" soft null 2048 RSA 3600 null SHA1WithRSA null -1688117755'/>
 		</antcall>
 		<antcall target="ejbca-cli">
-			<param name="ejbca-cli.arg" value='ra adduser sceprakeystore foo123 "CN=Scep RA,O=PrimeKey,C=SE" null ScepCA null 1 P12'/>
+			<param name="ejbca-cli.arg" value='ra addendentity sceprakeystore foo123 "CN=Scep RA,O=PrimeKey,C=SE" null ScepCA null 1 P12'/>
 		</antcall>
 		<antcall target="ejbca-cli">
 			<param name="ejbca-cli.arg" value="ra setclearpwd sceprakeystore foo123"/>
