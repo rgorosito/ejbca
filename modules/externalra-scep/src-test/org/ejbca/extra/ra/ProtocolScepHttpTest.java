@@ -479,7 +479,7 @@ public class ProtocolScepHttpTest {
                     // check the returned certificate
                     String subjectdn = CertTools.stringToBCDNString(retcert.getSubjectDN().getName());
                     if (mysubjectdn.equals(subjectdn)) {
-                        System.out.println("Got user cert with DN: "+ retcert.getSubjectDN().getName());
+                        log.info("Got user cert with DN: "+ retcert.getSubjectDN().getName());
                         // issued certificate
                         assertEquals(CertTools.stringToBCDNString("C=SE,O=PrimeKey,CN=sceptest"), subjectdn);
                         retcert.verify(cacert.getPublicKey());
