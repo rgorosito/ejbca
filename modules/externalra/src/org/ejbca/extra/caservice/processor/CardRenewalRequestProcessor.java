@@ -58,7 +58,9 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
     }
 
     private ISubMessage processExtRACardRenewalRequest(AuthenticationToken admin, CardRenewalRequest submessage) {
-		log.debug("Processing ExtRACardRenewalRequest");
+        if (log.isDebugEnabled()) {
+            log.debug("Processing ExtRACardRenewalRequest");
+        }
 		ExtRAResponse retval = null;
 		try {
 			Certificate authcert = submessage.getAuthCertificate();
@@ -79,14 +81,14 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                 try {
                     authcert.verify(authcacert.getPublicKey());                    
                 } catch (Exception e) {
-                    log.error("Error verifying authentication certificate: ", e);
+                    log.info("Error verifying authentication certificate: ", e);
                     retval = new ExtRAResponse(submessage.getRequestId(),false,"Error verifying authentication certificate: "+e.getMessage());
                     return retval;
                 }
                 try {
                     signcert.verify(signcacert.getPublicKey());                    
                 } catch (Exception e) {
-                    log.error("Error verifying signature certificate: ", e);
+                    log.info("Error verifying signature certificate: ", e);
                     retval = new ExtRAResponse(submessage.getRequestId(),false,"Error verifying signature certificate: "+e.getMessage());
                     return retval;
                 }
@@ -102,7 +104,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                     }                    
                 } catch (Exception e) {
                     authok="Error verifying authentication request: "+e.getMessage();
-                    log.error("Error verifying authentication request: ", e);
+                    log.info("Error verifying authentication request: ", e);
                 }
                 if (authok != null) {
                     retval = new ExtRAResponse(submessage.getRequestId(),false,authok);
@@ -115,7 +117,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
                     }                    
                 } catch (Exception e) {
                     signok="Error verifying signaturerequest: "+e.getMessage();
-                    log.error("Error verifying signaturerequest: ", e);
+                    log.info("Error verifying signaturerequest: ", e);
                 }
                 if (signok != null) {
                     retval = new ExtRAResponse(submessage.getRequestId(),false,signok);
@@ -127,7 +129,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 				if (username != null) {
 		            final EndEntityInformation data = endEntityAccessSession.findUser(admin, username);
 		            if ( data.getStatus() != EndEntityConstants.STATUS_NEW) {
-		            	log.error("User status must be new for "+username);
+		            	log.info("User status must be new for "+username);
 						retval = new ExtRAResponse(submessage.getRequestId(),false,"User status must be new for "+username);
 		            } else {
                         log.info("Processing Card Renewal for: issuer='"+issuerDN+"', serno="+serno);
@@ -211,7 +213,7 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
 		            	retval = new CardRenewalResponse(submessage.getRequestId(), true, null, authcertOut, signcertOut);
 		            }
 				} else {
-                    log.error("User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);
+                    log.info("User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);
 					retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from issuer/serno: issuer='"+issuerDN+"', serno="+serno);					
 				}
 			} 			
