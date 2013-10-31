@@ -23,7 +23,6 @@ import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ISubMessage;
 import org.ejbca.extra.db.PKCS10Request;
@@ -85,20 +84,20 @@ public class PKCS10RequestProcessor extends MessageProcessor implements ISubMess
 			// there might be an already saved approval for this user or a new approval will be created, 
 			// so catch the exception thrown when this is the case and let the method return null to leave the message in the queue to be tried the next round.
 			log.info("WaitingForApprovalException: "+wae.getMessage());
-        } catch (AuthStatusException wae) {
-            // If user status is not NEW 
-            log.info("AuthStatusException: "+wae.getMessage());
 		}catch(Exception e){
 			// We should end up here if an approval is rejected or approval execution failed, or some other error occur. We will then send back a failed message
 		    // Since the request can not be processed any more, we will also set user status to failed, so that the user can be edited again.
 		    // We do not end up here if the request is waiting for approval, then we end up above on the ApprovalExceptions.
-			log.warn("Error processing PKCS10Request: ", e);
+			log.info("Error processing PKCS10Request: "+e.getMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("Exception: ", e);
+			}
             if (userdata != null) {
                 try {
                     storeUserData(admin, userdata, false, EndEntityConstants.STATUS_FAILED);                    
                 } catch (Exception ignore) {/*ignore*/}
             }
-			retval = new PKCS10Response(submessage.getRequestId(),false,e.getMessage(),null,null);
+			retval = new PKCS10Response(submessage.getRequestId(), false, e.getMessage(), null, null);
 		}
 		
 		return retval;
