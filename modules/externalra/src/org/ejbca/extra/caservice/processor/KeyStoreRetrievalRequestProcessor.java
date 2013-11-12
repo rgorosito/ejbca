@@ -25,6 +25,7 @@ import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.ejbca.config.Configuration;
 import org.ejbca.config.GlobalConfiguration;
+import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.extra.db.ExtRARequest;
@@ -63,7 +64,8 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 				log.info("External RA admin was denied access to a user: " + e.getMessage());
 			}
 			if (data == null) {
-				return new KeyStoreRetrievalResponse(((ExtRARequest) submessage).getRequestId(), false, "No such user.", null, null);
+			    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", submessage.getUsername());
+				return new KeyStoreRetrievalResponse(((ExtRARequest) submessage).getRequestId(), false, errmsg, null, null);
 			}
 			// Find out if are doing key recovery
 			int endEntityProfileId = data.getEndEntityProfileId();	// TODO should probably also be used to get keysize and algorithm in the future..

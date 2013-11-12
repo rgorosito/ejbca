@@ -20,6 +20,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.util.CertTools;
+import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.extra.db.ExtRARequest;
 import org.ejbca.extra.db.ExtRAResponse;
 import org.ejbca.extra.db.ISubMessage;
@@ -66,7 +67,8 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 								endEntityManagementSession.setUserStatus(admin, username, vo.getStatus());
 							}					
 						} else {
-							retval = new ExtRAResponse(submessage.getRequestId(),false,"User not found from username: username="+username);							
+						    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", username);
+							retval = new ExtRAResponse(submessage.getRequestId(),false, errmsg);
 						}
 					} else {
 						// Revoke only this certificate
