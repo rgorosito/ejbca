@@ -64,7 +64,8 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 				log.info("External RA admin was denied access to a user: " + e.getMessage());
 			}
 			if (data == null) {
-			    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", submessage.getUsername());
+			    log.info(InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", submessage.getUsername()));
+			    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.wrongusernameorpassword");
 				return new KeyStoreRetrievalResponse(((ExtRARequest) submessage).getRequestId(), false, errmsg, null, null);
 			}
 			// Find out if are doing key recovery

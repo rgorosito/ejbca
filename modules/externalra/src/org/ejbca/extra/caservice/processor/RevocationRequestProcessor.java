@@ -67,7 +67,8 @@ public class RevocationRequestProcessor extends MessageProcessor implements ISub
 								endEntityManagementSession.setUserStatus(admin, username, vo.getStatus());
 							}					
 						} else {
-						    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", username);
+						    log.info(InternalEjbcaResources.getInstance().getLocalizedMessage("ra.errorentitynotexist", username));
+						    final String errmsg = InternalEjbcaResources.getInstance().getLocalizedMessage("ra.wrongusernameorpassword");
 							retval = new ExtRAResponse(submessage.getRequestId(),false, errmsg);
 						}
 					} else {
