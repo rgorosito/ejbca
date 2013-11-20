@@ -27,6 +27,7 @@ import java.security.cert.CertStoreException;
 import java.security.cert.Certificate;
 import java.security.cert.CollectionCertStoreParameters;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -269,7 +270,9 @@ public class ScepRAServlet extends HttpServlet {
                 			Iterator<ISubMessage> iter =  submessagesresp.getSubMessages().iterator();
                 			PKCS10Response resp = (PKCS10Response)iter.next();
                 			// create proper ScepResponseMessage
-                			CertificateResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racert, rapriv, cryptProvider);
+                			Collection<Certificate> racertColl = new ArrayList<Certificate>();
+                			racertColl.add(racert);
+                			CertificateResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racertColl, rapriv, cryptProvider);
                 			ret.setCACert(cacert);
             				X509Certificate respCert = resp.getCertificate();
                 			if ( resp.isSuccessful() && (respCert != null) ) {
@@ -466,7 +469,9 @@ public class ScepRAServlet extends HttpServlet {
 	    	if (log.isDebugEnabled()) {
 	    		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
 	    	}
-    		ret.setSignKeyInfo(racert, rakey, cryptProvider);
+	    	Collection<Certificate> racertColl = new ArrayList<Certificate>();
+	    	racertColl.add(racert);
+    		ret.setSignKeyInfo(racertColl, rakey, cryptProvider);
     	}
     	if (req.getSenderNonce() != null) {
     		ret.setRecipientNonce(req.getSenderNonce());
