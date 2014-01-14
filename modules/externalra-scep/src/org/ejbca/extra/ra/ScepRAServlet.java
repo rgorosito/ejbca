@@ -194,8 +194,8 @@ public class ScepRAServlet extends HttpServlet {
     	 */
     	String operation = request.getParameter("operation");
     	String message = request.getParameter("message");
-    	// Some clients don't url encode the + sign in the request
-        if (message != null) {
+    	// Some clients don't url encode the + sign in the request. Message is only used to PKIOperations
+        if (message != null && operation != null && operation.equals("PKIOperation")) {
         	message = message.replace(' ', '+');
         }
 
@@ -416,7 +416,7 @@ public class ScepRAServlet extends HttpServlet {
                                        authenticate an enrollment request for a new
                                        certificate.  
                  */
-                log.info("Got SCEP CACaps request for CA '" + message + "'");
+                log.debug("Got SCEP GetCACaps request");
                 response.setContentType("text/plain");
                 response.getOutputStream().print("POSTPKIOperation\nSHA-1");
             }	
