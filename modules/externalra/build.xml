@@ -120,14 +120,14 @@
     <target name="compile" depends="compile-external-deps">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
-        	encoding="iso8859-1" target="${java.target.version}" classpathref="compile.classpath"/>
+        	encoding="UTF-8" target="${java.target.version}" classpathref="compile.classpath"/>
     </target>
 
     <target name="compile-client-external-deps" unless="external-deps-satfisfied"><antcall target="ejbca-util"/></target>
     <target name="compile-client" depends="compile-client-external-deps">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
-        	encoding="iso8859-1" target="${java.target.version}" classpathref="compile.classpath">
+        	encoding="UTF-8" target="${java.target.version}" classpathref="compile.classpath">
             <include name="org/ejbca/extra/db/*.java" />
             <include name="org/ejbca/extra/ra/*.java" />
             <include name="org/ejbca/extra/util/*.java" />
@@ -137,7 +137,7 @@
     <target name="compile-tests" depends="build">
     	<mkdir dir="${build-test.dir}" />
         <javac srcdir="${src-test.dir}" destdir="${build-test.dir}" debug="on" includeantruntime="no"
-        	encoding="iso8859-1" target="${java.target.version}">
+        	encoding="UTF-8" target="${java.target.version}">
         	<classpath>
 				<path location="${mod.ejbca-ejb.lib}" />
         		<path refid="test.classpath"/>
