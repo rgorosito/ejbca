@@ -196,16 +196,15 @@ public class ExtRACAServiceWorker extends BaseWorker {
 	 */
 	public void processWaitingMessages(Map<Class<?>, Object> ejbs) {
 
-		Collection<Certificate> cACertChain = null;
-		try {
-			cACertChain = MessageProcessor.getCACertChain(caname, true, caSession);
-		} catch (ConfigurationException e) {
+	    // Check if caname exists
+	    final boolean exists = caSession.existsCa(caname);
+		if (!exists) {
 			if(encryptionRequired || signatureRequired){
-				log.error("RAIssuer is misconfigured: ", e);
+				log.error("RAIssuer is misconfigured, and is required. CA does not exist: "+caname);
 				return;
 			}else{
 				if (log.isDebugEnabled()) {
-					log.debug("RAIssuer is misconfigured, but isn't required");
+					log.debug("RAIssuer is misconfigured, but isn't required. CA does not exist: "+caname);
 				}
 			}
 		}				
@@ -233,6 +232,7 @@ public class ExtRACAServiceWorker extends BaseWorker {
 						log.info("Started processing message with messageId: " + msg.getMessageid()+", and uniqueId: "+msg.getUniqueId()); 
 
 						if (serviceKeyStore != null) {
+					        final Collection<Certificate> cACertChain = MessageProcessor.getCACertChain(caname, true, caSession);
 							submgs = msg.getSubMessages(
 									(PrivateKey) serviceKeyStore.getKeyStore().getKey(serviceKeyStore.getAlias(), keystorePwd.toCharArray()),
 									cACertChain);
