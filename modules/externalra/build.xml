@@ -11,7 +11,6 @@
 	<property name="build-test.dir" location="${this.dir}/build-test"/>
 	<property name="src.dir" location="${this.dir}/src"/>
 	<property name="src-test.dir" location="${this.dir}/src-test"/>
-	<property name="reports.base.dir" location="${this.dir}/build-test/reports/"/>
 
 	<path id="compile-service.classpath">
 		<path refid="lib.jee.classpath"/>
@@ -150,9 +149,6 @@
 	<target name="test" depends="compile-tests" description="Run tests for this module">
 		<fail message="Specify a JDBC connector JAR using -Dexternalra.test.jdbcjar=... and configure the database connection in ${this.dir}/resources/persistence.test.xml" unless="externalra.test.jdbcjar"/>
     	<antcall target="showtime"/>
-    	<property name="reports.dir" location="${reports.base.dir}/test"/>
-		<delete dir="${reports.dir}" />
-		<mkdir dir="${reports.dir}/html"/>
 		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}">
 			<classpath>
         		<path refid="test.classpath"/>
@@ -165,16 +161,12 @@
 				</fileset>
 			</batchtest>
 		</junit>
-		<antcall target="createreport"/>
     	<antcall target="showtime"/>
     </target>
 	
 	<target name="runone" depends="compile-tests">
 		<fail message="'test.runone' is not set. Example -Dtest.runone=ExtRAMessagesTest" unless="test.runone" />
 		<fail message="Specify a JDBC connector JAR using -Dexternalra.test.jdbcjar=... and configure the database connection in ${this.dir}/resources/persistence.test.xml" unless="externalra.test.jdbcjar"/>
-    	<property name="reports.dir" location="${reports.base.dir}/runone"/>
-		<delete dir="${reports.dir}" />
-		<mkdir dir="${reports.dir}/html"/>
 		<junit printsummary="yes" haltonfailure="no" >
 			<classpath>
         		<path refid="test.classpath"/>
@@ -188,7 +180,6 @@
 				</fileset>
 			</batchtest>
 		</junit>
-		<antcall target="createreport"/>
 	</target>
 
 	<target name="declare-task" depends="compile">

@@ -11,7 +11,6 @@
 	<property name="build-test.dir" location="${this.dir}/build-test"/>
 	<property name="src.dir" location="${this.dir}/src"/>
 	<property name="src-test.dir" location="${this.dir}/src-test"/>
-	<property name="reports.base.dir" location="${this.dir}/build-test/reports/"/>
 	<property name="resources.dir" location="${this.dir}/resources"/>
 
 	<path id="bundle.classpath">
@@ -105,9 +104,6 @@
 
 	<target name="test" depends="compile-tests" description="Run tests for this module">
     	<antcall target="showtime"/>
-    	<property name="reports.dir" location="${reports.base.dir}/test"/>
-		<delete dir="${reports.dir}" />
-		<mkdir dir="${reports.dir}/html"/>
         <copy file="${log4j.test.file}" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
 		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}">
 			<classpath>
@@ -120,7 +116,6 @@
 				</fileset>
 			</batchtest>
 		</junit>
-		<antcall target="createreport"/>
     	<antcall target="showtime"/>
     </target>
 	
