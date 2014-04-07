@@ -18,8 +18,9 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.Vector;
+import java.util.List;
 
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
@@ -69,7 +70,7 @@ public class ExtRATestClient {
 
     protected PrivateKey raKey = null;
     protected X509Certificate raCert = null;
-    protected Vector<Certificate> cAChain = null;
+    protected List<Certificate> cAChain = null;
     protected X509Certificate encCert = null;
     protected String securitylevel = SECURITY_UNSECURED;
 	
@@ -113,18 +114,18 @@ public class ExtRATestClient {
 			   !securitylevel.equalsIgnoreCase(SECURITY_SIGNEDENCRYPTED)){
 				throw new Exception("Invalid SecurityLevel: "+securitylevel);
 			}
-			if(securitylevel.equalsIgnoreCase(SECURITY_SIGNED) || securitylevel.equalsIgnoreCase(SECURITY_SIGNEDENCRYPTED)){
-			  RAKeyStore rakeystore = new RAKeyStore(args[ARG_KEYSTOREPATH], args[ARG_PASSWORD]);			 
-			  Certificate[] chain = rakeystore.getKeyStore().getCertificateChain(rakeystore.getAlias());
-			  cAChain = new Vector<Certificate>();
-			  for(int i=0; i< chain.length ; i++){
-				  if(((X509Certificate) chain[i]).getBasicConstraints() != -1){
-				    cAChain.add(chain[i]);
-				  }
-			  }
-			  raKey = (PrivateKey) rakeystore.getKeyStore().getKey(rakeystore.getAlias(), args[ARG_PASSWORD].toCharArray());
-			  raCert = (X509Certificate) rakeystore.getKeyStore().getCertificate(rakeystore.getAlias());
-			}
+            if (securitylevel.equalsIgnoreCase(SECURITY_SIGNED) || securitylevel.equalsIgnoreCase(SECURITY_SIGNEDENCRYPTED)) {
+                RAKeyStore rakeystore = new RAKeyStore(args[ARG_KEYSTOREPATH], args[ARG_PASSWORD]);
+                Certificate[] chain = rakeystore.getKeyStore().getCertificateChain(rakeystore.getAlias());
+                cAChain = new ArrayList<Certificate>();
+                for (Certificate certificate : chain) {
+                    if (((X509Certificate) certificate).getBasicConstraints() != -1) {
+                        cAChain.add(certificate);
+                    }
+                }
+                raKey = (PrivateKey) rakeystore.getKeyStore().getKey(rakeystore.getAlias(), args[ARG_PASSWORD].toCharArray());
+                raCert = (X509Certificate) rakeystore.getKeyStore().getCertificate(rakeystore.getAlias());
+            }
 			if(securitylevel.equalsIgnoreCase(SECURITY_ENCRYPTED) || securitylevel.equalsIgnoreCase(SECURITY_SIGNEDENCRYPTED)){
 		        CertificateFactory cf = CertTools.getCertificateFactory();
 		        encCert = (X509Certificate) cf.generateCertificate(new FileInputStream(args[ARG_ENCRYPTIONCERT]));
@@ -216,10 +217,6 @@ public class ExtRATestClient {
 
 		private long getTimeToNextRequests() {			
 			return (60000 / reqPerMin) + (random.nextLong() % 1000);
-		}
-
-		public void stopThread() {
-			this.run = false;
 		}
 	}
 	
