@@ -49,7 +49,7 @@ public class ExtraConfiguration {
 	public static final String SCEPKEYSTOREPATH = "scep.ra.keyStorePath";
 	public static final String SCEPKEYSTOREPWD = "scep.ra.keyStorePassword";
 
-	public static final String PROPERTY_FILENAME = "scep.properties";
+	public static final String PROPERTY_FILENAME = "scepra.properties";
 
 	public static Configuration instance() {
 		if (config == null) {

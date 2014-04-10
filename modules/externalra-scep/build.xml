@@ -63,7 +63,7 @@
 			<classes dir="${build.dir}">
 				<include name="**/*.class"/>
 			</classes>
-   			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="scep.properties"/>
+   			<zipfileset prefix="WEB-INF/classes" dir="${ejbca.home}/conf" includes="scepra.properties"/>
 	        <zipfileset prefix="WEB-INF" dir="${resources.dir}" includes="jboss-classloading.xml"/>
 		</war>
     </target>
