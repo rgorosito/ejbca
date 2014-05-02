@@ -23,6 +23,7 @@ import org.cesecore.CesecoreException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateInfo;
+import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
 import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
 import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
@@ -249,10 +250,12 @@ public class CardRenewalRequestProcessor extends MessageProcessor implements ISu
      * @throws ClassNotFoundException 
      * @throws AuthorizationDeniedException 
      * @throws CesecoreException 
+     * @throws CertificateExtensionException if any of the extension in the request were invalid
      */
-    private Certificate pkcs10CertRequest(AuthenticationToken administrator, SignSession signSession, PKCS10RequestMessage req,
-        String username, String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException, CesecoreException, AuthorizationDeniedException {
-        Certificate cert=null;
+    private Certificate pkcs10CertRequest(AuthenticationToken administrator, SignSession signSession, PKCS10RequestMessage req, String username,
+            String password) throws EjbcaException, CertificateEncodingException, CertificateException, IOException, ClassNotFoundException,
+            CesecoreException, AuthorizationDeniedException, CertificateExtensionException {
+     Certificate cert=null;
 		req.setUsername(username);
         req.setPassword(password);
         ResponseMessage resp = signSession.createCertificate(administrator,req,X509ResponseMessage.class, null);
