@@ -130,9 +130,13 @@ public class EnrollInterfaceBean {
 	    return hostname;
     }
 
-    /** @return true if the user-agent String contains MSIE **/ 
+    /** @return true if the user-agent String contains MSIE, or Trident (IE11) **/ 
 	public boolean isInternetExplorer() {
-		return getUserAgenString().indexOf("MSIE") != -1;
+	    final String userAgent = getUserAgenString();
+	    if (userAgent.contains("MSIE") || userAgent.contains("Trident")) {
+	        return true;
+	    }
+	    return false;
 	}
 
 	/**
