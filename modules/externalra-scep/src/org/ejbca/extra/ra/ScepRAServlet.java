@@ -234,9 +234,7 @@ public class ScepRAServlet extends HttpServlet {
             }
             X509Certificate racert = (X509Certificate) raks.getCertificate(alias);
             String kspwd = ExtraConfiguration.instance().getString(ExtraConfiguration.SCEPKEYSTOREPWD+keyStoreNumber);
-            PrivateKey rapriv = (PrivateKey) raks.getKey(alias, kspwd.toCharArray());
-
-        	
+            PrivateKey rapriv = (PrivateKey) raks.getKey(alias, kspwd.toCharArray());       	
             if (operation.equals("PKIOperation")) {
                 byte[] scepmsg = Base64.decode(message.getBytes());
 
