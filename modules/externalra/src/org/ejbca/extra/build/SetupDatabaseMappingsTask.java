@@ -55,6 +55,9 @@ public class SetupDatabaseMappingsTask extends Task {
                 } else if (jdbcUrl.startsWith("jdbc:h2:")) {
                     driverClass = "h2";
                     hibernateDialect = "org.hibernate.dialect.H2Dialect";
+                } else if (jdbcUrl.startsWith("jdbc:oracle:thin:")) {
+                    driverClass = "oracle";
+                    hibernateDialect = "org.hibernate.dialect.Oracle10gDialect";
                 } else {
                     throw new BuildException("Unsupported database with JDBC URL " + jdbcUrl);
                 }
