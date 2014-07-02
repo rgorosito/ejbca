@@ -88,6 +88,9 @@ public class KeyStoreRetrievalRequestProcessor extends MessageProcessor implemen
 				ks.store(baos, submessage.getPassword().toCharArray());
 				buf = baos.toByteArray();
 			} else {
+			    if (log.isDebugEnabled()) {
+			        log.debug("Unknown token type "+tokentype+" for generating keystore for user '"+submessage.getUsername()+"'.");
+			    }
 				return new KeyStoreRetrievalResponse(submessage.getRequestId(), false, "Unknown token type.", null, null);
 			}
 			return new KeyStoreRetrievalResponse(submessage.getRequestId(), true, null, tokentype, buf);
