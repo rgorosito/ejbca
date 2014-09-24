@@ -54,6 +54,7 @@ import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.request.CertificateResponseMessage;
 import org.cesecore.certificates.certificate.request.FailInfo;
 import org.cesecore.certificates.certificate.request.RequestMessage;
+import org.cesecore.certificates.certificate.request.ResponseMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
@@ -270,7 +271,7 @@ public class ScepRAServlet extends HttpServlet {
                 			// create proper ScepResponseMessage
                 			Collection<Certificate> racertColl = new ArrayList<Certificate>();
                 			racertColl.add(racert);
-                			CertificateResponseMessage ret = reqmsg.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racertColl, rapriv, cryptProvider);
+                			CertificateResponseMessage ret = ResponseMessageUtils.createResponseMessage(org.ejbca.core.protocol.scep.ScepResponseMessage.class, reqmsg, racertColl, rapriv, cryptProvider);
                 			ret.setCACert(cacert);
             				X509Certificate respCert = resp.getCertificate();
                 			if ( resp.isSuccessful() && (respCert != null) ) {
