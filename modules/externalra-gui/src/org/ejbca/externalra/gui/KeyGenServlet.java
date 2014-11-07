@@ -51,7 +51,9 @@ public class KeyGenServlet extends HttpServlet {
 			log.info("Received request but <keygen> was not supported in the requesting browser.");
 		} else {
 			String keyGen = ((String[])keygenObject)[0];
-			keyGen = keyGen.substring(0, keyGen.length()-2);	// Remove newline
+	        if (keyGen.charAt(keyGen.length()-1) != '=') {
+	            keyGen = keyGen.substring(0, keyGen.length()-2);	// Remove newline
+	        }
 			html = "<html><body><form id='keygenForm'><input id='keygenResult' type='hidden' value='" + keyGen + "'/></form></body></html>";
 		}
 		OutputStream os = response.getOutputStream();
