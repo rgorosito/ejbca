@@ -35,6 +35,8 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.CMSEnvelopedDataGenerator;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -46,6 +48,11 @@ import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.cms.jcajce.JcaX509CertSelectorConverter;
+import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
+import org.bouncycastle.util.CollectionStore;
+import org.bouncycastle.util.Store;
+import org.bouncycastle.x509.X509CertStoreSelector;
+import org.cesecore.util.CertTools;
 
 /**
  * Class containing static help methods used to encrypt, decrypt, sign  and verify ExtRASubMessages
@@ -91,7 +98,7 @@ public class ExtRAMsgHelper {
 
         CMSEnvelopedData ed;
         try {
-            edGen.addKeyTransRecipient(encCert);
+            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert));
             ed = edGen.generate(new CMSProcessableByteArray(data), encAlg, provider);
         } catch (Exception e) {
             log.error("Error Encryotin Keys:: ", e);
@@ -140,9 +147,8 @@ public class ExtRAMsgHelper {
         try {
             ArrayList<X509Certificate> certList = new ArrayList<X509Certificate>();
             certList.add(signCert);
-            CertStore certs = CertStore.getInstance("Collection", new CollectionCertStoreParameters(certList), provider);
             CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
-            gen.addCertificatesAndCRLs(certs);
+            gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
             gen.addSigner(signKey, signCert, signAlg);
             CMSSignedData signedData = gen.generate(new CMSProcessableByteArray(data), true, provider);
             retdata = signedData.getEncoded();
@@ -181,7 +187,7 @@ public class ExtRAMsgHelper {
             // First verify the signature
             CMSSignedData sp = new CMSSignedData(signedData);
 
-            CertStore certs = sp.getCertificatesAndCRLs("Collection", "BC");
+            Store certs = sp.getCertificates();
             SignerInformationStore signers = sp.getSignerInfos();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -192,10 +198,10 @@ public class ExtRAMsgHelper {
             for (Object o : signers.getSigners()) {
                 SignerInformation signer = (SignerInformation) o;
                 JcaX509CertSelectorConverter conv = new JcaX509CertSelectorConverter();
-                Collection<? extends Certificate> certCollection = certs.getCertificates(conv.getCertSelector(signer.getSID()));
+                @SuppressWarnings("unchecked")
+                List<X509CertificateHolder> certCollection = new ArrayList<X509CertificateHolder>(certs.getMatches(X509CertStoreSelector.getInstance(conv.getCertSelector(signer.getSID()))));
 
-                Iterator<? extends Certificate> certIt = certCollection.iterator();
-                usercert = (X509Certificate) certIt.next();
+                usercert = new JcaX509CertificateConverter().getCertificate(certCollection.get(0));
 
                 boolean validalg = signer.getDigestAlgOID().equals(signAlg);
 

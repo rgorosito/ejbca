@@ -22,15 +22,16 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
-import java.security.cert.CertStore;
+import java.security.cert.CRLException;
 import java.security.cert.CertStoreException;
 import java.security.cert.Certificate;
-import java.security.cert.CollectionCertStoreParameters;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import javax.persistence.Persistence;
 import javax.servlet.ServletConfig;
@@ -48,6 +49,8 @@ import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
 import org.cesecore.certificates.ca.SignRequestSignatureException;
@@ -444,9 +447,11 @@ public class ScepRAServlet extends HttpServlet {
 	    	if (log.isDebugEnabled()) {
 	    		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
 	    	}
-//            X509Certificate racert = (X509Certificate) raks.getCertificate(alias);
-//            PrivateKey rapriv = (PrivateKey) raks.getKey(alias, keystorepwd.toCharArray());
-			byte[] pkcs7response = createPKCS7(chain, null, null);                               
+	    	X509Certificate[] x509Chain = new X509Certificate[chain.length];
+	    	for(int i = 0; i < chain.length; i++) {
+	    	    x509Chain[i] = (X509Certificate) chain[i];
+	    	}
+			byte[] pkcs7response = createPKCS7(x509Chain, null, null);                               
 			String ctype = "application/x-x509-ca-ra-cert";
 			if (getcaracertchain) {
 				ctype = "application/x-x509-ca-ra-cert-chain";				
@@ -461,9 +466,11 @@ public class ScepRAServlet extends HttpServlet {
 		}
 	}
     
-    private ScepResponseMessage createPendingResponseMessage(RequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException {
-    	ScepResponseMessage ret = new ScepResponseMessage();
-    	// Create the response message and set all required fields
+    private ScepResponseMessage createPendingResponseMessage(RequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider)
+            throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException,
+            CertificateEncodingException, CRLException {
+        ScepResponseMessage ret = new ScepResponseMessage();
+  	// Create the response message and set all required fields
     	if (ret.requireSignKeyInfo()) {
 	    	if (log.isDebugEnabled()) {
 	    		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
@@ -495,22 +502,22 @@ public class ScepRAServlet extends HttpServlet {
     	return ret;
     }
     
-    private byte[] createPKCS7(Certificate[] chain, PrivateKey pk, X509Certificate cert) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, CertStoreException, CMSException, IOException {
-    	Collection<Certificate> certList = Arrays.asList(chain);
-    	CMSProcessable msg = new CMSProcessableByteArray(new byte[0]);
-    	CertStore certs = CertStore.getInstance("Collection", new CollectionCertStoreParameters(certList), "BC");
-    	CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
-    	gen.addCertificatesAndCRLs(certs);
-    	// it is possible to sign the pkcs7, but it's not currently used
-    	CMSSignedData s = null;
-    	if ( (pk != null) && (cert != null) ) {
-    		gen.addSigner(pk, cert, CMSSignedDataGenerator.DIGEST_MD5);
-        	s = gen.generate(msg, true, "BC");
-    	} else {
-        	s = gen.generate(msg, "BC");    		
-    	}
-    	return s.getEncoded();
-    }    
+    private byte[] createPKCS7(X509Certificate[] chain, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
+            NoSuchProviderException, CMSException, CertificateEncodingException {
+        List<X509Certificate> certList = Arrays.asList(chain);
+        CMSProcessable msg = new CMSProcessableByteArray(new byte[0]);
+        CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
+        gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
+        // it is possible to sign the pkcs7, but it's not currently used
+        CMSSignedData s = null;
+        if ((pk != null) && (cert != null)) {
+            gen.addSigner(pk, cert, CMSSignedDataGenerator.DIGEST_MD5);
+            s = gen.generate(msg, true, BouncyCastleProvider.PROVIDER_NAME);
+        } else {
+            s = gen.generate(msg, BouncyCastleProvider.PROVIDER_NAME);
+        }
+        return s.getEncoded();
+    }  
 
     //
     // Methods that were shamelessly ripped from ServletUtils and RequestHelper to avoid dependencies

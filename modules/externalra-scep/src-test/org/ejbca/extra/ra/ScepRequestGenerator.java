@@ -21,10 +21,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.SignatureException;
-import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
-import java.security.cert.CollectionCertStoreParameters;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -56,8 +55,10 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSSignedGenerator;
+import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.util.CertTools;
@@ -161,31 +162,32 @@ public class ScepRequestGenerator {
         byte[] msg = wrap(p10request.getEncoded(), "19");
         return msg;        
     }
-    
-    public byte[] generateGetCertInitial(String dn, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException  {
+
+    public byte[] generateGetCertInitial(String dn, X509Certificate ca) throws NoSuchAlgorithmException, NoSuchProviderException,
+            InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, CertificateEncodingException {
         this.cacert = ca;
         this.reqdn = dn;
-
 
         ASN1EncodableVector vec = new ASN1EncodableVector();
         vec.add(new DERUTF8String(ca.getIssuerDN().getName()));
         vec.add(new DERUTF8String(dn));
         DERSequence seq = new DERSequence(vec);
-              
+
         // wrap message in pkcs#7
         byte[] msg = wrap(seq.getEncoded(), "20");
-        return msg;        
+        return msg;
     }
     
-    private CMSEnvelopedData envelope(CMSProcessable envThis) throws NoSuchAlgorithmException, NoSuchProviderException, CMSException {
+    private CMSEnvelopedData envelope(CMSProcessable envThis) throws NoSuchAlgorithmException, NoSuchProviderException, CMSException, CertificateEncodingException {
         CMSEnvelopedDataGenerator edGen = new CMSEnvelopedDataGenerator();
         // Envelope the CMS message
-        edGen.addKeyTransRecipient(cacert);
+        edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(cacert));
         CMSEnvelopedData ed = edGen.generate(envThis, SMIMECapability.dES_CBC.getId(), "BC");
         return ed;
     }
     
-    private CMSSignedData sign(CMSProcessable signThis, String messageType) throws NoSuchAlgorithmException, NoSuchProviderException, CMSException, InvalidAlgorithmParameterException, CertStoreException {
+    private CMSSignedData sign(CMSProcessable signThis, String messageType) throws NoSuchAlgorithmException, NoSuchProviderException, CMSException,
+            InvalidAlgorithmParameterException, CertStoreException, CertificateEncodingException {
         CMSSignedDataGenerator gen1 = new CMSSignedDataGenerator();
 
         // add authenticated attributes...status, transactionId, sender- and more...
@@ -193,7 +195,7 @@ public class ScepRequestGenerator {
         ASN1ObjectIdentifier oid;
         Attribute attr;
         DERSet value;
-        
+
         // Message type (certreq)
         oid = new ASN1ObjectIdentifier(ScepRequestMessage.id_messageType);
         value = new DERSet(new DERPrintableString(messageType));
@@ -224,15 +226,15 @@ public class ScepRequestGenerator {
         // Add our signer info and sign the message
         ArrayList<X509Certificate> certList = new ArrayList<X509Certificate>();
         certList.add(cert);
-        CertStore certs = CertStore.getInstance("Collection", new CollectionCertStoreParameters(certList), "BC");
-        gen1.addCertificatesAndCRLs(certs);
-        gen1.addSigner(keys.getPrivate(), cert, digestOid,
-                new AttributeTable(attributes), null);
+        gen1.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
+        gen1.addSigner(keys.getPrivate(), cert, digestOid, new AttributeTable(attributes), null);
         // The signed data to be enveloped
         CMSSignedData s = gen1.generate(signThis, true, "BC");
         return s;
     }
-    private byte[] wrap(byte[] envBytes, String messageType) throws IOException, NoSuchAlgorithmException, NoSuchProviderException, CMSException, InvalidAlgorithmParameterException, CertStoreException {
+
+    private byte[] wrap(byte[] envBytes, String messageType) throws IOException, NoSuchAlgorithmException, NoSuchProviderException, CMSException,
+            InvalidAlgorithmParameterException, CertStoreException, CertificateEncodingException {
 
         // 
         // Create inner enveloped data
@@ -244,9 +246,9 @@ public class ScepRequestGenerator {
         // Create the outer signed data
         //
         CMSSignedData s = sign(msg, messageType);
-        
+
         byte[] ret = s.getEncoded();
         return ret;
-        
+
     }
 }

@@ -24,18 +24,23 @@ import java.security.KeyStore;
 import java.security.cert.CertStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 
 import javax.persistence.Persistence;
 
 import org.apache.log4j.Logger;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.util.Store;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.Base64;
@@ -133,14 +138,15 @@ public class RAApiTest {
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
-        CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
+        Store certstore = s.getCertificates();
         @SuppressWarnings({ "unchecked"})
-        Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);
+        Collection<X509CertificateHolder> certs = certstore.getMatches(null);
         assertEquals(certs.size(), 2);                	
-        Iterator<Certificate> it = certs.iterator();
+        Iterator<X509CertificateHolder> it = certs.iterator();
         boolean found = false;
+        JcaX509CertificateConverter jcaX509CertificateConverter = new JcaX509CertificateConverter();
         while (it.hasNext()) {
-            X509Certificate retcert = (X509Certificate)it.next();
+            X509Certificate retcert = jcaX509CertificateConverter.getCertificate(it.next());
             if (retcert.getSubjectDN().equals(firstCertificate.getSubjectDN())) {
             	found = true;
             }
@@ -227,14 +233,15 @@ public class RAApiTest {
         SignerId sinfo = signerInfo.getSID();
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(firstCertificate.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
-        CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
+        Store certstore = s.getCertificates();
         @SuppressWarnings("unchecked")
-        Collection<Certificate> certs = (Collection<Certificate>) certstore.getCertificates(null);
+        List<X509CertificateHolder> certs = new ArrayList<X509CertificateHolder>( (Collection<X509CertificateHolder>) certstore.getMatches(null));
         assertEquals(certs.size(), 2);                	
-        Iterator<Certificate> it = certs.iterator();
+        Iterator<X509CertificateHolder> it = certs.iterator();
+        JcaX509CertificateConverter jcaX509CertificateConverter = new JcaX509CertificateConverter();
         boolean found = false;
         while (it.hasNext()) {
-            X509Certificate retcert = (X509Certificate)it.next();
+            X509Certificate retcert =  jcaX509CertificateConverter.getCertificate(it.next());
             if (retcert.getSubjectDN().equals(firstCertificate.getSubjectDN())) {
             	found = true;
             }

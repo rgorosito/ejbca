@@ -40,20 +40,27 @@ import java.security.cert.CRLException;
 import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.cert.X509CRLHolder;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessable;
@@ -65,6 +72,7 @@ import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.util.Store;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.util.AlgorithmConstants;
@@ -151,15 +159,16 @@ public class ProtocolScepHttpTest {
         @SuppressWarnings("unchecked")
         Collection<SignerInformation> col = signers.getSigners();
         assertTrue(col.size() == 0);
-        CertStore certstore = s.getCertificatesAndCRLs("Collection","BC");
-        Collection<? extends Certificate> certs = certstore.getCertificates(null);
+        Store certstore = s.getCertificates();
+        @SuppressWarnings("unchecked")
+        List<X509CertificateHolder> certs = new ArrayList<X509CertificateHolder>(certstore.getMatches(null));
         // Length two if the Scep RA server is signed directly by a Root CA
         // Length three if the Scep RA server is signed by a CA which is signed by a Root CA
-        assertEquals(3, certs.size());	                	
-        Iterator<? extends Certificate> it = certs.iterator();
-        racert = (X509Certificate)it.next();
-        cacert = (X509Certificate)it.next();
-        rootcacert = (X509Certificate)it.next();
+        assertEquals(3, certs.size());	   
+        JcaX509CertificateConverter jcaX509CertificateConverter = new JcaX509CertificateConverter();
+        racert = jcaX509CertificateConverter.getCertificate(certs.get(0));
+        cacert = jcaX509CertificateConverter.getCertificate(certs.get(1));
+        rootcacert = jcaX509CertificateConverter.getCertificate(certs.get(2));
         log.info("Got CA cert with DN: "+ cacert.getSubjectDN().getName());
         assertEquals(cadn, cacert.getSubjectDN().getName());
         log.info("Got Root CA cert with DN: "+ rootcacert.getSubjectDN().getName());
@@ -294,12 +303,13 @@ public class ProtocolScepHttpTest {
         return msgBytes;
     }
 
-    private byte[] genScepGetCertInitial(ScepRequestGenerator gen, String digestoid) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException {
+    private byte[] genScepGetCertInitial(ScepRequestGenerator gen, String digestoid) throws NoSuchAlgorithmException, NoSuchProviderException,
+            InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException, CertificateEncodingException {
         gen.setKeys(keys);
         gen.setDigestOid(digestoid);
         byte[] msgBytes = null;
         String dn = "C=SE, O=PrimeKey, CN=sceptest"; // must be same as when the request was generated
-        msgBytes = gen.generateGetCertInitial(dn, racert);                    
+        msgBytes = gen.generateGetCertInitial(dn, racert);
         assertNotNull(msgBytes);
         transId = gen.getTransactionId();
         assertNotNull(transId);
@@ -307,7 +317,7 @@ public class ProtocolScepHttpTest {
         assertEquals(16, idBytes.length);
         senderNonce = gen.getSenderNonce();
         byte[] nonceBytes = Base64.decode(senderNonce.getBytes());
-        assertEquals(16, nonceBytes.length); 
+        assertEquals(16, nonceBytes.length);
         return msgBytes;
     }
     
@@ -444,22 +454,24 @@ public class ProtocolScepHttpTest {
             // This is yet another CMS signed data
             CMSSignedData sd = new CMSSignedData(decBytes);
             // Get certificates from the signed data
-            CertStore certstore = sd.getCertificatesAndCRLs("Collection","BC");
+            Store certstore = sd.getCertificates();
             if (crlRep) {
                 // We got a reply with a requested CRL
-                Collection<? extends CRL> crls = certstore.getCRLs(null);
+                @SuppressWarnings("unchecked")
+                Collection<X509CRLHolder> crls = sd.getCRLs().getMatches(null);
                 assertEquals(crls.size(), 1);
-                Iterator<? extends CRL> it = crls.iterator();
+                Iterator<X509CRLHolder> it = crls.iterator();
                 X509CRL retCrl = null;
                 // CRL is first (and only)
-                retCrl = (X509CRL) it.next();
+                retCrl = new JcaX509CRLConverter().getCRL(it.next());
                 log.info("Got CRL with DN: "+ retCrl.getIssuerDN().getName());
                 // check the returned CRL
                 assertEquals(cacert.getSubjectDN().getName(), retCrl.getIssuerDN().getName());
                 retCrl.verify(cacert.getPublicKey());
             } else {
                 // We got a reply with a requested certificate 
-                Collection<? extends Certificate> certs = certstore.getCertificates(null);
+                @SuppressWarnings("unchecked")
+                Collection<X509CertificateHolder> certs = certstore.getMatches(null);
                 log.info("Got certificate reply with certchain of length: "+certs.size());
                 // EJBCA returns the issued cert and the CA cert (cisco vpn client requires that the ca cert is included)
                 if (noca) {
@@ -473,9 +485,9 @@ public class ProtocolScepHttpTest {
                 boolean gotcacert = false;
                 String mysubjectdn = CertTools.stringToBCDNString("C=SE,O=PrimeKey,CN=sceptest");
                 X509Certificate usercert = null;
-                for (Certificate cert : certs) {
-                    X509Certificate retcert = (X509Certificate) cert;
-
+                JcaX509CertificateConverter jcaX509CertificateConverter = new JcaX509CertificateConverter();
+                for (X509CertificateHolder cert : certs) {
+                    X509Certificate retcert = jcaX509CertificateConverter.getCertificate(cert);
                     // check the returned certificate
                     String subjectdn = CertTools.stringToBCDNString(retcert.getSubjectDN().getName());
                     if (mysubjectdn.equals(subjectdn)) {
