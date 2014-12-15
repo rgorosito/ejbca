@@ -15,7 +15,6 @@ package org.ejbca.extra.ra;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -49,6 +48,7 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
@@ -62,7 +62,6 @@ import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.StringTools;
-import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.protocol.scep.ScepRequestMessage;
 import org.ejbca.core.protocol.scep.ScepResponseMessage;
 import org.ejbca.extra.db.ISubMessage;
@@ -466,41 +465,40 @@ public class ScepRAServlet extends HttpServlet {
 	}
     
     private ScepResponseMessage createPendingResponseMessage(RequestMessage req, X509Certificate racert, PrivateKey rakey, String cryptProvider)
-            throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException, SignRequestException, NotFoundException,
-            CertificateEncodingException, CRLException {
+            throws CertificateEncodingException, CRLException, OperatorCreationException {
         ScepResponseMessage ret = new ScepResponseMessage();
-  	// Create the response message and set all required fields
-    	if (ret.requireSignKeyInfo()) {
-	    	if (log.isDebugEnabled()) {
-	    		log.debug("Signing message with cert: "+racert.getSubjectDN().getName());
-	    	}
-	    	Collection<Certificate> racertColl = new ArrayList<Certificate>();
-	    	racertColl.add(racert);
-    		ret.setSignKeyInfo(racertColl, rakey, cryptProvider);
-    	}
-    	if (req.getSenderNonce() != null) {
-    		ret.setRecipientNonce(req.getSenderNonce());
-    	}
-    	if (req.getTransactionId() != null) {
-    		ret.setTransactionId(req.getTransactionId());
-    	}
-    	// Sendernonce is a random number
-    	byte[] senderNonce = new byte[16];
-    	randomSource.nextBytes(senderNonce);
-    	ret.setSenderNonce(new String(Base64.encode(senderNonce)));
-    	// If we have a specified request key info, use it in the reply
-    	if (req.getRequestKeyInfo() != null) {
-    		ret.setRecipientKeyInfo(req.getRequestKeyInfo());
-    	}
-    	// Which digest algorithm to use to create the response, if applicable
-    	ret.setPreferredDigestAlg(req.getPreferredDigestAlg());
-    	// Include the CA cert or not in the response, if applicable for the response type
-    	ret.setIncludeCACert(req.includeCACert());         
+        // Create the response message and set all required fields
+        if (ret.requireSignKeyInfo()) {
+            if (log.isDebugEnabled()) {
+                log.debug("Signing message with cert: " + racert.getSubjectDN().getName());
+            }
+            Collection<Certificate> racertColl = new ArrayList<Certificate>();
+            racertColl.add(racert);
+            ret.setSignKeyInfo(racertColl, rakey, cryptProvider);
+        }
+        if (req.getSenderNonce() != null) {
+            ret.setRecipientNonce(req.getSenderNonce());
+        }
+        if (req.getTransactionId() != null) {
+            ret.setTransactionId(req.getTransactionId());
+        }
+        // Sendernonce is a random number
+        byte[] senderNonce = new byte[16];
+        randomSource.nextBytes(senderNonce);
+        ret.setSenderNonce(new String(Base64.encode(senderNonce)));
+        // If we have a specified request key info, use it in the reply
+        if (req.getRequestKeyInfo() != null) {
+            ret.setRecipientKeyInfo(req.getRequestKeyInfo());
+        }
+        // Which digest algorithm to use to create the response, if applicable
+        ret.setPreferredDigestAlg(req.getPreferredDigestAlg());
+        // Include the CA cert or not in the response, if applicable for the response type
+        ret.setIncludeCACert(req.includeCACert());
         ret.setStatus(ResponseStatus.PENDING);
         ret.create();
-    	return ret;
+        return ret;
     }
-    
+
     private byte[] createPKCS7(X509Certificate[] chain, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
             NoSuchProviderException, CMSException, CertificateEncodingException {
         List<X509Certificate> certList = Arrays.asList(chain);
