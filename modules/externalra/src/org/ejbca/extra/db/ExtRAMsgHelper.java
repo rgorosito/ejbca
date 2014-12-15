@@ -35,6 +35,8 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSEnvelopedData;
@@ -48,7 +50,9 @@ import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.cms.jcajce.JcaX509CertSelectorConverter;
+import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.x509.X509CertStoreSelector;
@@ -57,27 +61,22 @@ import org.cesecore.util.CertTools;
 /**
  * Class containing static help methods used to encrypt, decrypt, sign  and verify ExtRASubMessages
  * 
- * @author philip
  * $Id$
  */
 public class ExtRAMsgHelper {
 
     private static final Log log = LogFactory.getLog(ExtRAMsgHelper.class);
-
-    private static String provider = "BC"; // default provider
-    private static String encAlg = CMSEnvelopedDataGenerator.AES256_CBC; // default encryption algorithm
+    private static ASN1ObjectIdentifier encAlg = NISTObjectIdentifiers.id_aes256_CBC; // default encryption algorithm
     private static String signAlg = CMSSignedGenerator.DIGEST_SHA256; // default signature digest
 
     /**
      * Method to initalize the helper class. Should be called before any of the methods are used
      * in not hte default values should be used.
      * 
-     * @param provider provider to use "BC" is default.
      * @param encAlg encryption algorithm to use, must be supproted by the specified provider.
      * @prarm signAlg signature algorighm to use, must be supproted by the specified provider.
      */
-    public static void init(String provider, String encAlg, String signAlg) {
-        ExtRAMsgHelper.provider = provider;
+    public static void init(String provider, ASN1ObjectIdentifier encAlg, String signAlg) {
         ExtRAMsgHelper.encAlg = encAlg;
         ExtRAMsgHelper.signAlg = signAlg;
     }
@@ -99,7 +98,8 @@ public class ExtRAMsgHelper {
         CMSEnvelopedData ed;
         try {
             edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert));
-            ed = edGen.generate(new CMSProcessableByteArray(data), encAlg, provider);
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(encAlg);
+            ed = edGen.generate(new CMSProcessableByteArray(data), jceCMSContentEncryptorBuilder.build());
         } catch (Exception e) {
             log.error("Error Encryotin Keys:: ", e);
             throw new IOException(e.getMessage());
@@ -126,7 +126,7 @@ public class ExtRAMsgHelper {
             @SuppressWarnings("unchecked")
             Iterator<RecipientInformation> it = recipients.getRecipients().iterator();
             RecipientInformation recipient = (RecipientInformation) it.next();
-            retdata = recipient.getContent(decKey, provider);
+            retdata = recipient.getContent(decKey, BouncyCastleProvider.PROVIDER_NAME);
         } catch (Exception e) {
             log.error("Error decypting data : ", e);
         }
@@ -150,7 +150,7 @@ public class ExtRAMsgHelper {
             CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
             gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
             gen.addSigner(signKey, signCert, signAlg);
-            CMSSignedData signedData = gen.generate(new CMSProcessableByteArray(data), true, provider);
+            CMSSignedData signedData = gen.generate(new CMSProcessableByteArray(data), true);
             retdata = signedData.getEncoded();
         } catch (Exception e) {
             log.error("Error signing data : ", e);

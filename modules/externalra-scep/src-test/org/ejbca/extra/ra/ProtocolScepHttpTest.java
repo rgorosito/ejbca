@@ -35,11 +35,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.security.cert.CRL;
 import java.security.cert.CRLException;
-import java.security.cert.CertStore;
 import java.security.cert.CertStoreException;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
@@ -215,7 +212,7 @@ public class ProtocolScepHttpTest {
         // send SCEP req to RA server and get pending request, until the request is processed on the CA
         // Then we will get a certificate response back    
         ScepRequestGenerator gen = new ScepRequestGenerator();
-        byte[] msgBytes = genScepRequest(gen, CMSSignedGenerator.DIGEST_SHA1);
+        byte[] msgBytes = genScepRequest(gen);
         // Send message with GET
         byte[] retMsg = sendScep(false, msgBytes, false);
         assertNotNull(retMsg);
@@ -226,7 +223,7 @@ public class ProtocolScepHttpTest {
         while ( (keeprunning < 5) && !processed) {
         	log.info("Waiting 5 secs...");
         	Thread.sleep(5000); // wait 5 seconds between polls
-            msgBytes = genScepGetCertInitial(gen, CMSSignedGenerator.DIGEST_SHA1);
+            msgBytes = genScepGetCertInitial(gen);
             // Send message with GET
             retMsg = sendScep(false, msgBytes, false);
             assertNotNull(retMsg);
@@ -254,7 +251,7 @@ public class ProtocolScepHttpTest {
         // send SCEP req to RA server and get pending request, until the request is processed on the CA
         // Then we will get a certificate response back    
         ScepRequestGenerator gen = new ScepRequestGenerator();
-        byte[] msgBytes = genScepRequest(gen, CMSSignedGenerator.DIGEST_SHA1);
+        byte[] msgBytes = genScepRequest(gen);
         // Send message with POST
         byte[] retMsg = sendScep(true, msgBytes, true);
         assertNotNull(retMsg);
@@ -264,7 +261,7 @@ public class ProtocolScepHttpTest {
         boolean processed = false;
         while ( (keeprunning < 5) && !processed) {
         	Thread.sleep(5000); // wait 5 seconds between polls
-            msgBytes = genScepGetCertInitial(gen, CMSSignedGenerator.DIGEST_SHA1);
+            msgBytes = genScepGetCertInitial(gen);
             // Send message with GET
             retMsg = sendScep(true, msgBytes, true);
             assertNotNull(retMsg);
@@ -280,18 +277,13 @@ public class ProtocolScepHttpTest {
         log.debug("<test06ScepRequestOKSHA1PostNoCA()");
     }
 
-    //
-    //
-    // Private helper methods
-    //
-    //
-    
-    private byte[] genScepRequest(ScepRequestGenerator gen, String digestoid) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignatureException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException, OperatorCreationException, CertificateException {
+    private byte[] genScepRequest(ScepRequestGenerator gen) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException,
+            SignatureException, InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException,
+            OperatorCreationException, CertificateException {
         gen.setKeys(keys);
-        gen.setDigestOid(digestoid);
         byte[] msgBytes = null;
         String dn = "C=SE, O=PrimeKey, CN=sceptest";
-        msgBytes = gen.generateCertReq(dn, "foo123", racert);                    
+        msgBytes = gen.generateCertReq(dn, "foo123", racert);
         assertNotNull(msgBytes);
         transId = gen.getTransactionId();
         assertNotNull(transId);
@@ -299,14 +291,13 @@ public class ProtocolScepHttpTest {
         assertEquals(16, idBytes.length);
         senderNonce = gen.getSenderNonce();
         byte[] nonceBytes = Base64.decode(senderNonce.getBytes());
-        assertEquals(16, nonceBytes.length); 
+        assertEquals(16, nonceBytes.length);
         return msgBytes;
     }
 
-    private byte[] genScepGetCertInitial(ScepRequestGenerator gen, String digestoid) throws NoSuchAlgorithmException, NoSuchProviderException,
-            InvalidAlgorithmParameterException, CertStoreException, IOException, CMSException, IllegalStateException, CertificateEncodingException {
+    private byte[] genScepGetCertInitial(ScepRequestGenerator gen) throws NoSuchAlgorithmException, NoSuchProviderException, IOException,
+            CMSException, CertificateEncodingException, OperatorCreationException {
         gen.setKeys(keys);
-        gen.setDigestOid(digestoid);
         byte[] msgBytes = null;
         String dn = "C=SE, O=PrimeKey, CN=sceptest"; // must be same as when the request was generated
         msgBytes = gen.generateGetCertInitial(dn, racert);

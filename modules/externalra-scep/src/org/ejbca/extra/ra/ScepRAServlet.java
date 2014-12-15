@@ -45,11 +45,10 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.cms.CMSTypedData;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
@@ -505,16 +504,16 @@ public class ScepRAServlet extends HttpServlet {
     private byte[] createPKCS7(X509Certificate[] chain, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
             NoSuchProviderException, CMSException, CertificateEncodingException {
         List<X509Certificate> certList = Arrays.asList(chain);
-        CMSProcessable msg = new CMSProcessableByteArray(new byte[0]);
+        CMSTypedData msg = new CMSProcessableByteArray(new byte[0]);
         CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
         gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
         // it is possible to sign the pkcs7, but it's not currently used
         CMSSignedData s = null;
         if ((pk != null) && (cert != null)) {
             gen.addSigner(pk, cert, CMSSignedDataGenerator.DIGEST_MD5);
-            s = gen.generate(msg, true, BouncyCastleProvider.PROVIDER_NAME);
+            s = gen.generate(msg, true);
         } else {
-            s = gen.generate(msg, BouncyCastleProvider.PROVIDER_NAME);
+            s = gen.generate(msg);
         }
         return s.getEncoded();
     }  
