@@ -53,8 +53,9 @@ import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSSignedGenerator;
 import org.bouncycastle.cms.CMSTypedData;
-import org.bouncycastle.cms.SimpleAttributeTableGenerator;
+import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
@@ -80,6 +81,8 @@ public class ScepRequestGenerator {
 
     private String senderNonce = null;
     private String transactionId = null;
+    
+    private String digestOid = CMSSignedGenerator.DIGEST_SHA1;
     
     public void setKeys(KeyPair myKeys) {
         this.keys = myKeys;
@@ -230,12 +233,12 @@ public class ScepRequestGenerator {
         ArrayList<X509Certificate> certList = new ArrayList<X509Certificate>();
         certList.add(cert);
         gen1.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
-        String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromOID(oid);
-        JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signatureAlgorithmName).setSecureRandom(new SecureRandom());
+        String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(digestOid, keys.getPrivate().getAlgorithm());
+        JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signatureAlgorithmName);
         ContentSigner contentSigner = signerBuilder.build(keys.getPrivate());
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
         JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
-        builder.setSignedAttributeGenerator(new SimpleAttributeTableGenerator(new AttributeTable(attributes)));
+        builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
         gen1.addSignerInfoGenerator(builder.build(contentSigner, cert));
         // The signed data to be enveloped
         CMSSignedData s = gen1.generate(signThis, true);
