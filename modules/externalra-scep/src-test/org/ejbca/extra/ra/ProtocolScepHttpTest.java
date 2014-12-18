@@ -68,7 +68,11 @@ import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoVerifierBuilder;
+import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.util.encoders.Base64;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
@@ -312,8 +316,9 @@ public class ProtocolScepHttpTest {
         return msgBytes;
     }
     
-    private boolean isScepResponseMessageOfType(byte[] retMsg, ResponseStatus extectedResponseStatus) throws CMSException, NoSuchAlgorithmException, NoSuchProviderException {
-        //
+    private boolean isScepResponseMessageOfType(byte[] retMsg, ResponseStatus extectedResponseStatus) throws CMSException, NoSuchAlgorithmException,
+            NoSuchProviderException, OperatorCreationException {
+
         // Parse response message
         //
         CMSSignedData s = new CMSSignedData(retMsg);
@@ -328,7 +333,9 @@ public class ProtocolScepHttpTest {
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
-        boolean ret = signerInfo.verify(racert.getPublicKey(), "BC");
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());
+        boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
         AttributeTable tab = signerInfo.getSignedAttributes();        
@@ -355,8 +362,9 @@ public class ProtocolScepHttpTest {
         return false;
     }
 
-    private void checkScepResponse(byte[] retMsg, String senderNonce, String transId, boolean crlRep, String digestOid, boolean noca, ResponseStatus expectedResponseStatus) throws CMSException, NoSuchProviderException, NoSuchAlgorithmException, CertStoreException, InvalidKeyException, CertificateException, SignatureException, CRLException, IOException {
-        //
+    private void checkScepResponse(byte[] retMsg, String senderNonce, String transId, boolean crlRep, String digestOid, boolean noca,
+            ResponseStatus expectedResponseStatus) throws CMSException, NoSuchProviderException, NoSuchAlgorithmException, CertStoreException,
+            InvalidKeyException, CertificateException, SignatureException, CRLException, IOException, OperatorCreationException {
         // Parse response message
         //
         CMSSignedData s = new CMSSignedData(retMsg);
@@ -373,7 +381,9 @@ public class ProtocolScepHttpTest {
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
-        boolean ret = signerInfo.verify(racert.getPublicKey(), "BC");
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());
+        boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
         AttributeTable tab = signerInfo.getSignedAttributes();        
@@ -441,7 +451,9 @@ public class ProtocolScepHttpTest {
             Iterator<RecipientInformation> recipientIterator = c.iterator();
             byte[] decBytes = null;
             RecipientInformation recipient = (RecipientInformation) recipientIterator.next();
-            decBytes = recipient.getContent(keys.getPrivate(), "BC");
+            JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(keys.getPrivate());
+            rec.setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            decBytes = recipient.getContent(rec);
             // This is yet another CMS signed data
             CMSSignedData sd = new CMSSignedData(decBytes);
             // Get certificates from the signed data

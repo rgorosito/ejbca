@@ -48,7 +48,12 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
@@ -58,6 +63,7 @@ import org.cesecore.certificates.certificate.request.FailInfo;
 import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificate.request.ResponseMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
+import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
@@ -507,8 +513,16 @@ public class ScepRAServlet extends HttpServlet {
         gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
         // it is possible to sign the pkcs7, but it's not currently used
         CMSSignedData s = null;
-        if ((pk != null) && (cert != null)) {
-            gen.addSigner(pk, cert, CMSSignedDataGenerator.DIGEST_MD5);
+        if ((pk != null) && (cert != null)) {            
+            String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(CMSSignedDataGenerator.DIGEST_MD5, pk.getAlgorithm());
+            try {
+                ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(BouncyCastleProvider.PROVIDER_NAME).build(pk);
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+                JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
+                gen.addSignerInfoGenerator(builder.build(contentSigner, cert));
+            } catch (OperatorCreationException e) {
+                throw new IllegalStateException("BouncyCastle failed in creating signature provider.", e);
+            }   
             s = gen.generate(msg, true);
         } else {
             s = gen.generate(msg);

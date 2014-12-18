@@ -49,13 +49,21 @@ import org.bouncycastle.cms.RecipientInformation;
 import org.bouncycastle.cms.RecipientInformationStore;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoVerifierBuilder;
 import org.bouncycastle.cms.jcajce.JcaX509CertSelectorConverter;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
+import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.x509.X509CertStoreSelector;
+import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.util.CertTools;
 
 /**
@@ -67,7 +75,7 @@ public class ExtRAMsgHelper {
 
     private static final Log log = LogFactory.getLog(ExtRAMsgHelper.class);
     private static ASN1ObjectIdentifier encAlg = NISTObjectIdentifiers.id_aes256_CBC; // default encryption algorithm
-    private static String signAlg = CMSSignedGenerator.DIGEST_SHA256; // default signature digest
+    private static String digestAlgorithm = CMSSignedGenerator.DIGEST_SHA256; // default signature digest
 
     /**
      * Method to initalize the helper class. Should be called before any of the methods are used
@@ -78,7 +86,7 @@ public class ExtRAMsgHelper {
      */
     public static void init(String provider, ASN1ObjectIdentifier encAlg, String signAlg) {
         ExtRAMsgHelper.encAlg = encAlg;
-        ExtRAMsgHelper.signAlg = signAlg;
+        ExtRAMsgHelper.digestAlgorithm = signAlg;
     }
 
     /**
@@ -126,7 +134,9 @@ public class ExtRAMsgHelper {
             @SuppressWarnings("unchecked")
             Iterator<RecipientInformation> it = recipients.getRecipients().iterator();
             RecipientInformation recipient = (RecipientInformation) it.next();
-            retdata = recipient.getContent(decKey, BouncyCastleProvider.PROVIDER_NAME);
+            JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(decKey);
+            rec.setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            retdata = recipient.getContent(rec);
         } catch (Exception e) {
             log.error("Error decypting data : ", e);
         }
@@ -148,8 +158,17 @@ public class ExtRAMsgHelper {
             ArrayList<X509Certificate> certList = new ArrayList<X509Certificate>();
             certList.add(signCert);
             CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
-            gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
-            gen.addSigner(signKey, signCert, signAlg);
+            gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));           
+            String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(digestAlgorithm, signKey.getAlgorithm());
+            JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signatureAlgorithmName);
+            try {
+                ContentSigner contentSigner = signerBuilder.build(signKey);
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+                JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
+                gen.addSignerInfoGenerator(builder.build(contentSigner, signCert));
+            } catch (OperatorCreationException e) {
+                throw new IllegalStateException("BouncyCastle failed in creating signature provider.", e);
+            }             
             CMSSignedData signedData = gen.generate(new CMSProcessableByteArray(data), true);
             retdata = signedData.getEncoded();
         } catch (Exception e) {
@@ -200,13 +219,11 @@ public class ExtRAMsgHelper {
                 JcaX509CertSelectorConverter conv = new JcaX509CertSelectorConverter();
                 @SuppressWarnings("unchecked")
                 List<X509CertificateHolder> certCollection = new ArrayList<X509CertificateHolder>(certs.getMatches(X509CertStoreSelector.getInstance(conv.getCertSelector(signer.getSID()))));
-
                 usercert = new JcaX509CertificateConverter().getCertificate(certCollection.get(0));
-
-                boolean validalg = signer.getDigestAlgOID().equals(signAlg);
-
-                verifies = validalg && signer.verify(usercert.getPublicKey(), "BC");
-
+                boolean validalg = signer.getDigestAlgOID().equals(digestAlgorithm);
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+                JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());          
+                verifies = validalg && signer.verify(jcaSignerInfoVerifierBuilder.build(usercert.getPublicKey()));
             }
 
             // Second validate the certificate           
