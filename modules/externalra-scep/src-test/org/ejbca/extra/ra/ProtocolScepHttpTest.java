@@ -104,6 +104,7 @@ public class ProtocolScepHttpTest {
     private static X509Certificate cacert = null;
     private static X509Certificate racert = null;
     private static KeyPair keys = null;
+    private static String provider = BouncyCastleProvider.PROVIDER_NAME;
     
     private String transId = null;
     private String senderNonce = null;
@@ -333,8 +334,8 @@ public class ProtocolScepHttpTest {
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
-        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
-        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(provider);
         boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
@@ -381,8 +382,8 @@ public class ProtocolScepHttpTest {
         // Check that the signer is the expected CA
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
-        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
-        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(provider);
         boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
@@ -452,7 +453,8 @@ public class ProtocolScepHttpTest {
             byte[] decBytes = null;
             RecipientInformation recipient = (RecipientInformation) recipientIterator.next();
             JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(keys.getPrivate());
-            rec.setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            rec.setProvider(provider);
+            rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
             decBytes = recipient.getContent(rec);
             // This is yet another CMS signed data
             CMSSignedData sd = new CMSSignedData(decBytes);

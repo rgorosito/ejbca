@@ -76,7 +76,8 @@ public class ExtRAMsgHelper {
     private static final Log log = LogFactory.getLog(ExtRAMsgHelper.class);
     private static ASN1ObjectIdentifier encAlg = NISTObjectIdentifiers.id_aes256_CBC; // default encryption algorithm
     private static String digestAlgorithm = CMSSignedGenerator.DIGEST_SHA256; // default signature digest
-
+    private static String provider = BouncyCastleProvider.PROVIDER_NAME;
+    
     /**
      * Method to initalize the helper class. Should be called before any of the methods are used
      * in not hte default values should be used.
@@ -87,6 +88,7 @@ public class ExtRAMsgHelper {
     public static void init(String provider, ASN1ObjectIdentifier encAlg, String signAlg) {
         ExtRAMsgHelper.encAlg = encAlg;
         ExtRAMsgHelper.digestAlgorithm = signAlg;
+        ExtRAMsgHelper.provider = provider;
     }
 
     /**
@@ -105,8 +107,8 @@ public class ExtRAMsgHelper {
 
         CMSEnvelopedData ed;
         try {
-            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert));
-            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(encAlg);
+            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert).setProvider(provider));
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(encAlg).setProvider(provider);
             ed = edGen.generate(new CMSProcessableByteArray(data), jceCMSContentEncryptorBuilder.build());
         } catch (Exception e) {
             log.error("Error Encryotin Keys:: ", e);
@@ -135,7 +137,8 @@ public class ExtRAMsgHelper {
             Iterator<RecipientInformation> it = recipients.getRecipients().iterator();
             RecipientInformation recipient = (RecipientInformation) it.next();
             JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(decKey);
-            rec.setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            rec.setProvider(provider);
+            rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
             retdata = recipient.getContent(rec);
         } catch (Exception e) {
             log.error("Error decypting data : ", e);
@@ -160,10 +163,10 @@ public class ExtRAMsgHelper {
             CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
             gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));           
             String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(digestAlgorithm, signKey.getAlgorithm());
-            JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signatureAlgorithmName);
+            JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(provider);
             try {
                 ContentSigner contentSigner = signerBuilder.build(signKey);
-                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
                 gen.addSignerInfoGenerator(builder.build(contentSigner, signCert));
             } catch (OperatorCreationException e) {
@@ -221,8 +224,8 @@ public class ExtRAMsgHelper {
                 List<X509CertificateHolder> certCollection = new ArrayList<X509CertificateHolder>(certs.getMatches(X509CertStoreSelector.getInstance(conv.getCertSelector(signer.getSID()))));
                 usercert = new JcaX509CertificateConverter().getCertificate(certCollection.get(0));
                 boolean validalg = signer.getDigestAlgOID().equals(digestAlgorithm);
-                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
-                JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build());          
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+                JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(BouncyCastleProvider.PROVIDER_NAME);      
                 verifies = validalg && signer.verify(jcaSignerInfoVerifierBuilder.build(usercert.getPublicKey()));
             }
 

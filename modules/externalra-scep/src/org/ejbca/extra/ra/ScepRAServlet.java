@@ -27,7 +27,6 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -451,9 +450,9 @@ public class ScepRAServlet extends HttpServlet {
 	    	if (log.isDebugEnabled()) {
 	    		log.debug("Found cert with DN '" + cert.getSubjectDN().toString() + "'");
 	    	}
-	    	X509Certificate[] x509Chain = new X509Certificate[chain.length];
+	    	 List<X509Certificate> x509Chain = new ArrayList<X509Certificate>();
 	    	for(int i = 0; i < chain.length; i++) {
-	    	    x509Chain[i] = (X509Certificate) chain[i];
+	    	    x509Chain.add((X509Certificate) chain[i]);
 	    	}
 			byte[] pkcs7response = createPKCS7(x509Chain, null, null);                               
 			String ctype = "application/x-x509-ca-ra-cert";
@@ -505,9 +504,8 @@ public class ScepRAServlet extends HttpServlet {
         return ret;
     }
 
-    private byte[] createPKCS7(X509Certificate[] chain, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
+    private byte[] createPKCS7(List<X509Certificate> certList, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
             NoSuchProviderException, CMSException, CertificateEncodingException {
-        List<X509Certificate> certList = Arrays.asList(chain);
         CMSTypedData msg = new CMSProcessableByteArray(new byte[0]);
         CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
         gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
@@ -517,7 +515,7 @@ public class ScepRAServlet extends HttpServlet {
             String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(CMSSignedDataGenerator.DIGEST_MD5, pk.getAlgorithm());
             try {
                 ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(BouncyCastleProvider.PROVIDER_NAME).build(pk);
-                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
+                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
                 gen.addSignerInfoGenerator(builder.build(contentSigner, cert));
             } catch (OperatorCreationException e) {
