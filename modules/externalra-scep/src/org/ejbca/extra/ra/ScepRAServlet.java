@@ -47,12 +47,7 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSTypedData;
-import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.DecoderException;
 import org.cesecore.certificates.ca.SignRequestException;
@@ -62,7 +57,6 @@ import org.cesecore.certificates.certificate.request.FailInfo;
 import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificate.request.ResponseMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
-import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
@@ -454,7 +448,7 @@ public class ScepRAServlet extends HttpServlet {
 	    	for(int i = 0; i < chain.length; i++) {
 	    	    x509Chain.add((X509Certificate) chain[i]);
 	    	}
-			byte[] pkcs7response = createPKCS7(x509Chain, null, null);                               
+			byte[] pkcs7response = createPKCS7(x509Chain);                               
 			String ctype = "application/x-x509-ca-ra-cert";
 			if (getcaracertchain) {
 				ctype = "application/x-x509-ca-ra-cert-chain";				
@@ -504,27 +498,13 @@ public class ScepRAServlet extends HttpServlet {
         return ret;
     }
 
-    private byte[] createPKCS7(List<X509Certificate> certList, PrivateKey pk, X509Certificate cert) throws IOException, NoSuchAlgorithmException,
+    private byte[] createPKCS7(List<X509Certificate> certList) throws IOException, NoSuchAlgorithmException,
             NoSuchProviderException, CMSException, CertificateEncodingException {
         CMSTypedData msg = new CMSProcessableByteArray(new byte[0]);
         CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
         gen.addCertificates(new CollectionStore(CertTools.convertToX509CertificateHolder(certList)));
         // it is possible to sign the pkcs7, but it's not currently used
-        CMSSignedData s = null;
-        if ((pk != null) && (cert != null)) {            
-            String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromDigestAndKey(CMSSignedDataGenerator.DIGEST_MD5, pk.getAlgorithm());
-            try {
-                ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(BouncyCastleProvider.PROVIDER_NAME).build(pk);
-                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-                JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
-                gen.addSignerInfoGenerator(builder.build(contentSigner, cert));
-            } catch (OperatorCreationException e) {
-                throw new IllegalStateException("BouncyCastle failed in creating signature provider.", e);
-            }   
-            s = gen.generate(msg, true);
-        } else {
-            s = gen.generate(msg);
-        }
+        CMSSignedData s = gen.generate(msg);
         return s.getEncoded();
     }  
 

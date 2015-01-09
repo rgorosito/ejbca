@@ -335,7 +335,7 @@ public class ProtocolScepHttpTest {
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(provider);
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(BouncyCastleProvider.PROVIDER_NAME);
         boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
@@ -383,7 +383,7 @@ public class ProtocolScepHttpTest {
         assertEquals(CertTools.stringToBCDNString(racert.getIssuerDN().getName()), CertTools.stringToBCDNString(sinfo.getIssuer().toString()));
         // Verify the signature
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(provider);
+        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(BouncyCastleProvider.PROVIDER_NAME);
         boolean ret = signerInfo.verify(jcaSignerInfoVerifierBuilder.build(racert.getPublicKey()));
         assertTrue(ret);
         // Get authenticated attributes
