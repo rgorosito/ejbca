@@ -107,8 +107,8 @@ public class ExtRAMsgHelper {
 
         CMSEnvelopedData ed;
         try {
-            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert).setProvider(provider));
-            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(encAlg).setProvider(provider);
+            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(encCert).setProvider(BouncyCastleProvider.PROVIDER_NAME));
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(encAlg).setProvider(BouncyCastleProvider.PROVIDER_NAME);
             ed = edGen.generate(new CMSProcessableByteArray(data), jceCMSContentEncryptorBuilder.build());
         } catch (Exception e) {
             log.error("Error Encryotin Keys:: ", e);
