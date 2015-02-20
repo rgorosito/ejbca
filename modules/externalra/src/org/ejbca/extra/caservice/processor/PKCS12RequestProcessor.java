@@ -25,6 +25,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.keys.util.KeyPairWrapper;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.ejbca.config.GlobalConfiguration;
@@ -83,7 +84,7 @@ public class PKCS12RequestProcessor extends MessageProcessor implements ISubMess
 	      // Store Keys if requested
 	        if (usekeyrecovery && submessage.getStoreKeys()) {
 	            // Save generated keys to database.
-	            keyRecoverySession.addKeyRecoveryData(admin, cert, submessage.getUsername(), keys);
+	            keyRecoverySession.addKeyRecoveryData(admin, cert, submessage.getUsername(), new KeyPairWrapper(keys));
 	        }
 
 	      retval = new PKCS12Response(submessage.getRequestId(),true,null,pkcs12,submessage.getPassword());
