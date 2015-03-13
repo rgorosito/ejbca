@@ -51,7 +51,6 @@ import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoVerifierBuilder;
-import org.bouncycastle.cms.jcajce.JcaX509CertSelectorConverter;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
@@ -62,7 +61,6 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.Store;
-import org.bouncycastle.x509.X509CertStoreSelector;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.util.CertTools;
 
@@ -219,9 +217,8 @@ public class ExtRAMsgHelper {
 
             for (Object o : signers.getSigners()) {
                 SignerInformation signer = (SignerInformation) o;
-                JcaX509CertSelectorConverter conv = new JcaX509CertSelectorConverter();
                 @SuppressWarnings("unchecked")
-                List<X509CertificateHolder> certCollection = new ArrayList<X509CertificateHolder>(certs.getMatches(X509CertStoreSelector.getInstance(conv.getCertSelector(signer.getSID()))));
+                List<X509CertificateHolder> certCollection = (List<X509CertificateHolder>)certs.getMatches(signer.getSID());
                 usercert = new JcaX509CertificateConverter().getCertificate(certCollection.get(0));
                 boolean validalg = signer.getDigestAlgOID().equals(digestAlgorithm);
                 JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
