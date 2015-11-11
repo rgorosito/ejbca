@@ -75,7 +75,7 @@ public class RevocationRequestCommand extends CmpCommandBase {
     
     //Register all parameters
     {
-        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.MANDATORY, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
+        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The CMP configuration alias. Default value: cmp"));
         registerParameter(new Parameter(ISSUERDN_KEY, "IssuerDN", MandatoryMode.MANDATORY, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The IssuerDN of the certificate to be removed"));

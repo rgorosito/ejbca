@@ -92,7 +92,7 @@ public class KeyUpdateRequestCommand extends CmpCommandBase {
     
     //Register all parameters
     {
-        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.MANDATORY, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
+        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The CMP configuration alias. Default value: cmp"));
         registerParameter(new Parameter(SUBJECTDN_KEY, "SubjectDN", MandatoryMode.MANDATORY, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The certificate's SubjectDN."));
