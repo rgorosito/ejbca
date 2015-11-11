@@ -50,12 +50,13 @@ public class ConfirmationRequestCommand extends CmpCommandBase {
     private static final String KEYSTORE_KEY = "--keystore";
     private static final String KEYSTOREPWD_KEY = "--keystorepwd";
     private static final String HOST_KEY = "--host";
+    private static final String URL_KEY = "--url";
     private static final String VERBOSE_KEY = "--v";
     
     //Register all parameters
     {
-        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.MANDATORY, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
-                "The CMP configuration alias"));
+        registerParameter(new Parameter(CMP_ALIAS_KEY, "CMP Configuration Alias", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
+                "The CMP configuration alias. Default value: cmp"));
         registerParameter(new Parameter(ISSUERDN_KEY, "IssuerDN", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The certificate's issuerDN"));
         registerParameter(new Parameter(AUTHENTICATION_MODULE_KEY, "Authentication Module", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
@@ -79,6 +80,8 @@ public class ConfirmationRequestCommand extends CmpCommandBase {
                 " authentication Module is used"));
         registerParameter(new Parameter(HOST_KEY, "Host", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
                 "The name or IP adress to the CMP server. Default value is 'localhost'"));
+        registerParameter(new Parameter(URL_KEY, "URL", MandatoryMode.OPTIONAL, StandaloneMode.ALLOW, ParameterMode.ARGUMENT,
+                "The whole URL to the CMP server. This URL must include the CMP configuration alias. Default: http://localhost:8080/ejbca/publicweb/cmp/<CmpConfigurationAlias>"));
         registerParameter(new Parameter(VERBOSE_KEY, "Verbose", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.FLAG,
                 "Prints out extra info messages while executing"));
     
@@ -114,12 +117,8 @@ public class ConfirmationRequestCommand extends CmpCommandBase {
         
             byte[] requestBytes = CmpClientMessageHelper.getInstance().getRequestBytes(protectedPKIMessage);
         
-            String host =  parameters.get(HOST_KEY);
-            if(host == null) {
-                host = "127.0.0.1";
-                log.info("Using default CMP Server IP address 'localhost'");
-            }
-            byte[] responseBytes = CmpClientMessageHelper.getInstance().sendCmpHttp(requestBytes, 200, parameters.get(CMP_ALIAS_KEY), host);
+            byte[] responseBytes = CmpClientMessageHelper.getInstance().sendCmpHttp(requestBytes, 200, 
+                    parameters.get(CMP_ALIAS_KEY), parameters.get(HOST_KEY), parameters.get(URL_KEY));
         
             return handleCMPResponse(responseBytes, parameters);
         } catch(Exception e) {

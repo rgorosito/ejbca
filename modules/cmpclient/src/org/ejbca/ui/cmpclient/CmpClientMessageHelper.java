@@ -38,6 +38,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
@@ -63,6 +64,8 @@ import org.ejbca.config.CmpConfiguration;
 
 public class CmpClientMessageHelper {
     
+    private static final Logger log = Logger.getLogger(CmpClientMessageHelper.class);
+    
     public static CmpClientMessageHelper getInstance() {
         return new CmpClientMessageHelper();
     }
@@ -76,7 +79,7 @@ public class CmpClientMessageHelper {
         
         if(StringUtils.equalsIgnoreCase(authModule, CmpConfiguration.AUTHMODULE_REG_TOKEN_PWD)) {
             if(verbose) {
-                System.out.println("Authentication module used is " + CmpConfiguration.AUTHMODULE_REG_TOKEN_PWD + ". " +
+                log.info("Authentication module used is " + CmpConfiguration.AUTHMODULE_REG_TOKEN_PWD + ". " +
                 		"PKI message returned as is.");
             }
             return pkimessage;
@@ -84,16 +87,16 @@ public class CmpClientMessageHelper {
         
         if(StringUtils.equalsIgnoreCase(authModule, CmpConfiguration.AUTHMODULE_HMAC)) {
             if(verbose) {
-                System.out.println("Creating protected PKIMessage using: authentication module="+authModule + ", authentication parameter="+authParameter);
+                log.info("Creating protected PKIMessage using: authentication module="+authModule + ", authentication parameter="+authParameter);
             }
             return protectPKIMessageWithHMAC(pkimessage, false, authParameter, 567);
         }
         
         if(StringUtils.equalsIgnoreCase(authModule, CmpConfiguration.AUTHMODULE_ENDENTITY_CERTIFICATE)) {
             if(verbose) {
-                System.out.println("Creating protected PKIMessage using authentication module: " + authModule);
-                System.out.println("Certificate in extraCerts field should be issued by: " + authParameter);
-                System.out.println("Keystore: " + keystorePath + "  -  Keystore password: " + keystorepwd);
+                log.info("Creating protected PKIMessage using authentication module: " + authModule);
+                log.info("Certificate in extraCerts field should be issued by: " + authParameter);
+                log.info("Keystore: " + keystorePath + "  -  Keystore password: " + keystorepwd);
             }
             
             final KeyStore keystore = getKeystore(keystorePath, keystorepwd);
@@ -101,7 +104,7 @@ public class CmpClientMessageHelper {
             //Object[] adminData = getAdminDataFromKeystore(keystore, keystorepwd, authParameter, verbose);
             //Certificate adminCert = (Certificate) adminData[0];
             if(verbose) {
-                System.out.println("Certificate to be attached in the extraCerts field extracted from keystore. " +
+                log.info("Certificate to be attached in the extraCerts field extracted from keystore. " +
                 		"Certificate SubjectDN: " + CertTools.getSubjectDN(extraCert) + " - Certificate issuerDN: " + CertTools.getIssuerDN(extraCert) + " - " +
                 		"Certificate serialnumber: " + CertTools.getSerialNumberAsString(extraCert) + " - Certificate fingerprint: " + CertTools.getFingerprintAsString(extraCert));
             }
@@ -113,7 +116,7 @@ public class CmpClientMessageHelper {
             return buildCertBasedPKIProtection(pkimessage, extraCerts, signKey, pAlg.getAlgorithm().getId(), "BC", verbose);
         }
         
-        System.out.println("Unrecognized authentication module: " + authModule);
+        log.info("Unrecognized authentication module: " + authModule);
         return null;
     }
     
@@ -202,8 +205,7 @@ public class CmpClientMessageHelper {
             out.writeObject(protectedPart);
             res = bao.toByteArray();
         } catch (Exception ex) {
-            System.out.println(ex.getLocalizedMessage());
-            ex.printStackTrace();
+            log.error(ex.getLocalizedMessage(), ex);
         }
         return res;
     }
@@ -218,7 +220,7 @@ public class CmpClientMessageHelper {
         // Select which signature algorithm we should use for the response, based on the digest algorithm and key type.
         ASN1ObjectIdentifier oid = AlgorithmTools.getSignAlgOidFromDigestAndKey(digestAlg, key.getAlgorithm());
         if(verbose) {
-        System.out.println("Selected signature alg oid: " + oid.getId()+", key algorithm: "+key.getAlgorithm());
+            log.info("Selected signature alg oid: " + oid.getId()+", key algorithm: "+key.getAlgorithm());
         }
         // According to PKCS#1 AlgorithmIdentifier for RSA-PKCS#1 has null Parameters, this means a DER Null (asn.1 encoding of null), not Java null.
         // For the RSA signature algorithms specified above RFC3447 states "...the parameters MUST be present and MUST be NULL."
@@ -235,7 +237,7 @@ public class CmpClientMessageHelper {
         PKIHeader head = headerBuilder.build();
         String signatureAlgorithmName = AlgorithmTools.getAlgorithmNameFromOID(oid);
         if(verbose) {
-            System.out.println("Signing CMP message with signature alg: " + signatureAlgorithmName);
+            log.info("Signing CMP message with signature alg: " + signatureAlgorithmName);
         }
         Signature sig = Signature.getInstance(signatureAlgorithmName, provider);
         sig.initSign(key);
@@ -259,7 +261,7 @@ public class CmpClientMessageHelper {
     private Certificate getCertFromKeystore(final KeyStore keystore, final String alias) throws KeyStoreException {
         Certificate cert = keystore.getCertificate(alias);
         if(cert==null) {
-            System.err.println("getAdminDataFromKeystore: Cannot obtain admin certificate from the keystore.");
+            log.error("getAdminDataFromKeystore: Cannot obtain admin certificate from the keystore.");
             System.exit(2);
         }
         return cert;
@@ -269,37 +271,12 @@ public class CmpClientMessageHelper {
             throws UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
         Key key = keystore.getKey(alias, keystorepwd.toCharArray());
         if(key==null) {
-            System.err.println("getAdminDataFromKeystore: Cannot obtain admin key from the keystore.");
+            log.error("getAdminDataFromKeystore: Cannot obtain admin key from the keystore.");
             System.exit(2);
         }
         return key;
     }
-/*    
-    private Object[] getAdminDataFromKeystore(final String keystorePath, final String keystorePassword, final String extraCertsFriendlyName, 
-            boolean verbose) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, FileNotFoundException, 
-            IOException, UnrecoverableKeyException {
-        KeyStore keystore = KeyStore.getInstance("PKCS12");
-        keystore.load(new FileInputStream(keystorePath), keystorePassword.toCharArray());
-
-        if(verbose) {
-            System.out.println("getAdminDataFromKeystore: Getting certificate with friendlyname: " + extraCertsFriendlyName);
-        }
-        
-        Certificate adminCert = keystore.getCertificate(extraCertsFriendlyName);
-        Key adminKey = keystore.getKey(extraCertsFriendlyName, keystorePassword.toCharArray());
-        
-        if(adminCert==null) {
-            System.err.println("getAdminDataFromKeystore: Cannot obtain admin certificate from the keystore.");
-            System.exit(2);
-        }
-        if(adminKey==null) {
-            System.err.println("getAdminDataFromKeystore: Cannot obtain admin key from the keystore.");
-            System.exit(2);
-        }
-        Object[] adminData = {adminCert, adminKey};
-        return adminData;
-    }
-*/    
+   
     private CMPCertificate[] getCMPCerts(Certificate cert) throws CertificateEncodingException, IOException {
         ASN1InputStream ins = new ASN1InputStream(cert.getEncoded());
         ASN1Primitive pcert = ins.readObject();
@@ -319,15 +296,24 @@ public class CmpClientMessageHelper {
         return ba;  
     }
     
-    public byte[] sendCmpHttp(final byte[] message, final int httpRespCode, final String cmpAlias, final String host) throws IOException {
+    public byte[] sendCmpHttp(final byte[] message, final int httpRespCode, String cmpAlias, String host, final String fullURL) throws IOException {
         
-        final String httpReqPath = "http://" + host + ":8080/ejbca";
-        final String resourceCmp = "publicweb/cmp";
+        String urlString = fullURL;
+        if(urlString == null) {
+            if(host==null) {
+                host = "127.0.0.1";
+                log.info("Using default CMP Server IP address: localhost");
+            }
+            final String httpReqPath = "http://" + host + ":8080/ejbca";
+            final String resourceCmp = "publicweb/cmp";
+            if(cmpAlias==null) {
+                cmpAlias = "cmp";
+                log.info("Using default CMP alias: " + cmpAlias);
+            }
+            urlString = httpReqPath + '/' + resourceCmp + '/' + cmpAlias;
+        }
         
-        // POST the CMP request
-        // we are going to do a POST
-        final String urlString = httpReqPath + '/' + resourceCmp + '/' + cmpAlias;
-        System.out.println("CMP URL: " + urlString);
+        log.info("Using CMP URL: " + urlString);
         URL url = new URL(urlString);
         final HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setDoOutput(true);
@@ -341,7 +327,7 @@ public class CmpClientMessageHelper {
 
         final int conResponseCode = con.getResponseCode();
         if(conResponseCode != httpRespCode) {
-            System.out.println("Unexpected HTTP response code: " + conResponseCode);
+            log.info("Unexpected HTTP response code: " + conResponseCode);
         }
         // Only try to read the response if we expected a 200 (ok) response
         if (httpRespCode != 200) {
@@ -351,30 +337,30 @@ public class CmpClientMessageHelper {
         // "application/pkixcmp; charset=UTF-8"
         final String conContentType = con.getContentType();
         if(conContentType == null) {
-            System.out.println("No content type in response.");
+            log.error("No content type in response.");
             System.exit(1);
         }
         if(!StringUtils.equals("application/pkixcmp", conContentType)) {
-            System.out.println("Content type is not 'application/pkixcmp'");
+            log.info("Content type is not 'application/pkixcmp'");
         }
         // Check that the CMP respone has the cache-control headers as specified in 
         // http://tools.ietf.org/html/draft-ietf-pkix-cmp-transport-protocols-14
         final String cacheControl = con.getHeaderField("Cache-Control");
         if(cacheControl == null) {
-            System.out.println("'Cache-Control' header is not present.");
+            log.error("'Cache-Control' header is not present.");
             System.exit(1);
         }
         if(!StringUtils.equals("no-cache", cacheControl)) {
-            System.out.println("Cache-Control is not 'no-cache'");
+            log.error("Cache-Control is not 'no-cache'");
             System.exit(1);
         }
         final String pragma = con.getHeaderField("Pragma");
         if(pragma == null) {
-            System.out.println("'Pragma' header is not present.");
+            log.error("'Pragma' header is not present.");
             System.exit(1);
         }
         if(!StringUtils.equals("no-cache", pragma)) {
-            System.out.println("Pragma is not 'no-cache'");
+            log.error("Pragma is not 'no-cache'");
             System.exit(1);
         }
         // Now read in the bytes
@@ -390,7 +376,7 @@ public class CmpClientMessageHelper {
         in.close();
         byte[] respBytes = baos.toByteArray();
         if((respBytes == null) || (respBytes.length <= 0)) {
-            System.out.println("No response from server");
+            log.error("No response from server");
             System.exit(1);
         }
         return respBytes;
