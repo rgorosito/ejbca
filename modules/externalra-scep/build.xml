@@ -85,7 +85,7 @@
 		<delete file="${mod.externalra-scep.war}" />
     </target>
 	
-    <target name="compile" depends="ejbca-util, externalra-library">
+    <target name="compile" depends="externalra-library">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
         	encoding="UTF-8" target="${java.target.version}" classpathref="compile.classpath"/>
