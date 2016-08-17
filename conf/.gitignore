@@ -1,0 +1,11 @@
+/*.properties
+/ocsp.properties.dontuse
+/log4j-glassfish.xml
+/conf.zip
+/log4j-jbosseap6.xml
+/*.old-ejbca-4
+/cesecore.properties.2015-12-07
+/database.properties.2015-12-07
+/ejbca.properties.2016-02-22
+/install.properties.2015-12-07
+/web.properties.2016-01-05
