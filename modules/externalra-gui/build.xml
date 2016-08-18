@@ -64,7 +64,7 @@
 		<delete file="${mod.externalra-gui.war}" />
     </target>
 	
-    <target name="compile" depends="cesecore-ejb-interface, ejbca-util, externalra-library">
+    <target name="compile" depends="cesecore-ejb-interface,externalra-library">
     	<mkdir dir="${build.dir}" />
         <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on" includeantruntime="no"
         	encoding="UTF-8" target="${java.target.version}" classpathref="compile.classpath"/>
