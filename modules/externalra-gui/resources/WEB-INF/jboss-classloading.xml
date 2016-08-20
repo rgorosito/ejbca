@@ -1,5 +1,0 @@
-<classloading xmlns="urn:jboss:classloading:1.0"
-              domain="ExternalRAGUIDomain"
-              import-all="false">
-              <!-- See http://phytodata.wordpress.com/2010/10/21/demystifying-the-jboss5-jboss-classloading-xml-file/ -->
-</classloading>
