@@ -187,6 +187,7 @@ public class AccessControlSessionBean implements AccessControlSessionLocal, Acce
         if (accessTreeCache != null) {
             accessTreeCache.forceCacheExpire();
         }
+        // Clear the local RA Access Set Cache
         RemoteAccessSetCacheHolder.forceEmptyCache();
     }
     
