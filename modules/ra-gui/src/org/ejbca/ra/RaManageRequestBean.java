@@ -33,11 +33,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.roles.RoleData;
-import org.cesecore.roles.RoleInformation;
-import org.cesecore.roles.access.RoleAccessSessionLocal;
 import org.cesecore.util.ui.DynamicUiProperty;
-import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.Approval;
 import org.ejbca.core.model.approval.ApprovalDataVO;
@@ -74,11 +70,6 @@ public class RaManageRequestBean implements Serializable {
     
     @EJB
     private RaMasterApiProxyBeanLocal raMasterApiProxyBean;
-    // FIXME calls to this session bean will not work if the CA and RA are on different machines. so this variable should be removed.
-    @EJB
-    private ApprovalSessionLocal approvalSession;
-    @EJB
-    private RoleAccessSessionLocal roleAccessSession;
 
     @ManagedProperty(value="#{raAuthenticationBean}")
     private RaAuthenticationBean raAuthenticationBean;
@@ -158,11 +149,12 @@ public class RaManageRequestBean implements Serializable {
             // JBoss EAP 6.4 seems to make calls EL method calls one time extra, with a null parameter, once per page rendering
             log.debug("Ignored call to getPartitionProperties with null parameter");
             return "";
-        }        final ApprovalProfile approvalProfile = getRequest().request.getApprovalProfile();
+        }
+        final ApprovalProfile approvalProfile = getRequest().request.getApprovalProfile();
         final ApprovalStep step = approvalProfile.getStep(guiPartition.getStepId());
         final ApprovalPartition partition = step.getPartition(guiPartition.getPartitionId());
         DynamicUiProperty<? extends Serializable> property = partition.getProperty(PartitionedApprovalProfile.PROPERTY_NAME);
-        if(property != null) {
+        if (property != null) {
             return (String) property.getValue();
         }
         return "";
@@ -180,7 +172,7 @@ public class RaManageRequestBean implements Serializable {
         return getPartitionProperties(approvalProfile, partition);
     }
     
-    //Returns partitions in the current step
+    /** Returns partitions in the current step */
     public List<ApprovalRequestGUIInfo.ApprovalPartitionProfileGuiObject> getPartitions() {
         if (partitionsAuthorizedToView == null) {
             List<ApprovalRequestGUIInfo.ApprovalPartitionProfileGuiObject> authorizedPartitions = new ArrayList<>();
@@ -206,7 +198,7 @@ public class RaManageRequestBean implements Serializable {
                     }
                 }
             }
-            partitionsAuthorizedToView = new ArrayList<ApprovalRequestGUIInfo.ApprovalPartitionProfileGuiObject>(authorizedPartitions);
+            partitionsAuthorizedToView = new ArrayList<>(authorizedPartitions);
 
         }
         return partitionsAuthorizedToView;
@@ -216,7 +208,7 @@ public class RaManageRequestBean implements Serializable {
     private List<Approval> getPartitionApproval(final int partitionId, final int stepId) {
         final ApprovalDataVO advo = getRequest().request.getApprovalData();
         Collection<Approval> approvals = advo.getApprovals();
-        List<Approval> partitionApprovals = new ArrayList<Approval>();
+        List<Approval> partitionApprovals = new ArrayList<>();
         for(Approval approval : approvals) {
             if((approval.getStepId()==stepId) && (approval.getPartitionId()==partitionId)) {
                 partitionApprovals.add(approval);
@@ -232,7 +224,7 @@ public class RaManageRequestBean implements Serializable {
         return getPartitionApproval(partition.getPartitionId(), partition.getStepId()).size() > 0;
     }
     public boolean canApproveParition(final ApprovalRequestGUIInfo.ApprovalPartitionProfileGuiObject partition) {
-        if(partitionsAuthorizedToApprove == null) {
+        if (partitionsAuthorizedToApprove == null) {
             getPartitions();
         }
         return partitionsAuthorizedToApprove.contains(partition.getPartitionId());
@@ -247,39 +239,19 @@ public class RaManageRequestBean implements Serializable {
      * @return a list of dynamic properties 
      */
     private List<DynamicUiProperty<? extends Serializable>> getPartitionProperties(final ApprovalProfile approvalProfile, ApprovalPartition approvalPartition) {
-        if(currentPartitionsProperties == null || !currentPartitionsProperties.containsKey(approvalPartition.getPartitionIdentifier())) {
+        if (currentPartitionsProperties == null || !currentPartitionsProperties.containsKey(approvalPartition.getPartitionIdentifier())) {
             Set<String> hiddenPropertyNames = approvalProfile.getHiddenProperties();    
             List<DynamicUiProperty<? extends Serializable>> propertyList = new ArrayList<>();
             for (String propertyName : approvalPartition.getPropertyList().keySet()) {
                 if (!hiddenPropertyNames.contains(propertyName)) {
                     DynamicUiProperty<? extends Serializable> propertyClone = new DynamicUiProperty<>(
                             approvalPartition.getPropertyList().get(propertyName));
-                    switch (propertyClone.getPropertyCallback()) {
-                    case ROLES:
-                        List<RoleData> allAuthorizedRoles = roleAccessSession.getAllAuthorizedRoles(raAuthenticationBean.getAuthenticationToken());
-                        List<RoleInformation> roleRepresentations = new ArrayList<>();
-                        for (RoleData role : allAuthorizedRoles) {
-                            RoleInformation identifierNamePair = new RoleInformation(role.getPrimaryKey(), role.getRoleName(),
-                                    new ArrayList<>(role.getAccessUsers().values()));
-                            roleRepresentations.add(identifierNamePair);
-                        }
-                        if (!roleRepresentations.contains(propertyClone.getDefaultValue())) {
-                            //Add the default, because it makes no sense why it wouldn't be there. Also, it may be a placeholder for something else. 
-                            roleRepresentations.add(0, (RoleInformation) propertyClone.getDefaultValue());
-                        }
-                        propertyClone.setPossibleValues(roleRepresentations);
-                        break;
-                    case NONE:
-                        break;
-                    default:
-                        break;
-                    }
                     propertyList.add(propertyClone);
                 }
             }
             
-            if(currentPartitionsProperties == null) {
-                currentPartitionsProperties = new HashMap<Integer, List<DynamicUiProperty<? extends Serializable>> >();
+            if (currentPartitionsProperties == null) {
+                currentPartitionsProperties = new HashMap<>();
             }
             currentPartitionsProperties.put(approvalPartition.getPartitionIdentifier(), propertyList);
         }
@@ -309,14 +281,14 @@ public class RaManageRequestBean implements Serializable {
             return new ArrayList<>();
         }
         
-        ArrayList<KeyValuePair> kvp = new ArrayList<KeyValuePair>();
+        ArrayList<KeyValuePair> kvp = new ArrayList<>();
         
         List<DynamicUiProperty<? extends Serializable>> properties = getPartitionProperties(guiPartition);
-        for(DynamicUiProperty<? extends Serializable> property : properties) {
+        for (DynamicUiProperty<? extends Serializable> property : properties) {
             kvp.add(new KeyValuePair(property.getName(), property.getValueAsString()));
         }
         List<Approval> approvals = getPartitionApproval(guiPartition.getPartitionId(), guiPartition.getStepId());
-        for(Approval approval : approvals) {
+        for (Approval approval : approvals) {
             ApprovalRequestGUIInfo.ApprovalGuiObject approvalView = new ApprovalRequestGUIInfo.ApprovalGuiObject(approval);
             kvp.add(new KeyValuePair("Approval action", approvalView.getAdminAction()));
             kvp.add(new KeyValuePair("Approval date", approvalView.getApprovalDate()));
@@ -363,13 +335,11 @@ public class RaManageRequestBean implements Serializable {
         
         ApprovalRequest request = advo.getApprovalRequest();
         request.setApprovalProfile(storedApprovalProfile);
-        // FIXME this call does not work if the CA and RA are on different machines
-        approvalSession.updateApprovalRequest(advo.getId(), request);
 
         final int id = getRequest().request.getId();
         final int stepId = step.getStepIdentifier();
         final int partitionId = partition.getPartitionIdentifier();
-        final RaApprovalResponseRequest approval = new RaApprovalResponseRequest(id, stepId, partitionId,  "", action); // TODO comment field. should it be here for partitioned approvals also?
+        final RaApprovalResponseRequest approval = new RaApprovalResponseRequest(id, stepId, partitionId, request, "", action); // TODO comment field. should it be here for partitioned approvals also?
         return approval;
     }
     

@@ -39,10 +39,12 @@ import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
+import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.Approval;
+import org.ejbca.core.model.approval.ApprovalDataText;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.ApprovalRequest;
@@ -84,6 +86,8 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
     @EJB
     private EndEntityManagementSessionLocal endEntityManagementSession;
     @EJB
+    private EndEntityAccessSessionLocal endEntityAccessSession;
+    @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
     @EJB
     private SecurityEventsLoggerSessionLocal auditSession;
@@ -93,7 +97,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
             ApprovalRequestExecutionException, AuthorizationDeniedException, AdminAlreadyApprovedRequestException, 
             ApprovalException, SelfApprovalException, AuthenticationFailedException {
         if (log.isTraceEnabled()) {
-            log.trace(">approve: "+approvalId);
+            log.trace(">approve: hash="+approvalId);
         }
         final ApprovalData approvalData = approvalSession.findNonExpiredApprovalDataLocal(approvalId);
         if (approvalData == null) {
@@ -136,11 +140,14 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
                         if (approvalRequest instanceof ActivateCATokenApprovalRequest) {
                             ((ActivateCATokenApprovalRequest) approvalRequest).execute(caAdminSession);
                         } else if (approvalRequest instanceof AddEndEntityApprovalRequest) {
-                            ((AddEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession);
+                            ((AddEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession, 
+                                    approvalSession.getIdFromApprovalId(approvalId));
                         } else if (approvalRequest instanceof ChangeStatusEndEntityApprovalRequest) {
-                            ((ChangeStatusEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession);
+                            ((ChangeStatusEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession, 
+                                    endEntityAccessSession, approvalSession.getIdFromApprovalId(approvalId));
                         } else if (approvalRequest instanceof EditEndEntityApprovalRequest) {
-                            ((EditEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession);
+                            ((EditEndEntityApprovalRequest) approvalRequest).execute(endEntityManagementSession, 
+                                    approvalSession.getIdFromApprovalId(approvalId));
                         } else if (approvalRequest instanceof KeyRecoveryApprovalRequest) {
                             ((KeyRecoveryApprovalRequest) approvalRequest).execute(endEntityManagementSession);
                         } else if (approvalRequest instanceof RevocationApprovalRequest) {
@@ -163,25 +170,29 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
             // Notify all administrators affected by the work flow update
             approvalSession.sendApprovalNotifications(admin, approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, false);
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
-            details.put("msg", intres.getLocalizedMessage("approval.approved", approvalId));
+            details.put("msg", intres.getLocalizedMessage("approval.approved", approvalData.getId()));
+            List<ApprovalDataText> texts = approvalData.getApprovalRequest().getNewRequestDataAsText(admin);
+            for (ApprovalDataText text : texts) {
+                details.put(text.getHeader(), text.getData());                    
+            }
             auditSession.log(EjbcaEventTypes.APPROVAL_APPROVE, EventStatus.SUCCESS, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                     admin.toString(), String.valueOf(approvalData.getCaid()), null, null, details);
         } catch (ApprovalRequestExpiredException e) {
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
-            details.put("msg", intres.getLocalizedMessage("approval.expired", approvalId));
+            details.put("msg", intres.getLocalizedMessage("approval.expired", approvalData.getId()));
             auditSession.log(EjbcaEventTypes.APPROVAL_APPROVE, EventStatus.FAILURE, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                     admin.toString(), String.valueOf(approvalData.getCaid()), null, null, details);
             throw e;
         } catch (ApprovalRequestExecutionException e) {
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
-            details.put("msg", intres.getLocalizedMessage("approval.errorexecuting", approvalId));
+            details.put("msg", intres.getLocalizedMessage("approval.errorexecuting", approvalData.getId()));
             details.put("error", e.getMessage());
             auditSession.log(EjbcaEventTypes.APPROVAL_APPROVE, EventStatus.FAILURE, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                     admin.toString(), String.valueOf(approvalData.getCaid()), null, null, details);
             throw e;
         }
         if (log.isTraceEnabled()) {
-            log.trace("<approve: " + approvalId+", "+approvalData.getStatus());
+            log.trace("<approve: hash=" + approvalId+", id="+approvalData.getId()+", "+approvalData.getStatus());
         }
     }
 
@@ -189,7 +200,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
     public void reject(AuthenticationToken admin, int approvalId, Approval approval)
             throws ApprovalRequestExpiredException, AuthorizationDeniedException, ApprovalException, AdminAlreadyApprovedRequestException,
             SelfApprovalException, AuthenticationFailedException {
-        log.trace(">reject");
+        log.trace(">reject: hash="+approvalId);
         final ApprovalData approvalData = approvalSession.findNonExpiredApprovalDataLocal(approvalId);
         if (approvalData == null) {
             String msg = intres.getLocalizedMessage("approval.notexist", approvalId);
@@ -233,14 +244,19 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
                 approvalData.setExpiredate((new Date()).getTime() + approvalData.getApprovalRequest().getApprovalValidity());
             }
             approvalSession.sendApprovalNotifications(admin, approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, false);
-            final String detailsMsg = intres.getLocalizedMessage("approval.rejected", approvalId);
+            final Map<String, Object> details = new LinkedHashMap<String, Object>();
+            details.put("msg", intres.getLocalizedMessage("approval.rejected", approvalData.getId()));
+            List<ApprovalDataText> texts = approvalData.getApprovalRequest().getNewRequestDataAsText(admin);
+            for (ApprovalDataText text : texts) {
+                details.put(text.getHeader(), text.getData());                    
+            }
             auditSession.log(EjbcaEventTypes.APPROVAL_REJECT, EventStatus.SUCCESS, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
-                    admin.toString(), String.valueOf(approvalData.getCaid()), null, null, detailsMsg);
+                    admin.toString(), String.valueOf(approvalData.getCaid()), null, null, details);
         } catch (ApprovalRequestExpiredException e) {
-            log.info(intres.getLocalizedMessage("approval.expired", approvalId));
+            log.info(intres.getLocalizedMessage("approval.expired", approvalData.getId()));
             throw e;
         }
-        log.trace("<reject");
+        log.trace("<reject: hash="+approvalId+", id="+approvalData.getId());
     }
 
 	

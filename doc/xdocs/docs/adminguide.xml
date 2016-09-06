@@ -1258,7 +1258,7 @@ You can then use cmpforopenssl (as an RA):</p>
 </source>
 <p>or, with other version of cmpforopenssl:</p>
 <source>
-./cmpclient --server localhost --port 8080 --path ejbca/publicweb/cmp --cacert AdminCA1.der --ir --user mykeyid --password password --newclcert clcert.der --newkey key.pem --subject "CN=User Name;O=My Organization;C=SE"
+./cmpclient --server localhost --port 8080 --path ejbca/publicweb/cmp --cacert ManagementCA.der --ir --user mykeyid --password password --newclcert clcert.der --newkey key.pem --subject "CN=User Name;O=My Organization;C=SE"
 </source>
 <p>This requests a certificate, defining the subject DN that will be used. The CA used to sign the certificate is specified in the EJBCA cmp configuration, and can be taken from the keyid.
 EJBCA authenticated the request using the HMAC protection with the password, and accepts any request upon correct authentication. See the CMP documentation above for more advanced configuration.
@@ -1284,7 +1284,7 @@ You can then use cmpforopenssl (as a client):</p>
 </source>
 <p>or, with other version of cmpforopenssl:</p>
 <source>
-./cmpclient --server localhost --port 8080 --path ejbca/publicweb/cmp --cacert AdminCA1.der --ir --user mykeyid --password password --newclcert clcert.der --newkey key.pem --subject "CN=user1;O=My Organization;C=SE"
+./cmpclient --server localhost --port 8080 --path ejbca/publicweb/cmp --cacert ManagementCA.der --ir --user mykeyid --password password --newclcert clcert.der --newkey key.pem --subject "CN=user1;O=My Organization;C=SE"
 </source>
 <p>This requests a certificate, and the requested subject DN must match the registered subject DN.
 EJBCA authenticates the request using the HMAC protection with the password of the registered user. See the CMP documentation above for more advanced configuration.</p>
@@ -1843,10 +1843,10 @@ superadmin.p12 keystore generated during the installation or generate a new JKS 
 Below is a short description how to create a JKS for a user on the command line, and adding the new user to the superadministrator role.
 </p>
 <source>
-bin/ejbca.sh ra addendentity &lt;1> &lt;2> "C=..,O=..,CN=&lt;1>" AdminCA 1 JKS
+bin/ejbca.sh ra addendentity &lt;1> &lt;2> "C=..,O=..,CN=&lt;1>" ManagementCA 1 JKS
 bin/ejbca.sh ra setclearpwd &lt;1> &lt;2>
 bin/ejbca.sh batch &lt;1>
-bin/ejbca.sh roles addadmin "Temporary Super Administrator Group" AdminCA WITHCOMMONNAME EQUALCASEINS &lt;1>
+bin/ejbca.sh roles addadmin "Temporary Super Administrator Group" ManagementCA WITHCOMMONNAME EQUALCASEINS &lt;1>
 </source>
 </subsection>
 
@@ -2724,10 +2724,17 @@ other than that no adminstrator is allowed to approve the same request more than
 <subsubsection name="Partitioned Approval Profile">
 <p>In this slightly more complicated approval profile, several options can be set to specify which administrators can approve 
 or reject a request. It is also possible to specify additional data that has to be aquired when a request is approved.</p>
+<p>A partitioned approval consists of two concepts, Steps and Partitions:</p>
+<ul>
+<li>Approval Steps need to be performed sequentially, i.e. step 1 must be approved before step 2 can be acted upon.</li>
+<li>Approval Partitions are non sequential parts that can be approved independently of each other, within a step. I.e. when step 1 has to be approved, 
+Partition 1 and Partition 2 within this step can be approved in any order, independent of each other.</li>
+</ul>
 </subsubsection>
 <p>Both types of approval profiles allow for configuring a notification to be send to the end user and/or to the administrator 
 expected to approve the request (See 'Approval Notification' section bellow). Both profile types allow also to set expiration 
 period for the approval and for the request (See 'Explenation of approval status' section bellow).</p>
+<p>Also see the <a href="userguide.html#Approval%20profiles">User Guide</a> for detailed information about Approval Profile fields.</p>
 </subsection>
 <subsection name="Authorizing Approving Administrators">
 <p>
@@ -2811,12 +2818,13 @@ Remember to configure mail-server settings in the mail.properties file.
 <p>
 Variables used with approval notifications:
 <ul>
- <li>${approvalRequest.ID}            The approval request identifier.</li>
- <li>${approvalRequest.STEP_ID}       The approval step that this notification concerns.</li>
- <li>${approvalRequest.PARTITION_ID}  The approval partition in the step that this notification concerns.</li>
- <li>${approvalRequest.TYPE}          The type of approval request.</li>
- <li>${approvalRequest.WORKFLOWSTATE} The work flow state from the perspective of the one(s) responsible for handling the partition.</li>
- <li>${approvalRequest.REQUESTOR}     The human readable version of the authentication token that was used to create the request.</li>
+ <li>${approvalRequest.ID}             The approval request identifier.</li>
+ <li>${approvalRequest.STEP_ID}        The approval step that this notification concerns.</li>
+ <li>${approvalRequest.PARTITION_ID}   The ID of the approval partition in the step that this notification concerns.</li>
+ <li>${approvalRequest.PARTITION_NAME} The name of the approval partition in the step that this notification concerns.</li>
+ <li>${approvalRequest.TYPE}           The type of approval request.</li>
+ <li>${approvalRequest.WORKFLOWSTATE}  The work flow state from the perspective of the one(s) responsible for handling the partition.</li>
+ <li>${approvalRequest.REQUESTOR}      The human readable version of the authentication token that was used to create the request.</li>
 </ul>
 The work flow states are:
 <ul>
@@ -4044,7 +4052,7 @@ ejbca@host:/usr/local/ejbca> CKNFAST_LOADSHARING=1 ../jboss/bin/run.sh
 </source><p>
 When activating a CA you need a smart card from the OCS of the corresponding slot inserted in both HSMs. The OCS got to be 1/n since preload can not be used.
 </p>
-<p>Sample catoken.properties for generating the initial AdminCA on the netHSM.</p>
+<p>Sample catoken.properties for generating the initial ManagementCA on the netHSM.</p>
 <source>
 defaultKey defaultKey
 certSignKey defaultSign

@@ -68,6 +68,7 @@ import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.approval.Approval;
+import org.ejbca.core.model.approval.ApprovalDataText;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.ApprovalNotificationParameterGenerator;
@@ -141,10 +142,10 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
     @Override
     public void addApprovalRequest(AuthenticationToken admin, ApprovalRequest approvalRequest) throws ApprovalException {
     	if (log.isTraceEnabled()) {
-    		log.trace(">addApprovalRequest: "+approvalRequest.generateApprovalId());
+    		log.trace(">addApprovalRequest: hash="+approvalRequest.generateApprovalId());
     	}
         int approvalId = approvalRequest.generateApprovalId();
-
+        Integer id = 0;
         ApprovalDataVO data = findNonExpiredApprovalRequest(admin, approvalId);
         if (data != null) {
             String msg = intres.getLocalizedMessage("approval.alreadyexists", approvalId);
@@ -153,19 +154,23 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
         } else {
             // There exists no approval request with status waiting. Add a new one
             try {
-                final Integer freeId = findFreeApprovalId();
-                final ApprovalData approvalData = new ApprovalData(freeId);
+                id = findFreeApprovalId();
+                final ApprovalData approvalData = new ApprovalData(id);
                 updateApprovalData(approvalData, approvalRequest);
                 entityManager.persist(approvalData);
                 final ApprovalProfile approvalProfile = approvalRequest.getApprovalProfile();
                 sendApprovalNotifications(admin, approvalRequest, approvalProfile, approvalData.getApprovals(), false);
-                String msg = intres.getLocalizedMessage("approval.addedwaiting", approvalId);
+                String msg = intres.getLocalizedMessage("approval.addedwaiting", id);
                 final Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
+                List<ApprovalDataText> texts = approvalRequest.getNewRequestDataAsText(admin);
+                for (ApprovalDataText text : texts) {
+                    details.put(text.getHeader(), text.getData());                    
+                }
                 auditSession.log(EjbcaEventTypes.APPROVAL_ADD, EventStatus.SUCCESS, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                         admin.toString(), String.valueOf(approvalRequest.getCAId()), null, null, details);
             } catch (Exception e1) {
-                String msg = intres.getLocalizedMessage("approval.erroradding", approvalId);
+                String msg = intres.getLocalizedMessage("approval.erroradding", id);
                 log.error(msg, e1);
                 final Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
@@ -175,7 +180,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             }
         }
         if (log.isTraceEnabled()) {
-        	log.trace("<addApprovalRequest: "+approvalRequest.generateApprovalId());
+        	log.trace("<addApprovalRequest: hash="+approvalRequest.generateApprovalId()+", id="+id);
         }
     }
     
@@ -197,6 +202,10 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             String msg = intres.getLocalizedMessage("approval.edited", id);
             final Map<String, Object> details = new LinkedHashMap<>();
             details.put("msg", msg);
+            List<ApprovalDataText> texts = approvalRequest.getNewRequestDataAsText(admin);
+            for (ApprovalDataText text : texts) {
+                details.put(text.getHeader(), text.getData());                    
+            }
             auditSession.log(EjbcaEventTypes.APPROVAL_EDIT, EventStatus.SUCCESS, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                     admin.toString(), String.valueOf(approvalRequest.getCAId()), null, null, details);
         } catch (Exception e) {
@@ -232,7 +241,9 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
 
     @Override
     public void removeApprovalRequest(AuthenticationToken admin, int id) {
-        log.trace(">removeApprovalRequest");
+        if (log.isTraceEnabled()) {
+            log.trace(">removeApprovalRequest: id="+id);
+        }
         try {
             ApprovalData ad = findById(Integer.valueOf(id));
             if (ad != null) {
@@ -254,7 +265,9 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
                     admin.toString(), null, null, null, details);
             log.error("Error removing approval request", e);
         }
-        log.trace("<removeApprovalRequest");
+        if (log.isTraceEnabled()) {
+            log.trace("<removeApprovalRequest: id="+id);
+        }
     }
 
     @Override
@@ -303,7 +316,9 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
         for(ApprovalData adl : result) {
             markStepAsDone(adl, step);
         }
-        log.trace("<markAsStepDone.");
+        if (log.isTraceEnabled()) {
+            log.trace("<markAsStepDone, approvalId: " + approvalId + ", step " + step);
+        }
     }
     
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -346,7 +361,9 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<ApprovalDataVO> findApprovalDataVO(AuthenticationToken admin, int approvalId) {
-        log.trace(">findApprovalDataVO");
+        if (log.isTraceEnabled()) {
+            log.trace(">findApprovalDataVO: hash="+approvalId);
+        }
         ArrayList<ApprovalDataVO> retval = new ArrayList<ApprovalDataVO>();
         Collection<ApprovalData> result = findByApprovalId(approvalId);
         for (ApprovalData adl : result) {
@@ -366,7 +383,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             throw new IllegalQueryException();
         }
         final String queryString = (query != null ? query.getQueryString() : "1 = 1");
-        final List<ApprovalDataVO> ret = query(admin, queryString, index, numberofrows, caAuthorizationString, endEntityProfileAuthorizationString);
+        final List<ApprovalDataVO> ret = queryInternal(admin, queryString, index, numberofrows, caAuthorizationString, endEntityProfileAuthorizationString, null);
         log.trace("<query()");
         return ret;
     }
@@ -375,7 +392,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
     @Override
     public List<ApprovalDataVO> queryByStatus(final AuthenticationToken admin, final boolean includeUnfinished, final boolean includeProcessed, int index, int numberofrows, String caAuthorizationString,
             String endEntityProfileAuthorizationString) throws AuthorizationDeniedException {
-        log.trace(">query()");
+        log.trace(">queryByStatus()");
         
         if (!includeUnfinished && !includeProcessed) {
             throw new IllegalArgumentException("At least one of includeUnfinished or includeProcessed must be true");
@@ -383,40 +400,48 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
         
         final StringBuilder sb = new StringBuilder();
         
-        // Never include expired requests
-        sb.append("expireDate >= ");
-        sb.append(new Date().getTime());
-        sb.append(" AND (");
-        
+        String orderByString = null;
+        sb.append('(');
         boolean first = true;
         if (includeUnfinished) {
+            // Do not include expired requests
+            sb.append("(expireDate >= ");
+            sb.append(new Date().getTime());
+            sb.append(" AND ");
             // "STATUS_APPROVED" means that the request is still waiting to be executed by the requester
-            sb.append("status IN (" + ApprovalDataVO.STATUS_WAITINGFORAPPROVAL + ", " + ApprovalDataVO.STATUS_APPROVED + ")");
+            sb.append("status IN (" + ApprovalDataVO.STATUS_WAITINGFORAPPROVAL + ", " + ApprovalDataVO.STATUS_APPROVED + "))");
+            orderByString = "ORDER BY requestDate ASC"; // oldest first
             first = false;
         }
         if (includeProcessed) {
             if (!first) { sb.append(" OR "); }
             sb.append("status IN (" + ApprovalDataVO.STATUS_EXECUTED + ", " + ApprovalDataVO.STATUS_EXECUTIONDENIED + ", " +
                     ApprovalDataVO.STATUS_EXECUTIONFAILED + ", " + ApprovalDataVO.STATUS_REJECTED + ")");
+            orderByString = "ORDER BY requestDate DESC"; // most recently created first
             first = false;
         }
         sb.append(')');
         
-        final List<ApprovalDataVO> ret = query(admin, sb.toString(), index, numberofrows, caAuthorizationString, endEntityProfileAuthorizationString);
-        log.trace("<query()");
+        final List<ApprovalDataVO> ret = queryInternal(admin, sb.toString(), index, numberofrows,
+                caAuthorizationString, endEntityProfileAuthorizationString,
+                orderByString);
+        log.trace("<queryByStatus()");
         return ret;
     }
     
     @SuppressWarnings("deprecation")
-    private List<ApprovalDataVO> query(AuthenticationToken admin, final String query, int index, int numberofrows, String caAuthorizationString,
-            String endEntityProfileAuthorizationString) {
-        log.trace(">query()");
+    private List<ApprovalDataVO> queryInternal(AuthenticationToken admin, final String query, int index, int numberofrows, String caAuthorizationString,
+            String endEntityProfileAuthorizationString, final String orderByString) {
+        log.trace(">queryInternal()");
         String customQuery = "(" + query + ")";
         if (StringUtils.isNotEmpty(caAuthorizationString)) {
             customQuery += " AND " + caAuthorizationString;
         }
         if (StringUtils.isNotEmpty(endEntityProfileAuthorizationString)) {
             customQuery += " AND " + endEntityProfileAuthorizationString;
+        }
+        if (StringUtils.isNotEmpty(orderByString)) {
+            customQuery += orderByString;
         }
         
         final List<ApprovalData> approvalDataList = findByCustomQuery(index, numberofrows, customQuery);
@@ -485,7 +510,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             }
             returnData.add(approvalInformation);         
         }
-        log.trace("<query()");
+        log.trace("<queryInternal()");
         return returnData;
     }
 
@@ -578,6 +603,14 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
         
         final int requestId = getIdFromApprovalId(approvalRequest.generateApprovalId());
         final int partitionId = approvalPartition.getPartitionIdentifier();
+        // There may be no partition name if it is not a partitioned approval
+        final String partitionName;
+        DynamicUiProperty<? extends Serializable> partNameProperty = approvalPartition.getProperty(PartitionedApprovalProfile.PROPERTY_NAME);
+        if (partNameProperty != null) {
+            partitionName = partNameProperty.getValueAsString();
+        } else {
+            partitionName = null;
+        }
         final String approvalType = intres.getLocalizedMessage(ApprovalDataVO.APPROVALTYPENAMES[approvalRequest.getApprovalType()]);
         final String workflowState = intres.getLocalizedMessage("APPROVAL_WFSTATE_" + approvalPartitionWorkflowState.name());
         final String requestor = approvalRequest.getRequestAdmin().toString();
@@ -587,7 +620,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             final String sender = (String) approvalPartition.getProperty(ApprovalProfile.PROPERTY_NOTIFICATION_EMAIL_SENDER).getValue();
             final String subject = (String) approvalPartition.getProperty(ApprovalProfile.PROPERTY_NOTIFICATION_EMAIL_MESSAGE_SUBJECT).getValue();
             final String body = ((MultiLineString)approvalPartition.getProperty(ApprovalProfile.PROPERTY_NOTIFICATION_EMAIL_MESSAGE_BODY).getValue()).getValue();
-            final ApprovalNotificationParameterGenerator parameters = new ApprovalNotificationParameterGenerator(requestId, approvalStepId, partitionId, approvalType, workflowState, requestor);
+            final ApprovalNotificationParameterGenerator parameters = new ApprovalNotificationParameterGenerator(requestId, approvalStepId, partitionId, partitionName, approvalType, workflowState, requestor);
             try {
                 MailSender.sendMailOrThrow(sender, Arrays.asList(recipient.split(" ")), MailSender.NO_CC, parameters.interpolate(subject), parameters.interpolate(body), MailSender.NO_ATTACHMENTS);
                 log.info(intres.getLocalizedMessage("approval.sentnotification", requestId));
@@ -596,7 +629,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
             }
         } else {
             if(log.isDebugEnabled()) {
-                log.debug("Notifications are not enabled for approval profile: "+approvalProfile.getProfileName());
+                log.debug("Admin notifications are not enabled for approval profile: "+approvalProfile.getProfileName());
             }
         }
         
@@ -607,8 +640,7 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
                 final String userSender = (String) approvalPartition.getProperty(ApprovalProfile.PROPERTY_USER_NOTIFICATION_EMAIL_SENDER).getValue();
                 final String userSubject = (String) approvalPartition.getProperty(ApprovalProfile.PROPERTY_USER_NOTIFICATION_EMAIL_MESSAGE_SUBJECT).getValue();
                 final String userBody = ((MultiLineString)approvalPartition.getProperty(ApprovalProfile.PROPERTY_USER_NOTIFICATION_EMAIL_MESSAGE_BODY).getValue()).getValue();
-
-                final ApprovalNotificationParameterGenerator userParameters = new ApprovalNotificationParameterGenerator(requestId, approvalStepId, partitionId, approvalType, workflowState, requestor);
+                final ApprovalNotificationParameterGenerator userParameters = new ApprovalNotificationParameterGenerator(requestId, approvalStepId, partitionId, partitionName, approvalType, workflowState, requestor);
                 try {
                     MailSender.sendMailOrThrow(userSender, Arrays.asList(userRecipient.split(" ")), MailSender.NO_CC, userParameters.interpolate(userSubject), userParameters.interpolate(userBody), MailSender.NO_ATTACHMENTS);
                     log.info(intres.getLocalizedMessage("approval.sentnotification", requestId));

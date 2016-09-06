@@ -110,6 +110,13 @@ public abstract class CAInfo implements Serializable {
     protected Collection<ExtendedCAServiceInfo> extendedcaserviceinfos;
     protected Collection<Integer> approvalSettings;
     protected int approvalProfile;
+    
+    /**
+     * @deprecated since 6.6.0, use the appropriate approval profile instead
+     * Needed for a while in order to be able to import old statedumps from 6.5 and earlier
+     */
+    @Deprecated
+    protected int numOfReqApprovals;
 
     protected boolean includeInHealthCheck;
     protected boolean doEnforceUniquePublicKeys;
@@ -374,7 +381,7 @@ public abstract class CAInfo implements Serializable {
     public boolean isApprovalRequired(int action) {
         return approvalSettings.contains(Integer.valueOf(action));
     }
-
+    
     /**
      * @return true if the UserData used to issue a certificate should be kept in the database.
      */

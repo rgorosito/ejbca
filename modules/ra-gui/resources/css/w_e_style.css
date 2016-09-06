@@ -140,10 +140,6 @@ img.menu_logo {
   .internal-frame-black > .keygeneration-button-group:nth-of-type(3) {
     padding: 0px 0px 2% 0; }
 
-#detailsForm {
-  background: #4f6177;
-  border-radius: 2px; }
-
 #detailsForm\:j_idt88\:j_idt161 {
   background: #e9af13;
   color: #fff;
@@ -151,23 +147,30 @@ img.menu_logo {
   display: block;
   margin: 2% auto 0 auto; }
 
-#detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-1-3 {
-  margin-top: 2%;
-  width: 100%; }
-#detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 {
+#detailsForm {
+  background: #4f6177;
+  border-radius: 2px; }
+  #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-1-3 {
+    margin-top: 2%;
+    width: 100%; }
+  #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 {
+    display: block;
+    margin: 3% 0 0 2%;
+    width: 98%; }
+    #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(1) {
+      /* DETAILSKNAPPAR */
+      width: 28%;
+      height: 40px; }
+    #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(2) {
+      width: 37%;
+      height: 40px; }
+    #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(3) {
+      width: 28%;
+      height: 40px; }
+
+.revokeGroup {
   display: block;
-  margin: 3% 0 0 2%;
-  width: 98%; }
-  #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(1) {
-    /* DETAILSKNAPPAR */
-    width: 28%;
-    height: 40px; }
-  #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(2) {
-    width: 37%;
-    height: 40px; }
-  #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(3) {
-    width: 28%;
-    height: 40px; }
+  margin-left: 0; }
 
 .finger-print {
   /* är tänkt för blå länkar i certficate details-vyn*/
@@ -207,6 +210,17 @@ span .approvalStep,
     width: 100%; }
   #contentForm\:editRequestDataTable span {
     word-break: break-all; }
+
+#manageRequestForm\:editRequestDataTable {
+  word-break: break-all; }
+  #manageRequestForm\:editRequestDataTable label {
+    display: block;
+    margin-left: 1.5%; }
+  #manageRequestForm\:editRequestDataTable input:not([type="submit"]) {
+    width: 100%; }
+  #manageRequestForm\:editRequestDataTable span {
+    word-break: break-all;
+    margin-left: 1.5%; }
 
 .pure-form select {
   font-size: 90%;
@@ -261,18 +275,15 @@ ul.pure-menu-children {
   text-align: left; }
 
 label.showNonModifiable {
-  /* texten till radioknappen 'show non modifiable'*/
   margin-left: 2%; }
 
 .navigation-button-group {
-  /*återställknappens wrapper*/
   margin: 2% 0 0 0; }
 
 .pure-button {
-  /*återställknappen*/
   font-size: 68%;
   font-weight: bold;
-  padding: 1.3% 2.5% 1% 2.5%;
+  padding: 1.3% 7% 1.3% 7%;
   height: 40px; }
 
 .navigation-button-group > #enrollMakeNewRequestForm\:resetButton {
@@ -280,7 +291,6 @@ label.showNonModifiable {
   margin: 0 0 0 2%; }
 
 #requestInfoForm\:resetButton {
-  width: 89px;
   height: 40px;
   float: left; }
 
@@ -306,10 +316,8 @@ table.pure-table > tbody a {
     text-decoration: underline; }
 
 #requestInfoForm\:requestPreviewOuterPanel > .internal-frame > fieldset {
-  /*make a request > confirm request-fältet*/
   margin-top: 1%; }
   #requestInfoForm\:requestPreviewOuterPanel > .internal-frame > fieldset > label {
-    /* listan i confirm request*/
     margin-left: 2%;
     width: 100%;
     display: block; }
@@ -318,13 +326,11 @@ table.pure-table > tbody a {
     display: block; }
 
 textarea#keyPairForm\:certificateRequest {
-  /* make request > Upload CSR > formuläret */
   width: 98%;
   margin: 0 auto 2% auto;
   display: block; }
 
 #newFileInput {
-  /* make request > Upload CSR > knappen+texten */
   margin-left: 5%;
   color: #fff;
   width: 95%; }
@@ -369,12 +375,10 @@ textarea#keyPairForm\:certificateRequest {
 
 #detailsForm\:certDetails\:showMoreCertificateDetails {
   width: 90%;
-  margin: 0 0 5% 3%; }
+  margin: 0 0 5% 0 !important; }
   #detailsForm\:certDetails\:showMoreCertificateDetails > label {
     display: block;
-    margin-left: 2.5%; }
-  #detailsForm\:certDetails\:showMoreCertificateDetails > span {
-    margin-left: 2.5%; }
+    font-weight: bold; }
 
 #detailsForm > span.pure-u-1:nth-of-type(2) {
   width: 97%;
@@ -383,17 +387,21 @@ textarea#keyPairForm\:certificateRequest {
   #detailsForm > span.pure-u-1:nth-of-type(2) > label {
     width: 95%;
     margin-left: 2.5% !important;
-    display: block; }
-  #detailsForm > span.pure-u-1:nth-of-type(2) > span {
-    margin-left: 2.5%; }
+    display: block;
+    font-weight: bold; }
+  #detailsForm > span.pure-u-1:nth-of-type(2) > span:not(.revokeGroup) {
+    margin-left: 2.5%;
+    color: #fff;
+    margin-bottom: 4%;
+    display: inline-block; }
 
 @-moz-document url-prefix() {
   /*För Firefox*/
   #detailsForm > span.pure-u-1:nth-of-type(2) {
     word-break: break-all; } }
 select#detailsForm\:certDetails\:newRevocationReason ~ input {
-  margin: 0 0 0 2%;
-  width: 80px; }
+  margin: 1% 0 0 2%;
+  height: 40px; }
 
 #contentForm > #contentForm:more > span.pure-g > div:nth-of-type(1).pure-u-1 {
   width: 16%; }
@@ -413,6 +421,16 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
 @-moz-document url-prefix() {
   #makeRequestButton, #requestStatusButton, #searchCertsButton {
     padding-top: 15px !important; } }
+#enrollWithRequestIdForm\:generateDer,
+#enrollWithRequestIdForm\:generatePkcs7,
+#enrollWithRequestIdForm\:generatePemFullChain,
+#enrollWithRequestIdForm\:generatePem,
+#manageRequestForm\:commandSaveData,
+#manageRequestForm\:commandReject,
+#manageRequestForm\:commandApprove,
+#enrollWithRequestIdForm\:generateKeyStorePem,
+#enrollWithRequestIdForm\:generatePkcs12,
+#enrollWithRequestIdForm\:generateJks,
 #requestInfoForm\:confirmRequestButton,
 #searchCertsButton,
 #requestStatusButton,
@@ -431,6 +449,28 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
   background: #e9af13;
   color: #fff; }
 
+#enrollWithRequestIdForm\:generateDer:hover,
+#enrollWithRequestIdForm\:generateDer:focus,
+#enrollWithRequestIdForm\:generatePkcs7:hover,
+#enrollWithRequestIdForm\:generatePkcs7:focus,
+#enrollWithRequestIdForm\:generatePemFullChain:hover,
+#enrollWithRequestIdForm\:generatePemFullChain:focus,
+#enrollWithRequestIdForm\:generatePem:hover,
+#enrollWithRequestIdForm\:generatePem:focus,
+#manageRequestForm\:commandSaveData:hover,
+#manageRequestForm\:commandSaveData:focus,
+#manageRequestForm\:commandReject:hover,
+#manageRequestForm\:commandReject:focus,
+#manageRequestForm\:commandApprove:hover,
+#manageRequestForm\:commandApprove:focus,
+#requestInfoForm\:generateKeyStorePem:hover,
+#requestInfoForm\:generateKeyStorePem:focus,
+#enrollWithRequestIdForm\:generateKeyStorePem:hover,
+#enrollWithRequestIdForm\:generateKeyStorePem:focus,
+#enrollWithRequestIdForm\:generatePkcs12:hover,
+#enrollWithRequestIdForm\:generatePkcs12:focus,
+#enrollWithRequestIdForm\:generateJks:hover,
+#enrollWithRequestIdForm\:generateJks:focus,
 #detailsForm\:certDetails\:showMoreLessDetailsButton:hover,
 #detailsForm\:certDetails\:showMoreLessDetailsButton:focus,
 #searchCertsButton:hover,
@@ -463,12 +503,10 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
 #contentForm\:showMoreButton:focus,
 #contentForm\:showLessButton:hover,
 #contentForm\:showLessButton:focus,
-#requestInfoForm\:generateKeyStorePem,
-#requestInfoForm\:generateKeyStorePem,
-#requestInfoForm\:generateP12,
-#requestInfoForm\:generateP12,
-#requestInfoForm\:generateJks,
-#requestInfoForm\:generateJks {
+#requestInfoForm\:generateP12:hover,
+#requestInfoForm\:generateP12:focus,
+#requestInfoForm\:generateJks:hover,
+#requestInfoForm\:generateJks:focus {
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#00000000', endColorstr='#1a000000',GradientType=0);
   background-image: -webkit-gradient(linear, 0 0, 0 100%, from(transparent), color-stop(40%, rgba(0, 0, 0, 0.05)), to(rgba(0, 0, 0, 0.1)));
   background-image: -webkit-linear-gradient(transparent, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.1));
@@ -477,7 +515,6 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
   background-image: linear-gradient(transparent, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.1)); }
 
 #requestInfoForm\:confirmRequestButton {
-  width: 140px;
   height: 40px; }
 
 #requestInfoForm\:generateKeyStorePem,
@@ -537,10 +574,8 @@ a {
 
 #contentForm\:showMoreButton,
 #contentForm\:showLessButton {
-  /*showelss-knapp search for certificates*/
   background: #e9af13;
   color: #fff;
-  width: 150px;
   margin: 3% 0 0 0; }
 
 /*SLUT: knappar kod som förmodligen inte beövs*/
@@ -555,15 +590,18 @@ a {
 .statusFailed {
   color: #ed6a5f; }
 
-#contentForm\:filteredResults .pure-button.ra-button {
+.viewMoreLink {
   /*view-knappen i search for certificates*/
   color: #e9af13;
-  background: none; }
-  #contentForm\:filteredResults .pure-button.ra-button:hover {
+  background: none;
+  font-weight: bold;
+  font-size: 76%;
+  white-space: nowrap; }
+  .viewMoreLink:hover {
     text-decoration: underline; }
 
 #detailsForm\:certDetails\:downloadFormatLinks {
-  display: block; }
+  display: block !important; }
   #detailsForm\:certDetails\:downloadFormatLinks > a:hover {
     text-decoration: underline; }
 
@@ -608,15 +646,30 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
         width: auto; }
 
 /* SLUT Kod för att lägga radioknappar, som ligger inom första ramen i make request, under varandra */
-#contentForm\:viewRequestDataTable {
+#contentForm\:viewRequestDataTable, #manageRequestForm\:viewRequestDataTable {
   padding: 1% 0 1% 2%;
   word-break: break-word; }
-  #contentForm\:viewRequestDataTable > span {
+  #contentForm\:viewRequestDataTable > span, #manageRequestForm\:viewRequestDataTable > span {
     display: block;
     max-width: 98%; }
 
+@-moz-document url-prefix() {
+  #contentForm\:viewRequestDataTable, #manageRequestForm\:viewRequestDataTable {
+    word-break: break-all; } }
+#manageRequestForm\:currentStep > .internal-frame > div > label {
+  margin-left: 1.5%; }
+#manageRequestForm\:currentStep > .internal-frame > div > div > label {
+  margin-left: 1.5%; }
+#manageRequestForm\:currentStep > .internal-frame > div > div > table > tbody > tr > td > label {
+  display: inline; }
+#manageRequestForm\:currentStep > .internal-frame > div span, #manageRequestForm\:currentStep > .internal-frame input[type="checkbox"], #manageRequestForm\:currentStep > .internal-frame table {
+  margin-left: 1.5%;
+  display: block; }
+
 /* Styling av felmeddelanden som dyker upp när man inte fyllt i lösenord i make request*/
-#requestInfoForm\:passwordFieldMessage, #requestInfoForm\:passwordConfirmFieldMessage {
+#requestInfoForm\:passwordFieldMessage,
+#requestInfoForm\:passwordConfirmFieldMessage,
+#enrollWithRequestIdForm\:passwordFieldMessage {
   display: none;
   margin: 1% 0 2% 0;
   color: #fff;
@@ -625,7 +678,9 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   border-color: black;
   padding: 1%;
   width: 95%;
-  word-break: break-word; }
+  word-break: break-word;
+  opacity: 0.8;
+  border-radius: 2px; }
 
 @-moz-document url-prefix() {
   /*För Firefox*/
@@ -644,9 +699,14 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   padding: 1%;
   width: 95%;
   word-break: break-all;
-  float: none; }
+  float: none;
+  opacity: 0.8;
+  border-radius: 2px; }
 
-#requestTemplateForm\:selectEEPOneMenuMessage, #requestTemplateForm\:selectCAOneMenuMessage, #requestTemplateForm\:selectKeyPairGenerationMessage {
+#requestTemplateForm\:selectEEPOneMenuMessage,
+#requestTemplateForm\:selectCAOneMenuMessage,
+#requestTemplateForm\:selectKeyPairGenerationMessage,
+#requestTemplateForm\:selectCPOneMenuMessage {
   display: none;
   margin: 1% 0 2% 0;
   color: #fff;
@@ -655,7 +715,9 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   border-color: black;
   padding: 1%;
   width: 95%;
-  word-break: break-word; }
+  word-break: break-word;
+  opacity: 0.8;
+  border-radius: 2px; }
 
 #requestInfoForm\:useRequestIdLink:hover {
   text-decoration: underline; }
@@ -670,10 +732,15 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   border-style: solid;
   background: black;
   border-color: black;
-  padding: 1%; }
+  padding: 1%;
+  opacity: 0.8;
+  border-radius: 2px; }
 
 .showErrorMessage {
   display: block !important; }
+
+#messages {
+  padding-left: 0; }
 
 .errorMessage {
   border-style: solid;
@@ -683,8 +750,10 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   padding: 1%;
   list-style: none;
   margin: 41px 0 0 0;
-  width: 90%;
-  position: fixed; }
+  width: 100%;
+  position: fixed;
+  opacity: 0.8;
+  border-radius: 2px; }
 
 .warnMessage {
   position: fixed;
@@ -694,7 +763,10 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   border-color: black;
   list-style: outside none none;
   padding: 12px;
-  margin-top: 50px; }
+  margin-top: 50px;
+  opacity: 0.8;
+  border-radius: 2px;
+  width: 100%; }
 
 .infoMessage {
   border-style: solid;
@@ -704,8 +776,10 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   padding: 1%;
   list-style: none;
   margin: 41px 0 0 0;
-  width: 88%;
-  position: fixed; }
+  width: 100%;
+  position: fixed;
+  opacity: 0.8;
+  border-radius: 2px; }
 
 #contentForm > #contentForm\:more {
   width: 100%; }
@@ -724,7 +798,8 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   width: 100%;
   font-size: 95%; }
 
-#enrollWithRequestIdForm\:requestId, #contentForm\:endEntititesMoreInputs {
+#enrollWithRequestIdForm\:requestId,
+#contentForm\:endEntititesMoreInputs {
   width: 100%; }
 
 .h2ManageRequst {
@@ -734,8 +809,8 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   float: none; }
 .approvalControl > textarea {
   margin-bottom: 5%; }
-.approvalControl input:not([type="checkbox"]) {
-  width: 98%; }
+.approvalControl span {
+  padding-top: 1%; }
 
 span.approvalStep {
   margin-left: 1.5%; }
@@ -744,17 +819,34 @@ span.approvalStep {
   padding-left: 1.5%; }
   .approvalStep > div > .approvalControl > span {
     display: block; }
+  .approvalStep > div > .approvalControl {
+    margin-bottom: 0; }
 
-#contentForm\:commandApprove, #contentForm\:commandReject, #contentForm\:commandEditData, #contentForm\:commandSaveData, #contentForm\:commandCancelEdit {
+#contentForm\:commandApprove,
+#contentForm\:commandReject,
+#contentForm\:commandEditData,
+#contentForm\:commandSaveData,
+#contentForm\:commandCancelEdit {
   width: 80px; }
 
 #contentForm\:requestApproveMessage {
   margin: 1% 0 0 2%; }
 
+#manageRequestForm\:requestApproveMessage {
+  margin: 1% 0 0 2%; }
+
 .searchButton {
   width: 50px;
-  height: 35px;
+  padding-top: 7%;
+  padding-bottom: 6%;
   margin-left: 5%; }
+
+.pure-control-group > label[for="enrollWithRequestIdForm\:passwordField"] {
+  width: auto; }
+
+#enrollWithRequestIdForm\:enteredRequestId {
+  color: #fff;
+  font-style: italic; }
 
 .footer {
   height: 100px;
@@ -794,6 +886,10 @@ span.approvalStep {
       left: 7.25px; }
 
 /*SLUT CSS för scroll to top-funktion*/
+#enrollWithRequestIdForm\:requestIdButtons {
+  text-align: center;
+  margin: 3% 0 0 0; }
+
 #detailsForm\:certDetails\:newRevocationReason {
   width: 160px;
   display: block;
@@ -804,7 +900,9 @@ span.approvalStep {
 
 #detailsForm\:certDetails\:showMoreCertificateDetails > span {
   display: inline-block;
-  width: 95%; }
+  width: 95%;
+  color: #fff;
+  margin-bottom: 3%; }
   @media (max-width: 47.99em) {
     #detailsForm\:certDetails\:showMoreCertificateDetails > span {
       white-space: nowrap;
@@ -864,8 +962,7 @@ span.approvalStep {
         word-break: break-all; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td > input {
         padding: 0 0 0 0;
-        height: auto;
-        font-size: 85%; }
+        height: auto; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(1):before {
         content: "CA"; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(2):before {
@@ -892,8 +989,7 @@ span.approvalStep {
     word-break: break-all; }
   div.content-body #contentForm\:searchEntityTable > tbody > tr > td > input {
     padding: 0 0 0 0;
-    height: auto;
-    font-size: 85%; }
+    height: auto; }
   div.content-body #contentForm\:searchEntityTable > tbody > tr > td:nth-of-type(1):before {
     content: "CA"; }
   div.content-body #contentForm\:searchEntityTable > tbody > tr > td:nth-of-type(2):before {
@@ -938,6 +1034,12 @@ span.approvalStep {
       padding: 0 0 0 0;
       height: auto;
       font-size: 85%; } }
+table#contentForm\:searchCertTable > tbody > tr > td > input {
+  background: none;
+  font-size: 85%; }
+  table#contentForm\:searchCertTable > tbody > tr > td > input:hover {
+    text-decoration: underline; }
+
 @media (max-width: 64.0525em) {
   img.menu_logo {
     position: absolute; }
@@ -1113,10 +1215,6 @@ span.approvalStep {
   .pure-form select {
     width: auto; }
 
-  #requestInfoForm\:confirmRequestButton {
-    /*confirm request-knappen*/
-    width: auto; }
-
   #keyPairForm\:uploadCsrButton,
   #requestInfoForm\:generateKeyStorePem,
   #requestInfoForm\:generateP12,
@@ -1132,9 +1230,11 @@ span.approvalStep {
     margin: 1% 0 2% 19%;
     width: auto; }
 
+  #enrollWithRequestIdForm\:passwordFieldMessage {
+    width: 65%; }
+
   .errorMessage, .infoMessage {
     /* gör att 'generella' felmeddelanden visas var man än står på sidan */
-    width: 92%;
     margin: 5% 0 0 0; }
 
   #enrollWithRequestIdForm\:requestId, #contentForm\:commandEditData {
@@ -1184,12 +1284,12 @@ span.approvalStep {
   #contentForm\:manageRequestTable > tbody > a {
     padding-top: 16%; }
 
-  #detailsForm\:certDetails\:newRevocationReason {
-    display: inline-block;
-    margin: 0; }
-
   .pure-button {
-    font-size: 76%; }
+    font-size: 76%;
+    padding: 1.3% 4% 1.3% 4%; }
+
+  select#detailsForm\:certDetails\:newRevocationReason ~ input {
+    margin: 0 0 0 2%; }
 
   #contentForm\:commandEditData {
     margin: 1% 0 2% 0; }
@@ -1213,17 +1313,24 @@ span.approvalStep {
     word-break: break-all; }
     #contentForm\:editRequestDataTable label {
       display: block; }
-    #contentForm\:editRequestDataTable input {
+    #contentForm\:editRequestDataTable input, #contentForm\:editRequestDataTable input:not([type="submit"]) {
       width: auto; }
     #contentForm\:editRequestDataTable span {
       margin: 0.5em 0 0.2em; }
 
+  #manageRequestForm\:editRequestDataTable {
+    word-break: break-all; }
+    #manageRequestForm\:editRequestDataTable label {
+      display: block; }
+    #manageRequestForm\:editRequestDataTable span {
+      margin-top: 0.5em;
+      margin-left: 1.5%; }
+
   .approvalControl > textarea {
     margin-bottom: 1%; }
   .approvalControl > input {
-    margin-bottom: 1%; }
-  .approvalControl > input:not([type="checkbox"]) {
-    width: auto; }
+    margin-bottom: 1%;
+    margin: 0.5em 0 0.2em; }
 
   #contentForm\:currentStep div > textarea {
     width: auto; }
@@ -1231,7 +1338,10 @@ span.approvalStep {
   .searchButton {
     width: 80px; }
 
-  #requestTemplateForm\:selectEEPOneMenuMessage, #requestTemplateForm\:selectCAOneMenuMessage, #requestTemplateForm\:selectKeyPairGenerationMessage {
+  #requestTemplateForm\:selectEEPOneMenuMessage,
+  #requestTemplateForm\:selectCAOneMenuMessage,
+  #requestTemplateForm\:selectKeyPairGenerationMessage,
+  #requestTemplateForm\:selectCPOneMenuMessage {
     float: right;
     width: 90%; }
 
@@ -1270,24 +1380,6 @@ span.approvalStep {
     /*för Firefox */
     .pure-menu-link {
       height: 25.5px; } }
-  /*För Retinaskärm*/
-  /*
-  @media (-webkit-min-device-pixel-ratio: 2),
-    (min-resolution: 192dpi) {
-  
-    @-moz-document url-prefix() { //för Firefox
-      .pure-menu-link {
-        //  padding-bottom: 18px;
-      }
-    }
-  }
-  */
-  /*SLUT för retinaskärm*/
-  /*
-  a#enrollment:not(:hover) ~ ul.pure-menu-children {
-      border: 4px solid black;
-  }
-  */
   .cas-menu-link:hover, .cas-menu-link:focus,
   .enroll-menu-link:hover, .enroll-menu-link:focus,
   .pure-menu-link:hover, .pure-menu-link:focus,
@@ -1334,8 +1426,6 @@ span.approvalStep {
 
   #contentForm\:showMoreButton,
   #contentForm\:showLessButton {
-    /*showelss-knapp search for certificates*/
-    width: 75%;
     height: 35px; }
 
   #requestInfoForm\:requestPreviewOuterPanel > .internal-frame > fieldset > label, #requestInfoForm\:requestPreviewOuterPanel > .internal-frame > fieldset span {
@@ -1343,12 +1433,19 @@ span.approvalStep {
   #requestInfoForm\:requestPreviewOuterPanel > .internal-frame > fieldset > span {
     margin-left: 0; }
 
+  /*sökfältet i vyn 'search'*/
   #contentForm\:parentGenericSearchString {
     margin: 0; }
 
   #contentForm\:filteredResults > .pure-table > tbody > tr > td {
     max-width: initial; }
 
+  .viewMoreLink {
+    padding: 1.3% 2.5% 1% 2.5%;
+    white-space: nowrap; }
+
+  #contentForm\:more > .pure-g > .pure-u-1:nth-of-type(2) {
+    margin: 0 0 0 1.5%; }
   #contentForm\:more > .pure-g > .pure-u-1:nth-of-type(3) {
     margin: 0 0 0 3%; }
   #contentForm\:more > .pure-g > .pure-u-1:nth-of-type(4) {
@@ -1379,43 +1476,53 @@ span.approvalStep {
   #detailsForm > span.pure-u-1:nth-of-type(2) > label {
     display: inline-block; }
   #detailsForm > span.pure-u-1:nth-of-type(2) > span {
+    margin-left: 0;
+    margin-bottom: 0;
+    margin: 0.5em 0 0.2em; }
+
+  #detailsForm\:certDetails:revokeGroup {
+    display: inline-block;
     margin-left: 0; }
 
   #detailsForm\:certDetails\:downloadFormatLinks {
-    display: inline-block; }
+    display: inline-block !important; }
 
   #detailsForm\:certDetails\:showMoreCertificateDetails > span {
-    width: 60%; }
-
+    width: 60%;
+    margin-bottom: 0;
+    margin-left: 2.5%; }
+  #detailsForm\:certDetails\:showMoreCertificateDetails > label {
+    display: inline-block;
+    margin-left: 2.5%; }
   #detailsForm\:certDetails\:showMoreCertificateDetails > span.pure-u-lg-1.pre {
     display: none; }
-
-  #detailsForm\:certDetails\:showMoreCertificateDetails {
-    /* search for certificates > view > showMoreDetails */ }
-    #detailsForm\:certDetails\:showMoreCertificateDetails > label {
-      display: inline-block; }
 
   #detailsForm\:certDetails\:showMoreLessDetailsButton {
     width: 23%;
     height: 35px; }
 
+  #messages {
+    padding-left: 40px; }
+
   .errorMessage, .infoMessage {
     /* gör att 'generella' felmeddelanden visas var man än står på sidan */
     margin: 0 0 0 0;
-    width: 40%; }
+    width: auto; }
 
   .warnMessage {
-    margin-top: 0; }
+    margin-top: 0;
+    width: auto; }
 
-  #requestInfoForm\:confirmRequestButton, #requestInfoForm\:generateKeyStorePem, #requestInfoForm\:generateP12, #requestInfoForm\:generateJks, #requestInfoForm\:resetButton, #keyPairForm\:uploadCsrButton {
-    /*confirm request-knappen*/
+  #requestInfoForm\:confirmRequestButton,
+  #requestInfoForm\:generateKeyStorePem,
+  #requestInfoForm\:generateP12,
+  #requestInfoForm\:generateJks,
+  #requestInfoForm\:resetButton,
+  #keyPairForm\:uploadCsrButton {
     height: auto; }
 
   #enrollWithRequestIdForm\:checkButton {
     width: auto; }
-
-  #requestInfoForm\:resetButton {
-    width: 10%; }
 
   table.pure-table > tbody > tr:not(.pure-table-odd) td {
     font-size: 100%; }
@@ -1425,7 +1532,8 @@ span.approvalStep {
   .infoMessage {
     color: #fff;
     position: fixed;
-    margin: 0 0 0 0; }
+    margin: 0 0 0 0;
+    width: auto; }
 
   #detailsForm > span.pure-u-1 > .pure-u-2-3 {
     /*DETAILSKNAPPAR*/ }
@@ -1436,11 +1544,20 @@ span.approvalStep {
     #detailsForm > span.pure-u-1 > .pure-u-2-3 > input:nth-of-type(3) {
       height: auto; }
 
-  #makeRequestButton, #requestStatusButton, #searchCertsButton {
+  #makeRequestButton,
+  #requestStatusButton,
+  #searchCertsButton {
     padding-top: 1.3%; }
 
   #contentForm\:viewRequestDataTable > span {
     display: inline-block; }
+
+  #manageRequestForm\:viewRequestDataTable > span {
+    display: inline-block; }
+
+  #manageRequestForm\:currentStep > .internal-frame > div span, #manageRequestForm\:currentStep > .internal-frame input[type="checkbox"] {
+    display: inline;
+    margin-left: 0; }
 
   #contentForm\:commandEditData {
     height: auto; }
@@ -1460,13 +1577,39 @@ span.approvalStep {
   .pure-button {
     height: auto; }
 
+  .pure-button {
+    padding: 1.3% 15px 1.3% 15px; }
+
+  select#detailsForm\:certDetails\:newRevocationReason ~ input {
+    height: 35px; }
+
   #contentForm\:editRequestDataTable {
     padding-left: 2%; }
     #contentForm\:editRequestDataTable label {
       display: inline-block; }
 
+  #detailsForm\:certDetails\:newRevocationReason {
+    display: inline-block;
+    margin: 0; }
+
+  #manageRequestForm\:editRequestDataTable {
+    padding-left: 2%; }
+    #manageRequestForm\:editRequestDataTable label {
+      display: inline-block;
+      margin-left: 0; }
+    #manageRequestForm\:editRequestDataTable input, #manageRequestForm\:editRequestDataTable input:not([type="submit"]) {
+      width: auto; }
+    #manageRequestForm\:editRequestDataTable span {
+      margin-left: 0; }
+
   .searchButton {
-    margin-left: 2%; } }
+    margin-left: 2%; }
+
+  .approvalControl > label {
+    float: left; }
+
+  table#contentForm\:searchCertTable > tbody > tr > td > input {
+    font-size: 76%; } }
 /*
 "gamla"
     "base"  // smartphone
