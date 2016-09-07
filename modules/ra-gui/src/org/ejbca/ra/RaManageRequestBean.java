@@ -319,6 +319,12 @@ public class RaManageRequestBean implements Serializable {
             return raLocaleBean.getMessage("view_request_page_cannot_approve_pending");
         } else if (getRequest().isEditedByMe()) {
             return raLocaleBean.getMessage("view_request_page_cannot_approve_edited_by_me");
+        } else if (getRequest().isApprovedByMe()) {
+            return raLocaleBean.getMessage("view_request_page_cannot_approve_approved_by_me");
+        } else if (getRequest().isRequestedByMe()) {
+            return raLocaleBean.getMessage("view_request_page_cannot_approve_requested_by_me");  
+        } else if (!getRequest().hasNextApprovalStep()) {
+            return raLocaleBean.getMessage("view_request_page_cannot_approve_no_next_step");              
         } else {
             return raLocaleBean.getMessage("view_request_page_cannot_approve");
         }
@@ -464,7 +470,12 @@ public class RaManageRequestBean implements Serializable {
         
         // TODO error handling
         final RaApprovalEditRequest editReq = new RaApprovalEditRequest(requestData.getId(), editData);
-        requestData = raMasterApiProxyBean.editApprovalRequest(raAuthenticationBean.getAuthenticationToken(), editReq);
+        final RaApprovalRequestInfo newReqData = raMasterApiProxyBean.editApprovalRequest(raAuthenticationBean.getAuthenticationToken(), editReq);
+        if (newReqData == null) {
+            raLocaleBean.addMessageError("view_request_page_error_edit");
+            return;
+        }
+        requestData = newReqData;
         requestInfo = new ApprovalRequestGUIInfo(requestData, raLocaleBean);
         editing = false;
     }
