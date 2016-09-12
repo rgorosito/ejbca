@@ -141,13 +141,10 @@ img.menu_logo {
     width: 98%; }
     #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(1) {
       /* DETAILSKNAPPAR */
-      width: 28%;
       height: 40px; }
     #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(2) {
-      width: 37%;
       height: 40px; }
     #detailsForm > span.pure-u-1:nth-of-type(1) > .pure-u-2-3 > input:nth-of-type(3) {
-      width: 28%;
       height: 40px; }
 
 .revokeGroup {
@@ -191,7 +188,8 @@ span .approvalStep,
     margin-left: 1.5%;
     font-weight: bold; }
   #manageRequestForm\:editRequestDataTable input:not([type="submit"]) {
-    width: 100%; }
+    width: 100%;
+    color: #000; }
   #manageRequestForm\:editRequestDataTable span {
     word-break: break-all;
     margin-left: 1.5%;
@@ -245,8 +243,7 @@ ul.pure-menu-list > li.pure-menu-item > ul.pure-menu-children > form > li, ul.pu
     background: #517397;
     color: #fff; }
     ul.pure-menu-list > li.pure-menu-item > ul.pure-menu-children > form > li > a:hover, ul.pure-menu-list > li.pure-menu-item > ul.pure-menu-children > li.pure-menu-item > a:hover {
-      background: #517397;
-      color: #fff; }
+      color: #d0a644; }
 
 /* Kan ev. tas bort då nedanståden står i ovanstående kod */
 .enroll-menu-link-hover {
@@ -314,7 +311,7 @@ textarea#keyPairForm\:certificateRequest {
 #newFileInput {
   margin-left: 5%;
   color: #fff;
-  width: 95%; }
+  width: 100%; }
 
 .tabButton.active {
   background: #e9af13; }
@@ -350,7 +347,6 @@ textarea#keyPairForm\:certificateRequest {
 #detailsForm\:certDetails\:showMoreLessDetailsButton {
   background: #e9af13;
   color: #fff;
-  width: 150px;
   display: block;
   margin: 2% 0 0 0; }
 
@@ -542,8 +538,10 @@ a {
 #contentForm\:filteredResults > table.pure-table > thead {
   line-height: 110%; }
 
+#contentForm\:searchCertTable > tbody > tr {
+  line-height: 79%; }
+
 #contentForm\:filteredResults > table.pure-table:not(#contentForm\:manageRequestTable) > tbody > tr {
-  line-height: 79%;
   word-break: break-all; }
   #contentForm\:filteredResults > table.pure-table:not(#contentForm\:manageRequestTable) > tbody > tr > td > input {
     color: #e9af13; }
@@ -625,27 +623,33 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
         width: auto; }
 
 /* SLUT Kod för att lägga radioknappar, som ligger inom första ramen i make request, under varandra */
-#contentForm\:viewRequestDataTable, #manageRequestForm\:viewRequestDataTable {
+/*#contentForm\:viewRequestDataTable,*/
+#manageRequestForm\:viewRequestDataTable {
   padding: 1% 0 1% 2%;
   word-break: break-word; }
-  #contentForm\:viewRequestDataTable > label, #manageRequestForm\:viewRequestDataTable > label {
+  #manageRequestForm\:viewRequestDataTable > label {
     font-weight: bold; }
-  #contentForm\:viewRequestDataTable > span, #manageRequestForm\:viewRequestDataTable > span {
+  #manageRequestForm\:viewRequestDataTable > span {
     display: block;
     max-width: 98%;
     color: #fff;
     margin-bottom: 4%; }
 
 @-moz-document url-prefix() {
-  #contentForm\:viewRequestDataTable, #manageRequestForm\:viewRequestDataTable {
+  /*#contentForm\:viewRequestDataTable,*/
+  #manageRequestForm\:viewRequestDataTable {
     word-break: break-all; } }
 #manageRequestForm\:currentStep > .internal-frame > div > label {
-  margin-left: 1.5%; }
+  margin-left: 1.5%;
+  font-weight: bold; }
+#manageRequestForm\:currentStep > .internal-frame > div > span {
+  color: #fff; }
 #manageRequestForm\:currentStep > .internal-frame > div > div > label {
-  margin-left: 1.5%; }
+  margin-left: 1.5%;
+  font-weight: bold; }
 #manageRequestForm\:currentStep > .internal-frame > div > div > table > tbody > tr > td > label {
   display: inline; }
-#manageRequestForm\:currentStep > .internal-frame > div span, #manageRequestForm\:currentStep > .internal-frame input[type="checkbox"], #manageRequestForm\:currentStep > .internal-frame table {
+#manageRequestForm\:currentStep > .internal-frame > div span, #manageRequestForm\:currentStep > .internal-frame input[type="checkbox"] {
   margin-left: 1.5%;
   display: block; }
 
@@ -776,22 +780,25 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
 .h2ManageRequst {
   padding: 2% 0 0 0; }
 
-.approvalControl > label {
-  float: none; }
-.approvalControl > textarea {
-  margin-bottom: 5%; }
-.approvalControl span {
-  padding-top: 1%; }
-
 span.approvalStep {
-  margin-left: 1.5%; }
+  margin-left: 1.5%;
+  font-weight: bold;
+  font-style: italic;
+  color: #fff; }
 
 .approvalStep > div {
   padding-left: 1.5%; }
-  .approvalStep > div > .approvalControl > span {
-    display: block; }
   .approvalStep > div > .approvalControl {
     margin-bottom: 0; }
+    .approvalStep > div > .approvalControl > label {
+      font-weight: bold;
+      float: none; }
+    .approvalStep > div > .approvalControl > span {
+      display: block;
+      color: #fff;
+      margin-bottom: 4%; }
+    .approvalStep > div > .approvalControl > textarea {
+      margin-bottom: 5%; }
 
 #contentForm\:commandApprove,
 #contentForm\:commandReject,
@@ -887,6 +894,8 @@ span.approvalStep {
     border: none; }
     div.content-body table#caCertificateTable.pure-table > thead, div.content-body div:not(#contentForm\:viewRequestDataTable) table.pure-table > thead {
       display: none; }
+    div.content-body table#caCertificateTable.pure-table > tbody, div.content-body div:not(#contentForm\:viewRequestDataTable) table.pure-table > tbody {
+      display: block; }
     div.content-body table#caCertificateTable.pure-table > tbody > tr, div.content-body div:not(#contentForm\:viewRequestDataTable) table.pure-table > tbody > tr {
       display: block;
       margin-bottom: 1em;
@@ -987,17 +996,17 @@ span.approvalStep {
     display: block; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(1):before {
       content: "ID"; }
-    div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(1):before {
-      content: "Request Date"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(2):before {
-      content: "CA"; }
+      content: "Request Date"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(3):before {
-      content: "Type"; }
+      content: "CA"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(4):before {
-      content: "Name"; }
+      content: "Type"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(5):before {
-      content: "Requested By"; }
+      content: "Name"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(6):before {
+      content: "Requested By"; }
+    div.content-body #contentForm\:manageRequestTable > tbody > tr > td:nth-of-type(7):before {
       content: "Request Status"; }
     div.content-body #contentForm\:manageRequestTable > tbody > tr > td > span {
       word-break: normal; }
@@ -1008,7 +1017,7 @@ span.approvalStep {
 table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:searchEntityTable > tbody > tr > td > input {
   background: none;
   border: none;
-  font-size: 85%; }
+  font-size: 100%; }
   table#contentForm\:searchCertTable > tbody > tr > td > input:hover, #contentForm\:searchEntityTable > tbody > tr > td > input:hover {
     text-decoration: underline; }
 
@@ -1517,6 +1526,8 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
     display: inline-block;
     margin: 0.5em 0 0.2em; }
 
+  #manageRequestForm\:currentStep > .internal-frame > div > div > table {
+    display: inline; }
   #manageRequestForm\:currentStep > .internal-frame > div span, #manageRequestForm\:currentStep > .internal-frame input[type="checkbox"] {
     display: inline;
     margin-left: 0; }
@@ -1575,8 +1586,14 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
   .searchButton {
     margin-left: 2%; }
 
-  .approvalControl > label {
+  .approvalStep > div > .approvalControl > label {
     float: left; }
+  .approvalStep > div > .approvalControl > span {
+    margin-bottom: 0;
+    padding-top: 1%; }
+
+  table#contentForm\:searchCertTable > tbody > tr > td > input {
+    font-size: 85%; }
 
   #detailsForm > span.pure-u-1:nth-of-type(2) > label {
     display: inline-block; }
@@ -1641,3 +1658,5 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
 
   #requestInfoForm\:passwordFieldMessage, #requestInfoForm\:passwordConfirmFieldMessage {
     word-break: break-all; } }
+
+/*# sourceMappingURL=w_e_style.css.map */
