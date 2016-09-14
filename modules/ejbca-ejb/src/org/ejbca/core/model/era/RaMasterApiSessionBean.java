@@ -426,7 +426,9 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             // Return false so the next master api backend can see if it can handle the approval
             return false;
         } else if (getApprovalRequest(authenticationToken, advo) == null) { // Authorization check
-            log.debug("Authorization denied to the given approval request");
+            if (log.isDebugEnabled()) {
+                log.debug("Authorization denied to approval request ID " + requestResponse.getId() + " for " + authenticationToken);
+            }
             throw new AuthorizationDeniedException("You are not authorized to the Request with ID " + requestResponse.getId() + " at this point");
         }
         
@@ -1057,8 +1059,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
-    public IdNameHashMap<EndEntityProfile> getAuthorizedEndEntityProfiles(AuthenticationToken authenticationToken){
-        Collection<Integer> ids = endEntityProfileSession.getAuthorizedEndEntityProfileIds(authenticationToken, AccessRulesConstants.EDIT_END_ENTITY);
+    public IdNameHashMap<EndEntityProfile> getAuthorizedEndEntityProfiles(final AuthenticationToken authenticationToken, final String endEntityAccessRule) {
+        Collection<Integer> ids = endEntityProfileSession.getAuthorizedEndEntityProfileIds(authenticationToken, endEntityAccessRule);
         Map<Integer, String> idToNameMap = endEntityProfileSession.getEndEntityProfileIdToNameMap();
         IdNameHashMap<EndEntityProfile> authorizedEndEntityProfiles = new IdNameHashMap<>();
         for (Integer id : ids){
