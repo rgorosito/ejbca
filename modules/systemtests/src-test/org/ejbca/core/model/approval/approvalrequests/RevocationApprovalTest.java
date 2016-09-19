@@ -318,6 +318,7 @@ public class RevocationApprovalTest extends CaTestCase {
             }
             
             ApprovalProfile approvalProfile = approvalProfileSession.getApprovalProfile(approvalProfileId);
+            assertNotNull("Could not find approval profile with id: "+approvalProfileId, approvalProfile);
             int partitionId = approvalProfile.getStep(AccumulativeApprovalProfile.FIXED_STEP_ID).getPartitions().values().iterator().next().getPartitionIdentifier();
             approveRevocation(internalAdmin, approvingAdmin, username, RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED,
                     ApprovalDataVO.APPROVALTYPE_REVOKEENDENTITY, approvalCAID, approvalProfile, AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
@@ -352,6 +353,7 @@ public class RevocationApprovalTest extends CaTestCase {
                 fail("Allowing addition of identical approval requests.");
             }
             ApprovalProfile approvalProfile = approvalProfileSession.getApprovalProfile(approvalProfileId);
+            assertNotNull("Could not find approval profile with id: "+approvalProfileId, approvalProfile);
             int partitionId = approvalProfile.getStep(AccumulativeApprovalProfile.FIXED_STEP_ID).getPartitions().values().iterator().next().getPartitionIdentifier();
             approveRevocation(internalAdmin, approvingAdmin, username, RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED,
                     ApprovalDataVO.APPROVALTYPE_REVOKEANDDELETEENDENTITY, approvalCAID, approvalProfile, AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
@@ -391,6 +393,7 @@ public class RevocationApprovalTest extends CaTestCase {
                 fail(ERRORALLOWMORETHANONE);
             }
             ApprovalProfile approvalProfile = approvalProfileSession.getApprovalProfile(approvalProfileId);
+            assertNotNull("Could not find approval profile with id: "+approvalProfileId, approvalProfile);
             int partitionId = approvalProfile.getStep(AccumulativeApprovalProfile.FIXED_STEP_ID).getPartitions().values().iterator().next().getPartitionIdentifier();
             approveRevocation(internalAdmin, approvingAdmin, username, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD,
                     ApprovalDataVO.APPROVALTYPE_REVOKECERTIFICATE, approvalCAID, approvalProfile, AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
@@ -437,7 +440,7 @@ public class RevocationApprovalTest extends CaTestCase {
 
             RevocationApprovalRequest revAr = new RevocationApprovalRequest(CertTools.getSerialNumber(usercert), CertTools.getIssuerDN(usercert), username, 
                     RevokedCertInfo.REVOCATION_REASON_KEYCOMPROMISE, requestingAdmin, caid, SecConst.EMPTY_ENDENTITYPROFILE, null);
-            revAr.execute(endEntityManagementSession, 4711);
+            revAr.execute(endEntityManagementSession, 4711, null);
             // Verify that the certificate was revokes
             usercert = (X509Certificate) EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username)).iterator().next();
             assertEquals("Certificate was not revoked.", CertificateStatus.REVOKED, certificateStoreSession.getStatus(CertTools.getIssuerDN(usercert), CertTools.getSerialNumber(usercert)));
@@ -469,7 +472,7 @@ public class RevocationApprovalTest extends CaTestCase {
             usercert3fp = CertTools.getFingerprintAsString(usercert3);
             
             revAr = new RevocationApprovalRequest(false, username, RevokedCertInfo.REVOCATION_REASON_AFFILIATIONCHANGED, requestingAdmin, caid, SecConst.EMPTY_ENDENTITYPROFILE, null);
-            revAr.execute(endEntityManagementSession, 4712);
+            revAr.execute(endEntityManagementSession, 4712, null);
             
             
             List<Certificate> usercerts = EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username));
