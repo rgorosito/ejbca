@@ -14,7 +14,6 @@ package org.cesecore.certificates.certificate.certextensions.standard;
 
 import java.security.PublicKey;
 import java.util.ArrayList;
-import java.util.Iterator;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
@@ -33,6 +32,19 @@ import org.cesecore.certificates.endentity.EndEntityInformation;
 /**
  * Class for ICAO X509 certificate extension. 
  * See ICAO MRTD Technical Report LDS and PKI Maintenance 1.0 or later for spec of this extension.
+ * 
+ * documentTypeList  EXTENSION  ::=  {
+ *     SYNTAX DocumentTypeListSyntax
+ *     IDENTIFIED BY id-icao-mrtd-security-extensions-documentTypeList}
+ * DocumentTypeListSyntax ::= SEQUENCE {
+ *   version DocumentTypeListVersion,
+ *   docTypeList SET OF DocumentType }
+ *
+ * DocumentTypeListVersion ::= INTEGER {v0(0)}
+ * 
+ * -- Document Type as contained in MRZ, e.g. "P" or "ID" where a
+ * -- single letter denotes all document types starting with that letter
+ * DocumentType ::= PrintableString(1..2) 
  * 
  * @version $Id$
  */
@@ -64,11 +76,12 @@ public class DocumentTypeList extends StandardCertificateExtension {
         vec.add(new ASN1Integer(0));
         
         // Add SET OF DocumentType
-        Iterator<String> itr = docTypes.iterator();
-        while(itr.hasNext()) {
-            String type = itr.next();
-            vec.add(new DERSet(new ASN1Encodable[]{new DERPrintableString(type)}));
+        final ASN1Encodable[] dts = new ASN1Encodable[docTypes.size()];
+        int i = 0;
+        for (final String type : docTypes) {
+            dts[i++] = new DERPrintableString(type);
         }
+        vec.add(new DERSet(dts)); // the DERSet constructor performs the DER normalization (i.e., it sorts the set)
         
         ASN1Object gn = new DERSequence(vec);
         if(log.isDebugEnabled()) {
