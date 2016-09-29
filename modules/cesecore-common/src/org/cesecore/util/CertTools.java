@@ -22,8 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -192,6 +190,8 @@ public abstract class CertTools {
     public static final String IPADDR = "iPAddress";
     public static final String DIRECTORYNAME = "directoryName";
     public static final String REGISTEREDID = "registeredID";
+    public static final String XMPPADDR = "xmppAddr";
+    public static final String SRVNAME = "srvName";
 
     /** Kerberos altName for smart card logon */
     public static final String KRB5PRINCIPAL = "krb5principal";
@@ -201,6 +201,10 @@ public abstract class CertTools {
     public static final String UPN = "upn";
     /** ObjectID for upn altName for windows smart card logon */
     public static final String UPN_OBJECTID = "1.3.6.1.4.1.311.20.2.3";
+    /** ObjectID for XmppAddr, rfc6120#section-13.7.1.4 */
+    public static final String XMPPADDR_OBJECTID = "1.3.6.1.5.5.7.8.5";
+    /** ObjectID for srvName, rfc4985 */
+    public static final String SRVNAME_OBJECTID =  "1.3.6.1.5.5.7.8.7";
     public static final String PERMANENTIDENTIFIER = "permanentIdentifier";
     public static final String PERMANENTIDENTIFIER_OBJECTID = "1.3.6.1.5.5.7.8.3";
     public static final String PERMANENTIDENTIFIER_SEP = "/";
@@ -2000,13 +2004,39 @@ public abstract class CertTools {
      * @return String with the UPN name or null if the altName does not exist
      */
     public static String getUPNAltName(Certificate cert) throws IOException, CertificateParsingException {
+        return getUTF8AltNameOtherName(cert, CertTools.UPN_OBJECTID);
+    }
+
+    /**
+     * Gets a UTF8 OtherName altName (altName, OtherName).
+     * 
+     * Like UPN and XmpAddr
+     * 
+     * An OtherName Subject Alternative Name:
+     * 
+     * OtherName ::= SEQUENCE { type-id OBJECT IDENTIFIER, value [0] EXPLICIT ANY DEFINED BY type-id }
+     * 
+     * UPN ::= UTF8String
+     * (subjectAltName=otherName:1.3.6.1.4.1.311.20.2.3;UTF8:username@some.domain)
+     * XmppAddr ::= UTF8String
+     * (subjectAltName=otherName:1.3.6.1.5.5.7.8.5;UTF8:username@some.domain)
+     * 
+     * CertTools.UPN_OBJECTID = "1.3.6.1.4.1.311.20.2.3";
+     * CertTools.XMPPADDR_OBJECTID = "1.3.6.1.5.5.7.8.5";
+     * CertTools.SRVNAME_OBJECTID = "1.3.6.1.5.5.7.8.7";
+     * 
+     * @param cert certificate containing the extension
+     * @param oid the OID of the OtherName
+     * @return String with the UTF8 name or null if the altName does not exist
+     */
+    public static String getUTF8AltNameOtherName(final Certificate cert, final String oid) throws IOException, CertificateParsingException {
         String ret = null;
         if (cert instanceof X509Certificate) {
             X509Certificate x509cert = (X509Certificate) cert;
             Collection<List<?>> altNames = x509cert.getSubjectAlternativeNames();
             if (altNames != null) {
                 for (final List<?> next : altNames) {
-                    ret = getUPNStringFromSequence(getAltnameSequence(next));
+                    ret = getUTF8StringFromSequence(getAltnameSequence(next), oid);
                     if (ret != null) {
                         break;
                     }
@@ -2017,15 +2047,16 @@ public abstract class CertTools {
     }
 
     /**
-     * Helper method for the above method
+     * Helper method for the above method.
      * 
      * @param seq the OtherName sequence
+     * @return String which is the decoded ASN.1 UTF8 String of the (simple) OtherName
      */
-    private static String getUPNStringFromSequence(ASN1Sequence seq) {
+    private static String getUTF8StringFromSequence(final ASN1Sequence seq, final String oid) {
         if (seq != null) {
             // First in sequence is the object identifier, that we must check
             ASN1ObjectIdentifier id = ASN1ObjectIdentifier.getInstance(seq.getObjectAt(0));
-            if (id.getId().equals(CertTools.UPN_OBJECTID)) {
+            if (id.getId().equals(oid)) {
                 ASN1TaggedObject oobj = (ASN1TaggedObject) seq.getObjectAt(1);
                 // Due to bug in java cert.getSubjectAltName regarding OtherName, it can be tagged an extra time...
                 ASN1Primitive obj = oobj.getObject();
@@ -2033,6 +2064,30 @@ public abstract class CertTools {
                     obj = ASN1TaggedObject.getInstance(obj).getObject();
                 }
                 DERUTF8String str = DERUTF8String.getInstance(obj);
+                return str.getString();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Helper method.
+     * 
+     * @param seq the OtherName sequence
+     * @return String which is the decoded ASN.1 IA5String of the (simple) OtherName
+     */
+    private static String getIA5StringFromSequence(final ASN1Sequence seq, final String oid) {
+        if (seq != null) {
+            // First in sequence is the object identifier, that we must check
+            ASN1ObjectIdentifier id = ASN1ObjectIdentifier.getInstance(seq.getObjectAt(0));
+            if (id.getId().equals(oid)) {
+                ASN1TaggedObject oobj = (ASN1TaggedObject) seq.getObjectAt(1);
+                // Due to bug in java cert.getSubjectAltName regarding OtherName, it can be tagged an extra time...
+                ASN1Primitive obj = oobj.getObject();
+                if (obj instanceof ASN1TaggedObject) {
+                    obj = ASN1TaggedObject.getInstance(obj).getObject();
+                }
+                DERIA5String str = DERIA5String.getInstance(obj);
                 return str.getString();
             }
         }
@@ -2429,7 +2484,7 @@ public abstract class CertTools {
                 switch (type.intValue()) {
                 case 0:
                     ASN1Sequence seq = getAltnameSequence(item);
-                    String upn = getUPNStringFromSequence(seq);
+                    String upn = getUTF8StringFromSequence(seq, CertTools.UPN_OBJECTID);
                     // OtherName can be something else besides UPN
                     if (upn != null) {
                         result += append + CertTools.UPN + "=" + upn;
@@ -2445,6 +2500,16 @@ public abstract class CertTools {
                                 String guid = getGUIDStringFromSequence(seq);
                                 if (guid != null) {
                                     result += append + CertTools.GUID + "=" + guid;
+                                } else {
+                                    final String xmpAddr = getUTF8StringFromSequence(seq, CertTools.XMPPADDR_OBJECTID);
+                                    if (xmpAddr != null) {
+                                        result += append + CertTools.XMPPADDR + "=" + xmpAddr;
+                                    } else {
+                                        final String srvName = getIA5StringFromSequence(seq, CertTools.SRVNAME_OBJECTID);
+                                        if (srvName != null) {
+                                            result += append + CertTools.SRVNAME + "=" + srvName;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2544,6 +2609,22 @@ public abstract class CertTools {
             final ASN1EncodableVector v = new ASN1EncodableVector();
             v.add(new ASN1ObjectIdentifier(CertTools.UPN_OBJECTID));
             v.add(new DERTaggedObject(true, 0, new DERUTF8String(upn)));
+            vec.add(GeneralName.getInstance(new DERTaggedObject(false, 0, new DERSequence(v))));
+        }
+
+        // XmpAddr is an OtherName see method getUTF8String...... for asn.1 definition
+        for (final String xmppAddr : CertTools.getPartsFromDN(altName, CertTools.XMPPADDR)) {
+            final ASN1EncodableVector v = new ASN1EncodableVector();
+            v.add(new ASN1ObjectIdentifier(CertTools.XMPPADDR_OBJECTID));
+            v.add(new DERTaggedObject(true, 0, new DERUTF8String(xmppAddr)));
+            vec.add(GeneralName.getInstance(new DERTaggedObject(false, 0, new DERSequence(v))));
+        }
+
+        // srvName is an OtherName see method getIA5String...... for asn.1 definition
+        for (final String srvName : CertTools.getPartsFromDN(altName, CertTools.SRVNAME)) {
+            final ASN1EncodableVector v = new ASN1EncodableVector();
+            v.add(new ASN1ObjectIdentifier(CertTools.SRVNAME_OBJECTID));
+            v.add(new DERTaggedObject(true, 0, new DERIA5String(srvName)));
             vec.add(GeneralName.getInstance(new DERTaggedObject(false, 0, new DERSequence(v))));
         }
 
@@ -2682,7 +2763,7 @@ public abstract class CertTools {
         switch (tag) {
         case 0:
             ASN1Sequence seq = getAltnameSequence(value.toASN1Primitive().getEncoded());
-            String upn = getUPNStringFromSequence(seq);
+            String upn = getUTF8StringFromSequence(seq, CertTools.UPN_OBJECTID);
             // OtherName can be something else besides UPN
             if (upn != null) {
                 ret = CertTools.UPN + "=" + upn;
@@ -2698,6 +2779,16 @@ public abstract class CertTools {
                         String simString = getSIMStringFromSequence(seq);
                         if (simString != null) {
                             ret = CertTools.IdOnSIM + "=" + simString;
+                        } else {
+                            final String xmpAddr = getUTF8StringFromSequence(seq, CertTools.XMPPADDR_OBJECTID);
+                            if (xmpAddr != null) {
+                                ret = CertTools.XMPPADDR + "=" + xmpAddr;
+                            } else {
+                                final String srvName = getIA5StringFromSequence(seq, CertTools.SRVNAME_OBJECTID);
+                                if (srvName != null) {
+                                    ret = CertTools.SRVNAME + "=" + srvName;
+                                }
+                            }
                         }
                     }
                 }

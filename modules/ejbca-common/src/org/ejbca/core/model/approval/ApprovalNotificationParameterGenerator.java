@@ -26,14 +26,26 @@ import org.ejbca.util.NotificationParamGen;
  * ${approvalRequest.TYPE}          The type of approval request.
  * ${approvalRequest.WORKFLOWSTATE} The work flow state from the perspective of the one(s) responsible for handling the partition.
  * ${approvalRequest.REQUESTOR}     The human readable version of the authentication token that was used to create the request.
+ * ${approvalRequest.APPROVALADMIN} The human readable version of the authentication token that was used to last approved the request, if any.
  * 
  * @see ApprovalPartitionWorkflowState
  * @version $Id$
  */
 public class ApprovalNotificationParameterGenerator extends NotificationParamGen {
 
+    /**
+     * 
+     * @param approvalRequestID approval request ID, is the ID of the ApprovalData
+     * @param approvalStepId
+     * @param approvalPartitionId
+     * @param approvalPartitionName
+     * @param approvalType one of the ApprovalDataVO.APPROVALTYPENAMES
+     * @param workflowState "APPROVAL_WFSTATE_" + approvalPartitionWorkflowState.name(), where approvalPartitionWorkflowState.name() typically is "approved", "rejected"
+     * @param requestor AuthenticationToken.toString() of the admin who created the approval request
+     * @param lastApprovedBy AuthenticationToken.toString() of the admin who last approved the request, or empty string/null if none
+     */
     public ApprovalNotificationParameterGenerator(final int approvalRequestID, final int approvalStepId, final int approvalPartitionId,
-            final String approvalPartitionName, final String approvalType, final String workflowState, final String requestor) {
+            final String approvalPartitionName, final String approvalType, final String workflowState, final String requestor, final String lastApprovedBy) {
         paramPut("approvalRequest.ID", approvalRequestID);
         paramPut("approvalRequest.STEP_ID", approvalStepId);
         paramPut("approvalRequest.PARTITION_ID", approvalPartitionId);
@@ -41,6 +53,7 @@ public class ApprovalNotificationParameterGenerator extends NotificationParamGen
         paramPut("approvalRequest.TYPE", approvalType);
         paramPut("approvalRequest.WORKFLOWSTATE", workflowState);
         paramPut("approvalRequest.REQUESTOR", requestor);
+        paramPut("approvalRequest.APPROVALADMIN", lastApprovedBy);
     }
 
 }

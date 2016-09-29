@@ -2342,9 +2342,15 @@ Both ways works, but don't forget to reconfigure the proxy settings if you upgra
 </subsection>
 </section>
 
-<section name="External RA API (Enterprise Edition Only)">
+<section name="Registration Authority">
 <p>
-Information on how to use the External RA API is available <a href="externalra.html">here</a>.
+Information on how to use the Registration Authority (RA) UI is available <a href="kara.html">here</a>.
+</p>
+</section>
+
+<section name="External RA (Enterprise Edition Only)">
+<p>
+Information on how to use the (old) External RA using database polling is available <a href="externalra.html">here</a>.
 </p>
 </section>
 
@@ -2825,6 +2831,7 @@ Variables used with approval notifications:
  <li>${approvalRequest.TYPE}           The type of approval request.</li>
  <li>${approvalRequest.WORKFLOWSTATE}  The work flow state from the perspective of the one(s) responsible for handling the partition.</li>
  <li>${approvalRequest.REQUESTOR}      The human readable version of the authentication token that was used to create the request.</li>
+ <li>${approvalRequest.APPROVALADMIN} The human readable version of the authentication token that was used to last approve the request, if any.</li>
 </ul>
 The work flow states are:
 <ul>
