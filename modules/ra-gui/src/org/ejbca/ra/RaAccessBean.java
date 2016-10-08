@@ -14,7 +14,6 @@ package org.ejbca.ra;
 
 import java.io.Serializable;
 
-import javax.annotation.PostConstruct;
 import javax.ejb.EJB;
 import javax.faces.bean.ManagedBean;
 import javax.faces.bean.ManagedProperty;
@@ -29,9 +28,7 @@ import org.cesecore.authorization.control.AuditLogRules;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.util.ConcurrentCache;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
-import org.ejbca.core.model.era.IdNameHashMap;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
-import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 
 /**
  * Managed bean with isAuthorized method. 
@@ -54,15 +51,6 @@ public class RaAccessBean implements Serializable {
     private RaAuthenticationBean raAuthenticationBean;
     public void setRaAuthenticationBean(final RaAuthenticationBean raAuthenticationBean) { this.raAuthenticationBean = raAuthenticationBean; }
     
-    private boolean hasCreateEndEntityAccess;
-
-    @PostConstruct
-    private void postContruct() {
-        final IdNameHashMap<EndEntityProfile> authorizedEndEntityProfiles = raMasterApiProxyBean.getAuthorizedEndEntityProfiles(raAuthenticationBean.getAuthenticationToken(), AccessRulesConstants.CREATE_END_ENTITY);
-        hasCreateEndEntityAccess = !authorizedEndEntityProfiles.isEmpty();
-        
-    }
-
     private boolean isAuthorized(String... resources) {
         final AuthenticationToken authenticationToken = raAuthenticationBean.getAuthenticationToken();
         AccessSet myAccess;
@@ -111,11 +99,7 @@ public class RaAccessBean implements Serializable {
      * This method shows and hides the make request sub menu item */
     public boolean isAuthorizedToEnrollMakeRequest() {
         // Authorized to make request if user have access to at least one end entity profile
-        if (log.isDebugEnabled() && !hasCreateEndEntityAccess) {
-            log.debug(">isAuthorizedToEnrollMakeRequest: Not authorized to any End Entity Profiles.");
-        }
-
-        return hasCreateEndEntityAccess;
+        return isAuthorized(AccessRulesConstants.ENDENTITYPROFILEPREFIX + AccessSet.WILDCARD_SOME + AccessRulesConstants.CREATE_END_ENTITY) && isAuthorized(AccessRulesConstants.REGULAR_CREATEENDENTITY);
     }
     
     /** correspond to menu items in menu.xhtml
@@ -147,7 +131,7 @@ public class RaAccessBean implements Serializable {
     public boolean isAuthorizedToApproveEndEntityRequests() {
         final boolean auth = isAuthorized(AccessRulesConstants.REGULAR_APPROVEENDENTITY);
         if (!auth && log.isDebugEnabled()) {
-            log.debug(">isAuthorizedToManageRequests: Not authorized to "+AccessRulesConstants.REGULAR_APPROVEENDENTITY);
+            log.debug(">isAuthorizedToApproveEndEntityRequests: Not authorized to "+AccessRulesConstants.REGULAR_APPROVEENDENTITY);
         }
         return auth;
     }
@@ -155,7 +139,7 @@ public class RaAccessBean implements Serializable {
     public boolean isAuthorizedToApproveCARequests() {
         final boolean auth = isAuthorized(AccessRulesConstants.REGULAR_APPROVECAACTION);
         if (!auth && log.isDebugEnabled()) {
-            log.debug(">isAuthorizedToManageRequests: Not authorized to "+AccessRulesConstants.REGULAR_APPROVECAACTION);
+            log.debug(">isAuthorizedToApproveCARequests: Not authorized to "+AccessRulesConstants.REGULAR_APPROVECAACTION);
         }
         return auth;
     }

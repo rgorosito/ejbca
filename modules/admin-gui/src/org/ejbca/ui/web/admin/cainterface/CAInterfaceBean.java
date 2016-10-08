@@ -18,8 +18,10 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.KeyStoreException;
+import java.security.cert.CRLException;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
+import java.security.cert.X509CRL;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.AbstractMap;
@@ -45,6 +47,7 @@ import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -76,6 +79,8 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSession;
 import org.cesecore.certificates.crl.CRLInfo;
+import org.cesecore.certificates.crl.CrlImportException;
+import org.cesecore.certificates.crl.CrlStoreException;
 import org.cesecore.certificates.crl.CrlStoreSession;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.ExtendedInformation;
@@ -1329,5 +1334,38 @@ public class CAInterfaceBean implements Serializable {
     public Date getRolloverNotAfter(int caid) throws CADoesntExistsException, AuthorizationDeniedException {
         final Collection<Certificate> chain = casession.getCAInfo(authenticationToken, caid).getCertificateChain();
         return CertTools.getNotAfter(chain.iterator().next());
+    }
+    
+    
+    //-----------------------------------------
+    //               Import CRL
+    //-----------------------------------------
+    
+    public String importCRL(final String caname, final byte[] crlBytes) {
+        
+        if(crlBytes==null || crlBytes.length==0) {
+            if(log.isDebugEnabled()) {
+                log.debug("No CRL file to import");
+            }
+            return "";
+        }
+        
+        String retMsg = "";
+        try {
+            final CAInfo cainfo = getCAInfo(caname).getCAInfo();
+            X509CRL x509crl = CertTools.getCRLfromByteArray(crlBytes);
+            
+            if(StringUtils.equals(cainfo.getSubjectDN(), CertTools.getIssuerDN(x509crl))) {
+                ejbLocalHelper.getImportCrlSession().importCrl(authenticationToken, cainfo, crlBytes);
+            } else {
+                retMsg = "Error: The CRL in the file in not issued by " + caname;
+            }
+            
+        } catch (CADoesntExistsException e) {
+            retMsg = "Error: Cannot find CA " + caname;
+        } catch (AuthorizationDeniedException | CRLException | CrlImportException | CrlStoreException e) {
+            retMsg = "Error: " + e.getLocalizedMessage();
+        }
+        return retMsg;
     }
 }
