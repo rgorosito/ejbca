@@ -24,13 +24,18 @@
     <application>
         <locale-config>
             <default-locale>en_US</default-locale>
+            <!-- Disable locales used for testing that does not have proper translations.
             <supported-locale>sv_SE</supported-locale>
             <supported-locale>ar_AE</supported-locale>
+             -->
         </locale-config>
         <resource-bundle>
             <base-name>org.ejbca.ra.jsfext.Utf8ResourceBundleMessages</base-name>
             <var>msg</var>
         </resource-bundle>
+        <message-bundle>
+	  		Messages
+	  	</message-bundle>
     </application>
     <factory>
         <exception-handler-factory>org.ejbca.ra.jsfext.RaExceptionHandlerFactory</exception-handler-factory>
