@@ -87,6 +87,11 @@ public class ImportCrlSessionBean implements ImportCrlSessionLocal, ImportCrlSes
         }
         
         X509CRL lastCrlOfSameType = getLastCrlOfSameType(x509crl, isDeltaCrl, issuerDn);
+        if(lastCrlOfSameType!=null && !x509crl.getThisUpdate().after(lastCrlOfSameType.getThisUpdate())) {
+            log.info((isDeltaCrl?"Delta":"Full") + " CRL number " + downloadedCrlNumber + " for CA '" + cainfo.getName() + 
+                    "' is not newer than last known " + (isDeltaCrl?"delta":"full") + " CRL. Ignoring download.");
+            return;
+        }
         
         // If the CRL is newer than the last known or there wasn't any old one, loop through it
         if (x509crl.getRevokedCertificates()==null) {
@@ -151,7 +156,7 @@ public class ImportCrlSessionBean implements ImportCrlSessionLocal, ImportCrlSes
             newCrlNumber = downloadedCrlNumber;
         }
         // Last of all, store the CRL if there were no errors during creation of database entries
-        crlStoreSession.storeCRL(authenticationToken, crlbytes, caFingerprint, newCrlNumber, issuerDn, x509crl.getThisUpdate(), x509crl.getNextUpdate(), isDeltaCrl?1:-1);
+        crlStoreSession.storeCRL(authenticationToken, x509crl.getEncoded(), caFingerprint, newCrlNumber, issuerDn, x509crl.getThisUpdate(), x509crl.getNextUpdate(), isDeltaCrl?1:-1);
     
     }
     
@@ -192,9 +197,6 @@ public class ImportCrlSessionBean implements ImportCrlSessionLocal, ImportCrlSes
             } catch (CRLException e) {
                 log.warn("Could not retrieve an older CRL issued by " + issuerDN, e);
             }
-        }
-        if(lastCrlOfSameType!=null && !crl.getThisUpdate().after(lastCrlOfSameType.getThisUpdate())) {
-            return null;
         }
         return lastCrlOfSameType;
     }
