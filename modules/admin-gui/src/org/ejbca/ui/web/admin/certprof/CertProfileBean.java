@@ -182,13 +182,15 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
                     certificateProfile.setFreshestCRLURI("");
                 }
                 final List<PKIDisclosureStatement> pdsList = certificateProfile.getQCEtsiPds();
-                final List<PKIDisclosureStatement> pdsCleaned = new ArrayList<>();
-                for (final PKIDisclosureStatement pds : pdsList) {
-                    if (!StringUtils.isEmpty(pds.getUrl())) {
-                        pdsCleaned.add(pds);
+                if (pdsList != null) {
+                    final List<PKIDisclosureStatement> pdsCleaned = new ArrayList<>();
+                    for (final PKIDisclosureStatement pds : pdsList) {
+                        if (!StringUtils.isEmpty(pds.getUrl())) {
+                            pdsCleaned.add(pds);
+                        }
                     }
+                    certificateProfile.setQCEtsiPds(pdsCleaned);
                 }
-                certificateProfile.setQCEtsiPds(pdsCleaned);
                 // Modify the profile
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().changeCertificateProfile(getAdmin(), getSelectedCertProfileName(), certificateProfile);
                 getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
@@ -512,6 +514,11 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
 
     public void toggleUseAuthorityInformationAccess() throws AuthorizationDeniedException, IOException {
         getCertificateProfile().setUseAuthorityInformationAccess(!getCertificateProfile().getUseAuthorityInformationAccess());
+        redirectToComponent("header_x509v3extensions_valdata");
+    }
+    
+    public void toggleUseDefaultCAIssuer() throws AuthorizationDeniedException, IOException {
+        getCertificateProfile().setUseDefaultCAIssuer(!getCertificateProfile().getUseDefaultCAIssuer());
         redirectToComponent("header_x509v3extensions_valdata");
     }
     
