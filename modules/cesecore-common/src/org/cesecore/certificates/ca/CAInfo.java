@@ -81,7 +81,7 @@ public abstract class CAInfo implements Serializable {
     protected String name;
     /** CAConstants.CA_ACTIVE etc, 0 means not defined (i.e. not updated when editing CA) */
     protected int status = 0;
-    protected long validity;
+    protected String encodedValidity;
     protected Date expiretime;
     protected Date updatetime;
     /** CATYPE_X509 or CATYPE_CVC */
@@ -97,7 +97,7 @@ public abstract class CAInfo implements Serializable {
     protected int revocationReason;
     protected Date revocationDate;
     protected int certificateprofileid;
-    /** Default value 24 hours */
+    /** Default value 1 day */
     protected long crlperiod = 1 * SimpleTime.MILLISECONDS_PER_DAY;
     /** Default value 0 */
     protected long crlIssueInterval = 0;
@@ -106,6 +106,7 @@ public abstract class CAInfo implements Serializable {
     /** Default value 0 = disabled */
     protected long deltacrlperiod = 0;
     protected Collection<Integer> crlpublishers;
+    protected boolean keepExpiredCertsOnCRL = false;
     protected boolean finishuser;
     protected Collection<ExtendedCAServiceInfo> extendedcaserviceinfos;
     protected Collection<Integer> approvalSettings;
@@ -168,6 +169,9 @@ public abstract class CAInfo implements Serializable {
         this.catype = catype;
     }
 
+    /**
+     * @return A CAId or CAInfo.SELFSIGNED, CAInfo.SIGNEDBYEXTERNALCA etc
+     */
     public int getSignedBy() {
         return signedby;
     }
@@ -176,12 +180,12 @@ public abstract class CAInfo implements Serializable {
         this.signedby = signedby;
     }
 
-    public long getValidity() {
-        return validity;
+    public void setEncodedValidity(String encodedValidity) {
+        this.encodedValidity = encodedValidity;
     }
 
-    public void setValidity(long validity) {
-        this.validity = validity;
+    public String getEncodedValidity() {
+        return encodedValidity;
     }
 
     public Date getExpireTime() {
@@ -278,6 +282,7 @@ public abstract class CAInfo implements Serializable {
     }
 
     public void setCRLPeriod(long crlperiod) {
+        System.out.println("CAInfo setCRLPeriod: " + crlperiod);
         this.crlperiod = crlperiod;
     }
 
@@ -311,6 +316,13 @@ public abstract class CAInfo implements Serializable {
 
     public void setCRLPublishers(Collection<Integer> crlpublishers) {
         this.crlpublishers = crlpublishers;
+    }
+
+    public boolean getKeepExpiredCertsOnCRL() { 
+        return this.keepExpiredCertsOnCRL; 
+    }
+    public void setKeepExpiredCertsOnCRL(boolean keepExpiredCertsOnCRL) { 
+        this.keepExpiredCertsOnCRL = keepExpiredCertsOnCRL; 
     }
 
     public boolean getFinishUser() {

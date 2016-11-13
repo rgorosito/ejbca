@@ -32,6 +32,8 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,6 +42,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.SimpleTimeZone;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -49,6 +52,7 @@ import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Set;
+import org.bouncycastle.asn1.DERGeneralizedTime;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DEROctetString;
@@ -100,7 +104,6 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.CollectionStore;
@@ -148,6 +151,7 @@ import org.cesecore.util.CertTools;
 import org.cesecore.util.PrintableStringNameStyle;
 import org.cesecore.util.SimpleTime;
 import org.cesecore.util.StringTools;
+import org.cesecore.util.ValidityDate;
 
 /**
  * X509CA is a implementation of a CA and holds data specific for Certificate and CRL generation according to the X509 standard.
@@ -164,7 +168,7 @@ public class X509CA extends CA implements Serializable {
     private static final InternalResources intres = InternalResources.getInstance();
 
     /** Version of this class, if this is increased the upgrade() method will be called automatically */
-    public static final float LATEST_VERSION = 21;
+    public static final float LATEST_VERSION = 22;
 
     // protected fields for properties specific to this type of CA.
     protected static final String POLICIES = "policies";
@@ -215,6 +219,7 @@ public class X509CA extends CA implements Serializable {
         setUseLdapDNOrder(cainfo.getUseLdapDnOrder());
         setUseCrlDistributionPointOnCrl(cainfo.getUseCrlDistributionPointOnCrl());
         setCrlDistributionPointOnCrlCritical(cainfo.getCrlDistributionPointOnCrlCritical());
+        setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL());
         setCmpRaAuthSecret(cainfo.getCmpRaAuthSecret());
         setAuthorityInformationAccess(cainfo.getAuthorityInformationAccess());
         setCertificateAiaDefaultCaIssuerUri(cainfo.getCertificateAiaDefaultCaIssuerUri());
@@ -246,7 +251,8 @@ public class X509CA extends CA implements Serializable {
                 }
             }
         }
-        CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getValidity(),
+        
+        final CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getEncodedValidity(),
                 getExpireTime(), getCAType(), getSignedBy(), getCertificateChain(), getCAToken(), getDescription(),
                 getRevocationReason(), getRevocationDate(), getPolicies(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(),
                 getDeltaCRLPeriod(), getCRLPublishers(), getUseAuthorityKeyIdentifier(), getAuthorityKeyIdentifierCritical(), getUseCRLNumber(),
@@ -257,7 +263,7 @@ public class X509CA extends CA implements Serializable {
                 getFinishUser(), externalcaserviceinfos, getUseUTF8PolicyText(), getApprovalSettings(), getApprovalProfile(),
                 getUsePrintableStringSubjectDN(), getUseLdapDNOrder(), getUseCrlDistributionPointOnCrl(), getCrlDistributionPointOnCrlCritical(),
                 getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(), isDoEnforceUniqueDistinguishedName(),
-                isDoEnforceUniqueSubjectDNSerialnumber(), isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), getCmpRaAuthSecret());
+                isDoEnforceUniqueSubjectDNSerialnumber(), isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), getCmpRaAuthSecret(), getKeepExpiredCertsOnCRL());
         ((X509CAInfo)info).setExternalCdp(getExternalCdp());
         ((X509CAInfo)info).setNameChanged(getNameChanged());
         super.setCAInfo(info);
@@ -1523,6 +1529,35 @@ public class X509CA extends CA implements Serializable {
             crlgen.addExtension(Extension.cRLNumber, this.getCRLNumberCritical(), crlnum);
         }
 
+        // ExpiredCertsOnCRL extension (is always specified as not critical)
+        // Date format to be used is: yyyyMMddHHmmss
+        // https://www.itu.int/ITU-T/formal-language/itu-t/x/x509/2005/CertificateExtensions.html
+        //
+        // expiredCertsOnCRL EXTENSION ::= {
+        //   SYNTAX         ExpiredCertsOnCRL
+        //   IDENTIFIED BY  id-ce-expiredCertsOnCRL
+        // }
+        // ExpiredCertsOnCRL ::= GeneralizedTime
+        // The ExpiredCertsOnCRL CRL extension is not specified by IETF-PKIX. It is defined by the ITU-T Recommendation X.509 and 
+        // indicates that a CRL containing this extension will include revocation status information for certificates that have 
+        // been already expired. When used, the ExpiredCertsOnCRL contains the date on which the CRL starts to keep revocation 
+        // status information for expired certificates (i.e. revocation entries are not removed from the CRL for any certificates 
+        // that expire at or after the date contained in the ExpiredCertsOnCRL extension).
+        final ASN1ObjectIdentifier ExpiredCertsOnCRL = new ASN1ObjectIdentifier("2.5.29.60");
+        boolean keepexpiredcertsoncrl = getKeepExpiredCertsOnCRL();
+        if(keepexpiredcertsoncrl) {
+            SimpleDateFormat sdf = new SimpleDateFormat();
+            final String GMTdatePattern = "yyyyMMddHHmmss";
+            sdf.setTimeZone(new SimpleTimeZone(0, "GMT"));
+            sdf.applyPattern(GMTdatePattern);
+            // For now force parameter with date equals NotBefore of CA certificate, or now            
+            final Date keepDate = cacert != null ? cacert.getNotBefore() : new Date();
+            crlgen.addExtension(ExpiredCertsOnCRL, false, new DERGeneralizedTime(keepDate));
+            if (log.isDebugEnabled()) {
+                log.debug("ExpiredCertsOnCRL extension added to CRL. Keep date: "+keepDate);
+            }
+        }
+        
         if (isDeltaCRL) {
             // DeltaCRLIndicator extension
             CRLNumber basecrlnum = new CRLNumber(BigInteger.valueOf(basecrlnumber));
@@ -1592,7 +1627,7 @@ public class X509CA extends CA implements Serializable {
             }
         }
         try {
-            final ContentVerifierProvider verifier = new JcaContentVerifierProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME).build(verifyKey);
+            final ContentVerifierProvider verifier = CertTools.genContentVerifierProvider(verifyKey);
             if (!crl.isSignatureValid(verifier)) {
                 throw new SignatureException("Error verifying CRL to be returned.");
             }
@@ -1699,6 +1734,7 @@ public class X509CA extends CA implements Serializable {
             }
             // v17->v18 is only an upgrade in order to upgrade CA token
             // v18->v19
+            // ANJAKOBS: Could this be a CRITICAL bug for the next upgrade?
             Object o = data.get(CRLPERIOD);
             if (o instanceof Integer) {
                 setCRLPeriod(((Integer) o).longValue() * SimpleTime.MILLISECONDS_PER_HOUR); // h to ms
@@ -1736,6 +1772,10 @@ public class X509CA extends CA implements Serializable {
             	} else {
             		setCertificateAiaDefaultCaIssuerUri( new ArrayList<String>());
             	}
+            }
+            // v22, 'encodedValidity' is derived by the former long value!
+            if(null == data.get(ENCODED_VALIDITY)) {
+                setEncodedValidity(getEncodedValidity());
             }
         }
     }

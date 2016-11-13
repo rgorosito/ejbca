@@ -39,6 +39,7 @@ import javax.ejb.SessionContext;
 import javax.ejb.Stateless;
 import javax.ejb.Timeout;
 import javax.ejb.Timer;
+import javax.ejb.TimerConfig;
 import javax.ejb.TimerService;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
@@ -684,6 +685,21 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
         return CertificateData.findUsernamesByExpireTimeWithLimit(entityManager, new Date().getTime(), expiretime.getTime(),
                 getGlobalCesecoreConfiguration().getMaximumQueryCount());
     }
+
+    @Override
+    public boolean existsByIssuerAndSerno(String issuerDN, BigInteger serno) {
+        if (log.isTraceEnabled()) {
+            log.trace(">existsByIssuerAndSerno(), dn:" + issuerDN + ", serno=" + serno.toString(16));
+        }
+        // First make a DN in our well-known format
+        final String dn = CertTools.stringToBCDNString(StringTools.strip(issuerDN));
+        final boolean ret = CertificateData.existsByIssuerAndSerno(entityManager, dn, serno.toString());
+        if (log.isTraceEnabled()) {
+            log.trace("<existsByIssuerAndSerno(), dn:" + issuerDN + ", serno=" + serno.toString(16)+", ret="+ret);
+        }
+        return ret;        
+    }
+    
 
     @Override
     public Certificate findCertificateByIssuerAndSerno(String issuerDN, BigInteger serno) {
@@ -1564,7 +1580,7 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
             // Schedule a new timer of this type
             final long interval = OcspConfiguration.getSigningCertsValidTimeInMilliseconds();
             if (interval > 0) {
-                timerService.createTimer(interval, Integer.valueOf(TIMERID_CACERTIFICATECACHE));
+                timerService.createSingleActionTimer(interval, new TimerConfig(Integer.valueOf(TIMERID_CACERTIFICATECACHE), false));
             }
         }
     }

@@ -65,14 +65,14 @@ public class X509CAInfo extends CAInfo{
      * This constructor uses defaults for the fields that are not specified.
      */
     public X509CAInfo(final String subjectdn, final String name, final int status,
-            final int certificateProfileId, final long validity, int signedby, final Collection<Certificate> certificatechain, final CAToken catoken) {
+            final int certificateProfileId, final String encodedValidity, int signedby, final Collection<Certificate> certificatechain, final CAToken catoken) {
         this(subjectdn,
              name,
              status, // CA status (CAConstants.CA_ACTIVE, etc.)
              new Date(), // update time
              "", // Subject Alternative name
              certificateProfileId, // CA certificate profile
-             validity, null, // Expiretime
+             encodedValidity, null, // Expiretime
              CAInfo.CATYPE_X509, // CA type (X509/CVC)
              signedby, // Signed by CA
              certificatechain, // Certificate chain
@@ -113,7 +113,8 @@ public class X509CAInfo extends CAInfo{
              false, // useCertReqHistory
              true, // useUserStorage
              true, // useCertificateStorage
-             null // cmpRaAuthSecret
+             null, // cmpRaAuthSecret
+             false // keepExpiredCertsOnCRL
         );
     }
     
@@ -122,7 +123,7 @@ public class X509CAInfo extends CAInfo{
      * Please use the shorter form if you do not need to set all of the values.
      */
     public X509CAInfo(final String subjectdn,final  String name, final int status, final Date updateTime, 
-    		final String subjectaltname, final int certificateprofileid, final long validity, final Date expiretime, 
+    		final String subjectaltname, final int certificateprofileid, final String encodedValidity, final Date expiretime, 
     		final int catype, final int signedby, final Collection<Certificate> certificatechain, final CAToken catoken,
     		final String description, final int revocationReason, final Date revocationDate, final List<CertificatePolicy> policies,
     		final long crlperiod, final long crlIssueInterval, final long crlOverlapTime, final long deltacrlperiod, 
@@ -136,13 +137,13 @@ public class X509CAInfo extends CAInfo{
     		final boolean useUTF8PolicyText, final Collection<Integer> approvalSettings, final int approvalProfile, final boolean usePrintableStringSubjectDN, 
     		final boolean useLdapDnOrder, final boolean useCrlDistributionPointOnCrl, final boolean crlDistributionPointOnCrlCritical, final boolean includeInHealthCheck,
     		final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName, final boolean _doEnforceUniqueSubjectDNSerialnumber,
-    		final boolean _useCertReqHistory, final boolean _useUserStorage, final boolean _useCertificateStorage, final String _cmpRaAuthSecret) {
+    		final boolean _useCertReqHistory, final boolean _useUserStorage, final boolean _useCertificateStorage, final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL) {
         this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectdn));
         this.caid = CertTools.stringToBCDNString(this.subjectdn).hashCode();
         this.name = name;
         this.status = status;
         this.updatetime = updateTime;
-        this.validity = validity;
+        this.encodedValidity = encodedValidity;
         this.expiretime = expiretime;
         this.catype = catype;
         this.signedby = signedby;
@@ -199,6 +200,7 @@ public class X509CAInfo extends CAInfo{
         this.useUserStorage = _useUserStorage;
         this.useCertificateStorage = _useCertificateStorage;
         setCmpRaAuthSecret(_cmpRaAuthSecret);
+        this.keepExpiredCertsOnCRL = keepExpiredCertsOnCRL;
         this.authorityInformationAccess = authorityInformationAccess;
         this.certificateAiaDefaultCaIssuerUri = certificateAiaDefaultCaIssuerUri;
         this.nameConstraintsPermitted = nameConstraintsPermitted;
@@ -206,7 +208,7 @@ public class X509CAInfo extends CAInfo{
     }
 
     /** Constructor that should be used when updating CA data. */
-    public X509CAInfo(final int caid, final long validity, final CAToken catoken, final String description,
+    public X509CAInfo(final int caid, final String encodedValidity, final CAToken catoken, final String description,
     		final long crlperiod, final long crlIssueInterval, final long crlOverlapTime, final long deltacrlperiod, 
     		final Collection<Integer> crlpublishers, final boolean useauthoritykeyidentifier, final boolean authoritykeyidentifiercritical,
     		final boolean usecrlnumber, final boolean crlnumbercritical, final String defaultcrldistpoint, final String defaultcrlissuer, 
@@ -217,9 +219,9 @@ public class X509CAInfo extends CAInfo{
     		final boolean useUTF8PolicyText, final Collection<Integer> approvalSettings, final int approvalProfile, final boolean usePrintableStringSubjectDN, 
     		final boolean useLdapDnOrder, final boolean useCrlDistributionPointOnCrl, final boolean crlDistributionPointOnCrlCritical, final boolean includeInHealthCheck,
     		final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName, final boolean _doEnforceUniqueSubjectDNSerialnumber, final boolean _useCertReqHistory, 
-    		final boolean _useUserStorage, final boolean _useCertificateStorage, final String _cmpRaAuthSecret) {        
+    		final boolean _useUserStorage, final boolean _useCertificateStorage, final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL) {        
         this.caid = caid;
-        this.validity=validity;
+        this.encodedValidity = encodedValidity;
         this.catoken = catoken;
         this.description = description;        
         this.crlperiod = crlperiod;
@@ -252,6 +254,7 @@ public class X509CAInfo extends CAInfo{
         this.useUserStorage = _useUserStorage;
         this.useCertificateStorage = _useCertificateStorage;
         setCmpRaAuthSecret(_cmpRaAuthSecret);
+        this.keepExpiredCertsOnCRL = keepExpiredCertsOnCRL;
         this.authorityInformationAccess = crlAuthorityInformationAccess;
         this.certificateAiaDefaultCaIssuerUri = certificateAiaDefaultCaIssuerUri;
         this.nameConstraintsPermitted = nameConstraintsPermitted;

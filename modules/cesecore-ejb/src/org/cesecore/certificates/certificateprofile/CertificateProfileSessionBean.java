@@ -13,6 +13,7 @@
 package org.cesecore.certificates.certificateprofile;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -516,19 +517,27 @@ public class CertificateProfileSessionBean implements CertificateProfileSessionL
     }
 
     private void authorizedToEditProfile(AuthenticationToken admin, CertificateProfile profile, int id) throws AuthorizationDeniedException {
-        final Collection<Integer> ids = profile.getAvailableCAs();
-        final String[] rules = new String[ids.size()+1];
         // We need to check that admin also have rights to edit certificate profiles
-        rules[0] = StandardRules.CERTIFICATEPROFILEEDIT.resource();
-        int i=1;
+        if (!authorizedToProfileWithResource(admin, profile, true, StandardRules.CERTIFICATEPROFILEEDIT.resource())) {
+            final String msg = INTRES.getLocalizedMessage("store.editcertprofilenotauthorized", admin.toString(), id);
+            throw new AuthorizationDeniedException(msg);            
+        }
+    }
+
+    public boolean authorizedToProfileWithResource(AuthenticationToken admin, CertificateProfile profile, boolean logging, String... resources) {
+        // We need to check that admin also have rights to the passed in resources
+        final List<String> rules = new ArrayList<>(Arrays.asList(resources));
         // Check that admin is authorized to all CAids
-        for (Integer caid : ids) {
-            rules[i++] = StandardRules.CAACCESS.resource() + caid;
+        for (final Integer caid : profile.getAvailableCAs()) {
+            rules.add(StandardRules.CAACCESS.resource() + caid);
         }
         // Perform authorization check
-        if (!accessSession.isAuthorized(admin, rules)) {
-            final String msg = INTRES.getLocalizedMessage("store.editcertprofilenotauthorized", admin.toString(), id);
-            throw new AuthorizationDeniedException(msg);
+        boolean ret = false;
+        if (logging) {
+            ret = accessSession.isAuthorized(admin, rules.toArray(new String[0]));
+        } else {
+            ret = accessSession.isAuthorizedNoLogging(admin, rules.toArray(new String[0]));
         }
+        return ret;
     }
 }

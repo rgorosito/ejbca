@@ -93,6 +93,7 @@ import org.cesecore.roles.RoleNotFoundException;
 import org.cesecore.roles.access.RoleAccessSessionLocal;
 import org.cesecore.roles.management.RoleManagementSessionLocal;
 import org.cesecore.util.JBossUnmarshaller;
+import org.cesecore.util.ValidityDate;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.DatabaseConfiguration;
 import org.ejbca.config.GlobalConfiguration;
@@ -450,7 +451,7 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
     @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
     @Override
     public boolean isPostUpgradeNeeded() {
-        return isLesserThan(getLastPostUpgradedToVersion(), "6.3.2");
+        return isLesserThan(getLastPostUpgradedToVersion(), "6.6.1");
     }
 
     /**
@@ -1201,7 +1202,7 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
         }
         return true;
     }
-    
+        
     /**
      * EJBCA 6.2.4 introduced default responder configuration in the database.
      * 

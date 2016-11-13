@@ -787,7 +787,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 }
                 EndEntityInformation cadata = makeEndEntityInformation(cainfo);
                 cacertificate = ca.generateCertificate(cryptoToken, cadata, cryptoToken.getPublicKey(aliasCertSign), -1, null,
-                        cainfo.getValidity(), certprofile, sequence, cceConfig);
+                		cainfo.getEncodedValidity(), certprofile, sequence, cceConfig);
                 if (log.isDebugEnabled()) {
                     log.debug("CAAdminSessionBean : " + CertTools.getSubjectDN(cacertificate));
                 }
@@ -823,8 +823,8 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 // Create CA certificate
                 EndEntityInformation cadata = makeEndEntityInformation(cainfo);
                 CryptoToken signCryptoToken = cryptoTokenSession.getCryptoToken(signca.getCAToken().getCryptoTokenId());
-                Certificate cacertificate = signca.generateCertificate(signCryptoToken, cadata, cryptoToken.getPublicKey(aliasCertSign), -1,
-                        null, cainfo.getValidity(), certprofile, sequence, cceConfig);
+                final Certificate cacertificate = signca.generateCertificate(signCryptoToken, cadata, cryptoToken.getPublicKey(aliasCertSign), -1,
+                		null, cainfo.getEncodedValidity(), certprofile, sequence, cceConfig);
                 // Build Certificate Chain
                 Collection<Certificate> rootcachain = signca.getCertificateChain();
                 certificatechain = new ArrayList<Certificate>();
@@ -1541,7 +1541,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     final CryptoToken signCryptoToken = cryptoTokenSession.getCryptoToken(signca.getCAToken().getCryptoTokenId());
                     final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration)
                             globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
-                    cacertificate = signca.generateCertificate(signCryptoToken, cadata, publickey, -1, null, cainfo.getValidity(), certprofile,
+                    cacertificate = signca.generateCertificate(signCryptoToken, cadata, publickey, -1, null, cainfo.getEncodedValidity(), certprofile,
                             sequence, cceConfig);
                     // X509ResponseMessage works for both X509 CAs and CVC CAs, should really be called CertificateResponsMessage
                     returnval = new X509ResponseMessage();
@@ -1665,7 +1665,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         int certprofileid = CertTools.isSelfSigned(caCertificate) ? CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA
                 : CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA;
         String subjectdn = CertTools.getSubjectDN(caCertificate);
-        long validity = 0;
+        String validityString = "0d";
         int signedby = CertTools.isSelfSigned(caCertificate) ? CAInfo.SELFSIGNED : CAInfo.SIGNEDBYEXTERNALCA;
         log.info("Preparing to import of CA with Subject DN " + subjectdn);
         if (caCertificate instanceof X509Certificate) {
@@ -1678,15 +1678,13 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             if (certprof.getCertificatePolicies() != null && certprof.getCertificatePolicies().size() > 0) {
                 policies.addAll(certprof.getCertificatePolicies());
             }
-
-            X509CAInfo x509cainfo = new X509CAInfo(subjectdn, caname, CAConstants.CA_EXTERNAL,
-                    certprofileid, validity, signedby, null, null);
+            final X509CAInfo x509cainfo = new X509CAInfo(subjectdn, caname, CAConstants.CA_EXTERNAL, certprofileid, validityString, signedby, null, null);
             x509cainfo.setSubjectAltName(subjectaltname);
             x509cainfo.setPolicies(policies);
             x509cainfo.setExpireTime(CertTools.getNotAfter(x509CaCertificate));
             cainfo = x509cainfo;
         } else if (StringUtils.equals(caCertificate.getType(), "CVC")) {
-            cainfo = new CVCCAInfo(subjectdn, caname, CAConstants.CA_EXTERNAL, certprofileid, validity, signedby, null, null);
+            cainfo = new CVCCAInfo(subjectdn, caname, CAConstants.CA_EXTERNAL, certprofileid, validityString, signedby, null, null);
         } else {
             throw new CertificateImportException("Certificate was of an unknown type: " + caCertificate.getType());
         }
@@ -1713,7 +1711,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         }
         // Add CA
         caSession.addCA(admin, ca);
-        // Publish CA certificates.
+        // Persist ("Publish") the CA certificates to the local CertificateData database.
         publishCACertificate(admin, certificates, null, ca.getSubjectDN());
     }
 
@@ -1791,6 +1789,8 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         ca.setCertificateChain(certificates);
         // Update CA in database
         caSession.editCA(authenticationToken, ca, true);
+        // Persist ("Publish") the CA certificates to the local CertificateData database.
+        publishCACertificate(authenticationToken, certificates, null, ca.getSubjectDN());
     }
 
     @Override
@@ -1997,8 +1997,9 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 EndEntityInformation cainfodata = makeEndEntityInformation(ca.getCAInfo());
                 // get from CAtoken to make sure it is fresh
                 String sequence = caToken.getKeySequence();
-                cacertificate = ca.generateCertificate(cryptoToken, cainfodata, caPublicKey, -1, customNotBefore, ca.getValidity(), certprofile,
-                        sequence, cceConfig);
+
+                cacertificate = ca.generateCertificate(cryptoToken, cainfodata, caPublicKey, -1, customNotBefore, ca.getEncodedValidity(), certprofile,
+                		sequence, cceConfig);
                 // Build Certificate Chain
                 cachain = new ArrayList<Certificate>();
                 cachain.add(cacertificate);
@@ -2029,8 +2030,9 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     EndEntityInformation cainfodata = makeEndEntityInformation(ca.getCAInfo());
                     String sequence = caToken.getKeySequence(); // get from CAtoken to make sure it is fresh
                     CryptoToken signCryptoToken = cryptoTokenSession.getCryptoToken(signca.getCAToken().getCryptoTokenId());
-                    cacertificate = signca.generateCertificate(signCryptoToken, cainfodata, caPublicKey, -1, customNotBefore, ca.getValidity(),
-                            certprofile, sequence, cceConfig);
+                    
+                    cacertificate = signca.generateCertificate(signCryptoToken, cainfodata, caPublicKey, -1, customNotBefore, ca.getEncodedValidity(),
+                            certprofile, sequence, cceConfig);                    
                     // Build Certificate Chain
                     Collection<Certificate> rootcachain = signca.getCertificateChain();
                     cachain = new ArrayList<Certificate>();
@@ -2723,10 +2725,13 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
 
         CAInfo cainfo = null;
         CA ca = null;
+        // We set the validity to be what the CA certificate's validity is. Get the number of days the CA certificate is valid
         int validity = (int) ((CertTools.getNotAfter(caSignatureCertificate).getTime() - CertTools.getNotBefore(caSignatureCertificate).getTime()) / (24 * 3600 * 1000));
+        String encodedValidity = validity + "d";
         ArrayList<ExtendedCAServiceInfo> extendedcaservices = new ArrayList<ExtendedCAServiceInfo>();
         ArrayList<Integer> approvalsettings = new ArrayList<Integer>();
         ArrayList<Integer> crlpublishers = new ArrayList<Integer>();
+        
         if (caSignatureCertificate instanceof X509Certificate) {
             // Create an X509CA
             // Create and active extended CA Services (CMS).
@@ -2735,7 +2740,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     + CertTools.getSubjectDN(caSignatureCertificate), "", keySpecification, keyAlgorithm));
 
             cainfo = new X509CAInfo(CertTools.getSubjectDN(caSignatureCertificate), caname, CAConstants.CA_ACTIVE,
-                    certprof, validity, signedby, certificatechain, catoken);
+                    certprof, encodedValidity, signedby, certificatechain, catoken);
             cainfo.setExpireTime(CertTools.getNotAfter(caSignatureCertificate));
             cainfo.setDescription(description);
             cainfo.setCRLPublishers(crlpublishers);
@@ -2747,7 +2752,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             // Create the CAInfo to be used for either generating the whole CA
             // or making a request
             cainfo = new CVCCAInfo(CertTools.getSubjectDN(caSignatureCertificate), caname, CAConstants.CA_ACTIVE,
-                    certprof, validity, signedby, certificatechain, catoken);
+                    certprof, encodedValidity, signedby, certificatechain, catoken);
             cainfo.setExpireTime(CertTools.getNotAfter(caSignatureCertificate));
             cainfo.setDescription(description);
             cainfo.setCRLPublishers(crlpublishers);
@@ -3116,15 +3121,16 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         
         //Secondly, find all CAs
         for (final int caId : caSession.getAllCaIds()) {
-            boolean authorizedToCa = caSession.authorizedToCA(admin, caId);
             try {
                 Collection<Integer> crlPublishers = caSession.getCAInfoInternal(caId).getCRLPublishers();
                 if (crlPublishers != null) {
+                    final boolean authorizedtoca = caSession.authorizedToCANoLogging(admin, caId);
                     // TODO: Logically getCRLPublishers() should return an empty list if empty, but that's a change for another day
                     for (Integer caPublisherId : crlPublishers) {
                         //This publisher is owned by a CA 
                         allPublishers.remove(caPublisherId);
-                        if (authorizedToCa) {
+                        // We don't need to log this access (to CA) since it only decides which publishers to display
+                        if (authorizedtoca) {
                             //Admin has access to the CA, so return it as a result. 
                             result.add(caPublisherId);
                         }

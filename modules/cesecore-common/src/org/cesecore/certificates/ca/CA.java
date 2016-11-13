@@ -89,7 +89,9 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
     protected static final String SUBJECTDN = "subjectdn";
     protected static final String CAID = "caid";
     public static final String NAME = "name";
+    @Deprecated
     protected static final String VALIDITY = "validity";
+    protected static final String ENCODED_VALIDITY = "encodedvalidity";
     protected static final String EXPIRETIME = "expiretime";
     protected static final String CERTIFICATECHAIN = "certificatechain";
     protected static final String RENEWEDCERTIFICATECHAIN = "renewedcertificatechain";
@@ -125,6 +127,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
     private static final String USE_USER_STORAGE = "useUserStorage";
     private static final String USE_CERTIFICATE_STORAGE = "useCertificateStorage";
     private static final String LATESTLINKCERTIFICATE = "latestLinkCertificate";
+    private static final String KEEPEXPIREDCERTSONCRL = "keepExpiredCertsOnCRL";
 
     private HashMap<Integer, ExtendedCAService> extendedcaservicemap = new HashMap<Integer, ExtendedCAService>();
 
@@ -147,11 +150,12 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
 
         this.cainfo = cainfo;
 
-        data.put(VALIDITY, Long.valueOf(cainfo.getValidity()));
+        setEncodedValidity(cainfo.getEncodedValidity());
         setSignedBy(cainfo.getSignedBy());
         data.put(DESCRIPTION, cainfo.getDescription());
         data.put(REVOCATIONREASON, Integer.valueOf(-1));
         data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
+        setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL()); 
         setCRLPeriod(cainfo.getCRLPeriod());
         setCRLIssueInterval(cainfo.getCRLIssueInterval());
         setCRLOverlapTime(cainfo.getCRLOverlapTime());
@@ -262,12 +266,32 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         return ((Integer) data.get(CATYPE)).intValue();
     }
 
+    @Deprecated
     public long getValidity() {
         return ((Number) data.get(VALIDITY)).longValue();
     }
+    
+    /**
+     * Gets the validity.
+     * @return the validity as ISO8601 date or relative time.
+     * @See {@link org.cesecore.util.ValidityDate ValidityDate}
+     */
+    public String getEncodedValidity() {
+        String result = (String) data.get(ENCODED_VALIDITY);
+        if (StringUtils.isBlank(result)) {
+            result = ValidityDate.getStringBeforeVersion661(getValidity());
+        }
+        return result;
+    }
 
-    public void setValidity(long validity) {
-        data.put(VALIDITY, Long.valueOf(validity));
+    /**
+     * Sets the validity as relative time (format '*y *mo *d *h *m *s', i.e. '1y +2mo -3d 4h 5m 6s') or as fixed end date 
+     * (ISO8601 format, i.e. 'yyyy-MM-dd HH:mm:ssZZ', 'yyyy-MM-dd HH:mmZZ' or 'yyyy-MM-ddZZ' with optional '+00:00' appended).
+     *
+     * @param encodedValidity
+     */
+    public void setEncodedValidity(String encodedValidity) {
+        data.put(ENCODED_VALIDITY, encodedValidity);
     }
 
     public Date getExpireTime() {
@@ -355,6 +379,18 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         data.put(CRLPUBLISHERS, crlpublishers);
     }
 
+    public boolean getKeepExpiredCertsOnCRL() {
+        if(data.containsKey(KEEPEXPIREDCERTSONCRL)) {
+            return ((Boolean)data.get(KEEPEXPIREDCERTSONCRL)).booleanValue();   
+        } else {
+            return false;
+        }   
+    }
+
+    public void setKeepExpiredCertsOnCRL(boolean keepexpiredcertsoncrl) {
+        data.put(KEEPEXPIREDCERTSONCRL, Boolean.valueOf(keepexpiredcertsoncrl));   
+    }
+        
     public int getCertificateProfileId() {
         return ((Integer) data.get(CERTIFICATEPROFILEID)).intValue();
     }
@@ -770,7 +806,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
     }
 
     public void updateCA(CryptoToken cryptoToken, CAInfo cainfo, final AvailableCustomCertificateExtensionsConfiguration cceConfig) throws InvalidAlgorithmException {
-        data.put(VALIDITY, Long.valueOf(cainfo.getValidity()));
+        setEncodedValidity(cainfo.getEncodedValidity());
         data.put(DESCRIPTION, cainfo.getDescription());
         data.put(CRLPERIOD, Long.valueOf(cainfo.getCRLPeriod()));
         data.put(DELTACRLPERIOD, Long.valueOf(cainfo.getDeltaCRLPeriod()));
@@ -782,6 +818,8 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         if (cainfo.getCertificateProfileId() > 0) {
             data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
         }
+        setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL()); 
+
         if (cainfo.getCAToken() != null) {
             setCAToken(cainfo.getCAToken());
         }
@@ -857,7 +895,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
      * @param subject end entity information. If it contains certificateRequest under extendedInformation, it will be used instead of providedRequestMessage and providedPublicKey
      * @param notBefore null or a custom date to use as notBefore date
      * @param keyusage BouncyCastle key usage {@link X509KeyUsage}, e.g. X509KeyUsage.digitalSignature | X509KeyUsage.keyEncipherment
-     * @param validity requested validity in days if less than Integer.MAX_VALUE, otherwise it's milliseconds since epoc.
+     * @param encodedValidity requested validity as SimpleTime string or ISO8601 date string (see ValidityDate.java).
      * @param certProfile
      * @param sequence an optional requested sequence number (serial number) for the certificate, may or may not be used by the CA. Currently used by
      *            CVC CAs for sequence field. Can be set to null.
@@ -865,15 +903,15 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
      * @return
      * @throws Exception
      */
-    public Certificate generateCertificate(CryptoToken cryptoToken, EndEntityInformation subject, PublicKey publicKey, int keyusage, Date notBefore, long validity,
+    public Certificate generateCertificate(CryptoToken cryptoToken, EndEntityInformation subject, PublicKey publicKey, int keyusage, Date notBefore, String encodedValidity,
             CertificateProfile certProfile, String sequence, AvailableCustomCertificateExtensionsConfiguration cceConfig) throws Exception {
         // Calculate the notAfter date
         if (notBefore == null) {
             notBefore = new Date(); 
         }
         final Date notAfter;
-        if (validity != -1) {
-            notAfter = ValidityDate.getDate(validity, notBefore);
+        if (StringUtils.isNotBlank(encodedValidity)) {
+            notAfter = ValidityDate.getDate(encodedValidity, notBefore);
         } else {
             notAfter = null;
         }

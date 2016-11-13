@@ -147,7 +147,14 @@
         <validator-id>optionalHexSerialNumberValidator</validator-id>
         <validator-class>org.ejbca.ui.web.admin.OptionalHexSerialNumberValidator</validator-class>
   </validator>
-
+  <validator>
+        <validator-id>simpleTimeSecondsValidator</validator-id>
+        <validator-class>org.ejbca.ui.web.admin.SimpleTimeSecondsValidator</validator-class>
+  </validator>
+  <validator>
+        <validator-id>validityDateValidator</validator-id>
+        <validator-class>org.ejbca.ui.web.admin.ValidityDateValidator</validator-class>
+  </validator>
   <converter>
         <converter-id>mapToStringConverter</converter-id>
         <converter-class>org.ejbca.ui.web.admin.audit.MapToStringConverter</converter-class>
@@ -223,6 +230,18 @@
     <navigation-case>
       <from-outcome>view</from-outcome>
       <to-view-id>/sysconfig/customcertextension.jsp</to-view-id>
+    </navigation-case>
+    <navigation-case>
+      <from-outcome>editCTLog</from-outcome>
+      <to-view-id>/sysconfig/editctlog.jsp</to-view-id>
+    </navigation-case>
+  </navigation-rule>
+  
+  <navigation-rule>
+    <from-view-id>/sysconfig/editctlog.jsp</from-view-id>
+    <navigation-case>
+      <from-outcome>saved</from-outcome>
+      <to-view-id>/sysconfig/systemconfiguration.jsp</to-view-id>
     </navigation-case>
   </navigation-rule>
   	

@@ -16,6 +16,7 @@ import java.io.Serializable;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,7 +57,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     private static final InternalResources intres = InternalResources.getInstance();
 
     // Public Constants
-    public static final float LATEST_VERSION = (float) 43.0;
+    public static final float LATEST_VERSION = (float) 45.0;
 
     public static final String ROOTCAPROFILENAME = "ROOTCA";
     public static final String SUBCAPROFILENAME = "SUBCA";
@@ -140,9 +141,25 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public static final int[] DEFAULTBITLENGTHS = { 0, 192, 224, 239, 256, 384, 512, 521, 1024, 1536, 2048, 3072, 4096, 6144, 8192 };
     public static final byte[] DEFAULT_CVC_RIGHTS_AT = { 0, 0, 0, 0, 0 };
 
+    /** Constants for validity and private key usage period. */
+    public static final String DEFAULT_CERTIFICATE_VALIDITY = "2y";
+    /** Constant for default validity for fixed profiles is 25 years including 6 or 7 leap days. */
+    public static final String DEFAULT_CERTIFICATE_VALIDITY_FOR_FIXED_CA = "25y7d";
+    /** Constant for default validity offset (for backward compatibility': -10m'!) */
+    public static final String DEFAULT_CERTIFICATE_VALIDITY_OFFSET = "-10m";
+    public static final long DEFAULT_PRIVATE_KEY_USAGE_PERIOD_OFFSET = 0;
+    public static final long DEFAULT_PRIVATE_KEY_USAGE_PERIOD_LENGTH = 730 * 24 * 3600;
+    
     // Profile fields
     protected static final String CERTVERSION = "certversion";
+    @Deprecated
     protected static final String VALIDITY = "validity";
+    protected static final String ENCODED_VALIDITY = "encodedvalidity";
+    protected static final String USE_CERTIFICATE_VALIDITY_OFFSET = "usecertificatevalidityoffset";
+    protected static final String CERTIFICATE_VALIDITY_OFFSET = "certificatevalidityoffset";
+    protected static final String USE_EXPIRATION_RESTRICTION_FOR_WEEKDAYS = "useexpirationrestrictionforweekdays";
+    protected static final String EXPIRATION_RESTRICTION_FOR_WEEKDAYS_BEFORE = "expirationrestrictionforweekdaysbefore";
+    protected static final String EXPIRATION_RESTRICTION_WEEKDAYS = "expirationrestrictionweekdays";
     protected static final String ALLOWVALIDITYOVERRIDE = "allowvalidityoverride";
     protected static final String ALLOWKEYUSAGEOVERRIDE = "allowkeyusageoverride";
     protected static final String ALLOWBACKDATEDREVOCATION = "allowbackdatedrevokation";
@@ -345,7 +362,12 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     private void setCommonDefaults() {
         setType(CertificateConstants.CERTTYPE_ENDENTITY);
         setCertificateVersion(VERSION_X509V3);
-        setValidity(730);
+        setEncodedValidity(DEFAULT_CERTIFICATE_VALIDITY);
+        setUseCertificateValidityOffset(false);
+        setCertificateValidityOffset(DEFAULT_CERTIFICATE_VALIDITY_OFFSET);
+        setUseExpirationRestrictionForWeekdays(false);
+        setExpirationRestrictionForWeekdaysExpireBefore(true);
+        setDefaultExpirationRestrictionWeekdays();
         setAllowValidityOverride(false);
 
         setAllowExtensionOverride(false);
@@ -470,11 +492,11 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         setApprovalSettings(emptyList);
         setApprovalProfileID(-1);
         
-     // PrivateKeyUsagePeriod extension
+        // PrivateKeyUsagePeriod extension
         setUsePrivateKeyUsagePeriodNotBefore(false);
         setUsePrivateKeyUsagePeriodNotAfter(false);
-        setPrivateKeyUsagePeriodStartOffset(0);
-        setPrivateKeyUsagePeriodLength(getValidity() * 24 * 3600);
+        setPrivateKeyUsagePeriodStartOffset(DEFAULT_PRIVATE_KEY_USAGE_PERIOD_OFFSET);
+        setPrivateKeyUsagePeriodLength(DEFAULT_PRIVATE_KEY_USAGE_PERIOD_LENGTH);
         
         setSingleActiveCertificateConstraint(false);
     }
@@ -494,7 +516,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
             setKeyUsage(CertificateConstants.KEYCERTSIGN, true);
             setKeyUsage(CertificateConstants.CRLSIGN, true);
             setKeyUsageCritical(true);
-            setValidity(25 * 365 + 7); // Default validity for this profile is 25 years including 6 or 7 leap days
+            setEncodedValidity(DEFAULT_CERTIFICATE_VALIDITY_FOR_FIXED_CA);
         } else if (type == CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA) {
             setType(CertificateConstants.CERTTYPE_SUBCA);
             setAllowValidityOverride(true);
@@ -504,7 +526,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
             setKeyUsage(CertificateConstants.KEYCERTSIGN, true);
             setKeyUsage(CertificateConstants.CRLSIGN, true);
             setKeyUsageCritical(true);
-            setValidity(25 * 365 + 7); // Default validity for this profile is 25 years including 6 or 7 leap days
+            setEncodedValidity(DEFAULT_CERTIFICATE_VALIDITY_FOR_FIXED_CA);
         } else if (type == CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER) {
             setType(CertificateConstants.CERTTYPE_ENDENTITY);
             // Standard key usages for end users are: digitalSignature | nonRepudiation, and/or (keyEncipherment or keyAgreement)
@@ -616,21 +638,163 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** 
-     * @see ValidityDate#getDate(long, java.util.Date)
+     * @see ValidityDate#getDateBeforeVersion661(long, java.util.Date)
      * @return a long that is used to provide the end date of certificates for this profile, interpreted by ValidityDate#getDate
+     * @deprecated since since EJBCA 6.7.0
      */
+    @Deprecated 
     public long getValidity() {
         return ((Long) data.get(VALIDITY)).longValue();
     }
-
-    /** 
-     * @see ValidityDate#getDate(long, java.util.Date)
-     * @param validity a long that is used to provide the end date of certificates for this profile, interpreted by ValidityDate#getDate
+    
+    /**
+     * Gets the encoded validity.
+     * @return the validity as ISO8601 date or relative time.
+     * @See {@link org.cesecore.util.ValidityDate ValidityDate}
+     * @See {@link org.cesecore.util.SimpleTime SimpleTime}
      */
-    public void setValidity(long validity) {
-        data.put(VALIDITY, Long.valueOf(validity));
+    public String getEncodedValidity() {
+        String result = (String) data.get(ENCODED_VALIDITY);
+        if (StringUtils.isBlank(result)) {
+            result = ValidityDate.getStringBeforeVersion661(getValidity());
+        }
+        return result;
     }
 
+    /**
+     * Sets the encoded validity .
+     * @param encodedValidity the validity as ISO8601 date or relative time.
+     * @See {@link org.cesecore.util.ValidityDate ValidityDate}
+     * @See {@link org.cesecore.util.SimpleTime SimpleTime}
+     */
+    public void setEncodedValidity(String encodedValidity) {
+        data.put(ENCODED_VALIDITY, encodedValidity);
+    }
+    
+    /** 
+     * Gets the certificate validity offset.
+     * @return true if we should overwrite the default certificate validity offset with the one specified in the certificate profile.
+     * @see {@link #setCertificateValidityOffset(String)} 
+     */
+    public boolean getUseCertificateValidityOffset() {
+        // Extra null check to handle in-development upgrades
+        if (data.get(USE_CERTIFICATE_VALIDITY_OFFSET) != null) {
+            return Boolean.valueOf((Boolean) data.get(USE_CERTIFICATE_VALIDITY_OFFSET));            
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Use certificate validity offset.
+     * @param enabled
+     */
+    public void setUseCertificateValidityOffset(boolean enabled) {
+        data.put(USE_CERTIFICATE_VALIDITY_OFFSET, Boolean.valueOf(enabled));
+    }
+    
+    /**
+     * Gets the certificate validity offset. 
+     * @return the offset as simple time string with seconds precision (i.e. '-10m') 
+     * @see #link{org.cesecore.util.SimpleTime}
+     */
+    public String getCertificateValidityOffset() {
+        return (String) data.get(CERTIFICATE_VALIDITY_OFFSET);
+    }
+    
+    /**
+     * Sets the certificate not before offset.
+     * @param simpleTime the offset as simple time string with seconds precision.
+     * @see org.cesecore.util.SimpleTime
+     */
+    public void setCertificateValidityOffset(String simpleTime) {
+        data.put(CERTIFICATE_VALIDITY_OFFSET, simpleTime);
+    }
+    
+    /** 
+     * @return true if we should apply restrictions that certificate expiration can only occur on week days specified by setExpirationRestrictionWeekday
+     * @see #setExpirationRestrictionWeekdays(boolean[])  
+     */
+    public boolean getUseExpirationRestrictionForWeekdays() {
+        return Boolean.valueOf((Boolean) data.get(USE_EXPIRATION_RESTRICTION_FOR_WEEKDAYS));
+    }
+
+    /**
+     * Use validity expiration restriction.
+     * @param enabled 
+     */
+    public void setUseExpirationRestrictionForWeekdays(boolean enabled) {
+        data.put(USE_EXPIRATION_RESTRICTION_FOR_WEEKDAYS, Boolean.valueOf(enabled));
+    }
+    
+    /** 
+     * @return true if we should roll back expiration or false of we should roll forward expiration to match week days specified by setExpirationRestrictionWeekday
+     * @see #setExpirationRestrictionWeekdays(boolean[])  
+     */
+    public boolean getExpirationRestrictionForWeekdaysExpireBefore() {
+        return Boolean.valueOf((Boolean) data.get(EXPIRATION_RESTRICTION_FOR_WEEKDAYS_BEFORE));
+    }
+    
+    /**
+     * Sets if the certificate validity shall expire earlier as requested if a the expiration 
+     * restriction was applied?
+     * 
+     * @param enabled true, otherwise false.
+     */
+    public void setExpirationRestrictionForWeekdaysExpireBefore(boolean enabled) {
+        data.put(EXPIRATION_RESTRICTION_FOR_WEEKDAYS_BEFORE, Boolean.valueOf(enabled));
+    }
+    
+    /**
+     * @param weekday (see java.util.Calendar.MONDAY - SUNDAY)
+     * @return true if the weekday is selected as validity expiration restriction.
+     */
+    @SuppressWarnings("unchecked")
+    public boolean getExpirationRestrictionWeekday(int weekday) {
+        return ((ArrayList<Boolean>) data.get(EXPIRATION_RESTRICTION_WEEKDAYS)).get(weekday-1).booleanValue();
+    }
+    
+    /**
+     * Include a weekday as validity expiration restriction.
+     * @param weekday (see java.util.Calendar.MONDAY - SUNDAY)
+     * @param enabled
+     */
+    @SuppressWarnings("unchecked")
+    public void setExpirationRestrictionWeekday(int weekday, boolean enabled) {
+        ((ArrayList<Boolean>) data.get(EXPIRATION_RESTRICTION_WEEKDAYS)).set(weekday-1, Boolean.valueOf(enabled));
+    }
+    
+    /**
+     * Gets a copy of the List<Boolean> where validity restriction for weekdays are stored.
+     * 
+     * @return boolean array.
+     */
+    @SuppressWarnings("unchecked") 
+    public boolean[] getExpirationRestrictionWeekdays() {
+        final ArrayList<Boolean> list = (ArrayList<Boolean>) data.get(EXPIRATION_RESTRICTION_WEEKDAYS);
+        final boolean[] result = new boolean[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            result[i] = list.get(i).booleanValue();
+        }
+        return result;
+    }
+
+    private void setExpirationRestrictionWeekdays(boolean[] weekdays) {
+        final ArrayList<Boolean> list = new ArrayList<Boolean>(weekdays.length);
+        for (int i = 0; i < weekdays.length; i++) {
+            list.add(Boolean.valueOf(weekdays[i]));
+        }
+        data.put(EXPIRATION_RESTRICTION_WEEKDAYS, list);
+    }
+    
+    private void setDefaultExpirationRestrictionWeekdays() {
+        setExpirationRestrictionWeekdays(new boolean[7]);
+        setExpirationRestrictionWeekday(Calendar.MONDAY, true);
+        setExpirationRestrictionWeekday(Calendar.FRIDAY, true);
+        setExpirationRestrictionWeekday(Calendar.SATURDAY, true);
+        setExpirationRestrictionWeekday(Calendar.SUNDAY, true);
+    }
+    
     /**
      * If validity override is allowed, a certificate can have a shorter validity than the one specified in the certificate profile, but never longer.
      * A certificate created with validity override can hava a starting point in the future.
@@ -1785,17 +1949,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public List<PKIDisclosureStatement> getQCEtsiPds() {
         List<PKIDisclosureStatement> result = null;
         List<PKIDisclosureStatement> pdsList = (List<PKIDisclosureStatement>)data.get(QCETSIPDS);
-        if (pdsList == null) {
-            // EJBCA 6.6.0 or older
-            // TODO move this code into the upgrade() method
-            final String url = (String) data.get(QCETSIPDSURL);
-            final String lang = (String) data.get(QCETSIPDSLANG);
-            if (url != null) {
-                result = new ArrayList<>();
-                result.add(new PKIDisclosureStatement(url, lang));
-            }
-        } else if (!pdsList.isEmpty()) {
-            // EJBCA 6.6.1 and newer
+        if (pdsList != null && !pdsList.isEmpty()) {
             result = new ArrayList<>(pdsList.size());
             try {
                 for (final PKIDisclosureStatement pds : pdsList) {
@@ -1818,8 +1972,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         } else {
             data.put(QCETSIPDS, new ArrayList<>(pds));
         }
-        // These were used by EJBCA <= 6.6.0
-        // TODO move this code into the upgrade() method
+        // Remove old data from EJBCA < 6.6.1
         data.remove(QCETSIPDSURL);
         data.remove(QCETSIPDSLANG);
     }
@@ -2599,10 +2752,10 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
                 setUsePrivateKeyUsagePeriodNotAfter(false);
             }
             if (data.get(PRIVKEYUSAGEPERIODSTARTOFFSET) == null) { // v 35
-                setPrivateKeyUsagePeriodStartOffset(0);
+                setPrivateKeyUsagePeriodStartOffset(DEFAULT_PRIVATE_KEY_USAGE_PERIOD_OFFSET);
             }
             if (data.get(PRIVKEYUSAGEPERIODLENGTH) == null) { // v 35
-                setPrivateKeyUsagePeriodLength(getValidity() * 24 * 3600);
+                setPrivateKeyUsagePeriodLength(DEFAULT_PRIVATE_KEY_USAGE_PERIOD_LENGTH);
             }
             if(data.get(USEISSUERALTERNATIVENAME) == null) { // v 36
                 setUseIssuerAlternativeName(false);
@@ -2642,10 +2795,52 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
                 setApprovalProfileID(-1);
             }
             // v42. ETSI QC Type and PDS specified in EN 319 412-05.
-            // Nothing to set though, since null values means to not use the new values
-            
+            // Nothing to set though, since null values means to not use the new values            
+
+            // v43, ECA-5304. 
             if (data.get(USEDEFAULTCAISSUER) == null) {
-                setUseDefaultCAIssuer(false); // v43
+                setUseDefaultCAIssuer(false);
+            }
+           
+            // v44. ECA-5141
+            // 'encodedValidity' is derived by the former long value!
+            if(null == data.get(ENCODED_VALIDITY)) {
+                if (data.get(VALIDITY) != null) { // avoid NPE if this is a very raw profile
+                    setEncodedValidity(ValidityDate.getStringBeforeVersion661(getValidity()));
+                }
+                // Don't upgrade to anything is there was nothing to upgrade
+            }
+            // v44. ECA-5330
+            // initialize fields for expiration restriction for weekdays. use is false because of backward compatibility, the before restriction default is true
+            if(null == data.get(USE_EXPIRATION_RESTRICTION_FOR_WEEKDAYS)) {
+                setUseExpirationRestrictionForWeekdays(false);
+            }
+            if(null == data.get(EXPIRATION_RESTRICTION_WEEKDAYS)) {
+                setDefaultExpirationRestrictionWeekdays();
+            }
+            if(null == data.get(EXPIRATION_RESTRICTION_FOR_WEEKDAYS_BEFORE)) {
+                setExpirationRestrictionForWeekdaysExpireBefore(true);
+            }
+            // v44. ECA-3554
+            // initialize default certificate not before offset (default '-10m' because of backward compatibility).
+            if(null == data.get(USE_CERTIFICATE_VALIDITY_OFFSET)) {
+                setUseCertificateValidityOffset(false);
+            }
+            if(null == data.get(CERTIFICATE_VALIDITY_OFFSET)) {
+                setCertificateValidityOffset(DEFAULT_CERTIFICATE_VALIDITY_OFFSET);
+            }
+            
+            // v45: Multiple ETSI QC PDS values (ECA-5478)
+            if (!data.containsKey(QCETSIPDS)) {
+                final String url = (String) data.get(QCETSIPDSURL);
+                final String lang = (String) data.get(QCETSIPDSLANG);
+                if (StringUtils.isNotEmpty(url)) {
+                    final List<PKIDisclosureStatement> pdsList = new ArrayList<>();
+                    pdsList.add(new PKIDisclosureStatement(url, lang));
+                    data.put(QCETSIPDS, pdsList);
+                } else {
+                    data.put(QCETSIPDS, null);
+                }
             }
             
             data.put(VERSION, new Float(LATEST_VERSION));

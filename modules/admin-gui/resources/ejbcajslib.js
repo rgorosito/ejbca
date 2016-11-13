@@ -222,13 +222,34 @@ function checkfieldforgender(thetextfield, alerttext) {
   
 }
 
-/** Verify that the field is of format '*d *h *m' */
-function checkFieldForSimpleTimeMinutes(thetextfield , alerttext) {
+/** Verify that the field is of format '*y *mo *d' with optional sequence and formulas (+-) accepted. */
+function checkFieldForCrlSimpleTime(thetextfield, alerttext) {
   field = eval(thetextfield);
   var text = new String(field.value);
-  re = /^\s*(\d+\s*[dD])?\s*(\d+\s*[hH])?\s*(\d+\s*[mM])?\s*$/;
-  if (re.exec(text)) {
-	  return true;
+  re = /\s*(([+-]?\d+)\s*([m][o]|[y]|[d]|[h]|[m]))\s*/ig;
+  tokens = text.match(re);
+  if (null != tokens && tokens.length > 0 && tokens.join("").valueOf() == text.valueOf()) {
+	  var result = 0;
+	  for (i=0;i<tokens.length;i++) {
+	    if (tokens[i].toLowerCase().indexOf('mo') > 0) {
+			result=result+parseInt(tokens[i])*30*24*60*60*1000;
+		}
+		if (tokens[i].toLowerCase().indexOf('y') > 0) {
+			result=result+parseInt(tokens[i])*365*24*60*60*1000;
+		}
+		if (tokens[i].toLowerCase().indexOf('d') > 0) {
+		    result=result+parseInt(tokens[i])*24*60*60*1000;
+		}
+		if (tokens[i].toLowerCase().indexOf('h') > 0) {
+		    result=result+parseInt(tokens[i])*60*60*1000;
+		}
+		if (tokens[i].toLowerCase().indexOf('m') > 0) {
+		    result=result+parseInt(tokens[i])*60*1000;
+		}
+	  }
+	  if (result > -1) {
+		return true;
+	  }
   }
   alert(alerttext);
   return false;
@@ -239,18 +260,6 @@ function checkFieldForYearsMonthsDays(thetextfield , alerttext) {
   field = eval(thetextfield);
   var text = new String(field.value);
   re = /^\s*((\d+\s*[yY])?\s*(\d+\s*[mM][oO])?\s*(\d+\s*[dD])?)\s*$|^\s*[0-9]+\s*$/;
-  if (re.exec(text)) {
-	  return true;
-  }
-  alert(alerttext);
-  return false;
-}
-
-/** Verify that the field is of format '*y *mo *d *h *m' */
-function checkFieldForCombineTime(thetextfield, alerttext) {
-  field = eval(thetextfield);
-  var text = new String(field.value);
-  re = /^\s*(\d+\s*[yY])?\s*(\d+\s*[mM][oO])?\s*(\d+\s*[dD])?\s*(\d+\s*[hH])?\s*(\d+\s*[mM])?\s*$/;
   if (re.exec(text)) {
 	  return true;
   }

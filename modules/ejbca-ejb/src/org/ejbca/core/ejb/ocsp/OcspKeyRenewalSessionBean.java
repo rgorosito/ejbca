@@ -30,9 +30,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
@@ -42,6 +44,7 @@ import javax.ejb.SessionContext;
 import javax.ejb.Stateless;
 import javax.ejb.Timeout;
 import javax.ejb.Timer;
+import javax.ejb.TimerConfig;
 import javax.ejb.TimerService;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
@@ -173,9 +176,19 @@ public class OcspKeyRenewalSessionBean implements OcspKeyRenewalSessionLocal, Oc
             }
             final StringBuffer matched = new StringBuffer();
             final StringBuffer unMatched = new StringBuffer();
+            final Set<Integer> processedOcspKeyBindingIds = new HashSet<Integer>();
             for (final OcspSigningCacheEntry ocspSigningCacheEntry : OcspSigningCache.INSTANCE.getEntries()) {
                 // Only perform renewal for non CA signing key OCSP signers
                 if (!ocspSigningCacheEntry.isUsingSeparateOcspSigningCertificate()) {
+                    continue;
+                }
+                // Only perform renewal once for each OcspKeyBinding.
+                // (the cache can map each OcspKeyBinding multiple times by SHA-1, SHA-256 and as default responder)
+                final int ocspKeyBindingId = ocspSigningCacheEntry.getOcspKeyBinding().getId();
+                if (!processedOcspKeyBindingIds.add(Integer.valueOf(ocspKeyBindingId))) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Skipping renewal processing of OcspKeyBinding with id " + ocspKeyBindingId + " that was already processed.");
+                    }
                     continue;
                 }
                 final X509Certificate ocspSigningCertificate = ocspSigningCacheEntry.getOcspSigningCertificate();
@@ -576,7 +589,7 @@ public class OcspKeyRenewalSessionBean implements OcspKeyRenewalSessionLocal, Oc
         if (log.isDebugEnabled()) {
             log.debug("addTimer: " + timerId+", "+intervalInSeconds);
         }
-        return timerService.createTimer(intervalInSeconds*1000, timerId);
+        return timerService.createSingleActionTimer(intervalInSeconds*1000, new TimerConfig(timerId, false));
     }
 
     /**

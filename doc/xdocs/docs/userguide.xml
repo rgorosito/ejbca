@@ -477,6 +477,26 @@ According to RFC5280 this CRL extension MUST be critical. If you however notice 
 </p>
 </subsubsection>
 
+<subsubsection name="Keep expired certificates on CRL">
+<p>
+This setting regulates what happens with revoked expired certificates. The default is unchecked (false) and should be left unchecked in all but a rare few use cases.
+</p><p>
+For most CA operations the default behavior, as specified in RFC5280, should be used.
+In this setting expired and revoked certificates are removed from the CRL. This keeps the size of the CRL down as it will not grow more than your active revoked certificates. 
+Since basic certificate validation starts by verifying certificate validity, this is sufficient for most normal usage of CRLs.
+This behavior is specified in RFC5280, section 3.3 and 5.2.4
+</p> 
+<p>
+Some specific standards mandates that certificates are kept on the CRL even after certificate expiration. By checking this checkbox, expired and revoked certificates are never removed
+from future CRLs, and thus the CRL can grow infinitely if you are not careful. For example CABForum specifies this in their
+'Minimum Requirements for the Issuance and Management of Publicly-Trusted Code Signing Certificates', version 1.1, section 13.2.1.  
+</p>
+<p>
+Note: This setting should be set at CA creation and then never changed. This is because if unchecked, revoked and expired certificates will be set in state 'archived' and not be put on a CRL again, 
+even if the checkbox is re-checked again.
+</p>
+</subsubsection>
+
 <subsubsection name="CRL Period">
 <p>
 There are four settings in CA configuration dictating the times when CRL generation is done:
@@ -875,7 +895,15 @@ Select 0 bits for implicit EC curves.
 
 <subsubsection name="Validity">
 <p>
-The validity determines the validity in days of certificates from the time the certificate is issued.
+The validity determines the end date of the issued certificates and can be configured as: 
+<ol>
+<li><b>fixed date</b> with ISO8601 format 'yyyy-MM-dd HH:mm:ssZZ', i.e. '2011-06-03 18:15:00+00:00', or</li>
+<li><b>relative time</b> in terms of years, months, days, hours, and seconds in the form '*y *mo *d *h *m *s', i.e. '2y-10d'</li>
+</ol>
+For a relative validity, the end date of the certificate is calculated by its start date plus the value configured. 
+The start time usually is the time point of issuance (i.e. if no offset for the start time is configured). 
+</p>
+<p>
 The field 'notAfter' in the issued certificate will have the value 'now + validity days'.
 It can also, if noted in the field, be entered in terms of years, months and days. For instance '10y 9mo 8d' is translated to 
 10 years, 9 months and 8 days from now.
@@ -925,8 +953,25 @@ in ejbca.properties. See the documentation in conf/ejbca.properties.sample for m
 <li>Add new end entities and issue a certificates for them.</li>
 </ul>
 <p><i>Short lived certificates:</i>
-<br/>In a Certificate Profile you can configure validity down to a single day. Using validity override and requesting a specific validity time through the protocols and APIs (WS, CMP, SCEP) even shorter times can be requested, down to minutes and seconds.
+<br/>In a Certificate Profile you can configure validity down to a minutes. Also using validity override and requesting a specific validity time through the protocols and APIs (WS, CMP, SCEP) short times can be requested, down to minutes and seconds.
 When using shorter validity periods than what is configured in the Certificate Profile the value in the profile will function as an upper limit. Longer times than that is not possible to issue.
+</p>
+</subsubsection>
+<subsubsection name="Validity offset">
+<p>
+A validity offset (used for setting back or forth start date to handle clock skew) can be configured in the certificate profile as a relative time in the form of '*y *mo *d *h *m *s'. With this the certificates default offset (specified in cesecore.properties '-10m') will be overwritten.
+</p>
+<p>
+If a fixed end date in the form '2016-10-09 14:41:39+01:00' is used as certificate validity, only the start date of the certificate will be offset.
+<br/>If a relative time in form of '*y *mo *d *h *m *s' is used as certificate validity, start and end date of the certificate are offset.
+<br/>Example: Use the value '-5m' to have a notBefore date that is 5 minutes before the current time, in order to be valid on relying parties if their clocks are a bit behind.
+</p>
+</subsubsection>
+<subsubsection name="Expiration restrictions">
+<p>
+Expiration restrictions define specific days when a certificate is not allowed to expire. When issuing the certificate the 
+configured Validity will be evaluated to see if the notAfter date (certificate expiration) will occur on one of those days. If so
+the notAfter date will be moves back or moved forward to a day no among one of the restricted days.
 </p>
 </subsubsection>
 <subsubsection name="Allow extension override">
