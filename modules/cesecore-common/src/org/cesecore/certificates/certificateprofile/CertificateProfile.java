@@ -57,7 +57,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     private static final InternalResources intres = InternalResources.getInstance();
 
     // Public Constants
-    public static final float LATEST_VERSION = (float) 45.0;
+    public static final float LATEST_VERSION = (float) 44.0;
 
     public static final String ROOTCAPROFILENAME = "ROOTCA";
     public static final String SUBCAPROFILENAME = "SUBCA";
@@ -640,7 +640,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     /** 
      * @see ValidityDate#getDateBeforeVersion661(long, java.util.Date)
      * @return a long that is used to provide the end date of certificates for this profile, interpreted by ValidityDate#getDate
-     * @deprecated since since EJBCA 6.7.0
+     * @deprecated since since EJBCA 6.6.1
      */
     @Deprecated 
     public long getValidity() {
@@ -721,7 +721,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
 
     /**
      * Use validity expiration restriction.
-     * @param enabled 
+     * @param enabled
      */
     public void setUseExpirationRestrictionForWeekdays(boolean enabled) {
         data.put(USE_EXPIRATION_RESTRICTION_FOR_WEEKDAYS, Boolean.valueOf(enabled));

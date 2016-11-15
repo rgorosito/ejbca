@@ -217,19 +217,18 @@ public class ValidityDate {
 	/**
 	 * Rolls the given date one day forward or backward, until a date with a day not included in the restrictions (list of weekdays) is reached.
 	 * @param date the date to change.
-	 * @param restrictionsForWeekdays an array, TODO { Calendar.SUNDAY, Calendar.MONDAY, }
+	 * @param restrictionsForWeekdays an array, { Calendar.SUNDAY, Calendar.MONDAY, etc}
 	 * @param before roll back (or forward if false)
 	 * @return the new date instance applied to the restrictions
 	 * @throws IllegalArgumentException if given date or weekday restriction are null or all weekdays shall be excluded!
 	 */
 	public static Date applyExpirationRestrictionForWeekdays(final Date date, boolean[] restrictionsForWeekdays, boolean before) throws IllegalArgumentException {
-	    // ANJAKOBS: What's about checks for domain objects? It should be as restrictive as possible. Same as user input :-)
-//	    if (null == date) {
-//	        throw new IllegalArgumentException("Date cannot be null!");
-//	    }
-//	    if (null == restrictionsForWeekdays) {
-//	        throw new IllegalArgumentException("Weekday restrictions cannot be null!");
-//	    }
+	    if (null == date) {
+	        throw new IllegalArgumentException("Date cannot be null!");
+	    }
+	    if (null == restrictionsForWeekdays) {
+	        throw new IllegalArgumentException("Weekday restrictions cannot be null!");
+	    }
 	    boolean allDaysExcluded = true;
 	    for (boolean enabled: restrictionsForWeekdays) {
 	        if (!enabled) {
