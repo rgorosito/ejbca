@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -145,13 +145,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 this.enableCommandLineDefaultUser = globalConfig.getEnableCommandLineInterfaceDefaultUser();
                 this.publicWebCertChainOrderRootFirst = globalConfig.getPublicWebCertChainOrderRootFirst();
                 this.setEnableIcaoCANameChange(globalConfig.getEnableIcaoCANameChange());
-                
-                ArrayList<CTLogInfo> ctlogs = new ArrayList<CTLogInfo>();
-                Map<Integer, CTLogInfo> availableCTLogs = globalConfig.getCTLogs();
-                for(int logid : availableCTLogs.keySet()) {
-                    ctlogs.add(availableCTLogs.get(logid));
-                }
-                this.ctLogs = ctlogs;
+                this.ctLogs = new ArrayList<>(globalConfig.getCTLogs().values());
                 
                 // Admin Preferences
                 if(adminPreference == null) {
@@ -641,7 +635,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 globalConfig.setEnableCommandLineInterfaceDefaultUser(currentConfig.getEnableCommandLineDefaultUser());
                 globalConfig.setPublicWebCertChainOrderRootFirst(currentConfig.getPublicWebCertChainOrderRootFirst());
                 globalConfig.setEnableIcaoCANameChange(currentConfig.getEnableIcaoCANameChange());
-                Map<Integer, CTLogInfo> ctlogsMap = new HashMap<Integer, CTLogInfo>();
+                LinkedHashMap<Integer, CTLogInfo> ctlogsMap = new LinkedHashMap<>();
                 for(CTLogInfo ctlog : currentConfig.getCtLogs()) {
                     ctlogsMap.put(ctlog.getLogId(), ctlog);
                 }
@@ -856,6 +850,37 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         currentConfig.setCtLogs(ctlogs);
         ctLogs = new ListDataModel<>(ctlogs);
         saveCurrentConfig();
+    }
+    
+    public boolean isFirstCTLog() {
+        final int index = ctLogs.getRowIndex();
+        return index == 0;
+    }
+    
+    public boolean isLastCTLog() {
+        final int index = ctLogs.getRowIndex();
+        final int last = ctLogs.getRowCount() - 1;
+        return index == last;
+    }
+    
+    public void moveCTLogUp() {
+        moveCTLog(-1);
+    }
+    
+    public void moveCTLogDown() {
+        moveCTLog(1);
+    }
+    
+    public void moveCTLog(final int direction) {
+        final int index = ctLogs.getRowIndex();
+        final List<CTLogInfo> ctlogs = currentConfig.getCtLogs();
+        Collections.swap(ctlogs, index, index + direction);
+        
+        currentConfig.setCtLogs(ctlogs);
+        ctLogs = new ListDataModel<>(ctlogs);
+        saveCurrentConfig();
+        
+        addInfoMessage("CTLOGTAB_MOVEDCTLOGS");
     }
     
     public String editCTLog() {
