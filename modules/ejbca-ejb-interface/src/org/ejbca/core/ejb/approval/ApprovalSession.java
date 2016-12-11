@@ -15,13 +15,10 @@ package org.ejbca.core.ejb.approval;
 import java.util.List;
 
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authorization.AuthorizationDeniedException;
 import org.ejbca.core.model.approval.ApprovalDataVO;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.ApprovalRequest;
 import org.ejbca.core.model.approval.ApprovalRequestExpiredException;
-import org.ejbca.util.query.IllegalQueryException;
-import org.ejbca.util.query.Query;
 
 /** Session bean to manage approval requests, i.e. add and find.
  * 
@@ -39,10 +36,12 @@ public interface ApprovalSession {
      * If the approvalId already exists, with a non expired approval, a new approval
      * request is added to the database. An approvalException is thrown otherwise
      * 
+     * @return the request ID of the created request
+     * 
      * @throws ApprovalException
      *             if an approval already exists for this request.
      */
-     void addApprovalRequest(AuthenticationToken admin, ApprovalRequest approvalRequest) throws ApprovalException;
+     int addApprovalRequest(AuthenticationToken admin, ApprovalRequest approvalRequest) throws ApprovalException;
 
     /**
      * Method that goes through exists approvals in database to see if there
@@ -138,43 +137,5 @@ public interface ApprovalSession {
      */
     List<ApprovalDataVO> findApprovalDataVO(AuthenticationToken admin, int approvalId);
 
-    /**
-     * Method returning a list of approvals from the give query
-     * 
-     * @param admin
-     * @param query should be a Query object containing ApprovalMatch and
-     *            TimeMatch
-     * @param index where the ResultSet should start
-     * @param numberofrows maximum number of rows 
-     * @param caAuthorizationString
-     *            a list of authorized CA Ids in the form 'cAId=... OR cAId=...'
-     * @param endEntityProfileAuthorizationString
-     *            a list of authorized end entity profile ids in the form
-     *            '(endEntityProfileId=... OR endEntityProfileId=...) objects
-     *            only
-     * @return a List of ApprovalDataVO, never null
-     * @throws AuthorizationDeniedException
-     * @throws IllegalQueryException
-     */
-    List<ApprovalDataVO> query(AuthenticationToken admin, Query query, int index, int numberofrows, String caAuthorizationString,
-            String endEntityProfileAuthorizationString) throws AuthorizationDeniedException, IllegalQueryException;
-    
-    /**
-     * Returns a list of non-expired approvals with the given statuses.
-     * @param admin
-     * @param includeUnfinished Includes requests that haven't been executed or rejected yet.
-     * @param includeProcessed Includes requests that have been approved and executed, or rejected.
-     * @param index where the ResultSet should start
-     * @param numberofrows maximum number of rows
-     * @param caAuthorizationString
-     *            a list of authorized CA Ids in the form 'cAId=... OR cAId=...'
-     * @param endEntityProfileAuthorizationString
-     *            a list of authorized end entity profile ids in the form
-     *            '(endEntityProfileId=... OR endEntityProfileId=...) objects
-     *            only
-     * @return a List of ApprovalDataVO, never null
-     * @throws AuthorizationDeniedException
-     */
-    List<ApprovalDataVO> queryByStatus(final AuthenticationToken admin, final boolean includeUnfinished, final boolean includeProcessed, int index, int numberofrows, String caAuthorizationString,
-            String endEntityProfileAuthorizationString) throws AuthorizationDeniedException;
+
 }

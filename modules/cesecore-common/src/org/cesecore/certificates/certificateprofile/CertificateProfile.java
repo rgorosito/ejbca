@@ -262,8 +262,10 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     protected static final String USEQCETSITYPE = "useqcetsitype";
     protected static final String QCETSITYPE = "qcetsitype";
     protected static final String QCETSIPDS = "qcetsipds";
+    /** @deprecated since EJBCA 6.6.1. It was only used in 6.6.0, and is needed to handle upgrades from that version */
     @Deprecated
     protected static final String QCETSIPDSURL = "qcetsipdsurl";
+    /** @deprecated since EJBCA 6.6.1. It was only used in 6.6.0, and is needed to handle upgrades from that version */
     @Deprecated
     protected static final String QCETSIPDSLANG = "qcetsipdslang";
     protected static final String USEQCCUSTOMSTRING = "useqccustomstring";
@@ -293,7 +295,9 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     protected static final String CTMAXRETRIES = "ctmaxretries";
     protected static final String USERSINGLEACTIVECERTIFICATECONSTRAINT = "usesingleactivecertificateconstraint";
     protected static final String USECUSTOMDNORDER = "usecustomdnorder";
-    protected static final String CUSTOMDNORDER = "customdnorder";
+    protected static final String CUSTOMDNORDER = "customdnorder";    
+    protected static final String OVERRIDABLEEXTENSIONOIDS = "overridableextensionoids";
+    protected static final String NONOVERRIDABLEEXTENSIONOIDS = "nonoverridableextensionoids";
     
 
     /**
@@ -499,6 +503,9 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         setPrivateKeyUsagePeriodLength(DEFAULT_PRIVATE_KEY_USAGE_PERIOD_LENGTH);
         
         setSingleActiveCertificateConstraint(false);
+        
+        setOverridableExtensionOIDs(new LinkedHashSet<String>());
+        setNonOverridableExtensionOIDs(new LinkedHashSet<String>());
     }
 
     /**
@@ -653,6 +660,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      * @See {@link org.cesecore.util.ValidityDate ValidityDate}
      * @See {@link org.cesecore.util.SimpleTime SimpleTime}
      */
+    @SuppressWarnings("deprecation")
     public String getEncodedValidity() {
         String result = (String) data.get(ENCODED_VALIDITY);
         if (StringUtils.isBlank(result)) {
@@ -1576,6 +1584,49 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         }
         data.put(SUBJECTDNSUBSET, convertedList);
 
+    }
+    
+    /**
+     * Overridable Extension OIDs is an arraylist of oid Strings.
+     * It is used to list what are the extensions that can be overrided when allow extension override is enabled in the Certificate Profile..
+     */
+    public void setOverridableExtensionOIDs(Set<String> overridableextensionoids) {
+        data.put(OVERRIDABLEEXTENSIONOIDS, new LinkedHashSet<>(overridableextensionoids));
+    }
+    
+    /**
+     * Overridable Extension OIDs is an Set of oid Strings.
+     * It is used to list what are the extensions that can be overridden when allow extension override is enabled in the Certificate Profile.
+     * @return Set of strings containing oids, or an empty set, never null
+     */
+    @SuppressWarnings("unchecked")
+    public Set<String> getOverridableExtensionOIDs() {
+    	if (data.get(OVERRIDABLEEXTENSIONOIDS) == null) {
+    		return new LinkedHashSet<String>();
+    	}
+        return (Set<String>) data.get(OVERRIDABLEEXTENSIONOIDS);
+    }
+    
+    /**
+     * Non Overridable Extension OIDs is an arraylist of oid Strings.
+     * It is used to list what are the extensions that can not be overrided when allow extension override is enabled in the Certificate Profile..
+     * @param Set of oids that are not allowed to be overridded, or empty set to not disallow anything, not null
+     */
+    public void setNonOverridableExtensionOIDs(Set<String> nonoverridableextensionoids) {
+        data.put(NONOVERRIDABLEEXTENSIONOIDS, new LinkedHashSet<>(nonoverridableextensionoids));
+    }
+    
+    /**
+     * Non Overridable Extension OIDs is a Set of oid Strings.
+     * It is used to list what are the extensions that can not be overridde when allow extension override is enabled in the Certificate Profile..
+     * @return Set of strings containing oids, or an empty set, never null
+     */
+    @SuppressWarnings("unchecked")
+    public Set<String> getNonOverridableExtensionOIDs() {
+    	if (data.get(NONOVERRIDABLEEXTENSIONOIDS) == null) {
+    		return new LinkedHashSet<String>();
+    	}
+        return (Set<String>) data.get(NONOVERRIDABLEEXTENSIONOIDS);
     }
     
     /**
@@ -2539,6 +2590,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     /**
      * Implementation of UpgradableDataHashMap function upgrade.
      */
+    @SuppressWarnings("deprecation")
     @Override
     public void upgrade() {
         if (log.isTraceEnabled()) {

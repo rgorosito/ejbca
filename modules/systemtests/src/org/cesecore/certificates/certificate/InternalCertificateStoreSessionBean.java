@@ -14,12 +14,11 @@ package org.cesecore.certificates.certificate;
 
 import java.math.BigInteger;
 import java.security.cert.Certificate;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -44,6 +43,9 @@ import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.internal.InternalResources;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.CertTools;
+import org.ejbca.util.DatabaseIndexUtil;
+import org.ejbca.util.DatabaseIndexUtil.DatabaseIndex;
+import org.ejbca.util.JDBCUtil;
 
 /**
  * @version $Id$
@@ -171,10 +173,8 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
 
             data.setStatus(status);
             final String serialNo = CertTools.getSerialNumberAsString(data.getCertificate(this.entityManager));
-            final String msg = INTRES.getLocalizedMessage("store.setstatus", data.getUsername(), fingerprint, status, data.getSubjectDN(), data.getIssuerDN(), serialNo);
-            Map<String, Object> details = new LinkedHashMap<String, Object>();
-            details.put("msg", msg);
-            logSession.log(EventTypes.CERT_CHANGEDSTATUS, EventStatus.SUCCESS, ModuleTypes.CERTIFICATE, ServiceTypes.CORE, admin.toString(), String.valueOf(caid), serialNo, data.getUsername(), details);            
+            final String msg = INTRES.getLocalizedMessage("store.setstatus", data.getUsername(), fingerprint, status, data.getSubjectDnNeverNull(), data.getIssuerDN(), serialNo);
+            logSession.log(EventTypes.CERT_CHANGEDSTATUS, EventStatus.SUCCESS, ModuleTypes.CERTIFICATE, ServiceTypes.CORE, admin.toString(), String.valueOf(caid), serialNo, data.getUsername(), msg);
         } else {
             if (log.isDebugEnabled()) {
                 final String msg = INTRES.getLocalizedMessage("store.setstatusfailed", fingerprint, status);
@@ -293,5 +293,17 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
             throw new CertificateRevokeException(msg);
         }
         return certStore.setRevokeStatusNoAuth(admin, certificateData, revokedDate, reason);
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
+    public List<DatabaseIndex> getDatabaseIndexFromTable(final String tableName, final boolean requireUnique) {
+        try {
+            return DatabaseIndexUtil.getDatabaseIndexFromTable(JDBCUtil.getDataSourceOrNull(), tableName, requireUnique);
+        } catch (SQLException e) {
+            log.info("getDatabaseIndexFromTable failed: " + e.getMessage());
+            log.debug("getDatabaseIndexFromTable failed: " + e.getMessage(), e);
+            return null;
+        }
     }
 }

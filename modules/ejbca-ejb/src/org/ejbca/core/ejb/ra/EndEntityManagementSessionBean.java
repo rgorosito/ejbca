@@ -388,8 +388,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                 // When the approval request is finally executed, it is executed through AddEndEntityApprovalRequest.execute, which is
                 // the NONAPPROVABLECLASSNAMES_ADDUSER below.
                 if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_ADDUSER)) {
-                    approvalSession.addApprovalRequest(admin, ar);
-                    final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
+                    final int requestId = approvalSession.addApprovalRequest(admin, ar);
                     sendNotification(admin, endEntity, EndEntityConstants.STATUS_WAITINGFORADDAPPROVAL, requestId, lastApprovingAdmin, null);
                     throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvalad"), requestId);
                 }
@@ -706,34 +705,37 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         // if required, we merge the existing user dn into the dn provided by the web service.
         if (fromWebService && profile.getAllowMergeDnWebServices()) {
             if (userData != null) {
-                if (userData.getSubjectDN() != null) {
-                    final Map<String, String> dnMap = new HashMap<String, String>();
-                    if (profile.getUse(DnComponents.DNEMAILADDRESS, 0)) {
-                        dnMap.put(DnComponents.DNEMAILADDRESS, endEntityInformation.getEmail());
-                    }
-                    try {
-                        dn = (new DistinguishedName(userData.getSubjectDN())).mergeDN(new DistinguishedName(dn), true, dnMap).toString();
-                    } catch (InvalidNameException e) {
-                        log.debug("Invalid dn. We make it empty");
+                final Map<String, String> sdnMap = new HashMap<String, String>();
+                if (profile.getUse(DnComponents.DNEMAILADDRESS, 0)) {
+                    sdnMap.put(DnComponents.DNEMAILADDRESS, endEntityInformation.getEmail());
+                }
+                try {
+                    // SubjectDN is not mandatory so
+                    if (dn == null) {
                         dn = "";
                     }
-                }
-                if (userData.getSubjectAltName() != null) {
-                    final Map<String, String> dnMap = new HashMap<String, String>();
-                    if (profile.getUse(DnComponents.RFC822NAME, 0)) {
-                        dnMap.put(DnComponents.RFC822NAME, endEntityInformation.getEmail());
+                    dn = new DistinguishedName(userData.getSubjectDnNeverNull()).mergeDN(new DistinguishedName(dn), true, sdnMap).toString();
+                } catch (InvalidNameException e) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Invalid Subject DN when merging '"+dn+"' with '"+userData.getSubjectDnNeverNull()+"'. Setting it to empty. Exception was: " + e.getMessage());
                     }
-                    try {
-                        // SubjectAltName is not mandatory so
-                        if (altName == null) {
-                            altName = "";
-                        }
-                        altName = (new DistinguishedName(userData.getSubjectAltName())).mergeDN(new DistinguishedName(altName), true, dnMap)
-                                .toString();
-                    } catch (InvalidNameException e) {
-                        log.debug("Invalid altName. We make it empty");
+                    dn = "";
+                }
+                final Map<String, String> sanMap = new HashMap<String, String>();
+                if (profile.getUse(DnComponents.RFC822NAME, 0)) {
+                    sanMap.put(DnComponents.RFC822NAME, endEntityInformation.getEmail());
+                }
+                try {
+                    // SubjectAltName is not mandatory so
+                    if (altName == null) {
                         altName = "";
                     }
+                    altName = new DistinguishedName(userData.getSubjectAltNameNeverNull()).mergeDN(new DistinguishedName(altName), true, sanMap).toString();
+                } catch (InvalidNameException e) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Invalid Subject AN when merging '"+altName+"' with '"+userData.getSubjectAltNameNeverNull()+"'. Setting it to empty. Exception was: " + e.getMessage());
+                    }
+                    altName = "";
                 }
             }
         }
@@ -780,9 +782,8 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             final EditEndEntityApprovalRequest ar = new EditEndEntityApprovalRequest(endEntityInformation, clearpwd, orguserdata, admin, null,
                      caid, endEntityProfileId, approvalProfile);
             if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_CHANGEUSER)) {
-                approvalSession.addApprovalRequest(admin, ar);
-                final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
-                throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvaledit"), requestId);
+                final int requestId =approvalSession.addApprovalRequest(admin, ar);
+                 throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvaledit"), requestId);
             }
         }
         // Check if the subjectDN serialnumber already exists.
@@ -794,7 +795,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         }
         // Check name constraints
         final boolean nameChanged = // only check when name is changed so existing end-entities can be changed even if they violate NCs
-            !userData.getSubjectDN().equals(CertTools.stringToBCDNString(dn)) ||
+            !userData.getSubjectDnNeverNull().equals(CertTools.stringToBCDNString(dn)) ||
             (userData.getSubjectAltName() != null && !userData.getSubjectAltName().equals(altName));
         if (nameChanged && cainfo instanceof X509CAInfo && !cainfo.getCertificateChain().isEmpty()) {
             final X509CAInfo x509cainfo = (X509CAInfo) cainfo;
@@ -1272,10 +1273,8 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             final ChangeStatusEndEntityApprovalRequest ar = new ChangeStatusEndEntityApprovalRequest(username, data1.getStatus(), status, admin,
                     null, data1.getCaId(), endEntityProfileId, approvalProfile);
             if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_SETUSERSTATUS)) {
-                approvalSession.addApprovalRequest(admin, ar);
-                String msg = intres.getLocalizedMessage("ra.approvaledit");
-                
-                final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
+                final int requestId = approvalSession.addApprovalRequest(admin, ar);
+                String msg = intres.getLocalizedMessage("ra.approvaledit");                
                 throw new WaitingForApprovalException(msg, requestId);
             }
         }
@@ -1361,7 +1360,6 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             throw new FinderException("Could not find user " + username);
         }
         final int caid = data.getCaId();
-        final String dn = data.getSubjectDN();
         final int endEntityProfileId = data.getEndEntityProfileId();
 
         final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(endEntityProfileId);
@@ -1375,14 +1373,12 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             if (profile != null) {
                 try {
                     profile.doesPasswordFulfillEndEntityProfile(password, true);
-                } catch (UserDoesntFullfillEndEntityProfile ufe) {
-                    final String msg = intres.getLocalizedMessage("ra.errorfullfillprofile", Integer.valueOf(endEntityProfileId), dn,
-                            ufe.getMessage());
-                    Map<String, Object> details = new LinkedHashMap<String, Object>();
-                    details.put("msg", msg);
+                } catch (UserDoesntFullfillEndEntityProfile e) {
+                    final String dn = data.getSubjectDnNeverNull();
+                    final String msg = intres.getLocalizedMessage("ra.errorfullfillprofile", Integer.valueOf(endEntityProfileId), dn, e.getMessage());
                     auditSession.log(EjbcaEventTypes.RA_EDITENDENTITY, EventStatus.FAILURE, EjbcaModuleTypes.RA, ServiceTypes.CORE, admin.toString(),
-                            String.valueOf(caid), null, username, details);
-                    throw ufe;
+                            String.valueOf(caid), null, username, msg);
+                    throw e;
                 }
             }
             // Check if administrator is authorized to edit user.
@@ -1510,8 +1506,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                     final RevocationApprovalRequest ar = new RevocationApprovalRequest(true, username, reason, admin, caid,
                             data.getEndEntityProfileId(), approvalProfile);
                     if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_REVOKEANDDELETEUSER)) {
-                        approvalSession.addApprovalRequest(admin, ar);
-                        final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
+                        final int requestId = approvalSession.addApprovalRequest(admin, ar);
                         throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvalrevoke"), requestId);
                     }
                 }
@@ -1580,8 +1575,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             final RevocationApprovalRequest ar = new RevocationApprovalRequest(false, username, reason, admin, caid, userData.getEndEntityProfileId(),
                     approvalProfile);
             if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_REVOKEUSER)) {
-                approvalSession.addApprovalRequest(admin, ar);
-                final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
+                final int requestId = approvalSession.addApprovalRequest(admin, ar);
                 throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvalrevoke"), requestId);
             }
         }
@@ -1699,7 +1693,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         final String username = certificateData.getUsername();
         assertAuthorizedToCA(admin, caid);
         int certificateProfileId = certificateData.getCertificateProfileId();
-        String certificateSubjectDN = certificateData.getSubjectDN();
+        String certificateSubjectDN = certificateData.getSubjectDnNeverNull();
         final CertReqHistory certReqHistory = certreqHistorySession.retrieveCertReqHistory(certserno, issuerdn);
         int endEntityProfileId = certificateData.getEndEntityProfileId()==null ? -1 : certificateData.getEndEntityProfileIdOrZero();
         final EndEntityInformation endEntityInformation = endEntityInformationParam==null ? endEntityAccessSession.findUser(username) : endEntityInformationParam;
@@ -1770,8 +1764,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                 final RevocationApprovalRequest ar = new RevocationApprovalRequest(certserno, issuerdn, username, reason, admin, caid,
                         endEntityProfileId, approvalProfile);
                 if (ApprovalExecutorUtil.requireApproval(ar, NONAPPROVABLECLASSNAMES_REVOKECERT)) {
-                    approvalSession.addApprovalRequest(admin, ar);
-                    final int requestId = approvalSession.getIdFromApprovalId(ar.generateApprovalId());
+                    final int requestId = approvalSession.addApprovalRequest(admin, ar);
                     throw new WaitingForApprovalException(intres.getLocalizedMessage("ra.approvalrevoke"), requestId);
                 }
             }

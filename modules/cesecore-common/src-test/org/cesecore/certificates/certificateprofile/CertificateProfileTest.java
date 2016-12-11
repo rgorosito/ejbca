@@ -441,7 +441,6 @@ public class CertificateProfileTest {
         assertEquals(clonemap2.size(), profmap.size()-1);
     }
     
-    @SuppressWarnings("deprecation")
     @Test
     public void test09ManyValues() {
         CertificateProfile profile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_NO_PROFILE);
@@ -639,7 +638,7 @@ public class CertificateProfileTest {
         assertEquals("foo", pol.getQualifierId());
     }
     
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "deprecation" })
     @Test
     public void testCertificateProfileUpgradeDefaults() {
         // Test with default/unset values
@@ -663,7 +662,7 @@ public class CertificateProfileTest {
         assertFalse("Old property should have been removed after profile modification", res.containsKey(CertificateProfile.QCETSIPDSURL));
     }
     
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "deprecation" })
     @Test
     public void testCertificateProfileUpgradeNonDefaults() {
         final Map<String,Object> data = new HashMap<>();
