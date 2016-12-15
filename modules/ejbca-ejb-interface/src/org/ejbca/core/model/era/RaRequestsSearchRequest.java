@@ -13,6 +13,7 @@
 package org.ejbca.core.model.era;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * Contains search parameters for searchForApprovalRequests.
@@ -26,6 +27,11 @@ public class RaRequestsSearchRequest implements Serializable {
     private boolean searchingWaitingForMe;
     private boolean searchingPending;
     private boolean searchingHistorical; // processed
+    private boolean searchingExpired;
+    private Date startDate;
+    private Date endDate;
+    private Date expiresBefore;
+    private boolean includeOtherAdmins;
     
     
     public boolean isSearchingWaitingForMe() {
@@ -51,8 +57,45 @@ public class RaRequestsSearchRequest implements Serializable {
     public void setSearchingHistorical(final boolean searchingHistorical) {
         this.searchingHistorical = searchingHistorical;
     }
-
-    // TODO extend with more stuff for custom search (e.g. ECA-5124)
-
     
+    public boolean isSearchingExpired() {
+        return searchingExpired;
+    }
+    
+    public void setSearchingExpired(final boolean searchingExpired) {
+        this.searchingExpired = searchingExpired;
+    }
+
+    public Date getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(final Date startDate) {
+        this.startDate = startDate;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(final Date endDate) {
+        this.endDate = endDate;
+    }
+
+    public Date getExpiresBefore() {
+        return expiresBefore;
+    }
+    
+    public void setExpiresBefore(final Date expiresBefore) {
+        this.expiresBefore = expiresBefore;
+    }
+
+    public boolean getIncludeOtherAdmins() {
+        return includeOtherAdmins;
+    }
+
+    public void setIncludeOtherAdmins(final boolean includeOtherAdmins) {
+        this.includeOtherAdmins = includeOtherAdmins;
+    }
+
 }

@@ -10,28 +10,33 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.model.approval;
 
-import javax.xml.ws.WebFault;
+package org.ejbca.core.model.ra;
+
+import org.ejbca.core.EjbcaException;
 
 /**
- * Exception throws after an administrator have approved a request and the
- * request have been executed and something went wrong that the approval
- * administrator should be notified of.
- * 
- * @version $Id$
+ * Exception is cast when values of an end entity field does not match a specific rule in the function FieldValidator.validate()
+ *  
+ * @version $Id$ 
  */
-@WebFault
-public class ApprovalRequestExecutionException extends Exception {
+public class CustomFieldException extends EjbcaException {
 
-	private static final long serialVersionUID = 2306275321815465483L;
+	private static final long serialVersionUID = -4270699717178908309L;
 
-    public ApprovalRequestExecutionException(String message, Throwable cause) {
-		super(message, cause);
+	public CustomFieldException(){
+		super();
 	}
-
-	public ApprovalRequestExecutionException(String message) {
+	
+	public CustomFieldException(String message){
 		super(message);
 	}
-
+	
+	public CustomFieldException(Exception cause){
+		super(cause);
+	}
+	
+	public CustomFieldException(String message, Throwable cause){
+		super(message, cause);
+	}
 }

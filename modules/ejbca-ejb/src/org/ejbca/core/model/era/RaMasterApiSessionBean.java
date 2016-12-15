@@ -15,6 +15,7 @@ package org.ejbca.core.model.era;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -23,9 +24,11 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -34,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.ejb.EJB;
-import javax.ejb.FinderException;
 import javax.ejb.RemoveException;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
@@ -103,6 +105,7 @@ import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
+import org.ejbca.core.model.CertificateSignatureException;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.Approval;
@@ -120,7 +123,6 @@ import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
 import org.ejbca.core.model.ra.KeyStoreGeneralRaException;
-import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.RAAuthorization;
 import org.ejbca.core.model.ra.UserDoesntFullfillEndEntityProfileRaException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
@@ -326,8 +328,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
         
         final ApprovalRequest approvalRequest = advo.getApprovalRequest();
-        final String endEntityProfileName = endEntityProfileSession.getEndEntityProfileName(advo.getEndEntityProfileiId());
-        final EndEntityProfile endEntityProfile = endEntityProfileSession.getEndEntityProfile(advo.getEndEntityProfileiId());
+        final String endEntityProfileName = endEntityProfileSession.getEndEntityProfileName(advo.getEndEntityProfileId());
+        final EndEntityProfile endEntityProfile = endEntityProfileSession.getEndEntityProfile(advo.getEndEntityProfileId());
         final String certificateProfileName;
         if (approvalRequest instanceof AddEndEntityApprovalRequest) {
             certificateProfileName = certificateProfileSession.getCertificateProfileName(((AddEndEntityApprovalRequest)approvalRequest).getEndEntityInformation().getCertificateProfileId());
@@ -484,7 +486,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             caIdToNameMap.put(cainfo.getCAId(), cainfo.getName());
         }
         
-        if (!request.isSearchingWaitingForMe() && !request.isSearchingPending() && !request.isSearchingHistorical()) {
+        if (!request.isSearchingWaitingForMe() && !request.isSearchingPending() && !request.isSearchingHistorical() && !request.isSearchingExpired()) {
             return response; // not searching for anything. return empty response
         }
         
@@ -495,11 +497,12 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                     accessControlSession, null, caSession, endEntityProfileSession,  
                     approvalProfileSession);
             approvals = approvalSession.queryByStatus(request.isSearchingWaitingForMe() || request.isSearchingPending(), request.isSearchingHistorical(),
-                    0, 100, raAuthorization.getCAAuthorizationString(), endEntityProfileAuthorizationString);
+                    request.isSearchingExpired(), request.getStartDate(), request.getEndDate(), request.getExpiresBefore(), 0, 100, raAuthorization.getCAAuthorizationString(), endEntityProfileAuthorizationString);
         } catch (AuthorizationDeniedException e) {
             // Not currently ever thrown by query()
             throw new IllegalStateException(e);
         }
+        final Date now = new Date();
         
         if (log.isDebugEnabled()) {
             log.debug("Got " + approvals.size() + " approvals from Master API");
@@ -516,10 +519,21 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             // That information is only needed when viewing the details or editing a request.
             final RaApprovalRequestInfo ari = new RaApprovalRequestInfo(authenticationToken, caIdToNameMap.get(advo.getCAId()), null, null, null, advo, requestDataLite, editableData);
             
-            if ((request.isSearchingWaitingForMe() && ari.isWaitingForMe(authenticationToken)) ||
+            // Check if this approval should be included in the search results
+            boolean include = false;
+            if (request.getIncludeOtherAdmins()) {
+                include = (request.isSearchingWaitingForMe() && ari.isWaitingForFirstApproval(now)) ||
+                        (request.isSearchingPending() && ari.isInProgress(now)) ||
+                        (request.isSearchingHistorical() && ari.isProcessed()) ||
+                        (request.isSearchingExpired() && ari.isExpired(now));
+            } else {
+                include = (request.isSearchingWaitingForMe() && ari.isWaitingForMe(authenticationToken)) ||
                     (request.isSearchingPending() && ari.isPending(authenticationToken)) ||
-                    (request.isSearchingHistorical() && ari.isProcessed())) {
-                // This approval should be included in the search results
+                    (request.isSearchingHistorical() && ari.isProcessed()) ||
+                    (request.isSearchingExpired() && ari.isExpired(now));
+            }
+            
+            if (include) {
                 response.getApprovalRequests().add(ari);
             }
         }
@@ -539,7 +553,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         boolean authorizedToAudit = accessControlSession.isAuthorizedNoLogging(authenticationToken, AuditLogRules.VIEW.resource());
         
         if (!authorizedToApproveCAActions && !authorizedToApproveRAActions && !authorizedToAudit) {
-            throw new AuthorizationDeniedException("Not authorized to query apporvals");
+            throw new AuthorizationDeniedException("Not authorized to query for approvals: "+authorizedToApproveCAActions+", "+authorizedToApproveRAActions+", "+authorizedToAudit);
         }
 
         String endentityauth = null;
@@ -1154,7 +1168,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public void deleteUser(final AuthenticationToken admin, final String username) throws AuthorizationDeniedException{
         try {
             endEntityManagementSessionLocal.deleteUser(admin, username);
-        } catch (NotFoundException | RemoveException e) {
+        } catch (NoSuchEndEntityException | RemoveException e) {
             log.error(e);
         }
     }
@@ -1168,11 +1182,19 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public byte[] generateKeyStore(final AuthenticationToken admin, final EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException{
         GenerateToken tgen = new GenerateToken(endEntityAuthenticationSessionLocal, endEntityAccessSession, endEntityManagementSessionLocal, caSession, keyRecoverySessionLocal, signSessionLocal);
         KeyStore keyStore;
+
         try {
-            keyStore = tgen.generateOrKeyRecoverToken(admin, endEntity.getUsername(), endEntity.getPassword(), endEntity.getCAId(), endEntity.getExtendedinformation().getKeyStoreAlgorithmSubType(), endEntity.getExtendedinformation().getKeyStoreAlgorithmType(), endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, false, false, false, endEntity.getEndEntityProfileId());
-        } catch (Exception e1) {
-            throw new KeyStoreGeneralRaException(e1);
+            keyStore = tgen.generateOrKeyRecoverToken(admin, endEntity.getUsername(), endEntity.getPassword(), endEntity.getCAId(),
+                    endEntity.getExtendedinformation().getKeyStoreAlgorithmSubType(), endEntity.getExtendedinformation().getKeyStoreAlgorithmType(),
+                    endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, false, false, false, endEntity.getEndEntityProfileId());
+        } catch (KeyStoreException | InvalidAlgorithmParameterException | CADoesntExistsException | IllegalKeyException
+                | CertificateCreateException | IllegalNameException | CertificateRevokeException | CertificateSerialNumberException
+                | CryptoTokenOfflineException | IllegalValidityException | CAOfflineException | InvalidAlgorithmException
+                | CustomCertificateSerialNumberException | CertificateException | NoSuchAlgorithmException | InvalidKeySpecException
+                | UserDoesntFullfillEndEntityProfile | CertificateSignatureException | NoSuchEndEntityException e) {
+            throw new KeyStoreGeneralRaException(e);
         }
+      
         if(endEntity.getTokenType() == EndEntityConstants.TOKEN_SOFT_PEM){
             try(ByteArrayOutputStream outputStream = new ByteArrayOutputStream()){
                 outputStream.write(KeyTools.getSinglePemFromKeyStore(keyStore, endEntity.getPassword().toCharArray()));
@@ -1233,7 +1255,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 return true;
             } catch (AuthorizationDeniedException e) {
                 log.info("Client '"+authenticationToken+"' requested status change of certificate '"+fingerprint+"' but is not authorized to revoke certificates.");
-            } catch (FinderException e) {
+            } catch (NoSuchEndEntityException e) {
                 // The certificate did exist a few lines ago, but must have been removed since then. Treat this like it never existed
                 log.info("Client '"+authenticationToken+"' requested status change of certificate '"+fingerprint+"' that does not exist.");
             }

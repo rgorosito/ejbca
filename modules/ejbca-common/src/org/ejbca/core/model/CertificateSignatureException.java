@@ -1,6 +1,6 @@
 /*************************************************************************
  *                                                                       *
- *  EJBCA Community: The OpenSource Certificate Authority                *
+ *  EJBCA: The OpenSource Certificate Authority                          *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
  *  modify it under the terms of the GNU Lesser General Public           *
@@ -10,31 +10,38 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-
-package org.ejbca.core.model.ra;
+package org.ejbca.core.model;
 
 /**
- * Exception is cast when values of an end entity field does not match a specific rule in the function FieldValidator.validate()
- *  
- * @version $Id$ 
+ * Thrown to show that the signature of an certificate failed to verify somehow. 
+ * 
+ * @version $Id$
+ *
  */
-public class CustomFieldException extends Exception {
+public class CertificateSignatureException extends Exception {
 
-	private static final long serialVersionUID = -4270699717178908309L;
+    private static final long serialVersionUID = 1L;
 
-	public CustomFieldException(){
-		super();
-	}
-	
-	public CustomFieldException(String message){
-		super(message);
-	}
-	
-	public CustomFieldException(Throwable cause){
-		super(cause);
-	}
-	
-	public CustomFieldException(String message, Throwable cause){
-		super(message, cause);
-	}
+    /**
+     * @param message
+     */
+    public CertificateSignatureException(String message) {
+        super(message);
+    }
+    
+    /**
+     * @param cause
+     */
+    public CertificateSignatureException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * @param message
+     * @param cause
+     */
+    public CertificateSignatureException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
 }
