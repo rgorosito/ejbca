@@ -67,7 +67,7 @@ public class ApprovalDataVO implements Serializable {
     private int id = 0;
     private int approvalId = 0;
     private int approvalType = 0;
-    private int endEntityProfileId = 0;
+    private int endEntityProfileiId = 0;
     private int cAId = 0;
     private String reqadmincertissuerdn = null;
     private String reqadmincertsn = null;
@@ -104,7 +104,7 @@ public class ApprovalDataVO implements Serializable {
 		this.id = id;
 		this.approvalId = approvalId;
 		this.approvalType = approvalType;
-		this.endEntityProfileId = endEntityProfileiId;
+		this.endEntityProfileiId = endEntityProfileiId;
 		this.cAId = cAId;
 		this.reqadmincertissuerdn = reqadmincertissuerdn;
 		this.reqadmincertsn = reqadmincertsn;
@@ -172,8 +172,21 @@ public class ApprovalDataVO implements Serializable {
 	 * @return Returns the endEntityProfileId.
 	 */
 	public int getEndEntityProfileId() {
-		return endEntityProfileId;
+		return endEntityProfileiId;
 	}
+	
+	/**
+     *  For RA specific approval requests should the related end entity profile id be specified
+     *  for non ra request should this field be set to ApprovalDataVO.ANY_ENDENTITYPROFILE
+     *                       
+     * @return Returns the endEntityProfileiId.
+     * 
+     * @deprecated since 6.7.0, use getEndEntityProfileId(). This method can be removed once upgrading from 6.6.0 is no longer supported. 
+     */
+    @Deprecated
+	public int getEndEntityProfileiId() {
+        return getEndEntityProfileId();
+    }
 	
 	/**
 	 * Date the request for action or the approvel action will expire, Long.MAX_VALUE 

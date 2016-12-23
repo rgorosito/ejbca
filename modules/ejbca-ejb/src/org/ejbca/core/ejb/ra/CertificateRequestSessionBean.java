@@ -74,7 +74,7 @@ import org.ejbca.core.model.ca.WrongTokenTypeException;
 import org.ejbca.core.model.ra.CustomFieldException;
 import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.cvc.exception.ConstructionException;
 import org.ejbca.cvc.exception.ParseException;
@@ -120,7 +120,7 @@ public class CertificateRequestSessionBean implements CertificateRequestSessionR
     public byte[] processCertReq(AuthenticationToken admin, EndEntityInformation userdata, String req, int reqType, String hardTokenSN,
             int responseType) throws AuthorizationDeniedException, NotFoundException, InvalidKeyException, NoSuchAlgorithmException,
             InvalidKeySpecException, NoSuchProviderException, SignatureException, IOException, ObjectNotFoundException, CertificateException,
-            UserDoesntFullfillEndEntityProfile, ApprovalException, EjbcaException, CesecoreException, CertificateExtensionException {
+            EndEntityProfileValidationException, ApprovalException, EjbcaException, CesecoreException, CertificateExtensionException {
         byte[] retval = null;
 
         // Check tokentype
@@ -185,7 +185,7 @@ public class CertificateRequestSessionBean implements CertificateRequestSessionR
 
     @Override
     public ResponseMessage processCertReq(AuthenticationToken admin, EndEntityInformation userdata, RequestMessage req, Class<? extends CertificateResponseMessage> responseClass)
-            throws EndEntityExistsException, AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, EjbcaException, CesecoreException, CertificateExtensionException {
+            throws EndEntityExistsException, AuthorizationDeniedException, EndEntityProfileValidationException, EjbcaException, CesecoreException, CertificateExtensionException {
         // Check tokentype
         if (userdata.getTokenType() != SecConst.TOKEN_SOFT_BROWSERGEN) {
             throw new WrongTokenTypeException("Error: Wrong Token Type of user, must be 'USERGENERATED' for PKCS10/SPKAC/CRMF/CVC requests");
@@ -210,10 +210,11 @@ public class CertificateRequestSessionBean implements CertificateRequestSessionR
      * @throws IllegalNameException  if the Subject DN failed constraints
      * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
      * @throws CustomFieldException if the end entity was not validated by a locally defined field validator
+     * @throws NoSuchEndEntityException if the end entity was not found
      */
     private void addOrEditUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, boolean fromwebservice)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, ApprovalException, EndEntityExistsException,
-            CADoesntExistsException, CertificateSerialNumberException, IllegalNameException, CustomFieldException {
+            throws AuthorizationDeniedException, EndEntityProfileValidationException, ApprovalException, EndEntityExistsException,
+            CADoesntExistsException, CertificateSerialNumberException, IllegalNameException, CustomFieldException, NoSuchEndEntityException {
 
         int caid = userdata.getCAId();
         if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() + caid)) {
@@ -290,8 +291,8 @@ public class CertificateRequestSessionBean implements CertificateRequestSessionR
     @Override
     public byte[] processSoftTokenReq(AuthenticationToken admin, EndEntityInformation userdata, String hardTokenSN, String keyspec, String keyalg,
             boolean createJKS) throws ApprovalException, EndEntityExistsException, CADoesntExistsException, CertificateSerialNumberException,
-            IllegalNameException, CustomFieldException, AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, NoSuchAlgorithmException,
-            InvalidKeySpecException, CertificateException, InvalidAlgorithmParameterException, KeyStoreException {
+            IllegalNameException, CustomFieldException, AuthorizationDeniedException, EndEntityProfileValidationException, NoSuchAlgorithmException,
+            InvalidKeySpecException, CertificateException, InvalidAlgorithmParameterException, KeyStoreException, NoSuchEndEntityException {
 
         // This is the secret sauce, do the end entity handling automagically here before we get the cert
         addOrEditUser(admin, userdata, true, true);

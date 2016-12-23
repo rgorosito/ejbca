@@ -24,9 +24,10 @@ import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
 import org.ejbca.ui.cli.infrastructure.parameter.Parameter;
 import org.ejbca.ui.cli.infrastructure.parameter.ParameterContainer;
@@ -80,10 +81,12 @@ public class SetSubjDirAttrCommand extends BaseRaCommand {
             return CommandResult.SUCCESS;
         } catch (AuthorizationDeniedException e) {
             getLogger().error("Not authorized to change end entity.");
-        } catch (UserDoesntFullfillEndEntityProfile e) {
-            getLogger().error("Given end entity doesn't fullfill end entity profile. : " + e.getMessage());
+        } catch (EndEntityProfileValidationException e) {
+            getLogger().error("Given end entity doesn't fulfill end entity profile. : " + e.getMessage());
         } catch (CADoesntExistsException | WaitingForApprovalException| ApprovalException | CertificateSerialNumberException | IllegalNameException e) {
             getLogger().error("ERROR: " + e.getMessage());
+        } catch (NoSuchEndEntityException e) {
+            getLogger().error("No such end entity.");
         } 
         return CommandResult.FUNCTIONAL_FAILURE;
     }

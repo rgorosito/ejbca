@@ -140,10 +140,11 @@ import org.ejbca.core.ejb.config.ConfigurationSessionRemote;
 import org.ejbca.core.ejb.crl.PublishingCrlSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityExistsException;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -901,14 +902,14 @@ public class ProtocolScepHttpTest {
     }
 
     private void createScepUser(String userName, String userDN)
-            throws EndEntityExistsException, CADoesntExistsException, AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
-            WaitingForApprovalException, EjbcaException, IllegalNameException, CertificateSerialNumberException {
+            throws EndEntityExistsException, CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, EjbcaException, IllegalNameException, CertificateSerialNumberException, NoSuchEndEntityException {
         createScepUser(userName, userDN, x509ca.getCAId());
     }
     
     private void createScepUser(String userName, String userDN, int caId)
-            throws EndEntityExistsException, CADoesntExistsException, AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
-            WaitingForApprovalException, EjbcaException, IllegalNameException, CertificateSerialNumberException {
+            throws EndEntityExistsException, CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, EjbcaException, IllegalNameException, CertificateSerialNumberException, NoSuchEndEntityException {
         if(!endEntityManagementSession.existsUser(userName)) {
             endEntityManagementSession.addUser(admin, getEndEntityInformation(userName, userDN, caId), false);
         } else {
@@ -917,12 +918,12 @@ public class ProtocolScepHttpTest {
     }
 
     private void changeScepUser(String userName, String userDN) throws CADoesntExistsException, AuthorizationDeniedException,
-            UserDoesntFullfillEndEntityProfile, WaitingForApprovalException, EjbcaException, CertificateSerialNumberException, IllegalNameException {
+            EndEntityProfileValidationException, WaitingForApprovalException, EjbcaException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
         changeScepUser(userName, userDN, x509ca.getCAId());
     }
     
     private void changeScepUser(String userName, String userDN, int caId) throws CADoesntExistsException, AuthorizationDeniedException,
-            UserDoesntFullfillEndEntityProfile, WaitingForApprovalException, EjbcaException, CertificateSerialNumberException, IllegalNameException {
+            EndEntityProfileValidationException, WaitingForApprovalException, EjbcaException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
         endEntityManagementSession.changeUser(admin, getEndEntityInformation(userName, userDN, caId), false);
         log.debug("changing user: " + userName + ", foo123, " + userDN);
     }

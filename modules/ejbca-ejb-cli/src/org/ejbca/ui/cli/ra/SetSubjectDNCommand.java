@@ -23,9 +23,10 @@ import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
 import org.ejbca.ui.cli.infrastructure.parameter.Parameter;
 import org.ejbca.ui.cli.infrastructure.parameter.ParameterContainer;
@@ -68,18 +69,21 @@ public class SetSubjectDNCommand extends BaseRaCommand {
         }
         getLogger().info("Setting subjectDN '" + subjectDN + "' for end entity with username " + username);
         try {
-            EndEntityInformation uservo = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAccessSessionRemote.class).findUser(
-                    getAuthenticationToken(), username);
+            EndEntityInformation uservo = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAccessSessionRemote.class)
+                    .findUser(getAuthenticationToken(), username);
             uservo.setDN(subjectDN);
             EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityManagementSessionRemote.class).changeUser(getAuthenticationToken(), uservo, false);
             return CommandResult.SUCCESS;
         } catch (AuthorizationDeniedException e) {
             getLogger().error("Not authorized to change end entity.");
-        } catch (UserDoesntFullfillEndEntityProfile e) {
-            getLogger().error("Given end entity doesn't fullfill end entity profile. : " + e.getMessage());
+        } catch (EndEntityProfileValidationException e) {
+            getLogger().error("Given end entity doesn't fulfill end entity profile. : " + e.getMessage());
         } catch (CADoesntExistsException | WaitingForApprovalException | ApprovalException | CertificateSerialNumberException | IllegalNameException e) {
             getLogger().error("ERROR: " + e.getMessage());
-        } 
+        } catch (NoSuchEndEntityException e) {
+            getLogger().error("No such end entity.");
+            return CommandResult.FUNCTIONAL_FAILURE;
+        }
         return CommandResult.FUNCTIONAL_FAILURE;
     }
 

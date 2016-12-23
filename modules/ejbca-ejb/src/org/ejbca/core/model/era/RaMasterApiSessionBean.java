@@ -122,11 +122,11 @@ import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalReque
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
+import org.ejbca.core.model.ra.EndEntityProfileValidationRaException;
 import org.ejbca.core.model.ra.KeyStoreGeneralRaException;
 import org.ejbca.core.model.ra.RAAuthorization;
-import org.ejbca.core.model.ra.UserDoesntFullfillEndEntityProfileRaException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.util.query.ApprovalMatch;
 import org.ejbca.util.query.BasicMatch;
@@ -437,7 +437,20 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
-    public boolean addRequestResponse(AuthenticationToken authenticationToken, RaApprovalResponseRequest requestResponse)
+    public void unexpireApprovalRequest(final AuthenticationToken authenticationToken, final int id, final long unexpireForMillis) throws AuthorizationDeniedException {
+        final ApprovalDataVO advo = getApprovalDataNoAuth(id);
+        // FIXME should require more access than just read access
+        if (getApprovalRequest(authenticationToken, advo) == null) { // Authorization check
+            if (log.isDebugEnabled()) {
+                log.debug("Authorization denied to approval request ID " + id + " for " + authenticationToken);
+            }
+            throw new AuthorizationDeniedException("You are not authorized to the Request with ID " + id + " at this point");
+        }
+        approvalSession.unexpireApprovalRequestNoAuth(authenticationToken, id, unexpireForMillis);
+    }
+    
+    @Override
+    public boolean addRequestResponse(final AuthenticationToken authenticationToken, final RaApprovalResponseRequest requestResponse)
             throws AuthorizationDeniedException, ApprovalException, ApprovalRequestExpiredException, ApprovalRequestExecutionException,
             AdminAlreadyApprovedRequestException, SelfApprovalException, AuthenticationFailedException {
         final ApprovalDataVO advo = getApprovalDataNoAuth(requestResponse.getId());
@@ -1157,9 +1170,9 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         } catch (CesecoreException e) {
             //Wrapping the CesecoreException.errorCode
             throw new EjbcaException(e);
-        } catch (UserDoesntFullfillEndEntityProfile e) {
+        } catch (EndEntityProfileValidationException e) {
             //Wraps @WebFault Exception based with @NonSensitive EjbcaException based
-            throw new UserDoesntFullfillEndEntityProfileRaException(e); 
+            throw new EndEntityProfileValidationRaException(e); 
         }
         return endEntityAccessSession.findUser(endEntity.getUsername()) != null;
     }
@@ -1191,7 +1204,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 | CertificateCreateException | IllegalNameException | CertificateRevokeException | CertificateSerialNumberException
                 | CryptoTokenOfflineException | IllegalValidityException | CAOfflineException | InvalidAlgorithmException
                 | CustomCertificateSerialNumberException | CertificateException | NoSuchAlgorithmException | InvalidKeySpecException
-                | UserDoesntFullfillEndEntityProfile | CertificateSignatureException | NoSuchEndEntityException e) {
+                | EndEntityProfileValidationException | CertificateSignatureException | NoSuchEndEntityException e) {
             throw new KeyStoreGeneralRaException(e);
         }
       

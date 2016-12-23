@@ -385,7 +385,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                         try {
                             if (approvalDataVOView.getApprovalProfile().canViewPartition(getAdmin(), approvalPartition)) {
                                 authorizedPartitions.add(
-                                        new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileIdentifier(),
+                                        new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
                                                 approvalPartition.getPartitionIdentifier(), getPartitionProperties(approvalPartition)));
                             }
                         } catch (AuthenticationFailedException e) {
@@ -415,7 +415,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                     try {
                         if (approvalDataVOView.getApprovalProfile().canViewPartition(getAdmin(), approvalPartition)) {
                             authorizedPartitions
-                                    .add(new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileIdentifier(),
+                                    .add(new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
                                             approvalPartition.getPartitionIdentifier(), getPartitionProperties(approvalPartition)));
                         }
                         if (approvalDataVOView.getApprovalProfile().canApprovePartition(getAdmin(), approvalPartition)) {
@@ -465,7 +465,8 @@ public class ApproveActionManagedBean extends BaseManagedBean {
      * @return true if the current admin has access to approve any partitions at all
      */
     public boolean canApproveAnyPartitions() {
-        return !partitionsAuthorizedToApprove.isEmpty();
+        ApprovalDataVO approvalDataVO = approvalSession.findNonExpiredApprovalRequest(getAdmin(), approvalDataVOView.getApprovalId());
+        return !partitionsAuthorizedToApprove.isEmpty() && !approvalDataVO.getApprovalRequest().getRequestAdmin().equals(getAdmin());
     }
     
     /**

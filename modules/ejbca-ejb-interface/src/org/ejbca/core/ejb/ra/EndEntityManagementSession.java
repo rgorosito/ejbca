@@ -32,7 +32,7 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
 import org.ejbca.core.model.ra.CustomFieldException;
 import org.ejbca.core.model.ra.RevokeBackDateNotAllowedForProfileException;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.util.query.IllegalQueryException;
 import org.ejbca.util.query.Query;
 
@@ -83,7 +83,7 @@ public interface EndEntityManagementSession {
      */
     void addUser(AuthenticationToken admin, String username, String password, String subjectdn, String subjectaltname, String email,
     		boolean clearpwd, int endentityprofileid, int certificateprofileid, EndEntityType type, int tokentype, int hardwaretokenissuerid, int caid)
-    		throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, WaitingForApprovalException,
+    		throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException,
     		CADoesntExistsException, EndEntityExistsException, CustomFieldException, IllegalNameException, ApprovalException, CertificateSerialNumberException;
 
     /**
@@ -97,7 +97,7 @@ public interface EndEntityManagementSession {
      *            db, otherwise it is hashed.
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fulfill requirements of end entity profile
      * @throws EndEntityExistsException
      *             if user already exists or some other database error occur during commit
@@ -112,7 +112,7 @@ public interface EndEntityManagementSession {
      * @throws IllegalNameException if the Subject DN failed constraints
      */
     void addUserFromWS(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, EndEntityExistsException, WaitingForApprovalException,
+            throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
             CADoesntExistsException, CustomFieldException, IllegalNameException, ApprovalException, CertificateSerialNumberException;
 
     /**
@@ -125,7 +125,7 @@ public interface EndEntityManagementSession {
      *            db, otherwise it is hashed.
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fulfill requirements of end entity profile
      * @throws EndEntityExistsException
      *             if user already exists or some other database error occur during commit
@@ -138,7 +138,7 @@ public interface EndEntityManagementSession {
      * @throws ApprovalException if an approval already exists for this request.
      * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
      */
-    void addUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd) throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
+    void addUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd) throws AuthorizationDeniedException, EndEntityProfileValidationException,
             EndEntityExistsException, WaitingForApprovalException, CADoesntExistsException, IllegalNameException, CustomFieldException, ApprovalException, CertificateSerialNumberException;
 
     /**
@@ -153,7 +153,7 @@ public interface EndEntityManagementSession {
      * @param lastApprovingAdmin The last administrator to have approved the request
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fulfill requirements of end entity profile
      * @throws EndEntityExistsException
      *             if user already exists or some other database error occur during commit
@@ -167,18 +167,9 @@ public interface EndEntityManagementSession {
      * @throws CertificateSerialNumberException  if SubjectDN serial number already exists.
      */
     void addUserAfterApproval(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, AuthenticationToken lastApprovingAdmin)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile, EndEntityExistsException, WaitingForApprovalException,
+            throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
             CADoesntExistsException, CustomFieldException, IllegalNameException, ApprovalException, CertificateSerialNumberException;
-    
-    /**
-     * Validates the name and DN in an end entity and canonicalizes/strips
-     * the attributes. This method is called by addUser.
-     * 
-     * @throws CustomFieldException if if the end entity was not validated by a locally defined field validator
-     * 
-     */
-     void canonicalizeUser(final EndEntityInformation endEntity) throws CustomFieldException;
-    
+        
     /**
      * Change user information.
      * 
@@ -189,7 +180,7 @@ public interface EndEntityManagementSession {
      *             db, otherwise it is hashed.
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fullfil requirements of end entity profile
      * @throws ApprovalException
      *             if an approval already is waiting for specified action
@@ -200,10 +191,11 @@ public interface EndEntityManagementSession {
      *             if the caid of the user does not exist
      * @throws IllegalNameException if the Subject DN failed constraints
      * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
+     * @throws NoSuchEndEntityException if the end entity was not found
      */
     void changeUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
-            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException;
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException;
 
     /**
      * Change user information.
@@ -216,7 +208,7 @@ public interface EndEntityManagementSession {
      * @param fromWebService The service is called from webService
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fllfil requirements of end entity profile
      * @throws WaitingForApprovalException
      *             if approval is required and the action have been added in the
@@ -225,10 +217,11 @@ public interface EndEntityManagementSession {
      * @throws IllegalNameException if the Subject DN failed constraints
      * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
      * @throws ApprovalException if an approval already exists for this request.
+     * @throws NoSuchEndEntityException if the end entity was not found
      */
     void changeUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, boolean fromWebService)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
-            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException;
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException;
 
     /**
      * Change user information after an EditEndEntityApprovalRequest has been approved
@@ -242,7 +235,7 @@ public interface EndEntityManagementSession {
      * @param lastApprovingAdmin the last administrator to have approved the request
      * @throws AuthorizationDeniedException
      *             if administrator isn't authorized to add user
-     * @throws UserDoesntFullfillEndEntityProfile
+     * @throws EndEntityProfileValidationException
      *             if data doesn't fulfill requirements of end entity profile
      * @throws ApprovalException
      *             if an approval already is waiting for specified action
@@ -253,17 +246,19 @@ public interface EndEntityManagementSession {
      *             if the caid of the user does not exist
      * @throws IllegalNameException if the Subject DN failed constraints
      * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
+     * @throws NoSuchEndEntityException NoSuchEndEntityException if the user does not exist
      */
     void changeUserAfterApproval(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, 
             int approvalRequestId, AuthenticationToken lastApprovingAdmin)
-            throws AuthorizationDeniedException, UserDoesntFullfillEndEntityProfile,
-            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException;
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException;
     
     /**
      * Deletes a user from the database. The users certificates must be revoked
      * BEFORE this method is called.
      * 
      * @param username the unique username.
+     * @throws AuthorizationDeniedException if admin was not authorized to remove end entities
      * @throws NoSuchEndEntityException if the user does not exist
      * @throws RemoveException if the user could not be removed
      */
@@ -308,7 +303,7 @@ public interface EndEntityManagementSession {
      * 
      * @throws NoSuchEndEntityException if the end entity was not found
      */
-    void setPassword(AuthenticationToken admin, String username, String password) throws UserDoesntFullfillEndEntityProfile, AuthorizationDeniedException, NoSuchEndEntityException;
+    void setPassword(AuthenticationToken admin, String username, String password) throws EndEntityProfileValidationException, AuthorizationDeniedException, NoSuchEndEntityException;
 
     /**
      * Sets a clear text password for a user.
@@ -321,7 +316,7 @@ public interface EndEntityManagementSession {
      * 
      * @throws NoSuchEndEntityException if the end entity was not found
      */
-    void setClearTextPassword(AuthenticationToken admin, String username, String password) throws UserDoesntFullfillEndEntityProfile, AuthorizationDeniedException, NoSuchEndEntityException;
+    void setClearTextPassword(AuthenticationToken admin, String username, String password) throws EndEntityProfileValidationException, AuthorizationDeniedException, NoSuchEndEntityException;
 
     /**
      * Verifies a password for a user.
@@ -333,7 +328,8 @@ public interface EndEntityManagementSession {
      * 
      * @throws NoSuchEndEntityException if the end entity was not found
      */
-    boolean verifyPassword(AuthenticationToken admin, String username, String password) throws UserDoesntFullfillEndEntityProfile, AuthorizationDeniedException, NoSuchEndEntityException;
+    boolean verifyPassword(AuthenticationToken admin, String username, String password)
+            throws EndEntityProfileValidationException, AuthorizationDeniedException, NoSuchEndEntityException;
 
     /**
      * Method to execute a customized query on the ra user data. The parameter

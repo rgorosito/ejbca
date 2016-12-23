@@ -56,13 +56,14 @@ import org.ejbca.config.CmpConfiguration;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityAccessSession;
 import org.ejbca.core.ejb.ra.EndEntityManagementSession;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSession;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
-import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.CmpMessageHelper;
 import org.ejbca.core.protocol.cmp.CmpPKIBodyConstants;
 import org.ejbca.util.passgen.IPasswordGenerator;
@@ -362,8 +363,8 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
                         user.setPassword(password);
                         eeManagementSession.changeUser(admin, user, false);
                     }
-                } catch (AuthorizationDeniedException | IllegalNameException | CADoesntExistsException | UserDoesntFullfillEndEntityProfile
-                        | WaitingForApprovalException | CertificateSerialNumberException | ApprovalException e) {
+                } catch (AuthorizationDeniedException | IllegalNameException | CADoesntExistsException | EndEntityProfileValidationException
+                        | WaitingForApprovalException | CertificateSerialNumberException | ApprovalException | NoSuchEndEntityException e) {
                     if (log.isDebugEnabled()) {
                         log.debug(e.getLocalizedMessage());
                     }
