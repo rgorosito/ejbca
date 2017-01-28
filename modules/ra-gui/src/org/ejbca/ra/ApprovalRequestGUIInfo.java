@@ -309,7 +309,7 @@ public class ApprovalRequestGUIInfo implements Serializable {
         
         requestDate = ValidityDate.formatAsISO8601ServerTZ(approvalData.getRequestDate().getTime(), TimeZone.getDefault());
         requestExpireDate = ValidityDate.formatAsISO8601ServerTZ(approvalData.getExpireDate().getTime(), TimeZone.getDefault());
-        // These must be added last, so the "Unexpire" button appears under the Expiration Date field.
+        // These must be added last, so the "Extend" button appears under the Expiration Date field.
         requestData.add(new RequestDataRow(raLocaleBean, new ApprovalDataText("REQUESTDATE", getRequestDate(), true, false), false, null));
         requestData.add(new RequestDataRow(raLocaleBean, new ApprovalDataText("REQUESTEXPIRATIONDATE", getRequestExpireDate(), true, false), false, null));
         
@@ -392,7 +392,7 @@ public class ApprovalRequestGUIInfo implements Serializable {
             editLogEntries.add(raLocaleBean.getMessage("view_request_page_edit_log_entry", editDate, adminName));
         }
         
-        if (endEntityInformation != null) {
+        if (endEntityInformation != null || approvalData.getApprovalType() == ApprovalDataVO.APPROVALTYPE_REVOKECERTIFICATE) {
             authorizedToRequestType = raAccessBean.isAuthorizedToApproveEndEntityRequests();
         } else {
             authorizedToRequestType = raAccessBean.isAuthorizedToApproveCARequests();
@@ -468,5 +468,13 @@ public class ApprovalRequestGUIInfo implements Serializable {
     public boolean isExpired() { return request.getStatus() == ApprovalDataVO.STATUS_EXPIRED || request.getStatus() == ApprovalDataVO.STATUS_EXPIREDANDNOTIFIED; }
     public boolean hasNextApprovalStep() { return request.getNextApprovalStep() != null; }
     public boolean isAuthorizedToApprovalType() { return authorizedToRequestType; }
+    
+    public boolean getCanExtend() {
+        if (log.isDebugEnabled()) {
+            log.debug("Checking if extension of request expiration is possible: Authorized=" + isAuthorizedToApprovalType() + ", expired=" + isExpired() + ", max extension time=" + request.getMaxExtensionTime());
+        }
+        return isAuthorizedToApprovalType() && isExpired() &&
+                request.getMaxExtensionTime() != 0;
+    }
     
 }

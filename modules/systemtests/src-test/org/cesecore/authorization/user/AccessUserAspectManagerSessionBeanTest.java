@@ -34,7 +34,7 @@ import org.cesecore.authorization.rules.AccessRuleState;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
-import org.cesecore.roles.RoleData;
+import org.cesecore.roles.AdminGroupData;
 import org.cesecore.roles.management.RoleManagementSessionRemote;
 import org.cesecore.util.EjbRemoteHelper;
 import org.junit.Test;
@@ -45,6 +45,7 @@ import org.junit.Test;
  * @version $Id$
  * 
  */
+@SuppressWarnings("deprecation")
 public class AccessUserAspectManagerSessionBeanTest {
 
     private AccessControlSessionRemote accessControlSession = EjbRemoteHelper.INSTANCE.getRemoteSession(AccessControlSessionRemote.class);
@@ -61,7 +62,7 @@ public class AccessUserAspectManagerSessionBeanTest {
     @Test
     public void testCrudOperations() {
 
-        final RoleData role = new RoleData(1337, "NerdHerder");
+        final AdminGroupData role = new AdminGroupData(1337, "NerdHerder");
         final int caId = 4711;
 
         AccessUserAspectData result = null;
@@ -96,7 +97,6 @@ public class AccessUserAspectManagerSessionBeanTest {
         String issuerDn2 = "CN=" + roleName + "2";
         int caId1 = issuerDn1.hashCode();
         int caId2 = issuerDn2.hashCode();
-        @SuppressWarnings("deprecation")
         int oldStylePrimaryKey = AccessUserAspectData.generatePrimaryKeyOld(roleName, caId1,
                 X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(), AccessMatchType.TYPE_EQUALCASE, roleName);
         AccessUserAspectData oldAspect = new AccessUserAspectData(roleName, caId1, X500PrincipalAccessMatchValue.WITH_COMMONNAME,
@@ -105,7 +105,7 @@ public class AccessUserAspectManagerSessionBeanTest {
         AccessUserAspectData newAspect = new AccessUserAspectData(roleName, caId2, X500PrincipalAccessMatchValue.WITH_COMMONNAME,
                 AccessMatchType.TYPE_EQUALCASE, roleName + "2");
         try {
-            RoleData role = roleManagementSession.create(alwaysAllowAuthenticationToken, roleName);
+            AdminGroupData role = roleManagementSession.create(alwaysAllowAuthenticationToken, roleName);
             role = roleManagementSession.addSubjectsToRole(alwaysAllowAuthenticationToken, role, Arrays.asList(oldAspect, newAspect));
             AccessRuleData accessRule = new AccessRuleData(roleName, rule, AccessRuleState.RULE_ACCEPT, false);
             role = roleManagementSession.addAccessRulesToRole(alwaysAllowAuthenticationToken, role, Arrays.asList(accessRule));
@@ -129,7 +129,6 @@ public class AccessUserAspectManagerSessionBeanTest {
         String rule = "/" + roleName;
         String issuerDn = "CN=" + roleName;
         int caId = issuerDn.hashCode();
-        @SuppressWarnings("deprecation")
         int oldStylePrimaryKey = AccessUserAspectData.generatePrimaryKeyOld(roleName, caId,
                 X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(), AccessMatchType.TYPE_EQUALCASE, roleName);
         AccessUserAspectData oldAspect = new AccessUserAspectData(roleName, caId, X500PrincipalAccessMatchValue.WITH_COMMONNAME,
@@ -138,7 +137,7 @@ public class AccessUserAspectManagerSessionBeanTest {
         AccessUserAspectData newAspect = new AccessUserAspectData(roleName, caId, X500PrincipalAccessMatchValue.WITH_COMMONNAME,
                 AccessMatchType.TYPE_EQUALCASE, roleName);
         try {
-            RoleData role = roleManagementSession.create(alwaysAllowAuthenticationToken, roleName);
+            AdminGroupData role = roleManagementSession.create(alwaysAllowAuthenticationToken, roleName);
             role = roleManagementSession.addSubjectsToRole(alwaysAllowAuthenticationToken, role, Arrays.asList(oldAspect));
             AccessRuleData accessRule = new AccessRuleData(roleName, rule, AccessRuleState.RULE_ACCEPT, false);
             role = roleManagementSession.addAccessRulesToRole(alwaysAllowAuthenticationToken, role, Arrays.asList(accessRule));

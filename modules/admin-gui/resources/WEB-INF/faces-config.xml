@@ -136,6 +136,10 @@
   </managed-bean>
   
   <validator>
+        <validator-id>dummyValidator</validator-id>
+        <validator-class>org.ejbca.util.validator.DummyValidator</validator-class>
+  </validator>
+  <validator>
         <validator-id>legalCharsValidator</validator-id>
         <validator-class>org.ejbca.ui.web.admin.LegalCharsValidator</validator-class>
   </validator>
@@ -148,6 +152,10 @@
         <validator-class>org.ejbca.ui.web.admin.OptionalHexSerialNumberValidator</validator-class>
   </validator>
   <validator>
+        <validator-id>positiveIntegerValidator</validator-id>
+        <validator-class>org.ejbca.util.validator.PositiveIntegerValidator</validator-class>
+  </validator>
+  <validator>
         <validator-id>simpleTimeValidator</validator-id>
         <validator-class>org.ejbca.ui.web.admin.SimpleTimeValidator</validator-class>
   </validator>
@@ -155,6 +163,7 @@
         <validator-id>validityDateValidator</validator-id>
         <validator-class>org.ejbca.ui.web.admin.ValidityDateValidator</validator-class>
   </validator>
+  
   <converter>
         <converter-id>mapToStringConverter</converter-id>
         <converter-class>org.ejbca.ui.web.admin.audit.MapToStringConverter</converter-class>

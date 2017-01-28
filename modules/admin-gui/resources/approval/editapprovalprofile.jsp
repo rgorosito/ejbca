@@ -103,6 +103,15 @@
 					<h:outputText value="#{web.text.YEAR365DAYS}, #{web.text.MO30DAYS}"/>
 				</h:panelGroup>
 			</h:panelGroup>
+			
+			<h:outputLabel for="maxExtensionTime" value="#{web.text.MAX_EXTENSION_TIME} #{web.text.FORMAT_TIME_YMDHMIN}"/>
+            <h:panelGroup>
+                <h:inputText id="maxExtensionTime" disabled="#{approvalProfilesMBean.viewOnly}" value="#{approvalProfileMBean.maxExtensionTime}" />
+                <br/>
+                <h:panelGroup styleClass="help">
+                    <h:outputText value="#{web.text.YEAR365DAYS}, #{web.text.MO30DAYS}. #{web.text.MAX_EXTENSION_TIME_HELP}"/>
+                </h:panelGroup>
+            </h:panelGroup>
 				
 		</h:panelGrid>
 		
@@ -148,20 +157,24 @@
 																							
 					   			<h:panelGroup rendered="#{!property.multiValued}">
 						   			<h:inputText  disabled="#{approvalProfilesMBean.viewOnly}" rendered="#{property.type.simpleName eq 'String'}" 
-						   				value="#{property.value}" style="width: 100%">
+						   				value="#{property.value}" style="width: 100%" >
 						   				<f:converter converterId="stringConverter"/>
+						   				<f:validator validatorId="#{property.validatorType}"/>
 						   			</h:inputText>
                                     <h:inputTextarea disabled="#{approvalProfilesMBean.viewOnly}" rendered="#{property.type.simpleName eq 'MultiLineString'}" 
-                                        value="#{property.value.value}" style="width: 100%">
+                                        value="#{property.value.value}" style="width: 100%" >
                                         <f:converter converterId="stringConverter"/>
+                                        <f:validator validatorId="#{property.validatorType}"/>
                                     </h:inputTextarea>
 						   			<h:inputText disabled="#{approvalProfilesMBean.viewOnly}" rendered="#{property.type.simpleName eq 'Long'}" value="#{property.value}" 
 						   				style="text-align: right;" >
 					                   <f:converter converterId="javax.faces.Long"/>
+					                   <f:validator validatorId="#{property.validatorType}"/>
 						   			</h:inputText>
 						   			<h:inputText disabled="#{approvalProfilesMBean.viewOnly}" rendered="#{property.type.simpleName eq 'Integer'}" value="#{property.value}" 	
-						   				style="text-align: right;" size="6">
+						   				style="text-align: right;" size="6" >
 					                   <f:converter converterId="javax.faces.Integer"/>
+					                   <f:validator validatorId="#{property.validatorType}" />
 						   			</h:inputText>
 					   				<h:selectBooleanCheckbox disabled="#{approvalProfilesMBean.viewOnly}" rendered="#{property.type.simpleName eq 'Boolean'}" value="#{property.value}"/>
 					   			</h:panelGroup>

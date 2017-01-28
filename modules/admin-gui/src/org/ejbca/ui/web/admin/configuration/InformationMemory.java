@@ -38,7 +38,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSession;
 import org.cesecore.config.AvailableExtendedKeyUsagesConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSession;
-import org.cesecore.roles.RoleData;
+import org.cesecore.roles.AdminGroupData;
 import org.cesecore.roles.management.RoleManagementSession;
 import org.cesecore.roles.management.RoleManagementSessionLocal;
 import org.ejbca.config.EjbcaConfiguration;
@@ -228,12 +228,16 @@ public class InformationMemory implements Serializable {
 
     /**
      * Returns authorized external CA names as a treemap of name (String) -> id (Integer).
-     * @throws CADoesntExistsException 
      */
-    public TreeMap<String, Integer> getExternalCAs() throws CADoesntExistsException {
+    public TreeMap<String, Integer> getExternalCAs() {
         TreeMap<String, Integer> externalcas = new TreeMap<String, Integer>();
         for (Integer caId : caauthorization.getAuthorizedCAIds()) {
-            CAInfo caInfo = casession.getCAInfoInternal(caId);
+            CAInfo caInfo;
+            try {
+                caInfo = casession.getCAInfoInternal(caId);
+            } catch (CADoesntExistsException e) {
+                throw new IllegalStateException("Should not be able to happen, CA ID was just retrieved from the database.", e);
+            }
             if (caInfo.getStatus() == CAConstants.CA_EXTERNAL) {
                 externalcas.put(caInfo.getName(), caId);
             }          
@@ -477,7 +481,7 @@ public class InformationMemory implements Serializable {
     /**
      * @see org.ejbca.ui.web.admin.hardtokeninterface.HardTokenAuthorization.java
      */
-    public Collection<RoleData> getHardTokenIssuingRoles() {
+    public Collection<AdminGroupData> getHardTokenIssuingRoles() {
         return hardtokenauthorization.getHardTokenIssuingRoles();
     }
 
@@ -489,7 +493,7 @@ public class InformationMemory implements Serializable {
         if (authRoles == null) {
             authRoles = new TreeMap<String, Integer>();
 
-            for (RoleData role : roleManagementSession.getAllRolesAuthorizedToEdit(administrator)) {
+            for (AdminGroupData role : roleManagementSession.getAllRolesAuthorizedToEdit(administrator)) {
                 authRoles.put(role.getRoleName(), Integer.valueOf(role.getPrimaryKey()));
             }
         }

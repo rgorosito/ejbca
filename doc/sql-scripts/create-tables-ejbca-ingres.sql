@@ -321,6 +321,30 @@ CREATE TABLE PublisherQueueData (
     PRIMARY KEY (pk)
 );
 
+CREATE TABLE RoleData (
+    id INT4 NOT NULL,
+    roleName VARCHAR(256) NOT NULL,
+    nameSpace VARCHAR(256) with null,
+    rawData LONG VARCHAR with null,
+    rowProtection LONG VARCHAR with null,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE RoleMemberData (
+    primaryKey INT4 NOT NULL,
+    tokenType VARCHAR(256) NOT NULL,
+    tokenSubType INT4 NOT NULL,
+    tokenIssuerId INT4 NOT NULL,
+    tokenMatchValue VARCHAR(2000) NOT NULL,
+    roleId INT4 NOT NULL,
+    memberBindingType VARCHAR(256) with null,
+    memberBindingValue VARCHAR(256) with null,
+    rowProtection LONG VARCHAR with null,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (primaryKey)
+);
+
 CREATE TABLE ServiceData (
     id INT4 NOT NULL,
     data LONG VARCHAR with null,

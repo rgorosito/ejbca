@@ -149,7 +149,7 @@ import org.cesecore.keys.token.PKCS11CryptoToken;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.roles.RoleData;
+import org.cesecore.roles.AdminGroupData;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.RoleNotFoundException;
 import org.cesecore.roles.access.RoleAccessSessionLocal;
@@ -199,7 +199,7 @@ import org.ejbca.cvc.CardVerifiableCertificate;
 import org.ejbca.util.CAIdTools;
 
 /**
- * Administrates and manages CAs in EJBCA system.
+ * Manages CAs in EJBCA.
  * 
  * @version $Id$
  */
@@ -516,7 +516,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         
         // Update Roles
         final Random random = new Random(System.nanoTime()); 
-        for (RoleData role : roleAccessSession.getAllRoles()) {
+        for (AdminGroupData role : roleAccessSession.getAllRoles()) {
             final String roleName = role.getRoleName();
             final Map<Integer,AccessRuleData> rules = new HashMap<>(role.getAccessRules());
             final Map<Integer,AccessUserAspectData> users = new HashMap<>(role.getAccessUsers());
@@ -529,7 +529,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     final String oldTempName = roleName + "_CAIdUpdateOld" + random.nextLong();
                     roleManagementSession.renameRole(authenticationToken, roleName, oldTempName);
                     
-                    RoleData newRole = roleManagementSession.create(authenticationToken, roleName);
+                    AdminGroupData newRole = roleManagementSession.create(authenticationToken, roleName);
                     newRole = roleManagementSession.addAccessRulesToRole(authenticationToken, newRole, rules.values());
                     newRole = roleManagementSession.addSubjectsToRole(authenticationToken, newRole, users.values());
 
@@ -2104,15 +2104,15 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 }
                 
                 //If CA has gone through Name Change, clone all this CA specific access rules with new one with replaced caid for every roles.
-                for(RoleData roleData : roleAccessSession.getAllRoles()){
+                for(AdminGroupData adminGroupData : roleAccessSession.getAllRoles()){
                     final List<AccessRuleData> accessRulesToBeAdded = new ArrayList<AccessRuleData>();
-                    for(Map.Entry<Integer, AccessRuleData > accessRuleData: roleData.getAccessRules().entrySet()){
+                    for(Map.Entry<Integer, AccessRuleData > accessRuleData: adminGroupData.getAccessRules().entrySet()){
                         String accessRuleName = accessRuleData.getValue().getAccessRuleName();
                         if(accessRuleName.contains(caidBeforeNameChange + "")){
-                          accessRulesToBeAdded.add(new AccessRuleData(roleData.getRoleName(), accessRuleName.replace(caidBeforeNameChange+"", caid+""), accessRuleData.getValue().getInternalState(), accessRuleData.getValue().getRecursiveBool())); 
+                          accessRulesToBeAdded.add(new AccessRuleData(adminGroupData.getRoleName(), accessRuleName.replace(caidBeforeNameChange+"", caid+""), accessRuleData.getValue().getInternalState(), accessRuleData.getValue().getRecursiveBool())); 
                         }
                     }
-                    roleManagementSession.addAccessRulesToRole(authenticationToken, roleData, accessRulesToBeAdded);
+                    roleManagementSession.addAccessRulesToRole(authenticationToken, adminGroupData, accessRulesToBeAdded);
                 }
             }
             
@@ -2226,15 +2226,13 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             final List<CertificateDataWrapper> cacerts = certificateStoreSession.getCertificateDatasBySubject(ca.getSubjectDN());
             final Date now = new Date();
             for (final CertificateDataWrapper cdw : cacerts) {
-                revocationSession.revokeCertificate(admin, cdw, ca.getCRLPublishers(), now, reason, ca.getSubjectDN());
+                revocationSession.revokeCertificateInNewTransaction(admin, cdw, ca.getCRLPublishers(), now, reason, ca.getSubjectDN());
             }
             // Revoke all certificates issued by this CA. If this is a root CA the CA certificates will be included in this batch as well
             // but if this is a subCA these are only the "entity" certificates issued by this CA
             if (ca.getStatus() != CAConstants.CA_EXTERNAL) {
                 certificateStoreSession.revokeAllCertByCA(admin, ca.getSubjectDN(), reason);
-                Collection<Integer> caids = new ArrayList<Integer>();
-                caids.add(Integer.valueOf(ca.getCAId()));
-                publishingCrlSession.createCRLs(admin, caids, 0);
+                publishingCrlSession.forceCRL(admin, ca.getCAId());
             }
             ca.setRevocationReason(reason);
             ca.setRevocationDate(new Date());
@@ -2246,7 +2244,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             final String detailsMsg = intres.getLocalizedMessage("caadmin.revokedca", ca.getName(), Integer.valueOf(reason));
             auditSession.log(EjbcaEventTypes.CA_REVOKED, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
-        } catch (Exception e) {
+        } catch (CADoesntExistsException | CertificateRevokeException | CryptoTokenOfflineException | CAOfflineException e) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.errorrevoke", ca.getName());
             auditSession.log(EjbcaEventTypes.CA_REVOKED, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -2526,7 +2524,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
 
             // import sign keys.
             final Certificate[] certchain = new Certificate[1];
-            certchain[0] = CertTools.genSelfCert("CN=dummy", 36500, null, privatekey, publickey, signatureAlgorithm, true);
+            certchain[0] = CertTools.genSelfCert("CN=SignatureKeyHolder", 36500, null, privatekey, publickey, signatureAlgorithm, true);
 
             keystore.setKeyEntry(CAToken.SOFTPRIVATESIGNKEYALIAS, privatekey, null, certchain);
 
@@ -2542,7 +2540,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 enckeys = new KeyPair(publicEncryptionKey, privateEncryptionKey);
             }
             // generate dummy certificate
-            certchain[0] = CertTools.genSelfCert("CN=dummy2", 36500, null, enckeys.getPrivate(), enckeys.getPublic(), encryptionAlgorithm, true);
+            certchain[0] = CertTools.genSelfCert("CN=EncryptionKeyHolder", 36500, null, enckeys.getPrivate(), enckeys.getPublic(), encryptionAlgorithm, true);
             keystore.setKeyEntry(CAToken.SOFTPRIVATEDECKEYALIAS, enckeys.getPrivate(), null, certchain);
 
             // Set the token properties
@@ -2857,7 +2855,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 Certificate[] certificateChainEncryption = new Certificate[1];
                 // certificateChainSignature[0].getSigAlgName(),
                 // generate dummy certificate for encryption key.
-                certificateChainEncryption[0] = CertTools.genSelfCertForPurpose("CN=dummy2", 36500, null, p12PrivateEncryptionKey,
+                certificateChainEncryption[0] = CertTools.genSelfCertForPurpose("CN=EncryptionKeyHolder", 36500, null, p12PrivateEncryptionKey,
                         p12PublicEncryptionKey, thisCAToken.getEncryptionAlgorithm(), true, X509KeyUsage.keyEncipherment, true);
                 log.debug("Exporting with sigAlgorithm " + AlgorithmTools.getSignatureAlgorithm(certificateChainSignature[0]) + "encAlgorithm="
                         + thisCAToken.getEncryptionAlgorithm());

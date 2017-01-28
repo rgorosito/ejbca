@@ -272,12 +272,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         EndEntityInformation endEntityInformationCopy = new EndEntityInformation(endEntity);      
         final int endEntityProfileId = endEntityInformationCopy.getEndEntityProfileId();
         final String endEntityProfileName = endEntityProfileSession.getEndEntityProfileName(endEntityProfileId);
-        try {
-            FieldValidator.validate(endEntity, endEntityProfileId, endEntityProfileName);
-        } catch (CustomFieldException e) {
-            e.setErrorCode(ErrorCode.FIELD_VALUE_NOT_VALID);
-            throw e;
-        }
+        FieldValidator.validate(endEntity, endEntityProfileId, endEntityProfileName);
         final String dn = CertTools.stringToBCDNString(StringTools.strip(endEntityInformationCopy.getDN()));
         endEntityInformationCopy.setDN(dn);
         endEntityInformationCopy.setSubjectAltName(StringTools.strip(endEntityInformationCopy.getSubjectAltName()));
@@ -417,7 +412,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         if (caInfo.isDoEnforceUniqueSubjectDNSerialnumber()) {
             if (caInfo.isUseUserStorage()) {
                 if (!isSubjectDnSerialnumberUnique(caid, dn, username)) {
-                    throw new CertificateSerialNumberException(ErrorCode.SUBJECTDN_SERIALNUMBER_ALREADY_EXISTS, "Error: SubjectDN serial number already exists.");
+                    throw new CertificateSerialNumberException("Error: SubjectDN serial number already exists.");
                 }
             } else {
                 log.warn("CA configured to enforce unique SubjectDN serialnumber, but not to store any user data. Check will be ignored. Please verify your configuration.");
@@ -661,7 +656,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     @Override
     public void changeUserAfterApproval(final AuthenticationToken admin, final EndEntityInformation endEntityInformation, final boolean clearpwd,
             final int approvalRequestId, final AuthenticationToken lastApprovingAdmin) throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException,
-            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
+            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
         changeUser(admin, endEntityInformation, clearpwd, false, approvalRequestId, lastApprovingAdmin);
         
     }
@@ -669,14 +664,14 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     @Override
     public void changeUser(final AuthenticationToken admin, final EndEntityInformation userdata, final boolean clearpwd)
             throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException, CADoesntExistsException,
-            ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
+            ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
         changeUser(admin, userdata, clearpwd, false);
     }
 
     @Override
     public void changeUser(final AuthenticationToken admin, final EndEntityInformation endEntityInformation, final boolean clearpwd,
             final boolean fromWebService) throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException,
-            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
+            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
         changeUser(admin, endEntityInformation, clearpwd, fromWebService, 0, null);
     }
 
@@ -684,7 +679,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     private void changeUser(final AuthenticationToken admin, final EndEntityInformation endEntityInformation, final boolean clearpwd,
             final boolean fromWebService, final int approvalRequestId, final AuthenticationToken lastApprovingAdmin) 
             throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException,
-            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException {
+            CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
         final int endEntityProfileId = endEntityInformation.getEndEntityProfileId();
         final int caid = endEntityInformation.getCAId();
         final String username = endEntityInformation.getUsername();
@@ -695,11 +690,9 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             // Check if administrator is authorized to edit user.
             assertAuthorizedToEndEntityProfile(admin, endEntityProfileId, AccessRulesConstants.EDIT_END_ENTITY, caid);
         }
-        try {
-            FieldValidator.validate(endEntityInformation, endEntityProfileId, endEntityProfileSession.getEndEntityProfileName(endEntityProfileId));
-        } catch (CustomFieldException e) {
-            e.setErrorCode(ErrorCode.FIELD_VALUE_NOT_VALID);
-        }
+
+        FieldValidator.validate(endEntityInformation, endEntityProfileId, endEntityProfileSession.getEndEntityProfileName(endEntityProfileId));
+
         String dn = CertTools.stringToBCDNString(StringTools.strip(endEntityInformation.getDN()));
         String altName = endEntityInformation.getSubjectAltName();
         if (log.isTraceEnabled()) {
@@ -802,7 +795,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         // No need to access control on the CA here just to get these flags, we have already checked above that we are authorized to the CA
         if (cainfo.isDoEnforceUniqueSubjectDNSerialnumber()) {
             if (!isSubjectDnSerialnumberUnique(caid, dn, username)) {
-                throw new CertificateSerialNumberException(ErrorCode.SUBJECTDN_SERIALNUMBER_ALREADY_EXISTS, "Error: SubjectDN Serialnumber already exists.");
+                throw new CertificateSerialNumberException("Error: SubjectDN Serialnumber already exists.");
             }
         }
         // Check name constraints
@@ -903,6 +896,9 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             // Send notification if it should be sent.
             sendNotification(admin, notificationEndEntityInformation, newstatus, approvalRequestId, lastApprovingAdmin, null);
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
+            // Set times so that diffing is made properly
+            endEntityInformation.setTimeModified(new Date(userData.getTimeModified()));
+            endEntityInformation.setTimeCreated(new Date(userData.getTimeCreated()));
             Map<String, String[]> diff = originalCopy.getDiff(endEntityInformation);
             for(String key : diff.keySet()) {
                 details.put(key, diff.get(key)[0] + " -> " + diff.get(key)[1]);

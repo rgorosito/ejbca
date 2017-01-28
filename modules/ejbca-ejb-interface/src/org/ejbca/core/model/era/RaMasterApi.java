@@ -52,6 +52,12 @@ public interface RaMasterApi {
     /** @return true if the implementation if the interface is available and usable. */
     boolean isBackendAvailable();
     
+    /**
+     * @return the current (lowest) back-end API version
+     * @since Master RA API version 1 (EJBCA 6.8.0)
+     */
+    int getApiVersion();
+
     /** Returns an AccessSet containing the access rules that are allowed for the given authentication token. */
     AccessSet getUserAccessSet(AuthenticationToken authenticationToken) throws AuthenticationFailedException;
     
@@ -81,10 +87,11 @@ public interface RaMasterApi {
      * Extends the validity of an approval request for the given amount of time. The status is set to Waiting for Approval if it was expired.
      * @param authenticationToken Admin
      * @param id Id of approval request
-     * @param unexpireForMillis Milliseconds to extend the validity for
+     * @param extendForMillis Milliseconds to extend the validity for
      * @throws IllegalStateException if the request is in approval or rejected state already.
+     * @throws AuthorizationDeniedException If the admin does not have approval access to this request, e.g. due to missing access to CAs or missing approval access. 
      */
-    void unexpireApprovalRequest(AuthenticationToken authenticationToken, int id, long unexpireForMillis) throws AuthorizationDeniedException;
+    void extendApprovalRequest(AuthenticationToken authenticationToken, int id, long extendForMillis) throws AuthorizationDeniedException;
     
     /** Approves, rejects or saves (not yet implemented) a step of an approval request. The action is determined by the "action" value in the given RaApprovalResponseRequest.
      * @return true if the approval request exists on this node, false if not.
@@ -225,5 +232,4 @@ public interface RaMasterApi {
      * @throws EjbcaException exception with errorCode if check fails
      */
     void checkSubjectDn(AuthenticationToken admin, EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException;
-
 }

@@ -27,6 +27,8 @@ drop table if exists PeerData;
 drop table if exists ProfileData;
 drop table if exists PublisherData;
 drop table if exists PublisherQueueData;
+drop table if exists RoleData;
+drop table if exists RoleMemberData;
 drop table if exists ServiceData;
 drop table if exists UserData;
 drop table if exists UserDataSourceData;

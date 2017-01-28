@@ -23,6 +23,7 @@ import java.util.ServiceLoader;
 import javax.faces.model.SelectItem;
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.commons.lang.StringUtils;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.ejbca.config.WebConfiguration;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
@@ -109,6 +110,7 @@ public class EditPublisherJSPHelper {
     public static final String TEXTFIELD_LDAPSTORETIMEOUT      = "textfieldldapstoretimeout";
     public static final String TEXTFIELD_VA_DATASOURCE         = "textfieldvadatasource";
     public static final String PASSWORD_LDAPLOGINPASSWORD      = "textfieldldaploginpassword";
+    public static final String PASSWORD_LDAPLOGINPASSWORDPLACEHOLDER = "placeholder";    
     public static final String PASSWORD_LDAPCONFIRMLOGINPWD    = "textfieldldaploginconfirmpwd";
     public static final String RADIO_LDAPCONNECTIONSECURITY    = "radioldapconnectionsecurity";
     public static final String CHECKBOX_LDAPCREATENONEXISTING  = "checkboxldapcreatenonexisting";
@@ -364,7 +366,12 @@ public class EditPublisherJSPHelper {
                                 value = request.getParameter(PASSWORD_LDAPLOGINPASSWORD);
                                 if(value != null){
                                     value = value.trim();
-                                    ldappublisher.setLoginPassword(value);
+                                    // If we have a password that wasn't shown in the html page, and this wasn't changed by the user
+                                    // we will not edit the old password. This is a "security" feature so we don't send the actual password
+                                    // to be available in clear text in the users web browser
+                                    if (!PASSWORD_LDAPLOGINPASSWORDPLACEHOLDER.equals(value)) {
+                                        ldappublisher.setLoginPassword(value);
+                                    }
                                 }
                                 value = request.getParameter(TEXTFIELD_LDAPTIMEOUT);
                                 if(value != null){
@@ -810,4 +817,16 @@ public class EditPublisherJSPHelper {
         this.publisherdata = publisherdata;
     }
     
+    /** 
+     * @return password placeholder instead of real password in order to not send clear text password to browser, or empty string in case there is no ldap password (i.e. new publisher).
+     */
+    public String getPasswordPlaceholder() {
+       if (this.publisherdata != null) {
+           final String str = (String)this.publisherdata.getRawData().get(LdapPublisher.LOGINPASSWORD);
+           if (StringUtils.isNotEmpty(str)) {
+               return EditPublisherJSPHelper.PASSWORD_LDAPLOGINPASSWORDPLACEHOLDER;
+           }
+       }
+       return "";
+    }
 }

@@ -178,6 +178,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
+    
+    private static final int RA_MASTER_API_VERSION = 1;
 
     @Override
     public boolean isBackendAvailable() {
@@ -193,6 +195,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             }
         }
         return available;
+    }
+    
+    @Override
+    public int getApiVersion() {
+        return RA_MASTER_API_VERSION;
     }
     
     @Override
@@ -338,6 +345,10 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         } else {
             certificateProfileName = null;
         }
+        ApprovalProfile approvalProfile = null;
+        if (advo.getApprovalProfile() != null) {
+            approvalProfile = approvalProfileSession.getApprovalProfile(advo.getApprovalProfile().getProfileId());
+        }
         
         // Get request data as text
         final List<ApprovalDataText> requestData = getRequestDataAsText(authenticationToken, advo);
@@ -345,7 +356,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         // Editable data
         final RaEditableRequestData editableData = getRequestEditableData(authenticationToken, advo);
         
-        return new RaApprovalRequestInfo(authenticationToken, caName, endEntityProfileName, endEntityProfile, certificateProfileName, advo, requestData, editableData);
+        return new RaApprovalRequestInfo(authenticationToken, caName, endEntityProfileName, endEntityProfile, certificateProfileName, approvalProfile, advo, requestData, editableData);
         
     }
 
@@ -437,16 +448,26 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
-    public void unexpireApprovalRequest(final AuthenticationToken authenticationToken, final int id, final long unexpireForMillis) throws AuthorizationDeniedException {
+    public void extendApprovalRequest(final AuthenticationToken authenticationToken, final int id, final long extendForMillis) throws AuthorizationDeniedException {
         final ApprovalDataVO advo = getApprovalDataNoAuth(id);
-        // FIXME should require more access than just read access
-        if (getApprovalRequest(authenticationToken, advo) == null) { // Authorization check
+        if (advo == null) {
+            if (log.isDebugEnabled()) {
+                log.debug("Approval request with ID " + id + " does not exist on this node.");
+            }
+            return;
+        }
+        
+        if (getApprovalRequest(authenticationToken, advo) == null) { // Check read authorization (includes authorization to referenced CAs) 
             if (log.isDebugEnabled()) {
                 log.debug("Authorization denied to approval request ID " + id + " for " + authenticationToken);
             }
             throw new AuthorizationDeniedException("You are not authorized to the Request with ID " + id + " at this point");
         }
-        approvalSession.unexpireApprovalRequestNoAuth(authenticationToken, id, unexpireForMillis);
+        
+        // Check specifically for approval authorization
+        approvalExecutionSession.assertAuthorizedToApprove(authenticationToken, advo);
+        
+        approvalSession.extendApprovalRequestNoAuth(authenticationToken, id, extendForMillis);
     }
     
     @Override
@@ -457,14 +478,14 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         if (advo == null) {
             // Return false so the next master api backend can see if it can handle the approval
             return false;
-        } else if (getApprovalRequest(authenticationToken, advo) == null) { // Authorization check
+        } else if (getApprovalRequest(authenticationToken, advo) == null) { // Check read authorization (includes authorization to referenced CAs) 
             if (log.isDebugEnabled()) {
                 log.debug("Authorization denied to approval request ID " + requestResponse.getId() + " for " + authenticationToken);
             }
             throw new AuthorizationDeniedException("You are not authorized to the Request with ID " + requestResponse.getId() + " at this point");
         }
         
-        // Check that we are authorized before continuing
+        // Check specifically for approval authorization
         approvalExecutionSession.assertAuthorizedToApprove(authenticationToken, advo);
         
         // Save the update request (needed if there are properties, e.g. checkboxes etc. in the partitions)
@@ -530,7 +551,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             final RaEditableRequestData editableData = getRequestEditableData(authenticationToken, advo);
             // We don't pass the end entity profile or certificate profile details for each approval request, when searching.
             // That information is only needed when viewing the details or editing a request.
-            final RaApprovalRequestInfo ari = new RaApprovalRequestInfo(authenticationToken, caIdToNameMap.get(advo.getCAId()), null, null, null, advo, requestDataLite, editableData);
+            final RaApprovalRequestInfo ari = new RaApprovalRequestInfo(authenticationToken, caIdToNameMap.get(advo.getCAId()), null, null, null, null, advo, requestDataLite, editableData);
             
             // Check if this approval should be included in the search results
             boolean include = false;

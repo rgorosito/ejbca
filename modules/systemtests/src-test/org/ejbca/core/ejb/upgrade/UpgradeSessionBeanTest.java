@@ -51,11 +51,15 @@ import org.cesecore.configuration.GlobalConfigurationSessionRemote;
 import org.cesecore.keybind.InternalKeyBindingRules;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
-import org.cesecore.roles.RoleData;
+import org.cesecore.roles.AdminGroupData;
+import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.RoleNotFoundException;
 import org.cesecore.roles.access.RoleAccessSessionRemote;
 import org.cesecore.roles.management.RoleManagementSessionRemote;
+import org.cesecore.roles.management.RoleSessionRemote;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberProxySessionRemote;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.GlobalConfiguration;
@@ -78,6 +82,7 @@ import org.junit.Test;
  * @version $Id$
  *
  */
+@SuppressWarnings("deprecation")
 public class UpgradeSessionBeanTest {
 
     private ApprovalProfileSessionRemote approvalProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ApprovalProfileSessionRemote.class);
@@ -87,6 +92,8 @@ public class UpgradeSessionBeanTest {
     private GlobalConfigurationSessionRemote globalConfigSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
     private RoleAccessSessionRemote roleAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
     private RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
+    private RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
+    private RoleMemberProxySessionRemote roleMemberProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private UpgradeSessionRemote upgradeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(UpgradeSessionRemote.class);
 
     private AuthenticationToken alwaysAllowtoken = new TestAlwaysAllowLocalAuthenticationToken("UpgradeSessionBeanTest");
@@ -112,7 +119,7 @@ public class UpgradeSessionBeanTest {
     public void testUpgradeTo640AuditorRole() throws RoleExistsException, AuthorizationDeniedException, RoleNotFoundException {
         //Create a role specifically to test that read only access is given. 
         final String readOnlyRoleName = "ReadOnlyRole"; 
-        RoleData readOnlyRole = roleManagementSession.create(alwaysAllowtoken, readOnlyRoleName);
+        AdminGroupData readOnlyRole = roleManagementSession.create(alwaysAllowtoken, readOnlyRoleName);
         List<AccessRuleData> oldAccessRules = new ArrayList<>();
         oldAccessRules.add(new AccessRuleData(readOnlyRole.getRoleName(), AccessRulesConstants.REGULAR_ACTIVATECA, AccessRuleState.RULE_ACCEPT, false));
         oldAccessRules.add(new AccessRuleData(readOnlyRole.getRoleName(), StandardRules.CAFUNCTIONALITY.resource(), AccessRuleState.RULE_ACCEPT, true));
@@ -126,7 +133,7 @@ public class UpgradeSessionBeanTest {
                 X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASEINS, "CN=foo")));
         try {
             upgradeSession.upgrade(null, "6.3.2", false);
-            RoleData upgradedRole = roleAccessSession.findRole(readOnlyRoleName);
+            AdminGroupData upgradedRole = roleAccessSession.findRole(readOnlyRoleName);
             assertTrue(
                     "Role was not upgraded with rule " + StandardRules.CAVIEW.resource(),
                     upgradedRole.getAccessRules().containsValue(
@@ -177,14 +184,14 @@ public class UpgradeSessionBeanTest {
        
        // Add a role whose access rules should change after upgrade
        final String sysConfigRoleName = "SystemConfigRole"; 
-       RoleData sysConfigRole  = roleManagementSession.create(alwaysAllowtoken, sysConfigRoleName);
+       AdminGroupData sysConfigRole  = roleManagementSession.create(alwaysAllowtoken, sysConfigRoleName);
        List<AccessRuleData> oldSysConfigAccessRules = new ArrayList<>();
        oldSysConfigAccessRules.add(new AccessRuleData(sysConfigRole.getRoleName(), StandardRules.SYSTEMCONFIGURATION_EDIT.resource(), AccessRuleState.RULE_ACCEPT, false));
        sysConfigRole = roleManagementSession.addAccessRulesToRole(alwaysAllowtoken, sysConfigRole, oldSysConfigAccessRules);
        
        // Add a role whose access rules should NOT change after upgrade
        final String caAdmRoleName = "CaAdminRole"; 
-       RoleData caAdmRole  = roleManagementSession.create(alwaysAllowtoken, caAdmRoleName);
+       AdminGroupData caAdmRole  = roleManagementSession.create(alwaysAllowtoken, caAdmRoleName);
        List<AccessRuleData> oldCaAdmAccessRules = new ArrayList<>();
        oldCaAdmAccessRules.add(new AccessRuleData(caAdmRole.getRoleName(), StandardRules.CAFUNCTIONALITY.resource(), AccessRuleState.RULE_ACCEPT, true));
        oldCaAdmAccessRules.add(new AccessRuleData(caAdmRole.getRoleName(), StandardRules.CERTIFICATEPROFILEEDIT.resource(), AccessRuleState.RULE_ACCEPT, false));
@@ -196,7 +203,7 @@ public class UpgradeSessionBeanTest {
            upgradeSession.upgrade(null, "6.3.2", false);
            
            // Verify that sysConfigRole's access rules contained rules to edit available extended key usages and custom certificate extensions
-           RoleData upgradedSysConfigRole = roleAccessSession.findRole(sysConfigRoleName);
+           AdminGroupData upgradedSysConfigRole = roleAccessSession.findRole(sysConfigRoleName);
            assertEquals(6, upgradedSysConfigRole.getAccessRules().size());
            assertTrue(
                    "Role was not upgraded with rule " + StandardRules.SYSTEMCONFIGURATION_EDIT.resource(),
@@ -219,7 +226,7 @@ public class UpgradeSessionBeanTest {
            
            
            // Verify that caAdmRole's access rules do not contain new rules
-           RoleData upgradedCaAdmRole = roleAccessSession.findRole(caAdmRoleName);
+           AdminGroupData upgradedCaAdmRole = roleAccessSession.findRole(caAdmRoleName);
            assertEquals(4, upgradedCaAdmRole.getAccessRules().size());
            assertFalse(
                    "Role was upgraded with rule " + StandardRules.EKUCONFIGURATION_EDIT.resource() + ", even though it shouldn't have.",
@@ -250,7 +257,7 @@ public class UpgradeSessionBeanTest {
        final String testRoleName = "TestRole"; 
        
        // Test view (auditor) access
-       RoleData testRole = roleManagementSession.create(alwaysAllowtoken, testRoleName);
+       AdminGroupData testRole = roleManagementSession.create(alwaysAllowtoken, testRoleName);
        try {
            List<AccessRuleData> oldAccessRules = new ArrayList<>();
            oldAccessRules.add(new AccessRuleData(testRole.getRoleName(), StandardRules.CERTIFICATEPROFILEVIEW.resource(), AccessRuleState.RULE_ACCEPT, false));
@@ -258,7 +265,7 @@ public class UpgradeSessionBeanTest {
            roleManagementSession.addSubjectsToRole(alwaysAllowtoken, testRole, Arrays.asList(new AccessUserAspectData(testRoleName, 1,
                X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASEINS, "CN=foo")));
            upgradeSession.upgrade(null, "6.5.1", false);
-           RoleData upgradedRole = roleAccessSession.findRole(testRoleName);
+           AdminGroupData upgradedRole = roleAccessSession.findRole(testRoleName);
            assertTrue(
                    "Role was not upgraded with rule " + StandardRules.APPROVALPROFILEVIEW.resource(),
                    upgradedRole.getAccessRules().containsValue(
@@ -277,7 +284,7 @@ public class UpgradeSessionBeanTest {
            roleManagementSession.addSubjectsToRole(alwaysAllowtoken, testRole, Arrays.asList(new AccessUserAspectData(testRoleName, 1,
                X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASEINS, "CN=foo")));
            upgradeSession.upgrade(null, "6.5.1", false);
-           RoleData upgradedRole = roleAccessSession.findRole(testRoleName);
+           AdminGroupData upgradedRole = roleAccessSession.findRole(testRoleName);
            assertTrue(
                    "Role was not upgraded with rule " + StandardRules.APPROVALPROFILEEDIT.resource(),
                    upgradedRole.getAccessRules().containsValue(
@@ -291,7 +298,6 @@ public class UpgradeSessionBeanTest {
     /**
     * This test verifies that CAs and Certificate Profiles using approvals are automatically assigned approval profiles at upgrade. 
     */
-   @SuppressWarnings("deprecation")
    @Test
    public void testUpgradeTo660Approvals() throws CAExistsException, AuthorizationDeniedException, CertificateProfileExistsException, CADoesntExistsException, CertificateParsingException, CryptoTokenOfflineException, OperatorCreationException, IOException {       
        //This CA should not be assigned an approval profile on account of lacking approvals
@@ -426,8 +432,8 @@ public class UpgradeSessionBeanTest {
     public void testUpgradeTo642AuditorRole() throws RoleExistsException, AuthorizationDeniedException, RoleNotFoundException {
         final String oldAuditorName = "640Auditor"; 
         final String editSystemAdminName = "EditSystemAdmin";
-        RoleData oldAuditor = roleManagementSession.create(alwaysAllowtoken, oldAuditorName);
-        RoleData editSystemAdmin = roleManagementSession.create(alwaysAllowtoken, editSystemAdminName);
+        AdminGroupData oldAuditor = roleManagementSession.create(alwaysAllowtoken, oldAuditorName);
+        AdminGroupData editSystemAdmin = roleManagementSession.create(alwaysAllowtoken, editSystemAdminName);
         try {
             Set<String> newRules = new HashSet<>();
             newRules.add(StandardRules.SYSTEMCONFIGURATION_VIEW.resource());
@@ -459,8 +465,8 @@ public class UpgradeSessionBeanTest {
             editSystemAdmin = roleManagementSession.addAccessRulesToRole(alwaysAllowtoken, editSystemAdmin, oldEditAdminRules);
             //Perform upgrade. 
             upgradeSession.upgrade(null, "6.4.0", false);
-            RoleData upgradedAuditor = roleAccessSession.findRole(oldAuditorName);
-            RoleData upgradedEditSystemAdmin = roleAccessSession.findRole(editSystemAdminName);
+            AdminGroupData upgradedAuditor = roleAccessSession.findRole(oldAuditorName);
+            AdminGroupData upgradedEditSystemAdmin = roleAccessSession.findRole(editSystemAdminName);
             for (String newRule : newRules) {
                 assertTrue("6.4.0 Auditor role should have been given access to rule " + newRule + " during upgrade.",
                         upgradedAuditor.hasAccessToRule(newRule));
@@ -486,7 +492,6 @@ public class UpgradeSessionBeanTest {
     /**
      * This test verifies that CMP aliases which refer to EEPs as names will refer to them by ID afterwards. 
      */
-    @SuppressWarnings("deprecation")
     @Test
     public void testUpgradeCmpConfigurationTo651()
             throws AuthorizationDeniedException, EndEntityProfileExistsException, EndEntityProfileNotFoundException {
@@ -519,5 +524,30 @@ public class UpgradeSessionBeanTest {
             endEntityProfileSession.removeEndEntityProfile(alwaysAllowtoken, profileName);
         }
     }
-
+    
+    @Test
+    public void upgradeTo680RoleMembers() throws RoleExistsException, AuthorizationDeniedException, RoleNotFoundException {
+        AdminGroupData oldRole = roleManagementSession.create(alwaysAllowtoken, "upgradeTo680RoleMembers");
+        AccessUserAspectData oldAccessUserAspect = new AccessUserAspectData(oldRole.getRoleName(), 4711, X500PrincipalAccessMatchValue.WITH_COUNTRY, AccessMatchType.TYPE_EQUALCASE, "SE");
+        roleManagementSession.addSubjectsToRole(alwaysAllowtoken, oldRole, Arrays.asList(oldAccessUserAspect));
+        int newRoleId = 0;
+        try {
+            upgradeSession.upgrade(null, "6.7.0", false);
+            // Post upgrade, there should exist a new RoleData object with the given rolename
+            Role newRole = roleSession.getRole(alwaysAllowtoken, null, oldRole.getRoleName());
+            newRoleId = newRole.getRoleId();
+            List<RoleMember> newRoleMembers = roleMemberProxySession.findRoleMemberByRoleId(newRole.getRoleId());
+            assertEquals("For some strange reason, a single role member was turned into several", 1, newRoleMembers.size());
+            RoleMember newRoleMember = newRoleMembers.get(0);
+            assertEquals("Match value type was not upgraded properly." , X500PrincipalAccessMatchValue.WITH_COUNTRY, newRoleMember.getAccessMatchValue());
+            assertEquals("Match value was not upgraded properly." , "SE", newRoleMember.getTokenMatchValue());
+        } finally {
+            try {
+                roleManagementSession.remove(alwaysAllowtoken, oldRole);
+            } catch (RoleNotFoundException e) {
+                // NOPMD Ignore
+            }
+            roleSession.deleteRoleIdempotent(alwaysAllowtoken, newRoleId, true);
+        }
+    }
 }

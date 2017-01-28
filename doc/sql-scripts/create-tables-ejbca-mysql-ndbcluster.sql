@@ -324,6 +324,30 @@ CREATE TABLE PublisherQueueData (
     PRIMARY KEY (pk)
 ) TABLESPACE ejbca_ts STORAGE DISK ENGINE=NDB;
 
+CREATE TABLE RoleData (
+    id INT(11) NOT NULL,
+    roleName VARCHAR(250) BINARY NOT NULL,
+    nameSpace VARCHAR(250) BINARY,
+    rawData LONGTEXT,
+    rowProtection LONGTEXT,
+    rowVersion INT(11) NOT NULL,
+    PRIMARY KEY (id)
+) TABLESPACE ejbca_ts STORAGE DISK ENGINE=NDB;
+
+CREATE TABLE RoleMemberData (
+    primaryKey INT(11) NOT NULL,
+    tokenType VARCHAR(250) BINARY NOT NULL,
+    tokenSubType INT(11) NOT NULL,
+    tokenIssuerId INT(11) NOT NULL,
+    tokenMatchValue VARCHAR(2000) BINARY NOT NULL,
+    roleId INT(11) NOT NULL,
+    memberBindingType VARCHAR(250) BINARY,
+    memberBindingValue VARCHAR(250) BINARY,
+    rowProtection LONGTEXT,
+    rowVersion INT(11) NOT NULL,
+    PRIMARY KEY (primaryKey)
+) TABLESPACE ejbca_ts STORAGE DISK ENGINE=NDB;
+
 CREATE TABLE ServiceData (
     id INT(11) NOT NULL,
     data LONGTEXT,

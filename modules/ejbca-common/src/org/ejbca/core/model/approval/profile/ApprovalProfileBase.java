@@ -70,6 +70,7 @@ public abstract class ApprovalProfileBase extends ProfileBase implements Approva
         super(name);
         data.put(PROPERTY_REQUEST_EXPIRATION_PERIOD, EjbcaConfiguration.getApprovalDefaultRequestValidity());
         data.put(PROPERTY_APPROVAL_EXPIRATION_PERIOD, EjbcaConfiguration.getApprovalDefaultApprovalValidity());
+        data.put(PROPERTY_MAX_EXTENSION_TIME, EjbcaConfiguration.getApprovalDefaultMaxExtensionTime());
 
     }
 
@@ -104,6 +105,21 @@ public abstract class ApprovalProfileBase extends ProfileBase implements Approva
     @Override
     public void setApprovalExpirationPeriod(final long expirationPeriod) {
         data.put(PROPERTY_APPROVAL_EXPIRATION_PERIOD, expirationPeriod);
+    }
+    
+    @Override
+    public long getMaxExtensionTime() {
+        final Object value = data.get(PROPERTY_MAX_EXTENSION_TIME);
+        if(value == null) {
+            return EjbcaConfiguration.getApprovalDefaultMaxExtensionTime();
+        }
+        return (long) value;
+    }
+    
+
+    @Override
+    public void setMaxExtensionTime(final long maxExtensionTime) {
+        data.put(PROPERTY_MAX_EXTENSION_TIME, maxExtensionTime);
     }
 
     @Override

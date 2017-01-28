@@ -605,7 +605,7 @@ public class ProtocolScepHttpTest {
             String currentDirectory = System.getProperty("user.dir");
             throw new Error("Test can't continue, can't find language resource files. Current directory is " + currentDirectory);
         }
-        assertTrue(returnMessageString.indexOf(localizedMessage) >= 0);
+        assertTrue(returnMessageString+": should contain: "+localizedMessage, returnMessageString.indexOf(localizedMessage) >= 0);
      }
 
     @Test
@@ -630,7 +630,7 @@ public class ProtocolScepHttpTest {
             String currentDirectory = System.getProperty("user.dir");
             throw new Error("Test can't continue, can't find language resource files. Current directory is " + currentDirectory);
         }
-        assertTrue(returnMessageString.indexOf(localizedMessage) >= 0);
+        assertTrue(returnMessageString+": should contain: "+localizedMessage, returnMessageString.indexOf(localizedMessage) >= 0);
     }
     
     /**
@@ -868,7 +868,7 @@ public class ProtocolScepHttpTest {
         
         // Verify PKCS7. It should be signed by the current CA
         final ContentInfo ci = ContentInfo.getInstance(respBytes);
-        System.out.println(ASN1Dump.dumpAsString(ci));
+        //System.out.println(ASN1Dump.dumpAsString(ci));
         final CMSSignedData signedData = new CMSSignedData(ci);
         // Check correct signer
         Collection<SignerInformation> signers = signedData.getSignerInfos().getSigners();

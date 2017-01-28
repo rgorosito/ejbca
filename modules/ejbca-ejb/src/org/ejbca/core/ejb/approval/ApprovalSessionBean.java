@@ -43,7 +43,6 @@ import org.cesecore.audit.enums.EventStatus;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.AccessControlSessionLocal;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CaSessionLocal;
@@ -62,6 +61,7 @@ import org.cesecore.util.ProfileID;
 import org.cesecore.util.ValueExtractor;
 import org.cesecore.util.ui.DynamicUiProperty;
 import org.cesecore.util.ui.MultiLineString;
+import org.ejbca.config.EjbcaConfiguration;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
@@ -819,24 +819,55 @@ public class ApprovalSessionBean implements ApprovalSessionLocal, ApprovalSessio
     }
     
     @Override
-    public void unexpireApprovalRequestNoAuth(final AuthenticationToken authenticationToken, final int approvalDataId, final long unexpireForMillis)
-            throws AuthorizationDeniedException {
-        ApprovalData approvalData = findById(approvalDataId);
+    public void extendApprovalRequestNoAuth(final AuthenticationToken authenticationToken, final int approvalDataId, final long extendForMillisParam) {
+        if (extendForMillisParam <= 0) {
+            throw new IllegalArgumentException("Time to extend for must be a positive non-zero number: " + extendForMillisParam);
+        }
+        
+        final ApprovalData approvalData = findById(approvalDataId);
+        if (approvalData == null) {
+            throw new IllegalStateException("Approval request with ID " + approvalDataId + " does not exist");
+        }
+        
+        // Check status
         final long status = approvalData.getStatus();
         if (status != ApprovalDataVO.STATUS_EXPIRED &&
                 status != ApprovalDataVO.STATUS_EXPIREDANDNOTIFIED &&
                 status != ApprovalDataVO.STATUS_WAITINGFORAPPROVAL) {
-            throw new IllegalStateException("Can't unapprove approval request in this state (" + status + ")");
+            throw new IllegalStateException("Can't extend approval request in this state (" + status + ")");
         }
-        approvalData.setExpiredate(new Date().getTime() + unexpireForMillis);
+        
+        // Check maximum extension time
+        long maxExtend = getMaxExtensionTime(approvalData.getApprovalDataVO());
+        if (maxExtend <= 0) {
+            throw new IllegalStateException("Approval profile (or configured default value) does not allow request extension");
+        }
+        long extendForMillis = extendForMillisParam;
+        if (extendForMillis > maxExtend) {
+            log.info("Tried to extend approval request ID " + approvalData + " for " + extendForMillisParam + " ms, " +
+                    "which is more than the maximum of the approval profile, " + maxExtend + " ms");
+            extendForMillis = maxExtend;
+        }
+        
+        approvalData.setExpiredate(new Date().getTime() + extendForMillis);
         approvalData.setStatus(ApprovalDataVO.STATUS_WAITINGFORAPPROVAL);
         entityManager.merge(approvalData);
         
-        String msg = intres.getLocalizedMessage("approval.unexpired", approvalData.getId(), unexpireForMillis);
+        String msg = intres.getLocalizedMessage("approval.extended", approvalData.getId(), extendForMillis);
         final Map<String, Object> details = new LinkedHashMap<>();
         details.put("msg", msg);
-        auditSession.log(EjbcaEventTypes.APPROVAL_UNEXPIRE, EventStatus.FAILURE, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
+        auditSession.log(EjbcaEventTypes.APPROVAL_EXTEND, EventStatus.SUCCESS, EjbcaModuleTypes.APPROVAL, EjbcaServiceTypes.EJBCA,
                 authenticationToken.toString(), String.valueOf(approvalData.getCaid()), null, null, details);
+    }
+    
+    private long getMaxExtensionTime(final ApprovalDataVO advo) {
+        ApprovalProfile prof = advo.getApprovalProfile();
+        if (prof != null) {
+            final Integer approvalProfileId = advo.getApprovalProfile().getProfileId();
+            prof = approvalProfileSession.getApprovalProfile(approvalProfileId);
+            return prof.getMaxExtensionTime();
+        }
+        return EjbcaConfiguration.getApprovalDefaultMaxExtensionTime();
     }
        
     /** @return the found entity instance or null if the entity does not exist */

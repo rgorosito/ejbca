@@ -27,6 +27,20 @@
      -->
 </ui:remove>
 <ui:composition template="/WEB-INF/include/template.xhtml">
+    <f:metadata>
+        <!-- Parameters must be duplicated here and in managerequests.xhtml. When we drop support for JBoss GA 7.1.1 we can put them in a separate file and use ui:include -->
+        <f:viewParam name="tab" value="#{raManageRequestsBean.tab}"/>
+        <f:viewParam name="sortAsc" value="#{raManageRequestsBean.sortAscending}"/>
+        <f:viewParam name="sortCol" value="#{raManageRequestsBean.sortColumn}"/>
+        <f:viewParam name="searchWaiting" value="#{raManageRequestsBean.customSearchingWaiting}"/>
+        <f:viewParam name="searchProcessed" value="#{raManageRequestsBean.customSearchingProcessed}"/>
+        <f:viewParam name="searchExpired" value="#{raManageRequestsBean.customSearchingExpired}"/>
+        <f:viewParam name="searchStartDate" value="#{raManageRequestsBean.customSearchStartDate}"/>
+        <f:viewParam name="searchEndDate" value="#{raManageRequestsBean.customSearchEndDate}"/>
+        <f:viewParam name="searchExpiresDays" value="#{raManageRequestsBean.customSearchExpiresDays}"/>
+        
+        <f:event type="preRenderView" listener="#{raManageRequestsBean.searchAndFilter}"/>
+    </f:metadata>
     <ui:define name="content">
         <h:panelGroup layout="block" class="header" id="title">
             <h1><h:outputText value="#{msg.manage_requests_page_title}"/></h1>
@@ -37,7 +51,7 @@
                 
                 <h:panelGroup layout="block" styleClass="tabButtonBar">
                     <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingNeedsApproval ? 'active' : ''}">
-                        <f:param name="tab" value="needsApproval"/>
+                        <f:param name="tab" value="to_approve"/>
                         <h:outputText value="#{msg.manage_requests_page_view_needs_approval}"/>
                     </h:outputLink>
                     
@@ -48,29 +62,23 @@
                     
                     <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingProcessed ? 'active' : ''}">
                         <f:param name="tab" value="processed"/>
+                        <f:param name="sortAsc" value="false"/>
                         <h:outputText value="#{msg.manage_requests_page_view_processed}"/>
                     </h:outputLink>
                     
                     <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingCustom ? 'active' : ''}">
-                        <f:param name="tab" value="custom"/>
+                        <f:param name="tab" value="custom_search"/>
+                        <f:param name="sortAsc" value="false"/>
                         <h:outputText value="#{msg.manage_requests_page_view_custom}"/>
                     </h:outputLink>
                 </h:panelGroup>
                 
                 <h:panelGroup id="customSearchOptions" layout="block" rendered="#{raManageRequestsBean.viewingCustom}" styleClass="internal-frame">
                     <h:panelGroup layout="block" styleClass="pure-control-group">
-                        <h:selectBooleanCheckbox id="includeOtherAdmins" value="#{raManageRequestsBean.customSearchIncludeOtherAdmins}" onchange="this.form.submit()"/>
-                        <h:outputLabel for="includeOtherAdmins" value="#{msg.manage_requests_page_search_include_other_admins}"/>
-                    </h:panelGroup>
-
-                    <h:panelGroup layout="block" styleClass="pure-control-group">
                         <h:outputText value="#{msg.manage_requests_page_search_status}" styleClass="bodyText"/>
                         
                         <h:selectBooleanCheckbox id="searchWaiting" value="#{raManageRequestsBean.customSearchingWaiting}"/>
-                        <h:outputLabel for="searchWaiting" value="#{raManageRequestsBean.customSearchWaitingCheckboxLabel}" title="#{raManageRequestsBean.customSearchWaitingCheckboxTitle}"/>
-                        
-                        <h:selectBooleanCheckbox id="searchPending" value="#{raManageRequestsBean.customSearchingPending}"/>
-                        <h:outputLabel for="searchPending" value="#{raManageRequestsBean.customSearchPendingCheckboxLabel}" title="#{raManageRequestsBean.customSearchPendingCheckboxTitle}"/>
+                        <h:outputLabel for="searchWaiting" value="#{msg.manage_requests_page_search_waiting}"/>
                         
                         <h:selectBooleanCheckbox id="searchProcessed" value="#{raManageRequestsBean.customSearchingProcessed}"/>
                         <h:outputLabel for="searchProcessed" value="#{msg.manage_requests_page_search_processed}"/>
@@ -201,11 +209,10 @@
                             <h:outputText value="#{raRequest.status}" />
                         </h:column>
                         <h:column>
-                            <h:outputLink id="viewMoreButton" styleClass="viewMoreLink" value="managerequest.xhtml">
+                            <h:link id="viewMoreButton" styleClass="viewMoreLink" outcome="managerequest" includeViewParams="true">
                                 <f:param name="id" value="#{raRequest.id}"/>
-                                <f:param name="fromTab" value="#{raManageRequestsBean.currentTabName}"/>
                                 <h:outputText value="#{msg.manage_requests_page_view_more_command}"/>
-                            </h:outputLink>
+                            </h:link>
                         </h:column>
                     </h:dataTable>
                 </h:panelGroup>

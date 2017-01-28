@@ -156,6 +156,17 @@ public class StringToolsTest {
         String obf = StringTools.obfuscate("foo123");
         String deobf = StringTools.deobfuscate(obf);
         assertEquals("foo123", deobf);
+        String obfif = StringTools.obfuscate("foo123qw");
+        String deobfif = StringTools.deobfuscate(obfif);
+        assertEquals("foo123qw", deobfif);
+        assertEquals("foo123qwe", StringTools.deobfuscateIf("foo123qwe"));
+        // Empty String should be handled
+        assertEquals("", StringTools.obfuscate(""));
+        assertEquals("", StringTools.deobfuscateIf("OBF:"));
+        assertEquals("", StringTools.deobfuscate("OBF:"));
+        assertNull(StringTools.deobfuscate(null));
+        assertNull(StringTools.deobfuscateIf(null));
+        assertNull(StringTools.obfuscate(null));
     }
 
     @Test

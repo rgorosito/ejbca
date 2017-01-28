@@ -469,6 +469,13 @@ C=US,ST=MA,L=Boston,O=Example LLC
 0.0.0.0/0
 ::/0
 </source>
+<p>If you have been issued a name constrained Sub CA certificate from another Root CA, you may want to import certificates issued by this CA into other EJBCA instances.
+You then import the Sub CA certificate as an 'External CA' in the new EJBCA instance. When you import end entity certificates you may run into two settings that you need to tune, 'useLdapDnOrder' and 'usePrintableStringSubjectDN'.
+These settings are not possible to edit normally for an 'External CA', but you can edit them using the CLI.</p>
+<source>
+bin/ejbca.sh ca editca --caname "Name Constrained CA Name" --field useLdapDnOrder --value false
+bin/ejbca.sh ca editca --caname "Name Constrained CA Name" --field usePrintableStringSubjectDN --value false
+</source>
 </subsubsection>
 
 <subsubsection name="Issuing Distribution Point on CRLs">
@@ -986,14 +993,13 @@ will be overridden including the criticality flag.
 This option should only be used when you know that the request comes from a very trusted source. Such a trusted source is  
 normally an RA through CMP or WebService.
 </p>
-<p>To control in detail which extensions can be overridden and which can not the optional text fields 'Overridable extension OID list' and 'Non-overridable extension OID list' can be used.
-These fields contain comma separated lists of OIDs, for example '2.5.29.17, 2.5.29.32'. This is commonly used in order to give RAs some control of the contents, but still enforcing policy 
-for critical parts so the RA can not (accidentally) issue invalid certificates. For example you may with that the RA can control the SubjectAlternativeName field, but the KeyUsage of CertificatePolicies fields.  
+<p>To control in detail which extensions can be overridden and which can not the optional text field 'Overridable extension OID list' and the accompanying check box 'Extension list is disallowed' can be used.
+The field contain a comma separated lists of OIDs, for example '2.5.29.17, 2.5.29.32'. This is used in order to give RAs some control of the contents, but still enforcing policy 
+for critical parts so the RA can not (accidentally) issue invalid certificates. For example you may wish that the RA can control the SubjectAlternativeName field, but not the KeyUsage of CertificatePolicies fields.  
 </p>
 <ul>
-<li>If 'Overridable extension OID list' is used, and OID on this list can be overridden, but all other OIDs can not be overridden.</li>
-<li>If 'Non-overridable extension OID list' is used, any OID on this list is not allowed to be overridden, but all other OIDs can be overridden.</li>
-<li>Using both lists does not make any sense, since nothing will be allowed.</li>
+<li>If 'Overridable extension OID list' is used and 'Extension list is disallowed' is unchecked any OID on this list can be overridden, but no other OIDs can.</li>
+<li>If 'Overridable extension OID list' is used and 'Extension list is disallowed' is checked, no OID on this list is allowed to be overridden, but all other OIDs can be overridden.</li>
 </ul>
 </subsubsection>
 <subsubsection name="Allow subject DN override by CSR">
