@@ -10,7 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.cesecore.authorization.control;
+package org.cesecore.authorization;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -26,8 +26,11 @@ import javax.security.auth.x500.X500Principal;
 import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionRemote;
+import org.cesecore.authorization.control.StandardRules;
+import org.cesecore.authorization.user.AccessMatchType;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
@@ -83,8 +86,9 @@ public class AuthorizationSessionBeanTest {
             final String commonName = roleName;
             final String subjectAndIssuerDn = "CN="+commonName;
             final int caId = subjectAndIssuerDn.hashCode();
-            final int roleMemberId = roleMemberProxySession.createOrEdit(new RoleMember(RoleMember.ROLE_MEMBER_ID_UNASSIGNED, X500PrincipalAccessMatchValue.WITH_COMMONNAME, caId,
-                    commonName, role.getRoleId(), null, null));
+            final int roleMemberId = roleMemberProxySession.createOrEdit(new RoleMember(RoleMember.ROLE_MEMBER_ID_UNASSIGNED, X509CertificateAuthenticationToken.TOKEN_TYPE,
+                    caId, X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(),
+                    AccessMatchType.TYPE_EQUALCASE.getNumericValue(), commonName, role.getRoleId(), null, null));
             assertEquals(caId, roleMemberProxySession.findRoleMember(roleMemberId).getTokenIssuerId());
             final AuthenticationToken authenticationToken = createAuthenticationToken("CN="+commonName);
             assertFalse(authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.ROLE_ROOT.resource()));
@@ -122,7 +126,7 @@ public class AuthorizationSessionBeanTest {
         final AuthenticationToken authenticationToken = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("cleanUpRole"));
         final Role role = roleSession.getRole(authenticationToken, nameSpace, roleName);
         if (role!=null) {
-            roleSession.deleteRoleIdempotent(authenticationToken, role.getRoleId(), true);
+            roleSession.deleteRoleIdempotent(authenticationToken, role.getRoleId());
         }
     }
 
