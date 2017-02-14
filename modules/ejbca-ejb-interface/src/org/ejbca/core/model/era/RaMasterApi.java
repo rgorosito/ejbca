@@ -24,6 +24,7 @@ import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.roles.Role;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -66,6 +67,9 @@ public interface RaMasterApi {
 
     /** @return a list with information about non-external CAs that the caller is authorized to see. */
     List<CAInfo> getAuthorizedCas(AuthenticationToken authenticationToken);
+    
+    /** @return a list with roles that the caller is authorized to see. */
+    List<Role> getAuthorizedRoles(AuthenticationToken authenticationToken);
 
     /** @return the approval request with the given id, or null if it doesn't exist or if authorization was denied */
     RaApprovalRequestInfo getApprovalRequest(AuthenticationToken authenticationToken, int id);
@@ -123,6 +127,15 @@ public interface RaMasterApi {
     /** @return list of end entities from the specified search criteria*/
     RaEndEntitySearchResponse searchForEndEntities(AuthenticationToken authenticationToken, RaEndEntitySearchRequest raEndEntitySearchRequest);
 
+    /**
+     * Searches for role members in all roles that the given authentication token has access to.
+     * @param authenticationToken administrator (affects the search results)
+     * @param raRoleMemberSearchRequest Object specifying the search criteria.
+     * @return Object containing list of role members and search status.
+     */
+    RaRoleMemberSearchResponse searchForRoleMembers(AuthenticationToken authenticationToken, RaRoleMemberSearchRequest raRoleMemberSearchRequest);
+    
+    
     /** @return map of authorized certificate profile Ids and each mapped name */
     Map<Integer, String> getAuthorizedCertificateProfileIdsToNameMap(AuthenticationToken authenticationToken);
 

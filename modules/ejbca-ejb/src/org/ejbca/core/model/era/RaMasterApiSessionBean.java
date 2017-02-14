@@ -90,6 +90,10 @@ import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.management.RoleSessionLocal;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberData;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.config.GlobalConfiguration;
@@ -175,6 +179,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private SignSessionLocal signSessionLocal;
     @EJB
     private EndEntityAuthenticationSessionLocal endEntityAuthenticationSessionLocal;
+    @EJB
+    private RoleSessionLocal roleSession;
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
@@ -227,6 +233,12 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public List<CAInfo> getAuthorizedCas(AuthenticationToken authenticationToken) {
         return caSession.getAuthorizedAndNonExternalCaInfos(authenticationToken);
     }
+    
+    @Override
+    public List<Role> getAuthorizedRoles(AuthenticationToken authenticationToken) {
+        return roleSession.getAuthorizedRoles(authenticationToken);
+    }
+    
     
     private ApprovalDataVO getApprovalDataNoAuth(final int id) {
         final org.ejbca.util.query.Query query = new org.ejbca.util.query.Query(org.ejbca.util.query.Query.TYPE_APPROVALQUERY);
@@ -1082,6 +1094,69 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             response.setMightHaveMoreResults(usernames.size()==maxResults);
             if (log.isDebugEnabled()) {
                 log.debug("Certificate search query: " + sb.toString() + " LIMIT " + maxResults + " \u2192 " + usernames.size() + " results. queryTimeout=" + queryTimeout + "ms");
+            }
+        } catch (QueryTimeoutException e) {
+            log.info("Requested search query by " + authenticationToken +  " took too long. Query was " + e.getQuery().toString() + ". " + e.getMessage());
+            response.setMightHaveMoreResults(true);
+        } catch (PersistenceException e) {
+            log.info("Requested search query by " + authenticationToken +  " failed, possibly due to timeout. " + e.getMessage());
+            response.setMightHaveMoreResults(true);
+        }
+        return response;
+    }
+    
+    @SuppressWarnings("unchecked")
+    @Override
+    public RaRoleMemberSearchResponse searchForRoleMembers(AuthenticationToken authenticationToken, RaRoleMemberSearchRequest request) {
+        final RaRoleMemberSearchResponse response = new RaRoleMemberSearchResponse();
+        
+        final List<Integer> authorizedLocalCaIds = new ArrayList<>(caSession.getAuthorizedCaIds(authenticationToken));
+        // Only search a subset of the requested CAs if requested
+        if (!request.getCaIds().isEmpty()) {
+            authorizedLocalCaIds.retainAll(request.getCaIds());
+        }
+        
+        // Dito for roles
+        final List<Integer> authorizedLocalRoleIds = new ArrayList<>();
+        for (final Role role : roleSession.getAuthorizedRoles(authenticationToken)) {
+            final int roleId = role.getRoleId();
+            if (request.getRoleIds().isEmpty() || request.getRoleIds().contains(roleId)) {
+                authorizedLocalRoleIds.add(roleId);
+            }
+        }
+        
+        // Token types
+        // TODO
+        
+        // Build query
+        final StringBuilder sb = new StringBuilder("SELECT a FROM RoleMemberData a WHERE a.tokenIssuerId IN (:caId) AND a.roleId IN (:roleId)");
+        if (!StringUtils.isEmpty(request.getGenericSearchString())) {
+            sb.append(" AND (a.tokenMatchValue = :searchString OR a.memberBindingValue LIKE :searchStringInexact)");
+        }
+        final Query query = entityManager.createQuery(sb.toString());
+        query.setParameter("caId", authorizedLocalCaIds);
+        query.setParameter("roleId", authorizedLocalRoleIds);
+        if (!StringUtils.isEmpty(request.getGenericSearchString())) {
+            query.setParameter("searchString", request.getGenericSearchString());
+            query.setParameter("searchStringInexact", request.getGenericSearchString() + '%');
+        }
+        
+        final int maxResults = getGlobalCesecoreConfiguration().getMaximumQueryCount();
+        query.setMaxResults(maxResults);
+        final long queryTimeout = getGlobalCesecoreConfiguration().getMaximumQueryTimeout();
+        if (queryTimeout>0L) {
+            query.setHint("javax.persistence.query.timeout", String.valueOf(queryTimeout));
+        }
+        
+        // Execute
+        try {
+            final List<RoleMemberData> roleMemberDatas = (List<RoleMemberData>) query.getResultList();
+            for (final RoleMemberData roleMemberData : roleMemberDatas) {
+                response.getRoleMembers().add(roleMemberData.asValueObject());
+            }
+            response.setMightHaveMoreResults(roleMemberDatas.size()==maxResults);
+            if (log.isDebugEnabled()) {
+                log.debug("Role Member search query: " + sb.toString() + " LIMIT " + maxResults + " \u2192 " + roleMemberDatas.size() + " results. queryTimeout=" + queryTimeout + "ms");
             }
         } catch (QueryTimeoutException e) {
             log.info("Requested search query by " + authenticationToken +  " took too long. Query was " + e.getQuery().toString() + ". " + e.getMessage());

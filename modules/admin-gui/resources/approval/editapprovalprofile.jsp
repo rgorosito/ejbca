@@ -127,8 +127,8 @@
 								rendered="#{approvalProfileMBean.steps.getRowCount() > 1 || !approvalProfileMBean.stepSizeFixed}">
 								<h:outputText value="#{web.text.APPROVAL_PROFILE_STEP}: #{step.stepNumber}" />
 								<h:panelGroup>
-									<h:commandButton image="#{web.ejbcaBaseURL}#{web.ejbcaWebBean.globalConfiguration.adminWebPath}images/uparrow.gif" disabled="#{step.previousStep == null}" action="#{approvalProfileMBean.moveStepUp}"/>
-									<h:commandButton image="#{web.ejbcaBaseURL}#{web.ejbcaWebBean.globalConfiguration.adminWebPath}images/downarrow.gif" disabled="#{step.nextStep == null}" action="#{approvalProfileMBean.moveStepDown}"/>
+									<h:commandButton image="#{web.ejbcaBaseURL}#{web.ejbcaWebBean.globalConfiguration.adminWebPath}images/uparrow.gif" disabled="#{step.previousStep == null or approvalProfilesMBean.viewOnly}" action="#{approvalProfileMBean.moveStepUp}"/>
+									<h:commandButton image="#{web.ejbcaBaseURL}#{web.ejbcaWebBean.globalConfiguration.adminWebPath}images/downarrow.gif" disabled="#{step.nextStep == null or approvalProfilesMBean.viewOnly}" action="#{approvalProfileMBean.moveStepDown}"/>
 								</h:panelGroup>
 							</h:panelGrid>
 														
@@ -272,7 +272,8 @@
 			</h:panelGroup>
 			<h:panelGroup>
 				<h:commandButton value="#{web.text.SAVE}" action="#{approvalProfileMBean.save}" rendered="#{!approvalProfilesMBean.viewOnly}"/>
-				<h:commandButton value="#{web.text.CANCEL}" action="#{approvalProfileMBean.cancel}" immediate="true" />
+				<h:commandButton value="#{web.text.CANCEL}" action="#{approvalProfileMBean.cancel}" immediate="true" rendered="#{!approvalProfilesMBean.viewOnly}"/>
+				<h:commandButton value="#{web.text.BACK}" action="#{approvalProfileMBean.cancel}" immediate="true" rendered="#{approvalProfilesMBean.viewOnly}"/>
 			</h:panelGroup>
 	
 		</h:panelGrid>
