@@ -46,13 +46,15 @@ org.cesecore.keybind.InternalKeyBindingRules
        final String AUDIT_LINK                 =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "audit/search.jsf";
        final String LOG_CONFIGURATION_LINK   =  ejbcawebbean.getBaseUrl() + globalconfiguration.getLogPath() + "/logconfiguration/logconfiguration.jsp";
        final String CONFIGURATION_LINK       =  ejbcawebbean.getBaseUrl() + globalconfiguration.getConfigPath()  + "/systemconfiguration.jsf";
+       final String UPGRADE_LINK             =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "upgrade.jsf";
        final String CMPCONFIGURATION_LINK    =  ejbcawebbean.getBaseUrl() + globalconfiguration.getConfigPath() + "/cmpconfiguration.jsp";
        
        final String INTERNALKEYBINDING_LINK  = ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "keybind/keybindings.jsf";
        final String SERVICES_LINK            = ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "services/listservices.jsf";
        final String PEERCONNECTOR_LINK       = ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "peerconnector/peerconnectors.jsf";
        
-       final String ADMINISTRATORPRIV_LINK   =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAuthorizationPath() + "/administratorprivileges.jsf";
+       final String ADMINISTRATORPRIV_LINK_LEGACY = ejbcawebbean.getBaseUrl() + globalconfiguration.getAuthorizationPath() + "/administratorprivileges.jsf";
+       final String ADMINISTRATORPRIV_LINK   =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAuthorizationPath() + "/roles.xhtml";
        
        final String SCEPCONFIGURATION_LINK   =  ejbcawebbean.getBaseUrl() + globalconfiguration.getConfigPath() + "/scepconfiguration.jsf";
        
@@ -295,6 +297,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          systemheaderprinted=true;
          }  %>
 				<li><a href="<%= ADMINISTRATORPRIV_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ROLES") %></a></li>
+				<li><a href="<%= ADMINISTRATORPRIV_LINK_LEGACY %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ROLES") %> (old)</a></li>
 <% } %>
 
 
@@ -375,7 +378,12 @@ org.cesecore.keybind.InternalKeyBindingRules
         configheaderprinted = true;
           } %>
 				<li><a href="<%= CONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION") %></a></li>
+
+    <%  if (ejbcawebbean.isPostUpgradeRequired()) { %>
+        <li><a href="<%= UPGRADE_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><b><%= ejbcawebbean.getText("NAV_SYSTEMUPGRADE") %></b></a></li>
+    <% } %>
 <% } %>
+
 
 <%
 if(configheaderprinted){

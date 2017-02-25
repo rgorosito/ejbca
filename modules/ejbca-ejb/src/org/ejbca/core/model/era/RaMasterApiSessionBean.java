@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.ejb.EJB;
@@ -56,6 +57,8 @@ import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.authorization.control.AccessControlSessionLocal;
 import org.cesecore.authorization.control.AuditLogRules;
+import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
+import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -91,9 +94,11 @@ import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.roles.Role;
+import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.management.RoleSessionLocal;
 import org.cesecore.roles.member.RoleMember;
 import org.cesecore.roles.member.RoleMemberData;
+import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.config.GlobalConfiguration;
@@ -181,6 +186,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private EndEntityAuthenticationSessionLocal endEntityAuthenticationSessionLocal;
     @EJB
     private RoleSessionLocal roleSession;
+    @EJB
+    private RoleMemberSessionLocal roleMemberSession;
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
@@ -237,6 +244,107 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     @Override
     public List<Role> getAuthorizedRoles(AuthenticationToken authenticationToken) {
         return roleSession.getAuthorizedRoles(authenticationToken);
+    }
+    
+    @Override
+    public Role getRole(final AuthenticationToken authenticationToken, final int roleId) throws AuthorizationDeniedException {
+        return roleSession.getRole(authenticationToken, roleId);
+    }
+
+    @Override
+    public List<String> getAuthorizedRoleNamespaces(final AuthenticationToken authenticationToken, final int roleId) {
+        // Skip roles that come from other peers if roleId is set
+        try {
+            if (roleId != 0 && getRole(authenticationToken, roleId) == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Requested role with ID " + roleId + " does not exist on this system, returning empty list of namespaces");
+                }
+                return new ArrayList<>();
+            }
+        } catch (AuthorizationDeniedException e) {
+            // Should usually not happen
+            if (log.isDebugEnabled()) {
+                log.debug("Authorization denied to role with ID " + roleId + ", returning empty list of namespaces");
+            }
+            return new ArrayList<>();
+        }
+        
+        return roleSession.getAuthorizedNamespaces(authenticationToken);
+    }
+    
+    @Override
+    public Map<String,RaRoleMemberTokenTypeInfo> getAuthorizedRoleMemberTokenTypes(final AuthenticationToken authenticationToken) {
+        final Map<String,RaRoleMemberTokenTypeInfo> result = new HashMap<>();
+        for (final String tokenType : AccessMatchValueReverseLookupRegistry.INSTANCE.getAllTokenTypes()) {
+            if (!AccessMatchValueReverseLookupRegistry.INSTANCE.getMetaData(tokenType).isUserConfigurable()) {
+                continue;
+            }
+            
+            final Map<String,Integer> stringToNumberMap = new HashMap<>();
+            for (final Entry<String,AccessMatchValue> entry : AccessMatchValueReverseLookupRegistry.INSTANCE.getNameLookupRegistryForTokenType(tokenType).entrySet()) {
+                stringToNumberMap.put(entry.getKey(), entry.getValue().getNumericValue());
+            }
+            final AccessMatchValue defaultValue = AccessMatchValueReverseLookupRegistry.INSTANCE.getDefaultValueForTokenType(tokenType);
+            
+            result.put(tokenType, new RaRoleMemberTokenTypeInfo(stringToNumberMap, defaultValue.name(), defaultValue.isIssuedByCa()));
+            
+        }
+        return result;
+    }
+    
+    @Override
+    public Role saveRole(final AuthenticationToken authenticationToken, final Role role) throws AuthorizationDeniedException, RoleExistsException {
+        if (role.getRoleId() != Role.ROLE_ID_UNASSIGNED) {
+            // Updating a role
+            Role oldRole = roleSession.getRole(authenticationToken, role.getRoleId());
+            if (oldRole == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Role with ID " + role.getRoleId() + " does not exist on this system, and will not be updated here. The role name to save was '" + role.getRoleNameFull() + "'");
+                }
+                return null; // not present on this system
+            }
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("Persisting a role with ID " + role.getRoleId() + " and name '" + role.getRoleNameFull() + "'");
+        }
+        return roleSession.persistRole(authenticationToken, role);
+        
+    }
+    
+    @Override
+    public RoleMember getRoleMember(final AuthenticationToken authenticationToken, final int roleMemberId) throws AuthorizationDeniedException {
+        return roleMemberSession.getRoleMember(authenticationToken, roleMemberId);
+    }
+
+    @Override
+    public RoleMember saveRoleMember(final AuthenticationToken authenticationToken, final RoleMember roleMember) throws AuthorizationDeniedException {
+        if (log.isDebugEnabled()) {
+            log.debug("Persisting a role member with ID " + roleMember.getRoleId() + " and match value '" + roleMember.getTokenMatchValue() + "'");
+        }
+        int id = roleMemberSession.createOrEdit(authenticationToken, roleMember);
+        roleMember.setId(id);
+        return roleMember;
+    }
+    
+    @Override
+    public boolean deleteRoleMember(AuthenticationToken authenticationToken, int roleId, int roleMemberId) throws AuthorizationDeniedException {
+        if (log.isDebugEnabled()) {
+            log.debug("Removing role member with ID " + roleMemberId + " from the role with ID " + roleId);
+        }
+        RoleMember roleMember = roleMemberSession.getRoleMember(authenticationToken, roleMemberId);
+        if (roleMember == null) {
+            log.debug("Can't delete role member with ID " + roleMemberId + " because it does not exist.");
+            return false;
+        }
+        // Sanity check that there's no ID collision
+        if (roleMember.getRoleId() != roleId) {
+            if (log.isDebugEnabled()) {
+                log.debug("Role member has an unexpected Role ID " + roleMemberId + ". Role ID " + roleId);
+            }
+            return false;
+        }
+        
+        return roleMemberSession.remove(authenticationToken, roleMemberId);
     }
     
     
@@ -1111,6 +1219,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         final RaRoleMemberSearchResponse response = new RaRoleMemberSearchResponse();
         
         final List<Integer> authorizedLocalCaIds = new ArrayList<>(caSession.getAuthorizedCaIds(authenticationToken));
+        authorizedLocalCaIds.add(RoleMember.NO_ISSUER);
         // Only search a subset of the requested CAs if requested
         if (!request.getCaIds().isEmpty()) {
             authorizedLocalCaIds.retainAll(request.getCaIds());
@@ -1124,20 +1233,34 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 authorizedLocalRoleIds.add(roleId);
             }
         }
+        if (request.getRoleIds().contains(RoleMember.NO_ROLE)) {
+            authorizedLocalRoleIds.add(RoleMember.NO_ROLE);
+        }
         
         // Token types
-        // TODO
+        final List<String> authorizedLocalTokenTypes = new ArrayList<>(getAuthorizedRoleMemberTokenTypes(authenticationToken).keySet());
+        if (!request.getTokenTypes().isEmpty()) {
+            authorizedLocalTokenTypes.retainAll(request.getTokenTypes());
+        }
+        
+        if (authorizedLocalCaIds.isEmpty() || authorizedLocalRoleIds.isEmpty() || authorizedLocalTokenTypes.isEmpty()) {
+            log.debug("No authorized CAs, no authorized Roles, and/or token types. Returning empty response in role member search");
+            return response;
+        }
         
         // Build query
-        final StringBuilder sb = new StringBuilder("SELECT a FROM RoleMemberData a WHERE a.tokenIssuerId IN (:caId) AND a.roleId IN (:roleId)");
+        final StringBuilder sb = new StringBuilder("SELECT a FROM RoleMemberData a WHERE a.tokenIssuerId IN (:caId) AND a.roleId IN (:roleId) AND a.tokenType IN (:tokenType)");
+        // TODO only search by exact tokenMatchValue if it seems to be a serial number?
         if (!StringUtils.isEmpty(request.getGenericSearchString())) {
-            sb.append(" AND (a.tokenMatchValue = :searchString OR a.memberBindingValue LIKE :searchStringInexact)");
+            //sb.append(" AND (a.tokenMatchValue = :searchString OR a.memberBindingValue LIKE :searchStringInexact)");
+            sb.append(" AND (a.tokenMatchValue LIKE :searchStringInexact OR a.memberBindingValue LIKE :searchStringInexact)");
         }
         final Query query = entityManager.createQuery(sb.toString());
         query.setParameter("caId", authorizedLocalCaIds);
         query.setParameter("roleId", authorizedLocalRoleIds);
+        query.setParameter("tokenType", authorizedLocalTokenTypes);
         if (!StringUtils.isEmpty(request.getGenericSearchString())) {
-            query.setParameter("searchString", request.getGenericSearchString());
+            //query.setParameter("searchString", request.getGenericSearchString());
             query.setParameter("searchStringInexact", request.getGenericSearchString() + '%');
         }
         

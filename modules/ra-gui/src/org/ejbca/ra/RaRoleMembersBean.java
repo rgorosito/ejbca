@@ -36,6 +36,7 @@ import org.cesecore.roles.member.RoleMember;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
 import org.ejbca.core.model.era.RaRoleMemberSearchRequest;
 import org.ejbca.core.model.era.RaRoleMemberSearchResponse;
+import org.ejbca.core.model.era.RaRoleMemberTokenTypeInfo;
 
 
 /**
@@ -46,8 +47,6 @@ import org.ejbca.core.model.era.RaRoleMemberSearchResponse;
 @ManagedBean
 @ViewScoped
 public class RaRoleMembersBean {
-    
-    //public static final class RoleMemberGuiInfo 
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(RaRoleMembersBean.class);
@@ -70,6 +69,7 @@ public class RaRoleMembersBean {
     private List<SelectItem> availableRoles = null;
     private List<SelectItem> availableCas = null;
     private List<SelectItem> availableTokenTypes = null;
+    private Map<String,RaRoleMemberTokenTypeInfo> tokenTypeInfos;
     
     private String genericSearchString;
     private Integer criteriaRoleId;
@@ -157,6 +157,9 @@ public class RaRoleMembersBean {
         if (criteriaRoleId != null) {
             searchRequest.setRoleIds(new ArrayList<>(Arrays.asList(criteriaRoleId)));
         }
+        if (criteriaTokenType != null) {
+            searchRequest.setTokenTypes(new ArrayList<>(Arrays.asList(criteriaTokenType)));
+        }
         searchRequest.setGenericSearchString(genericSearchString);
         lastExecutedResponse = raMasterApiProxyBean.searchForRoleMembers(raAuthenticationBean.getAuthenticationToken(), searchRequest);
         
@@ -165,7 +168,8 @@ public class RaRoleMembersBean {
         for (final RoleMember member : lastExecutedResponse.getRoleMembers()) {
             final String caName = caIdToNameMap.get(member.getTokenIssuerId());
             final String roleName = roleIdToNameMap.get(member.getRoleId());
-            resultsFiltered.add(new RaRoleMemberGUIInfo(member, caName, roleName));
+            final String tokenTypeText = raLocaleBean.getMessage("role_member_token_type_" + member.getTokenType());
+            resultsFiltered.add(new RaRoleMemberGUIInfo(member, caName, roleName, tokenTypeText));
         }
     }
     
@@ -267,9 +271,9 @@ public class RaRoleMembersBean {
             for (final Role role : roles) {
                 roleIdToNameMap.put(role.getRoleId(), role.getRoleName());
             }
-            availableRoles.add(new SelectItem(0, raLocaleBean.getMessage("role_members_page_criteria_role_optionany")));
+            availableRoles.add(new SelectItem(null, raLocaleBean.getMessage("role_members_page_criteria_role_optionany")));
             for (final Role role : roles) {
-                availableRoles.add(new SelectItem(role.getRoleId(), "- " + role.getRoleName()));
+                availableRoles.add(new SelectItem(role.getRoleId(), role.getRoleName()));
             }
         }
         return availableRoles;
@@ -290,9 +294,9 @@ public class RaRoleMembersBean {
             for (final CAInfo caInfo : caInfos) {
                 caIdToNameMap.put(caInfo.getCAId(), caInfo.getName());
             }
-            availableCas.add(new SelectItem(0, raLocaleBean.getMessage("role_members_page_criteria_ca_optionany")));
+            availableCas.add(new SelectItem(null, raLocaleBean.getMessage("role_members_page_criteria_ca_optionany")));
             for (final CAInfo caInfo : caInfos) {
-                availableCas.add(new SelectItem(caInfo.getCAId(), "- " + caInfo.getName()));
+                availableCas.add(new SelectItem(caInfo.getCAId(), caInfo.getName()));
             }
         }
         return availableCas;
@@ -301,20 +305,16 @@ public class RaRoleMembersBean {
     public boolean isOnlyOneTokenTypeAvailable() { return getAvailableTokenTypes().size()==2; } // two including the "any token type" choice
     public List<SelectItem> getAvailableTokenTypes() {
         if (availableTokenTypes == null) {
+            if (tokenTypeInfos == null) {
+                tokenTypeInfos = raMasterApiProxyBean.getAuthorizedRoleMemberTokenTypes(raAuthenticationBean.getAuthenticationToken());
+            }
+            final List<String> tokenTypes = new ArrayList<>(tokenTypeInfos.keySet());
+            Collections.sort(tokenTypes);
             availableTokenTypes = new ArrayList<>();
-            // TODO
-            /*final List<Role> roles = new ArrayList<>(raMasterApiProxyBean.getAuthorizedRoles(raAuthenticationBean.getAuthenticationToken()));
-            Collections.sort(roles, new Comparator<Role>() {
-                @Override
-                public int compare(final Role role1, final Role role2) {
-                    return role1.getRoleName().compareTo(role2.getRoleName());
-                }
-            });*/
-            availableTokenTypes.add(new SelectItem(0, raLocaleBean.getMessage("role_members_page_criteria_tokentype_optionany")));
-            /*for (final Role role : roles) {
-                availableRoles.add(new SelectItem(role.getRoleId(), "- " + role.getRoleName()));
-            }*/
-            availableTokenTypes.add(new SelectItem("X509")); // FIXME remove
+            availableTokenTypes.add(new SelectItem(null, raLocaleBean.getMessage("role_members_page_criteria_tokentype_optionany")));
+            for (final String tokenType : tokenTypes) {
+                availableTokenTypes.add(new SelectItem(tokenType, raLocaleBean.getMessage("role_member_token_type_" + tokenType)));
+            }
         }
         return availableTokenTypes;
     }

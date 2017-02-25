@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:f="http://java.sun.com/jsf/core"
+    xmlns:h="http://java.sun.com/jsf/html"
+    xmlns:ui="http://java.sun.com/jsf/facelets"
+    xmlns:component="http://java.sun.com/jsf/composite/component"
+    xmlns:c="http://java.sun.com/jsp/jstl/core"
+    xmlns:fn="http://java.sun.com/jsp/jstl/functions"
+    xmlns:t="http://myfaces.apache.org/tomahawk">
+<ui:remove>
+    <!--
+    /*************************************************************************
+     *                                                                       *
+     *  EJBCA: The OpenSource Certificate Authority                          *
+     *                                                                       *
+     *  This software is free software; you can redistribute it and/or       *
+     *  modify it under the terms of the GNU Lesser General Public           *
+     *  License as published by the Free Software Foundation; either         *
+     *  version 2.1 of the License, or any later version.                    *
+     *                                                                       *
+     *  See terms of license at gnu.org.                                     *
+     *                                                                       *
+     *************************************************************************/
+
+     version: $Id: role_member.xhtml 25310 2017-02-21 16:47:29Z samuellb $
+     -->
+</ui:remove>
+<ui:composition template="/WEB-INF/include/template.xhtml">
+    <f:metadata>
+        <f:viewParam name="roleMemberId" value="#{raRoleMemberBean.roleMemberId}"/>
+        
+        <!-- These parameters must be duplicated in several places. See role_members.xhtml for a complete list. When we drop support for JBoss GA 7.1.1 we can put them in a separate file and use ui:include -->
+        <f:viewParam name="genericSearchString" value="#{raRoleMembersBean.genericSearchString}"/>
+        <f:viewParam name="criteriaRoleId" value="#{raRoleMembersBean.criteriaRoleId}"/>
+        <f:viewParam name="criteriaCaId" value="#{raRoleMembersBean.criteriaCaId}"/>
+        <f:viewParam name="criteriaTokenType" value="#{raRoleMembersBean.criteriaTokenType}"/>
+        <f:viewParam name="membersSortAsc" value="#{raRoleMembersBean.sortAscending}"/>
+        <f:viewParam name="membersSortCol" value="#{raRoleMembersBean.sortColumn}"/>
+        <f:viewParam name="fromRolesPage" value="#{raRoleMembersBean.fromRolesPage}"/>
+
+        <!-- These parameters must be duplicated in several places. See roles.xhtml for a complete list. When we drop support for JBoss GA 7.1.1 we can put them in a separate file and use ui:include -->
+        <f:viewParam name="roleSearchString" value="#{raRolesBean.roleSearchString}"/>
+        <f:viewParam name="rolesSortAsc" value="#{raRolesBean.sortAscending}"/>
+        <f:viewParam name="rolesSortCol" value="#{raRolesBean.sortColumn}"/>
+        
+        <f:event type="preRenderView" listener="#{raRoleMemberBean.initialize}"/>
+    </f:metadata>
+    <ui:define name="content">
+        <h:panelGroup layout="block" class="header" id="title">
+            <h1><h:outputText value="#{raRoleMemberBean.removePageTitle}"/></h1>
+        </h:panelGroup>
+        <h:outputText value="#{msg.manage_role_members_page_error_unauthorized}" rendered="#{not raAccessBean.authorizedToEditRoleMembers}"/>
+        <h:panelGroup layout="block" styleClass="content-body" rendered="#{raAccessBean.authorizedToEditRoleMembers}">
+            <ui:remove>
+            <!--
+            <h:panelGroup styleClass="topLinks" layout="block">
+                <h:link outcome="role_members" styleClass="backLink" includeViewParams="true">
+                    <h:outputText value="#{msg.generic_back}"/>
+                </h:link>
+            </h:panelGroup>
+            -->
+            </ui:remove>
+            <h:form id="roleForm" class="pure-form">
+                <h:panelGroup id="basic" styleClass="">
+                    <h:outputText value="#{raRoleMemberBean.removeConfirmationText}"/>
+
+                    <h:panelGroup id="parentConfirmRemovalButton" layout="block" styleClass="pure-u-lg-5-5">
+                        <h:commandButton id="confirmRemovalButton" action="#{raRoleMemberBean.delete}" value="#{msg.remove_role_member_page_remove_command}" styleClass="pure-button ra-button executeActionButton removeButton"/>
+                        <h:commandButton id="confirmCancelButton" action="#{raRoleMemberBean.cancel}" value="#{msg.generic_cancel}" styleClass="pure-button ra-button cancelButton"/>
+                    </h:panelGroup>
+                </h:panelGroup>
+            </h:form>
+        </h:panelGroup>
+    </ui:define>
+</ui:composition>
+</html>

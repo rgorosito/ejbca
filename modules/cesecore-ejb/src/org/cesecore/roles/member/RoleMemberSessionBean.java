@@ -13,8 +13,10 @@
 package org.cesecore.roles.member;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.ejb.EJB;
@@ -25,13 +27,18 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 
+import org.apache.log4j.Logger;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.authorization.user.AccessMatchType;
 import org.cesecore.authorization.user.AccessUserAspect;
+import org.cesecore.certificates.ca.CADoesntExistsException;
+import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.jndi.JndiConstants;
+import org.cesecore.roles.management.RoleSessionLocal;
 import org.cesecore.util.ProfileID;
 
 /**
@@ -44,14 +51,55 @@ import org.cesecore.util.ProfileID;
 @TransactionAttribute(TransactionAttributeType.REQUIRED)
 public class RoleMemberSessionBean implements RoleMemberSessionLocal, RoleMemberSessionRemote {
 
-    //private static final Logger log = Logger.getLogger(RoleMemberSessionBean.class);
+    private static final Logger log = Logger.getLogger(RoleMemberSessionBean.class);
 
     @EJB
     private AccessTreeUpdateSessionLocal accessTreeUpdateSession;
+    @EJB
+    private CaSessionLocal caSession;
+    @EJB
+    private RoleSessionLocal roleSession;
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
 
+    
+    private void checkRoleAuth(final AuthenticationToken authenticationToken, final RoleMember roleMember) throws AuthorizationDeniedException {
+        roleSession.assertAuthorizedToEditRoleMembers(authenticationToken, roleMember.getRoleId());
+        
+        // Check existence and authorization of referenced objects 
+        if (roleMember.getRoleId() != RoleMember.NO_ROLE && roleSession.getRole(authenticationToken, roleMember.getRoleId()) == null) {
+            throw new IllegalStateException("Role with ID " + roleMember.getRoleId() + " was not found, or administrator is not authorized to it");
+        }
+        if (roleMember.getTokenIssuerId() != RoleMember.NO_ISSUER) {
+            try {
+                caSession.getCAInfo(authenticationToken, roleMember.getTokenIssuerId());
+            } catch (CADoesntExistsException e) {
+                throw new IllegalStateException("CA with ID " + roleMember.getTokenIssuerId() + " was not found, or administrator is not authorized to it");
+            }
+        }
+    }
+    
+    @Override
+    public int createOrEdit(final AuthenticationToken authenticationToken, final RoleMember roleMember) throws AuthorizationDeniedException {
+        checkRoleAuth(authenticationToken, roleMember);
+        
+        final RoleMemberData roleMemberData;
+        if (roleMember.getId() != RoleMember.ROLE_MEMBER_ID_UNASSIGNED) {
+            roleMemberData = find(roleMember.getId());
+            checkRoleAuth(authenticationToken, roleMemberData.asValueObject());
+        } else {
+            roleMemberData = new RoleMemberData();
+        }
+        
+        roleMemberData.updateValuesFromValueObject(roleMember);
+        
+        if (log.isDebugEnabled()) {
+            log.debug("Persisting a role member with ID " + roleMember.getRoleId() + " and match value '" + roleMember.getTokenMatchValue() + "'");
+        }
+        return createOrEdit(roleMemberData);
+    }
+    
     @Override
     public int createOrEdit(RoleMemberData roleMember) {
         if (roleMember.getPrimaryKey() == 0) {
@@ -95,6 +143,29 @@ public class RoleMemberSessionBean implements RoleMemberSessionLocal, RoleMember
     
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
+    public RoleMember getRoleMember(final AuthenticationToken authenticationToken, final int roleMemberId) throws AuthorizationDeniedException {
+        final RoleMember roleMember = findRoleMember(roleMemberId);
+        // Authorization checks
+        if (roleMember == null) {
+            return null;
+        }
+        if (roleMember.getRoleId() != null && roleMember.getRoleId() != RoleMember.NO_ROLE) {
+            roleSession.getRole(authenticationToken, roleMember.getRoleId());
+        }
+        if (roleMember.getTokenIssuerId() != RoleMember.NO_ISSUER) {
+            try {
+                caSession.getCA(authenticationToken, roleMember.getTokenIssuerId());
+            } catch (CADoesntExistsException e) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Role references CA with ID " + roleMember.getTokenIssuerId() + ", which is missing.");
+                }
+            }
+        }
+        return roleMember;
+    }
+    
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
     public List<RoleMemberData> findByRoleId(int roleId) {
         final TypedQuery<RoleMemberData> query = entityManager.createQuery("SELECT a FROM RoleMemberData a WHERE a.roleId=:roleId", RoleMemberData.class);
         query.setParameter("roleId", roleId);
@@ -113,6 +184,13 @@ public class RoleMemberSessionBean implements RoleMemberSessionLocal, RoleMember
         }
         return result;
     }
+    
+    @Override
+    public boolean remove(final AuthenticationToken authenticationToken, final int roleMemberId) throws AuthorizationDeniedException {
+        final RoleMember roleMember = findRoleMember(roleMemberId);
+        checkRoleAuth(authenticationToken, roleMember);
+        return remove(roleMemberId);
+    }
 
     @Override
     public boolean remove(final int primaryKey) {
@@ -128,23 +206,50 @@ public class RoleMemberSessionBean implements RoleMemberSessionLocal, RoleMember
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
-    public Set<Integer> getRoleIdsMatchingAuthenticationToken(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
-        final Set<Integer> ret = new HashSet<>();
-        final String tokenType = authenticationToken.getMetaData().getTokenType();
+    public Set<Integer> getRoleIdsMatchingAuthenticationToken(final AuthenticationToken authenticationToken) {
         // TODO: This a naive implementation iterating over all RoleMemberDatas of this type. See ECA-5607 for suggested improvement.
         // For example keep a list of distinct tokenSubTypes present in the table and asking the authToken for all permutations might be another approach
         // With the naive approach below we would be better off to background reload all rows into memory and search there
-        final TypedQuery<RoleMemberData> query = entityManager.createQuery("SELECT a FROM RoleMemberData a WHERE a.tokenType=:tokenType", RoleMemberData.class);
-        query.setParameter("tokenType", tokenType);
-        final List<RoleMemberData> roleMemberDatas = query.getResultList();
-        for (final RoleMemberData roleMemberData : roleMemberDatas) {
-            if (roleMemberData.getRoleId()!=RoleMember.NO_ROLE) {
-                if (authenticationToken.matches(convertToAccessUserAspect(roleMemberData.asValueObject()))) {
-                    ret.add(roleMemberData.getRoleId());
+        final TypedQuery<RoleMemberData> query = entityManager
+                .createQuery("SELECT a FROM RoleMemberData a WHERE a.tokenType=:tokenType", RoleMemberData.class)
+                .setParameter("tokenType", authenticationToken.getMetaData().getTokenType());
+        try {
+            final Set<Integer> ret = new HashSet<>();
+            for (final RoleMemberData roleMemberData : query.getResultList()) {
+                if (roleMemberData.getRoleId()!=RoleMember.NO_ROLE) {
+                    if (authenticationToken.matches(convertToAccessUserAspect(roleMemberData.asValueObject()))) {
+                        ret.add(roleMemberData.getRoleId());
+                    }
                 }
             }
+            return ret;
+        } catch (AuthenticationFailedException e) {
+            log.debug(e.getMessage(), e);
+            return new HashSet<>();
         }
-        return ret;
+    }
+    
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    @Deprecated
+    public Map<Integer,Integer> getRoleIdsAndTokenMatchKeysMatchingAuthenticationToken(final AuthenticationToken authenticationToken) {
+        final TypedQuery<RoleMemberData> query = entityManager
+                .createQuery("SELECT a FROM RoleMemberData a WHERE a.tokenType=:tokenType", RoleMemberData.class)
+                .setParameter("tokenType", authenticationToken.getMetaData().getTokenType());
+        try {
+            final Map<Integer,Integer> ret = new HashMap<>();
+            for (final RoleMemberData roleMemberData : query.getResultList()) {
+                if (roleMemberData.getRoleId()!=RoleMember.NO_ROLE) {
+                    if (authenticationToken.matches(convertToAccessUserAspect(roleMemberData.asValueObject()))) {
+                        ret.put(roleMemberData.getRoleId(), roleMemberData.getTokenMatchKey());
+                    }
+                }
+            }
+            return ret;
+        } catch (AuthenticationFailedException e) {
+            log.debug(e.getMessage(), e);
+            return new HashMap<>();
+        }
     }
     
     // TODO: Remove this once there is a better way to match tokens
