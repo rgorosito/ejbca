@@ -290,6 +290,30 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
     
     @Override
+    public boolean deleteRole(AuthenticationToken authenticationToken, int roleId) throws AuthorizationDeniedException {
+        AuthorizationDeniedException authorizationDeniedException = null;
+        boolean result = false;
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            try {
+                if (raMasterApi.isBackendAvailable()) {
+                    result |= raMasterApi.deleteRole(authenticationToken, roleId);
+                }
+            } catch (AuthorizationDeniedException e) {
+                if (authorizationDeniedException == null) {
+                    authorizationDeniedException = e;
+                }
+                // Just try next implementation
+            } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                // Just try next implementation
+            }
+        }
+        if (!result && authorizationDeniedException != null) {
+            throw authorizationDeniedException;
+        }
+        return result;
+    }
+    
+    @Override
     public RoleMember getRoleMember(AuthenticationToken authenticationToken, int roleMemberId) throws AuthorizationDeniedException {
         for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
             if (raMasterApi.isBackendAvailable()) {
@@ -492,6 +516,22 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                     }
                     // If the back end timed out due to a too heavy search we want to allow the client to retry with more fine grained criteria
                     ret.setMightHaveMoreResults(true);
+                }
+            }
+        }
+        return ret;
+    }
+    
+    @Override
+    public RaRoleSearchResponse searchForRoles(AuthenticationToken authenticationToken,
+            RaRoleSearchRequest raRoleSearchRequest) {
+        final RaRoleSearchResponse ret = new RaRoleSearchResponse();
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    ret.merge(raMasterApi.searchForRoles(authenticationToken, raRoleSearchRequest));
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
                 }
             }
         }
@@ -774,6 +814,32 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
             }
         }
         return ret;
+    }
+    
+    @Override
+    public RaAcmeResponse makeAcmeRequest(AuthenticationToken authenticationToken, RaAcmeRequest request) throws AuthorizationDeniedException, EjbcaException {
+        AuthorizationDeniedException authorizationDeniedException = null;
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    final RaAcmeResponse resp = raMasterApi.makeAcmeRequest(authenticationToken, request);
+                    if (resp != null) {
+                        return resp;
+                    }
+                } catch (AuthorizationDeniedException e) {
+                    if (authorizationDeniedException == null) {
+                        authorizationDeniedException = e;
+                    }
+                    // Just try next implementation
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        if (authorizationDeniedException != null) {
+            throw authorizationDeniedException;
+        }
+        return null;
     }
 
     @Override

@@ -1,6 +1,6 @@
 /*************************************************************************
  *                                                                       *
- *  CESeCore: CE Security Core                                           *
+ *  EJBCA Community: The OpenSource Certificate Authority                *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
  *  modify it under the terms of the GNU Lesser General Public           *
@@ -10,16 +10,29 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.cesecore.roles.member;
+package org.ejbca.core.model.era;
 
-import javax.ejb.Local;
+import java.io.Serializable;
+
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
- * CRUD session bean for managing RoleMemberData objects
+ * A response from the CA to the ACME module on the RA
  * 
  * @version $Id$
- *
  */
-@Local
-public interface RoleMemberSessionLocal extends RoleMemberSession {
+public class RaAcmeResponse implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+    
+    private byte[] certificate;
+    
+    public byte[] getCertificate() { return certificate; }
+    public void setCertificate(final byte[] certificate) { this.certificate = certificate; }
+
+    @Override
+    public int hashCode() {
+        return HashCodeBuilder.reflectionHashCode(this);
+    }
+
 }

@@ -110,6 +110,12 @@ public interface RaMasterApi {
     Role saveRole(AuthenticationToken authenticationToken, Role role) throws AuthorizationDeniedException, RoleExistsException;
 
     /**
+     * Deletes a role.
+     * @return true if the role was found and was deleted, and false if it didn't exist.
+     */
+    boolean deleteRole(AuthenticationToken authenticationToken, int roleId) throws AuthorizationDeniedException;
+    
+    /**
      * @return the Role Member with the given ID, or null if it does not exist
      * @throws AuthorizationDeniedException if missing view access.
      * @since Master RA API version 1 (EJBCA 6.8.0)
@@ -190,6 +196,14 @@ public interface RaMasterApi {
     RaEndEntitySearchResponse searchForEndEntities(AuthenticationToken authenticationToken, RaEndEntitySearchRequest raEndEntitySearchRequest);
 
     /**
+     * Searches for roles that the given authentication token has access to.
+     * @param authenticationToken administrator (affects the search results)
+     * @param raRoleSearchRequest Object specifying the search criteria.
+     * @return Object containing list of roles and search status.
+     */
+    RaRoleSearchResponse searchForRoles(AuthenticationToken authenticationToken, RaRoleSearchRequest raRoleSearchRequest);
+    
+    /**
      * Searches for role members in all roles that the given authentication token has access to.
      * @param authenticationToken administrator (affects the search results)
      * @param raRoleMemberSearchRequest Object specifying the search criteria.
@@ -263,6 +277,17 @@ public interface RaMasterApi {
     byte[] createCertificate(AuthenticationToken authenticationToken, EndEntityInformation endEntity)
             throws AuthorizationDeniedException, EjbcaException;
 
+    /**
+     * Makes a request as part of the ACME protocol. The purpose of the ACME protocol is to allow for automatic
+     * certificate issuance and revocation. It consists of multiple steps, where the final step is typically
+     * either an issuance or a revocation. Called by the ACME module only.
+     * 
+     * @param authenticationToken authentication token
+     * @param response Response information. The type field is mandatory and decides the type of request (i.e. the step in the process). 
+     * @return A response object. Fields that are not related to the request will be null.
+     */
+    RaAcmeResponse makeAcmeRequest(AuthenticationToken authenticationToken, RaAcmeRequest request) throws AuthorizationDeniedException, EjbcaException;
+    
     /**
      * Finds end entity by its username.
      * @param authenticationToken authentication token
