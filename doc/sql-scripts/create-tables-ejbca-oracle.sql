@@ -337,10 +337,9 @@ CREATE TABLE RoleMemberData (
     tokenIssuerId NUMBER(10) NOT NULL,
     tokenMatchKey NUMBER(10) NOT NULL,
     tokenMatchOperator NUMBER(10) NOT NULL,
-    tokenMatchValue VARCHAR2(2000 byte) NOT NULL,
+    tokenMatchValue VARCHAR2(2000 byte),
     roleId NUMBER(10) NOT NULL,
-    memberBindingType VARCHAR2(255 byte),
-    memberBindingValue VARCHAR2(255 byte),
+    description VARCHAR2(255 byte),
     rowProtection CLOB,
     rowVersion NUMBER(10) NOT NULL,
     PRIMARY KEY (primaryKey)

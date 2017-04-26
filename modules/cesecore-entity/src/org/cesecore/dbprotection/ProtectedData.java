@@ -168,6 +168,4 @@ public abstract class ProtectedData {
     public String calculateProtection() {
         return impl.calculateProtection(this);
     }
-
-    
 }

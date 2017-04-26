@@ -12,6 +12,8 @@
  *************************************************************************/
 package org.cesecore.authorization;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +43,8 @@ import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.NestableAuthenticationToken;
 import org.cesecore.authorization.AuthorizationCache.AuthorizationCacheCallback;
+import org.cesecore.authorization.AuthorizationCache.AuthorizationResult;
+import org.cesecore.authorization.access.AuthorizationCacheReloadListener;
 import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.authorization.cache.RemoteAccessSetCacheHolder;
 import org.cesecore.config.CesecoreConfiguration;
@@ -54,7 +58,7 @@ import org.cesecore.time.TrustedTimeWatcherSessionLocal;
 import org.cesecore.time.providers.TrustedTimeProviderException;
 
 /**
- * 
+ * Business logic for the EJBCA 6.8.0+ authorization system.
  * 
  * @version $Id$
  */
@@ -69,7 +73,7 @@ public class AuthorizationSessionBean implements AuthorizationSessionLocal, Auth
     @EJB
     private RoleDataSessionLocal roleDataSession;
     @EJB
-    private RoleMemberDataSessionLocal roleMemberSession;
+    private RoleMemberDataSessionLocal roleMemberDataSession;
     @EJB
     private InternalSecurityEventsLoggerSessionLocal internalSecurityEventsLoggerSession;
     @EJB
@@ -173,18 +177,19 @@ public class AuthorizationSessionBean implements AuthorizationSessionLocal, Auth
         if (log.isTraceEnabled()) {
             log.trace("updateCache");
         }
-        AuthorizationCache.INSTANCE.refresh(authorizationCacheCallback);
+        AuthorizationCache.INSTANCE.refresh(authorizationCacheCallback, accessTreeUpdateSession.getAccessTreeUpdateNumber());
     }
     
-    /** @return the access rules available to the AuthenticationToken and its nested tokens, taking each such tokens role membership into account */
-    private HashMap<String, Boolean> getAccessAvailableToAuthenticationToken(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public HashMap<String, Boolean> getAccessAvailableToAuthenticationToken(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
         return AuthorizationCache.INSTANCE.get(authenticationToken, authorizationCacheCallback);
     }
     
     /** Callback for loading cache misses */
     private AuthorizationCacheCallback authorizationCacheCallback = new AuthorizationCacheCallback() {
         @Override
-        public HashMap<String, Boolean> loadAccessRules(final AuthenticationToken authenticationToken) {
+        public AuthorizationResult loadAuthorization(AuthenticationToken authenticationToken) throws AuthenticationFailedException {
             HashMap<String, Boolean> accessRules = getAccessAvailableToSingleToken(authenticationToken);
             if (authenticationToken instanceof NestableAuthenticationToken) {
                 final List<NestableAuthenticationToken> nestedAuthenticatonTokens = ((NestableAuthenticationToken)authenticationToken).getNestedAuthenticationTokens();
@@ -196,12 +201,7 @@ public class AuthorizationSessionBean implements AuthorizationSessionLocal, Auth
             if (log.isDebugEnabled()) {
                 debugLogAccessRules(authenticationToken, accessRules);
             }
-            return accessRules;
-        }
-
-        @Override
-        public int getUpdateNumber() {
-            return accessTreeUpdateSession.getAccessTreeUpdateNumber();
+            return new AuthorizationResult(accessRules, accessTreeUpdateSession.getAccessTreeUpdateNumber());
         }
 
         @Override
@@ -209,24 +209,31 @@ public class AuthorizationSessionBean implements AuthorizationSessionLocal, Auth
             // Setting this to the same as the background cache refresh interval means that any token that has not been used will be purged
             return CesecoreConfiguration.getCacheAuthorizationTime();
         }
+
+        @Override
+        public void subscribeToAuthorizationCacheReload(final AuthorizationCacheReloadListener authorizationCacheReloadListener) {
+            accessTreeUpdateSession.addReloadEvent(authorizationCacheReloadListener);
+        }
     };
 
     private void debugLogAccessRules(final AuthenticationToken authenticationToken, final HashMap<String, Boolean> accessRules) {
         final StringBuilder sb = new StringBuilder(authenticationToken.toString()).append(" has the following access rules:\n");
-        for (final Entry<String,Boolean> entry : accessRules.entrySet()) {
-            if (entry.getValue().booleanValue()) {
+        final List<String> resources = new ArrayList<>(accessRules.keySet());
+        Collections.sort(resources);
+        for (final String resource : resources) {
+            if (accessRules.get(resource).booleanValue()) {
                 sb.append(" allow ");
             } else {
                 sb.append(" deny  ");
             }
-            sb.append(entry.getKey()).append('\n');
+            sb.append(resource).append('\n');
         }
         log.debug(sb);
     }
 
-    /** @return the union of access rules available to the AuthenticationToken if it matches several roles (ignoring any nested tokens) */
+    /** @return the union of access rules available to the AuthenticationToken if it matches several roles (ignoring any nested tokens)  */
     @SuppressWarnings("deprecation")
-    private HashMap<String, Boolean> getAccessAvailableToSingleToken(final AuthenticationToken authenticationToken) {
+    private HashMap<String, Boolean> getAccessAvailableToSingleToken(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
         HashMap<String, Boolean> accessRules = new HashMap<>();
         if (authenticationToken!=null) {
             if (authenticationToken.getMetaData().isSuperToken()) {
@@ -241,13 +248,13 @@ public class AuthorizationSessionBean implements AuthorizationSessionLocal, Auth
             } else {
                 if (accessTreeUpdateSession.isNewAuthorizationPatternMarkerPresent()) {
                     // This is the new 6.8.0+ behavior (combine access of matched rules)
-                    for (final int matchingRoleId : roleMemberSession.getRoleIdsMatchingAuthenticationToken(authenticationToken)) {
+                    for (final int matchingRoleId : roleMemberDataSession.getRoleIdsMatchingAuthenticationTokenOrFail(authenticationToken)) {
                         accessRules = AccessRulesHelper.getAccessRulesUnion(accessRules, roleDataSession.getRole(matchingRoleId).getAccessRules());
                     }
                 } else {
                     // This is the legacy behavior (use priority matching). Remove this once we no longer need to support upgrades to 6.8.0.
                     // Greater tokenMatchKey number has higher priority. When equal, deny trumps accept
-                    final Map<Integer, Integer> roleIdToTokenMatchKeyMap = roleMemberSession.getRoleIdsAndTokenMatchKeysMatchingAuthenticationToken(authenticationToken);
+                    final Map<Integer, Integer> roleIdToTokenMatchKeyMap = roleMemberDataSession.getRoleIdsAndTokenMatchKeysMatchingAuthenticationToken(authenticationToken);
                     final Map<Integer, Integer> keepMap = new HashMap<>();
                     // 1. Find highest tokenMatchKey number and keep these entries
                     int highest = 0;

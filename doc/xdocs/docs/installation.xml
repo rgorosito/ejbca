@@ -672,7 +672,7 @@ This makes your configuration robust, and possible to script on your own.</p>
 Run your installation without mixing root and user accounts as this may lead to root privileges being set on files, which later WildFly is unable to read. Therefore the advice is to run everything as your "wildfly" user.
 </note>
 <subsubsection name="Add database driver">
-<p>Add MariaDB database driver by hot-deploying it into the Ddeployment directory. This will be picked up by WildFly and deployed so we can create a datasource straight away.
+<p>Add MariaDB database driver by hot-deploying it into the Deployment directory. This will be picked up by WildFly and deployed so we can create a datasource straight away.
 You can use a generic name, without version number, in order to get a generic 'driver-name' for the data source command.
 </p>
 <source>
@@ -765,6 +765,7 @@ If you are using another type of database, adapt the statement above with the co
 
 <subsubsection name="Deploy EJBCA">
 <p>Finally build and deploy the EJBCA (application ear file) to WildFly, without touching any WildFly configuration, by running the following EJBCA command.</p>
+<p>Before running deployear below, don't forget to point to your application server by setting APPSRV_HOME, and configure your database in conf/database.properties.</p>
 <p>Run the following commands at the regular command prompt in EJBCA_HOME.</p>
 <source>
 ant clean deployear
@@ -850,6 +851,7 @@ WildFly by default isolates away most sun classes. EJBCA configures JBoss/WildFl
 /socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=ejbca-mail-smtp:add(port="993", host="my.mail.server")
 /subsystem=mail/mail-session="java:/EjbcaMail":add(jndi-name=java:/EjbcaMail, from=noreply@mymail)
 /subsystem=mail/mail-session="java:/EjbcaMail"/server=smtp:add(outbound-socket-binding-ref=ejbca-mail-smtp, tls=true, username=smtpuser, password=smtppassword)
+:reload
 </source>
 </subsubsection>
 
@@ -860,7 +862,7 @@ WildFly by default isolates away most sun classes. EJBCA configures JBoss/WildFl
 <p>For WildFly deploy and install does not automagically configure the Application server for you, instead we supply configuration instructions for the Application server for you to follow.</p>
 
 <subsubsection name="Add database driver">
-<p>Add MariaDB database driver by hot-deploying it into the Ddeployment directory. This will be picked up by WildFly and deployed so we can create a datasource straight away.
+<p>Add MariaDB database driver by hot-deploying it into the Deployment directory. This will be picked up by WildFly and deployed so we can create a datasource straight away.
 You can use a generic name, without version number, in order to get a generic 'driver-name' for the data source command.
 </p>
 <source>
@@ -1074,6 +1076,7 @@ ant deploy-keystore
 /socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=ejbca-mail-smtp:add(port="993", host="my.mail.server")
 /subsystem=mail/mail-session="java:/EjbcaMail":add(jndi-name=java:/EjbcaMail, from=noreply@mymail)
 /subsystem=mail/mail-session="java:/EjbcaMail"/server=smtp:add(outbound-socket-binding-ref=ejbca-mail-smtp, tls=true, username=smtpuser, password=smtppassword)
+:reload
 </source>
 </subsubsection>
 
@@ -1175,7 +1178,7 @@ asadmin deploy --precompilejsp $EJBCA_HOME/dist/ejbca.ear
 You can check that everything was ok in APPSRV_HOME/domains/domain1/logs/server.log.</li><br/>
 <li>Install EJBCA
 <pre>
-ant install
+ant runinstall
 </pre>
 </li>
 <li>Configure SSL in Glassfish<br/>

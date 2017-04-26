@@ -203,7 +203,7 @@ public class DatabaseSchemaTest {
         LOG.trace(">testAdminEntityData");
         logMemStats();
         AccessUserAspectData entity = new AccessUserAspectData(VARCHAR_250B, BOGUS_INTEGER, X500PrincipalAccessMatchValue.WITH_SERIALNUMBER,
-                AccessMatchType.TYPE_EQUALCASEINS, VARCHAR_250B);
+                AccessMatchType.TYPE_EQUALCASE, VARCHAR_250B);
         entity.setRowProtection(CLOB_10KiB);
         entity.setRowVersion(0);
         storeAndRemoveEntity(entity);
@@ -214,7 +214,7 @@ public class DatabaseSchemaTest {
     public void testRoleMemberData() {
         LOG.trace(">testAdminEntityData");
         logMemStats();
-        RoleMemberData entity = new RoleMemberData(BOGUS_INT, VARCHAR_250B, BOGUS_INT, BOGUS_INT, BOGUS_INT, VARCHAR_2000B, BOGUS_INT, null, null);
+        RoleMemberData entity = new RoleMemberData(BOGUS_INT, VARCHAR_250B, BOGUS_INT, BOGUS_INT, BOGUS_INT, VARCHAR_2000B, BOGUS_INT, VARCHAR_250B);
         entity.setRowProtection(CLOB_10KiB);
         entity.setRowVersion(0);
         storeAndRemoveEntity(entity);
@@ -223,13 +223,13 @@ public class DatabaseSchemaTest {
 
     @Test
     public void testAdminGroupData() {
-        LOG.trace(">testRoleData");
+        LOG.trace(">testAdminGroupData");
         logMemStats();
         AdminGroupData entity = new AdminGroupData(BOGUS_INTEGER, VARCHAR_250B);
         entity.setRowProtection(CLOB_10KiB);
         entity.setRowVersion(0);
         storeAndRemoveEntity(entity);
-        LOG.trace("<testRoleData");
+        LOG.trace("<testAdminGroupData");
     }
 
     @Test
@@ -238,7 +238,7 @@ public class DatabaseSchemaTest {
         logMemStats();
         RoleData entity = new RoleData();
         entity.setId(123);
-        entity.setNameSpaceNeverNull(VARCHAR_250B);
+        entity.setNameSpace(VARCHAR_250B);
         entity.setRoleName(VARCHAR_250B);
         entity.setRawData(CLOB_1MiB);
         entity.setRowProtection(CLOB_10KiB);

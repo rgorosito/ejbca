@@ -17,6 +17,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
@@ -27,10 +29,9 @@ import org.bouncycastle.asn1.crmf.CertReqMsg;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSession;
+import org.cesecore.authorization.AuthorizationSession;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAOfflineException;
-import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.ca.IllegalNameException;
 import org.cesecore.certificates.ca.IllegalValidityException;
 import org.cesecore.certificates.ca.InvalidAlgorithmException;
@@ -45,20 +46,19 @@ import org.cesecore.certificates.certificate.exception.CertificateSerialNumberEx
 import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.certificate.request.FailInfo;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
-import org.cesecore.certificates.certificateprofile.CertificateProfileSession;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmTools;
-import org.cesecore.configuration.GlobalConfigurationSession;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
+import org.cesecore.util.CertTools;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.core.EjbcaException;
+import org.ejbca.core.ejb.EjbBridgeSessionLocal;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSession;
 import org.ejbca.core.ejb.ra.EndEntityAccessSession;
 import org.ejbca.core.ejb.ra.EndEntityManagementSession;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
-import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
@@ -78,36 +78,22 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
     /** strings for error messages defined in internal resources */
     private static final String CMP_ERRORGENERAL = "cmp.errorgeneral";
 
-    private final AccessControlSession authorizationSession;
+    private final AuthorizationSession authorizationSession;
     private final CertificateStoreSession certStoreSession;
     private final EndEntityAccessSession endEntityAccessSession;
     private final EndEntityManagementSession endEntityManagementSession;
     private final SignSession signSession;
     private final WebAuthenticationProviderSessionLocal authenticationProviderSession;
-    
-    /**
-     * Construct the message handler.
-     * @param admin
-     * @param caSession
-     * @param certificateProfileSession
-     * @param certificateRequestSession
-     * @param endEntityProfileSession
-     * @param signSession
-     * @param endEntityManagementSession
-     */
-    public CrmfKeyUpdateHandler(final AuthenticationToken admin, String configAlias, CaSessionLocal caSession, CertificateProfileSession certificateProfileSession, 
-            EndEntityAccessSession endEntityAccessSession, EndEntityProfileSessionLocal endEntityProfileSession, SignSession signSession, 
-            CertificateStoreSession certStoreSession, AccessControlSession authSession, WebAuthenticationProviderSessionLocal authProviderSession, 
-            EndEntityManagementSession endEntityManagementSession, GlobalConfigurationSession globalConfigSession) {
-        
-        super(admin, configAlias, caSession, endEntityProfileSession, certificateProfileSession, (CmpConfiguration) globalConfigSession.getCachedConfiguration(CmpConfiguration.CMP_CONFIGURATION_ID));
-        this.signSession = signSession;
-        this.endEntityAccessSession = endEntityAccessSession;
-        this.certStoreSession = certStoreSession;
-        this.authorizationSession = authSession;
-        this.authenticationProviderSession = authProviderSession;
-        this.endEntityManagementSession = endEntityManagementSession;
 
+
+    public CrmfKeyUpdateHandler(AuthenticationToken authenticationToken, String configAlias, EjbBridgeSessionLocal ejbBridgeSession) {
+        super(authenticationToken, configAlias, ejbBridgeSession);
+        this.signSession = ejbBridgeSession.getSignSession();
+        this.endEntityAccessSession = ejbBridgeSession.getEndEntityAccessSession();
+        this.certStoreSession = ejbBridgeSession.getCertificateStoreSession();
+        this.authorizationSession = ejbBridgeSession.getAuthorizationSession();
+        this.authenticationProviderSession = ejbBridgeSession.getWebAuthenticationProviderSession();
+        this.endEntityManagementSession = ejbBridgeSession.getEndEntityManagementSession();
     }
 
     @Override
@@ -131,6 +117,11 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
             LOG.trace(">handleMessage");
         }
         
+        
+        // NOTE. If we will issue the new certificate using another CertificateProfile and/or CA than the ones specified 
+        // in the end entity (prior to receiving the request), update the authorization check in 
+        // EndEntityCertificateAuthenticationModule.isAuthorizedAdmin() to check authorization to the right CertProfile and CA 
+        
         if(LOG.isDebugEnabled()) {
             LOG.debug("CMP running on RA mode: " + this.cmpConfiguration.getRAMode(this.confAlias));
         }
@@ -149,20 +140,18 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                 // Find the subjectDN to look for
                 String subjectDN = null;
                 String issuerDN = null;
-                if(this.cmpConfiguration.getRAMode(this.confAlias)) {
-                    
+                if(this.cmpConfiguration.getRAMode(this.confAlias)) {                    
                     // Check that EndEntityCertificate authentication module is set
                     if(!cmpConfiguration.isInAuthModule(confAlias, CmpConfiguration.AUTHMODULE_ENDENTITY_CERTIFICATE)) {
-                        String errmsg = "EndEnityCertificate authentication module is not configured. For a KeyUpdate request to be authentication in RA mode, EndEntityCertificate " +
+                        String errmsg = "EndEntityCertificate authentication module is not configured. For a KeyUpdate request to be authentication in RA mode, EndEntityCertificate " +
                         		"authentication module has to be set and configured";
                         LOG.info(errmsg);
                         return CmpMessageHelper.createUnprotectedErrorMessage(msg, FailInfo.BAD_REQUEST, errmsg);
                     }
-                    
                     // Check PKIMessage authentication
                     String authparameter = cmpConfiguration.getAuthenticationParameter(CmpConfiguration.AUTHMODULE_ENDENTITY_CERTIFICATE, confAlias);
                     eecmodule = new EndEntityCertificateAuthenticationModule(admin, authparameter, 
-                            confAlias, cmpConfiguration, authenticated, caSession, certStoreSession, authorizationSession, endEntityProfileSession, 
+                            confAlias, cmpConfiguration, authenticated, caSession, certStoreSession, authorizationSession, endEntityProfileSession, certificateProfileSession,
                             endEntityAccessSession, authenticationProviderSession, endEntityManagementSession);
                     if(!eecmodule.verifyOrExtract(crmfreq.getPKIMessage(), null)) {
                         LOG.info(eecmodule.getErrorMessage());
@@ -172,7 +161,7 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                             LOG.debug("The CMP KeyUpdate request for SubjectDN '" + crmfreq.getSubjectDN() +"' was verified successfully");
                         }
                     }
-                    oldCert = (X509Certificate) eecmodule.getExtraCert();
+                    oldCert = (X509Certificate) certStoreSession.findLatestX509CertificateBySubject(crmfreq.getSubjectDN());
                     
                     CertReqMessages kur = (CertReqMessages) crmfreq.getPKIMessage().getBody().getContent();
                     CertReqMsg certmsg;
@@ -194,7 +183,7 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                 } else { // client mode
                     
                     eecmodule = new EndEntityCertificateAuthenticationModule(admin, null, 
-                            confAlias, cmpConfiguration, authenticated, caSession, certStoreSession, authorizationSession, endEntityProfileSession, 
+                            confAlias, cmpConfiguration, authenticated, caSession, certStoreSession, authorizationSession, endEntityProfileSession, certificateProfileSession, 
                             endEntityAccessSession, authenticationProviderSession, endEntityManagementSession);
                     if(!eecmodule.verifyOrExtract(crmfreq.getPKIMessage(), null)) {
                         LOG.info(eecmodule.getErrorMessage());
@@ -216,14 +205,14 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                 if(LOG.isDebugEnabled()) {
                     LOG.debug("Looking for an end entity with subjectDN: " + subjectDN);
                 }
-                EndEntityInformation userdata = null;
+                EndEntityInformation endEntityInformation = null;
                 if(issuerDN == null) {
                     if(LOG.isDebugEnabled()) {
                         LOG.debug("The CMP KeyUpdateRequest did not specify an issuer");
                     }
                     List<EndEntityInformation> userdataList = endEntityAccessSession.findUserBySubjectDN(admin, subjectDN);
                     if (userdataList.size() > 0) {
-                        userdata = userdataList.get(0);
+                        endEntityInformation = userdataList.get(0);
                     }
                     if (userdataList.size() > 1) {
                         LOG.warn("Multiple end entities with subject DN " + subjectDN + " were found. This may lead to unexpected behavior.");
@@ -231,7 +220,7 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                 } else {
                     List<EndEntityInformation> userdataList = endEntityAccessSession.findUserBySubjectAndIssuerDN(admin, subjectDN, issuerDN);
                     if (userdataList.size() > 0) {
-                        userdata = userdataList.get(0);
+                        endEntityInformation = userdataList.get(0);
                     }
                     if (userdataList.size() > 1) {
                         LOG.warn("Multiple end entities with subject DN " + subjectDN + " and issuer DN" + issuerDN
@@ -239,32 +228,58 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                     }
                 }
 
-                if(userdata == null) {
+                if(endEntityInformation == null) {
                     final String errMsg = INTRES.getLocalizedMessage("cmp.infonouserfordn", subjectDN);
                     LOG.info(errMsg);
                     return CmpMessageHelper.createUnprotectedErrorMessage(msg, FailInfo.BAD_MESSAGE_CHECK, errMsg);
                 }
-
+                
                 if(LOG.isDebugEnabled()) {
-                    LOG.debug("Found user '" + userdata.getUsername() + "'");
+                    LOG.debug("Found user '" + endEntityInformation.getUsername() + "'");
                 }
             
+                /*
+                 * Check the status of the certificate that should be updated.
+                 * 
+                 * RFC4210 states in ch. 5.3.5:
+                 * "[...] This message is intended to be used to request updates to existing (non-revoked and non-expired) certificates [...]" 
+                 */
+                if(certStoreSession.isRevoked(CertTools.getIssuerDN(oldCert), CertTools.getSerialNumber(oldCert))) {
+                    String errorMessage = "Certificate for end entity with username " + endEntityInformation.getUsername() + " with subject DN " + subjectDN
+                            + " is revoked. Unable to perform key update.";
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(errorMessage);
+                    }
+                    return CmpMessageHelper.createUnprotectedErrorMessage(msg, FailInfo.BAD_REQUEST, errorMessage);
+                }
+                try {
+                    oldCert.checkValidity();
+                } catch (CertificateExpiredException e) {
+                    String errorMessage = "Certificate for end entity with username " + endEntityInformation.getUsername() + " with subject DN "
+                            + subjectDN + " is expired. Unable to perform key update.";
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(errorMessage);
+                    }
+                    return CmpMessageHelper.createUnprotectedErrorMessage(msg, FailInfo.BAD_REQUEST, errorMessage);
+                } catch(CertificateNotYetValidException e) {
+                    //A not yet valid certificate is still valid for update according to the RFC. 
+                }
+                        
                 // The password that should be used to obtain the new certificate
-                String password = StringUtils.isNotEmpty(userdata.getPassword()) ? userdata.getPassword() : eecmodule.getAuthenticationString();
+                String password = StringUtils.isNotEmpty(endEntityInformation.getPassword()) ? endEntityInformation.getPassword() : eecmodule.getAuthenticationString();
                 
                 // Set the appropriate parameters in the end entity
-                userdata.setPassword(password);
-                endEntityManagementSession.changeUser(admin, userdata, true);
+                endEntityInformation.setPassword(password);
+                endEntityManagementSession.changeUser(admin, endEntityInformation, true);
                 if(this.cmpConfiguration.getKurAllowAutomaticUpdate(this.confAlias)) {
                     if(LOG.isDebugEnabled()) {
-                        LOG.debug("Setting the end entity status to 'NEW'. Username: " + userdata.getUsername());
-                    }
-
-                    endEntityManagementSession.setUserStatus(admin, userdata.getUsername(), EndEntityConstants.STATUS_NEW);
+                        LOG.debug("Setting the end entity status to 'NEW'. Username: " + endEntityInformation.getUsername());
+                    }    
+                    endEntityManagementSession.setUserStatus(admin, endEntityInformation.getUsername(), EndEntityConstants.STATUS_NEW);
                 }
                 
                 // Set the appropriate parameters in the request
-                crmfreq.setUsername(userdata.getUsername());
+                crmfreq.setUsername(endEntityInformation.getUsername());
                 crmfreq.setPassword(password);
                 if(crmfreq.getHeader().getProtectionAlg() != null) {
                     crmfreq.setPreferredDigestAlg(AlgorithmTools.getDigestFromSigAlg(crmfreq.getHeader().getProtectionAlg().getAlgorithm().getId()));
@@ -289,7 +304,7 @@ public class CrmfKeyUpdateHandler extends BaseCmpMessageHandler implements ICmpM
                 }
 
                 // Process the request
-                resp = signSession.createCertificate(admin, crmfreq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, userdata);               
+                resp = signSession.createCertificate(admin, crmfreq, org.ejbca.core.protocol.cmp.CmpResponseMessage.class, endEntityInformation);               
 
                 if (resp == null) {
                     final String errMsg = INTRES.getLocalizedMessage("cmp.errornullresp");

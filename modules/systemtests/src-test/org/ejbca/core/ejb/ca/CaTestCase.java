@@ -17,6 +17,7 @@ import java.security.Principal;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
@@ -34,14 +35,7 @@ import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionRemote;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleNotFoundException;
-import org.cesecore.authorization.rules.AccessRuleState;
-import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
-import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
@@ -70,11 +64,8 @@ import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.mock.authentication.tokens.TestX509CertificateAuthenticationToken;
-import org.cesecore.roles.AdminGroupData;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.RoleNotFoundException;
-import org.cesecore.roles.access.RoleAccessSessionRemote;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.EjbRemoteHelper;
@@ -137,38 +128,16 @@ public abstract class CaTestCase extends RoleUsingTestCase {
 
     protected void setUp() throws Exception { // NOPMD: this is a base class
         log.trace(">CaTestCase.setUp()");
-        super.setUpAuthTokenAndRole(getRoleName());
+        super.setUpAuthTokenAndRole(getRoleName()+"Base");
         removeTestCA(); // We can't be sure this CA was not left over from
         createTestCA();
         addDefaultRole();
     }
     
-    protected void addDefaultRole() throws RoleExistsException, AuthorizationDeniedException, AccessRuleNotFoundException, RoleNotFoundException {
-        String roleName = getRoleName();
-        final Set<Principal> principals = new HashSet<Principal>();
-        principals.add(new X500Principal("C=SE,O=CaUser,CN=CaUser"));
-        final SimpleAuthenticationProviderSessionRemote simpleAuthenticationProvider = getAuthenticationProviderSession();
-        caAdmin = (TestX509CertificateAuthenticationToken) simpleAuthenticationProvider.authenticate(new AuthenticationSubject(principals, null));
-        final X509Certificate certificate = caAdmin.getCertificate();
-
-        final RoleManagementSessionRemote roleManagementSession = getRoleManagementSession();
-        AdminGroupData role = CaTestCase.getRoleAccessSession().findRole(roleName);
-        if (role == null) {
-            log.error("Role should not be null here.");
-            role = roleManagementSession.create(internalAdmin, roleName);
-        }
-        final List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-        accessRules.add(new AccessRuleData(roleName, StandardRules.ROLE_ROOT.resource(), AccessRuleState.RULE_ACCEPT, true));
-        role = roleManagementSession.addAccessRulesToRole(internalAdmin, role, accessRules);
-
-        final List<AccessUserAspectData> accessUsers = new ArrayList<AccessUserAspectData>();
-        accessUsers.add(new AccessUserAspectData(roleName, CertTools.getIssuerDN(certificate).hashCode(),
-                X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASE, CertTools.getPartFromDN(
-                        CertTools.getSubjectDN(certificate), "CN")));
-        roleManagementSession.addSubjectsToRole(internalAdmin, role, accessUsers);
-
-        final AccessControlSessionRemote accessControlSession = EjbRemoteHelper.INSTANCE.getRemoteSession(AccessControlSessionRemote.class);
-        accessControlSession.forceCacheExpire();
+    protected void addDefaultRole() throws RoleExistsException {
+        final String commonName = CaTestCase.class.getCanonicalName();
+        caAdmin = getRoleInitializationSession().createAuthenticationTokenAndAssignToNewRole("C=SE,O=Test,CN="+commonName, null, getRoleName(),
+                Arrays.asList(StandardRules.ROLE_ROOT.resource()), null);
     }
 
     protected void tearDown() throws Exception { // NOPMD: this is a base class
@@ -179,27 +148,15 @@ public abstract class CaTestCase extends RoleUsingTestCase {
     }
     
     protected void removeDefaultRole() throws RoleNotFoundException, AuthorizationDeniedException {
-        RoleAccessSessionRemote roleAccessSession = CaTestCase.getRoleAccessSession();
-        AdminGroupData role = roleAccessSession.findRole(getRoleName());
-        if (role != null) {
-            CaTestCase.getRoleManagementSession().remove(internalAdmin, role);
-        }
+        getRoleInitializationSession().removeAllAuthenticationTokensRoles(caAdmin);
     }
     
     private static SimpleAuthenticationProviderSessionRemote getAuthenticationProviderSession() {
         return EjbRemoteHelper.INSTANCE.getRemoteSession(SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     }
 
-    private static RoleManagementSessionRemote getRoleManagementSession() {
-        return EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
-    }
-
     private static CaSessionRemote getCaSession() {
         return EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
-    }
-
-    private static RoleAccessSessionRemote getRoleAccessSession() {
-        return EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
     }
 
     /**
@@ -483,7 +440,7 @@ public abstract class CaTestCase extends RoleUsingTestCase {
                     ApprovalDataVO approvalData = queryResults.get(0);
                     Approval approval = new Approval("Approved during testing.", sequenceId, partitionId);
                     approvalExecutionSession.approve(approvingAdmin, approvalID, approval);
-                    approvalData = (ApprovalDataVO) approvalSession.findApprovalDataVO(internalAdmin, approvalID).iterator().next();
+                    approvalData = approvalSession.findApprovalDataVO(internalAdmin, approvalID).iterator().next();
                     Assert.assertEquals(approvalData.getStatus(), ApprovalDataVO.STATUS_EXECUTED);
                     CertificateStatus status = certificateStoreSession.getStatus(issuerDN, serialNumber);
                     Assert.assertEquals(status.revocationReason, reason);
@@ -564,8 +521,12 @@ public abstract class CaTestCase extends RoleUsingTestCase {
     }
 
     protected static void createEllipticCurveDsaCa() throws CAExistsException, CryptoTokenOfflineException, CryptoTokenAuthenticationFailedException,
+    InvalidAlgorithmException, AuthorizationDeniedException {
+        createEllipticCurveDsaCa("secp256r1");
+    }
+    protected static void createEllipticCurveDsaCa(final String keySpec) throws CAExistsException, CryptoTokenOfflineException, CryptoTokenAuthenticationFailedException,
             InvalidAlgorithmException, AuthorizationDeniedException {
-        final int cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(null, TEST_ECDSA_CA_NAME, "secp256r1");
+        final int cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(null, TEST_ECDSA_CA_NAME, keySpec);
         final CAToken catoken = CaTestUtils.createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA256_WITH_ECDSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
         // Create and active Extended CA Services.
         final List<ExtendedCAServiceInfo> extendedcaservices = new ArrayList<ExtendedCAServiceInfo>();

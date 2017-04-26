@@ -17,22 +17,27 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
 /**
- * 
+ *
  * @version $Id$
  */
 public final class AccessSetTest {
-    
+
     private static final Logger log = Logger.getLogger(AccessSetTest.class);
-    
-    private final AccessSet as = makeAccessSet("/test", "/one/two", "/three", "/three/four", "/three/four/five",
+
+    @SuppressWarnings("deprecation")
+    private final AccessSet as = makeLegacyAccessSet("/test", "/one/two", "/three", "/three/four", "/three/four/five",
             "/six", "/six/" + AccessSet.WILDCARD_RECURSIVE, "/seven/eight", "/seven/eight/" + AccessSet.WILDCARD_RECURSIVE,
-            "/nine/" + AccessSet.WILDCARD_ALL, "/ten/eleven/" + AccessSet.WILDCARD_ALL + "/subresource",
+            "/nine/", "/ten/eleven/subresource", // currently unused
             "/twelve/" + AccessSet.WILDCARD_SOME, "/twelve/-123456",
             "/thirteen/" + AccessSet.WILDCARD_SOME + "/subres", "/thirteen/98765/subres");
 
@@ -43,7 +48,7 @@ public final class AccessSetTest {
         assertTrue(as.isAuthorized("/three"));
         log.trace("<testSimpleAllowed");
     }
-    
+
     @Test
     public void testSimpleDenied() {
         log.trace(">testSimpleDenied");
@@ -51,7 +56,7 @@ public final class AccessSetTest {
         assertFalse(as.isAuthorized("/nonexistent"));
         log.trace("<testSimpleDenied");
     }
-    
+
     @Test
     public void testNested() {
         log.trace(">testNested");
@@ -63,7 +68,7 @@ public final class AccessSetTest {
         assertFalse(as.isAuthorized("/three/four/nine"));
         log.trace("<testNested");
     }
-    
+
     @Test
     public void testRecursive() {
         log.trace(">testRecursive");
@@ -77,32 +82,19 @@ public final class AccessSetTest {
         assertTrue(as.isAuthorized("/seven/eight/test/bla/bla/bla"));
         log.trace("<testRecursive");
     }
-    
+
+    @SuppressWarnings("deprecation")
     @Test
     public void testSlashRecurisve() {
         log.trace(">testSlashRecurisve");
-        final AccessSet sr = makeAccessSet("/" + AccessSet.WILDCARD_RECURSIVE);
+        final AccessSet sr = makeLegacyAccessSet("/" + AccessSet.WILDCARD_RECURSIVE);
         assertTrue(sr.isAuthorized("/"));
         assertTrue(sr.isAuthorized("/one"));
         assertTrue(sr.isAuthorized("/one/two/three"));
         assertTrue(sr.isAuthorized("/one/-1234/three"));
         log.trace("<testSlashRecurisve");
     }
-    
-    @Test
-    public void testAllWilcard() {
-        log.trace(">testAllWilcard");
-        assertTrue(as.isAuthorized("/nine/12345"));
-        assertTrue(as.isAuthorized("/nine/-12345678"));
-        assertTrue(as.isAuthorized("/ten/eleven/12345/subresource"));
-        assertTrue(as.isAuthorized("/ten/eleven/-12345678/subresource"));
-        assertFalse(as.isAuthorized("/nine"));
-        assertFalse(as.isAuthorized("/nine/notanumber"));
-        assertFalse(as.isAuthorized("/nine/notanumber/xyz"));
-        assertFalse(as.isAuthorized("/nine/45678/notgranted"));
-        log.trace("<testAllWilcard");
-    }
-    
+
     @Test
     public void testSomeWilcard() {
         log.trace(">testSomeWilcard");
@@ -112,7 +104,7 @@ public final class AccessSetTest {
         assertFalse(as.isAuthorized("/thirteen/22222/subres"));
         log.trace("<testAllWilcard");
     }
-    
+
     @Test
     public void testBadResources() {
         log.trace(">testBadResources");
@@ -132,7 +124,28 @@ public final class AccessSetTest {
         log.trace("<testBadResources");
     }
     
-    private AccessSet makeAccessSet(final String... resources) {
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testConvertAndMerge() {
+        log.trace(">testConvertAndMerge");
+        final AccessSet asNew = makeNewAccessSet();
+        // Merge with an old AccessSet to force downgrade
+        final AccessSet asOld = new AccessSet(Arrays.asList("/a", "/f", "/nonexistentold"));
+        final AccessSet merged = new AccessSet(asNew, asOld);
+        assertTrue(merged.isAuthorized("/a"));
+        assertFalse(merged.isAuthorized("/b"));
+        assertTrue(merged.isAuthorized("/b/c"));
+        assertTrue(merged.isAuthorized("/b/c/d"));
+        assertFalse(merged.isAuthorized("/b/c/e"));
+        assertTrue(merged.isAuthorized("/f"));
+        assertFalse(merged.isAuthorized("/nonexistent")); // the converter does not allow non-existent resources
+        assertTrue(merged.isAuthorized("/nonexistentold")); // this rule comes from the old AccessSet, so it's left untouched
+        log.trace("<testConvertAndMerge");
+    }
+
+    /** Creates an AccessSet with the legacy representation of access rules  */
+    @SuppressWarnings("deprecation")
+    private AccessSet makeLegacyAccessSet(final String... resources) {
         final Collection<String> col = new ArrayList<>();
         for (final String resource : resources) {
             col.add(resource);
@@ -140,4 +153,20 @@ public final class AccessSetTest {
         return new AccessSet(col);
     }
     
+    private AccessSet makeNewAccessSet() {
+        final Set<String> allResources = new HashSet<>();
+        allResources.add("/a/");
+        allResources.add("/b/");
+        allResources.add("/b/c/");
+        allResources.add("/b/c/d/");
+        allResources.add("/b/c/e/");
+        allResources.add("/f/");
+        final HashMap<String,Boolean> accessRules = new HashMap<>();
+        accessRules.put("/a/", true);
+        accessRules.put("/b/c/", true);
+        accessRules.put("/b/c/e/", false);
+        accessRules.put("/nonexistent/", true);
+        return AccessSet.fromAccessRules(accessRules, allResources);
+    }
+
 }

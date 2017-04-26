@@ -180,15 +180,13 @@
 	<property name="systemtests.properties.file" location="${ejbca.home}/conf/systemtests.properties"/>
     
 	<!-- Define class-paths of global interest -->
-	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.5.jar"/></path>
+	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.6.jar"/></path>
 
 	<path id="lib.junit.classpath">
 		<fileset dir="${ejbca.home}/lib/ext">
 			<include name="junit-*.jar"/>
-			<include name="commons-httpclient-*.jar"/>	<!-- ProtocolScepHttpTest -->
-			<include name="htmlunit-*.jar"/>	<!-- ProtocolScepHttpTest -->
-			<include name="commons-io-*.jar"/>	<!-- ProtocolScepHttpTest -->
 		</fileset>
+		<path refid="lib.hc.classpath"/>
 	</path>
 	
 	<path id="lib.easymock.classpath">
@@ -207,8 +205,8 @@
 	<path id="lib.commons-logging.classpath"><fileset dir="${ejbca.home}/lib" includes="commons-logging*.jar"/></path>
 	<path id="lib.commons-el.classpath"><fileset dir="${ejbca.home}/lib" includes="commons-el-*.jar"/></path>
 	<path id="lib.commons-fileupload.classpath"><fileset dir="${ejbca.home}/lib" includes="commons-fileupload-*.jar"/></path>
-	<path id="lib.commons-httpclient.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="commons-httpclient-*.jar"/></path>
-	<path id="lib.hc.classpath"><fileset dir="${ejbca.home}/lib/ct" includes="httpcore-*.jar httpclient-*.jar"/></path>
+	<path id="lib.commons-httpclient.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="commons-httpclient-*.jar"/></path> <!-- TODO this is the old 3.x version. it should be removed once SigningDailyRollingFileAppender has been updated (ECA-5847), it is the only remaining class that is using the old version -->
+	<path id="lib.hc.classpath"><fileset dir="${ejbca.home}/lib" includes="httpcore-*.jar httpclient-*.jar httpmime-*.jar"/></path>
 	<path id="lib.commons-io.classpath"><fileset dir="${ejbca.home}/lib" includes="commons-io-*.jar"/></path>
 	<path id="lib.batik.classpath"><fileset dir="${ejbca.home}/lib/batik" includes="*.jar"/></path>
 	<path id="lib.mail.classpath">
@@ -272,8 +270,6 @@
 		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
 	</path>
 	
-	<path id="lib.json.classpath"><fileset dir="${ejbca.home}/lib/ct" includes="json-simple-*.jar"/></path>
-
 	<path id="lib.cesecore-common.classpath"><fileset file="${mod.cesecore-common.lib}"/></path>
 
 	<path id="lib.ejbca-common.classpath">
@@ -289,8 +285,8 @@
     	<pathelement location="${mod.ejbca-common-web.lib}"/>
 	</path>
 
-	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-154.jar"/></fileset></path>
-	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-154.jar"/></fileset></path>
+	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-156.jar"/></fileset></path>
+	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-156.jar"/></fileset></path>
 	<path id="lib.bouncycastle.classpath">
 		<path refid="lib.bouncycastle-provonly.classpath"/>
 		<path refid="lib.bouncycastle-mailonly.classpath"/>
@@ -328,16 +324,13 @@
 	
 	<!-- Certificate Transparency -->
 	<path id="lib.ctlog.classpath">
-	    <path refid="lib.commons-codec.classpath"/>
-		<path refid="lib.json.classpath"/>
+		<path refid="lib.commons-codec.classpath"/>
+		<path refid="lib.json-simple.classpath"/>
+		<path refid="lib.hc.classpath"/>
 	    <fileset dir="${ejbca.home}/lib/ct">
 	        <include name="ctlog-jdk7-*.jar"/>
 	        <include name="protobuf-java-*.jar"/>
             <include name="guava-*.jar" />
-	        
-	        <!-- TODO should update the files in lib/ and use them instead -->
-            <include name="httpclient-*.jar" />
-            <include name="httpcore-*.jar" />
         </fileset>
     </path>
 

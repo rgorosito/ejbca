@@ -12,6 +12,8 @@
  *************************************************************************/
 package org.cesecore.roles.member;
 
+import java.util.List;
+
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 
@@ -30,15 +32,21 @@ public interface RoleMemberSession {
     RoleMember getRoleMember(AuthenticationToken authenticationToken, int roleMemberId) throws AuthorizationDeniedException;
 
     /**
-     * Adds or updates a Role Member (depending on the value of the ID).
-     * @return The ID of the role member after persisting it.
+     * Adds or updates a Role Member (use ID RoleMember.ROLE_MEMBER_ID_UNASSIGNED to assign when adding a RoleMember).
+     * @return The persisted version of the role member (and null if the provided roleMember was null)
      * @throws AuthorizationDeniedException If access was denied to editing this role member or the referenced CA or Role.
      */
-    int createOrEdit(AuthenticationToken authenticationToken, RoleMember roleMember) throws AuthorizationDeniedException;
+    RoleMember persist(AuthenticationToken authenticationToken, RoleMember roleMember) throws AuthorizationDeniedException;
 
     /**
      * Deletes the role member with the specified ID.
      * @return true if successfully deleted, false if it did not exist.
      */
     boolean remove(final AuthenticationToken authenticationToken, final int roleMemberId) throws AuthorizationDeniedException;
+
+    /**
+     * @return a list of RoleMembers that belongs to the specified Role
+     * @throws AuthorizationDeniedException if the caller is not authorized to the role (including any of the RoleMember's tokenIssuerIds)
+     */
+    List<RoleMember> getRoleMembersByRoleId(AuthenticationToken authenticationToken, int roleId) throws AuthorizationDeniedException;
 }

@@ -107,6 +107,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
     private static final Logger log = Logger.getLogger(EnrollMakeNewRequestBean.class);
 
     public static String PARAM_REQUESTID = "requestId";
+    public static int MAX_CSR_LENGTH = 10240;
     
     @EJB
     private RaMasterApiProxyBeanLocal raMasterApiProxyBean;
@@ -858,7 +859,12 @@ public class EnrollMakeNewRequestBean implements Serializable {
     /** Validate an uploaded CSR and store the extracted key algorithm and CSR for later use. */
     public final void validateCsr(FacesContext context, UIComponent component, Object value) throws ValidatorException {
         algorithmFromCsr = null;
-        PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(value.toString());
+        final String valueStr = value.toString();
+        if (valueStr != null && valueStr.length() > EnrollMakeNewRequestBean.MAX_CSR_LENGTH) {
+            log.info("CSR uploaded was too large: "+valueStr.length());
+            throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));            
+        }
+        PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(valueStr);
         if (pkcs10CertificateRequest == null) {
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
         }
@@ -1034,7 +1040,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
         if (ret.size()>1 && StringUtils.isEmpty(getSelectedEndEntityProfile())) {
             ret.add(new SelectItem(null, raLocaleBean.getMessage("enroll_select_eep_nochoice"), raLocaleBean.getMessage("enroll_select_eep_nochoice"), true));
         }
-        sortSelectItemsByLabel(ret);
+        EnrollMakeNewRequestBean.sortSelectItemsByLabel(ret);
         return ret;
     }
 
@@ -1058,7 +1064,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
         if (ret.size()>1 && StringUtils.isEmpty(getSelectedCertificateProfile())) {
             ret.add(new SelectItem(null, raLocaleBean.getMessage("enroll_select_cp_nochoice"), raLocaleBean.getMessage("enroll_select_cp_nochoice"), true));
         }
-        sortSelectItemsByLabel(ret);
+        EnrollMakeNewRequestBean.sortSelectItemsByLabel(ret);
         return ret;
     }
 
@@ -1093,7 +1099,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
         if (ret.size()>1 && StringUtils.isEmpty(getSelectedCertificateAuthority())) {
             ret.add(new SelectItem(null, raLocaleBean.getMessage("enroll_select_ca_nochoice"), raLocaleBean.getMessage("enroll_select_ca_nochoice"), true));
         }
-        sortSelectItemsByLabel(ret);
+        EnrollMakeNewRequestBean.sortSelectItemsByLabel(ret);
         return ret;
     }
 
@@ -1214,14 +1220,14 @@ public class EnrollMakeNewRequestBean implements Serializable {
                     availableAlgorithmSelectItems.add(new SelectItem(null, raLocaleBean.getMessage("enroll_select_ka_nochoice"), raLocaleBean.getMessage("enroll_select_ka_nochoice"), true));
                 }
             }
-            sortSelectItemsByLabel(availableAlgorithmSelectItems);
+            EnrollMakeNewRequestBean.sortSelectItemsByLabel(availableAlgorithmSelectItems);
             this.availableAlgorithmSelectItems = availableAlgorithmSelectItems;
         }
         return availableAlgorithmSelectItems;
     }
 
     /** Sort the provided list by label with the exception of any item with null value that ends up first. */
-    private void sortSelectItemsByLabel(final List<SelectItem> items) {
+    protected static void sortSelectItemsByLabel(final List<SelectItem> items) {
         Collections.sort(items, new Comparator<SelectItem>() {
             @Override
             public int compare(final SelectItem item1, final SelectItem item2) {

@@ -12,8 +12,8 @@
  *************************************************************************/
 package org.ejbca.ra;
 
-import java.util.regex.Pattern;
-
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
+import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.roles.member.RoleMember;
 
 /**
@@ -21,18 +21,21 @@ import org.cesecore.roles.member.RoleMember;
  */
 public final class RaRoleMemberGUIInfo {
     
-    private static final Pattern serialNumberPattern = Pattern.compile("^[0-9A-Fa-f]{8,}$");
-    
     public final RoleMember roleMember;
     public final String caName;
     public final String roleName;
+    public final String roleNamespace;
     public final String tokenTypeText;
+    public final boolean tokenMatchValueIsLink;
     
-    public RaRoleMemberGUIInfo(final RoleMember roleMember, final String caName, final String roleName, final String tokenTypeText) {
+    public RaRoleMemberGUIInfo(final RoleMember roleMember, final String caName, final String roleName, final String roleNamespace, final String tokenTypeText) {
         this.roleMember = roleMember;
         this.caName = caName;
         this.roleName = roleName;
+        this.roleNamespace = roleNamespace;
         this.tokenTypeText = tokenTypeText;
+        this.tokenMatchValueIsLink = X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE.equals(roleMember.getTokenType()) &&
+                roleMember.getTokenMatchKey() == X500PrincipalAccessMatchValue.WITH_SERIALNUMBER.getNumericValue();
     }
 
     public RoleMember getRoleMember() {
@@ -47,12 +50,16 @@ public final class RaRoleMemberGUIInfo {
         return roleName;
     }
     
+    public String getRoleNamespace() {
+        return roleNamespace;
+    }
+    
     public String getTokenTypeText() {
         return tokenTypeText;
     }
     
     public boolean getTokenMatchValueIsLink() {
-        return roleMember.getTokenMatchValue() != null && serialNumberPattern.matcher(roleMember.getTokenMatchValue()).matches();
+        return tokenMatchValueIsLink;
     }
     
 }

@@ -22,6 +22,7 @@ import javax.persistence.PreUpdate;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.builder.CompareToBuilder;
 import org.cesecore.dbprotection.ProtectedData;
 import org.cesecore.dbprotection.ProtectionStringBuilder;
@@ -47,18 +48,22 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
     private int tokenIssuerId;
     private int tokenMatchKey;
     private int tokenMatchOperator;
-    private String tokenMatchValue;
+    private String tokenMatchValueColumn;
     private int roleId;
-    
-    private String memberBindingType;
-    private String memberBindingValue;
+    private String descriptionColumn;
     
     private int rowVersion = 0;
     private String rowProtection;
 
     public RoleMemberData() {
     }
-    
+
+    /** Construct the object from RoleMember value object */
+    public RoleMemberData(final RoleMember roleMember) {
+        setPrimaryKey(roleMember.getId());
+        updateValuesFromValueObject(roleMember);
+    }
+
     /**
      * Slightly more verbose constructor used for upgrades.
      * 
@@ -70,20 +75,18 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
      * @param tokenMatchOperator how to perform the match. 0 (AccessMatchType.UNUSED.getNumericValue())to let the determine this from tokenSubType.
      * @param tokenMatchValue the actual value with which to match
      * @param roleId the ID of the role to which this member belongs. May be null.
-     * @param memberBindingType the type of member binding used for this member. May be null.
-     * @param memberBindingValue the member binding for this member. May be null.
+     * @param description a human readable description of this role member. Null will be treated as an empty String.
      */
     public RoleMemberData(final int primaryKey, final String tokenType, final int tokenIssuerId, final int tokenMatchKey, final int tokenMatchOperator,
-            final String tokenMatchValue, final int roleId, String memberBindingType, String memberBindingValue) {
+            final String tokenMatchValue, final int roleId, String description) {
         this.primaryKey = primaryKey;
         this.tokenType = tokenType;
         this.tokenIssuerId = tokenIssuerId;
         this.tokenMatchKey = tokenMatchKey;
         this.tokenMatchOperator = tokenMatchOperator;
-        this.tokenMatchValue = tokenMatchValue;
+        this.tokenMatchValueColumn = tokenMatchValue;
         this.roleId = roleId;
-        this.memberBindingType = memberBindingType;
-        this.memberBindingValue = memberBindingValue;
+        this.setDescription(description);
     }
 
     /** @return the primary key of this entity bean, a pseudo-random integer */
@@ -131,13 +134,27 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
         this.tokenMatchOperator = tokenMatchOperator;
     }
 
-    /** @return the actual value with which we match */
+    //@Column(name="tokenMatchValue")
+    @Deprecated
+    /** @deprecated (Only for database mapping) {@link #getTokenMatchValue()} */
+    public String getTokenMatchValueColumn() {
+        return tokenMatchValueColumn;
+    }
+    @Deprecated
+    /** @deprecated (Only for database mapping) {@link #setTokenMatchValue(String)} */
+    public void setTokenMatchValueColumn(final String tokenMatchValueColumn) {
+        this.tokenMatchValueColumn = tokenMatchValueColumn;
+    }
+
+    @Transient
+    /** @return the actual value with which we match (never returns null) */
     public String getTokenMatchValue() {
-        return tokenMatchValue;
+        return StringUtils.defaultIfEmpty(getTokenMatchValueColumn(), "");
     }
     
+    @Transient
     public void setTokenMatchValue(final String tokenMatchValue) {
-        this.tokenMatchValue = tokenMatchValue;
+        this.setTokenMatchValueColumn(StringUtils.defaultIfEmpty(tokenMatchValue, null));
     }
 
     /** @return the role to which this member belongs or 0 if it is not assigned to a role. */
@@ -149,24 +166,29 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
         this.roleId = roleId;
     }
 
-    /** @return a string defining the class of member binding, which is a common value with which several members can be linked to one physical user. */
-    public String getMemberBindingType() {
-        return memberBindingType;
+    //@Column(name="description")
+    @Deprecated
+    /** @deprecated (Only for database mapping) {@link #getDescription()} */
+    public String getDescriptionColumn() {
+        return descriptionColumn;
+    }
+    @Deprecated
+    /** @deprecated (Only for database mapping) {@link #setDescription(String)} */
+    public void setDescriptionColumn(final String descriptionColumn) {
+        this.descriptionColumn = descriptionColumn;
     }
 
-    public void setMemberBindingType(String memberBindingType) {
-        this.memberBindingType = memberBindingType;
+    @Transient
+    /** @return a human readable description of the role member */
+    public String getDescription() {
+        return StringUtils.defaultIfEmpty(getDescriptionColumn(), "");
     }
 
-    /** @return a string referring to a member binding value, which can be used to string together several members to one physical user. */
-    public String getMemberBindingValue() {
-        return memberBindingValue;
+    @Transient
+    public void setDescription(final String description) {
+        this.setDescriptionColumn(StringUtils.defaultIfEmpty(description, null));
     }
-
-    public void setMemberBindingValue(String memberBindingValue) {
-        this.memberBindingValue = memberBindingValue;
-    }
-
+    
     public int getRowVersion() {
         return rowVersion;
     }
@@ -207,7 +229,7 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
         // What is important to protect here is the data that we define
         // rowVersion is automatically updated by JPA, so it's not important, it is only used for optimistic locking
         build.append(getPrimaryKey()).append(getTokenType()).append(getTokenIssuerId()).append(getTokenMatchKey()).append(getTokenMatchOperator()).
-            append(getTokenMatchValue()).append(getRoleId()).append(getMemberBindingType()).append(getMemberBindingValue());
+            append(getTokenMatchValue()).append(getRoleId()).append(getDescription());
         return build.toString();
     }
 
@@ -243,12 +265,12 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
     @Override
     public int compareTo(RoleMemberData o) {
         return new CompareToBuilder().append(this.tokenType, o.tokenType).append(this.tokenIssuerId, o.tokenIssuerId).append(this.tokenMatchKey, o.tokenMatchKey)
-                .append(this.tokenMatchOperator, o.tokenMatchOperator).append(this.tokenMatchValue, o.tokenMatchValue).toComparison();
+                .append(this.tokenMatchOperator, o.tokenMatchOperator).append(this.tokenMatchValueColumn, o.tokenMatchValueColumn).toComparison();
     }
     
     @Transient
     public RoleMember asValueObject() {
-        return new RoleMember(primaryKey, tokenType, tokenIssuerId, tokenMatchKey, tokenMatchOperator, tokenMatchValue, roleId, memberBindingType, memberBindingValue);
+        return new RoleMember(primaryKey, tokenType, tokenIssuerId, tokenMatchKey, tokenMatchOperator, getTokenMatchValue(), roleId, getDescription());
     }
     
     /** Sets all fields except the ID */
@@ -259,9 +281,7 @@ public class RoleMemberData extends ProtectedData implements Serializable, Compa
         setTokenMatchKey(roleMember.getTokenMatchKey());
         setTokenMatchOperator(roleMember.getTokenMatchOperator());
         setTokenMatchValue(roleMember.getTokenMatchValue());
-        setTokenMatchValue(roleMember.getTokenMatchValue());
         setRoleId(roleMember.getRoleId());
-        setMemberBindingType(roleMember.getMemberBindingType());
-        setMemberBindingValue(roleMember.getMemberBindingValue());
+        setDescription(roleMember.getDescription());
     }
 }

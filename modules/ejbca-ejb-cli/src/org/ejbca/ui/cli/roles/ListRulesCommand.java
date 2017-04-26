@@ -13,16 +13,13 @@
 
 package org.ejbca.ui.cli.roles;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.certificates.ca.CADoesntExistsException;
-import org.cesecore.roles.AdminGroupData;
-import org.cesecore.roles.access.RoleAccessSessionRemote;
+import org.cesecore.roles.AccessRulesHelper;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.management.RoleSessionRemote;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
 import org.ejbca.ui.cli.infrastructure.parameter.Parameter;
@@ -54,34 +51,23 @@ public class ListRulesCommand extends BaseRolesCommand {
 
     @Override
     public CommandResult execute(ParameterContainer parameters) {
-        String groupName = parameters.get(ROLE_NAME_KEY);
-        AdminGroupData role = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class).findRole(groupName);
-        if (role == null) {
-            getLogger().error("ERROR: No such role \"" + groupName + "\".");
-            return CommandResult.FUNCTIONAL_FAILURE;
-        }
-        List<AccessRuleData> list = new ArrayList<AccessRuleData>(role.getAccessRules().values());
-        Collections.sort(list);
-        boolean errorCaught = false;
-        for (AccessRuleData accessRule : list) {
-            try {
-                getLogger().info(
-                        getParsedAccessRule(getAuthenticationToken(), accessRule.getAccessRuleName()) + " " + accessRule.getInternalState().getName()
-                                + " " + (accessRule.getRecursive() ? "RECURSIVE" : ""));
-            } catch (CADoesntExistsException e) {
-                log.error("ERROR: Attempted to retireve rule for CA that doesn't exit: " + e.getMessage());
-                errorCaught = true;
-            } catch (AuthorizationDeniedException e) {
-                log.error("ERROR: CLI user not authorized to rule " + accessRule);
-                errorCaught = true;
+        String roleName = parameters.get(ROLE_NAME_KEY);
+        try {
+            final Role role = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class).getRole(getAuthenticationToken(), null, roleName);
+            if (role == null) {
+            	getLogger().error("ERROR: No such role '" + roleName + "'.");
+                return CommandResult.FUNCTIONAL_FAILURE;
             }
-        }
-        if (errorCaught == true) {
-            return CommandResult.FUNCTIONAL_FAILURE;
-        } else {
+            for (final Entry<String,Boolean> entry : AccessRulesHelper.getAsListSortedByKey(role.getAccessRules())) {
+                final String resource = entry.getKey();
+                final String resourceName = super.getResourceToResourceNameMap().get(resource);
+            	getLogger().info((resourceName==null?resource:resourceName) + " " + (entry.getValue() ? "ALLOW" : "DENY"));
+            }
             return CommandResult.SUCCESS;
+        } catch (AuthorizationDeniedException e) {
+        	getLogger().error(e.getMessage());
+            return CommandResult.AUTHORIZATION_FAILURE;
         }
-
     }
 
     @Override
@@ -98,5 +84,4 @@ public class ListRulesCommand extends BaseRolesCommand {
     protected Logger getLogger() {
         return log;
     }
-
 }

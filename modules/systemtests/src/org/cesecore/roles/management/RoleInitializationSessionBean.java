@@ -12,28 +12,38 @@
  *************************************************************************/
 package org.cesecore.roles.management;
 
+import java.security.Principal;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
+import javax.security.auth.x500.X500Principal;
 
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
+import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleState;
 import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.jndi.JndiConstants;
-import org.cesecore.roles.AdminGroupData;
+import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionLocal;
+import org.cesecore.mock.authentication.tokens.TestX509CertificateAuthenticationToken;
+import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.RoleNotFoundException;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.cesecore.util.CertTools;
 
 /**
@@ -46,31 +56,133 @@ public class RoleInitializationSessionBean implements RoleInitializationSessionR
 
     private static final Logger log = Logger.getLogger(RoleInitializationSessionBean.class);
     
+    @EJB
+    private RoleSessionLocal roleSession;
+    @EJB
+    private RoleMemberSessionLocal roleMemberSession;
 	@EJB
-	private RoleManagementSessionLocal roleMgmg;
+	private SimpleAuthenticationProviderSessionLocal simpleAuthenticationProviderSession;
 	
 	@Override
     public void initializeAccessWithCert(AuthenticationToken authenticationToken, String roleName, Certificate certificate) throws RoleExistsException, RoleNotFoundException, AuthorizationDeniedException {
         if (log.isTraceEnabled()) {
             log.trace(">initializeAccessWithCert: " + authenticationToken.toString() + ", " + roleName);
         }
-        // Create a role
-        AdminGroupData role = roleMgmg.create(authenticationToken, roleName);
-
-        // Create a user aspect that matches the authentication token, and add that to the role.
-        List<AccessUserAspectData> accessUsers = new ArrayList<AccessUserAspectData>();
-        accessUsers.add(new AccessUserAspectData(role.getRoleName(), CertTools.getIssuerDN(certificate).hashCode(),
-                X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASE, CertTools.getPartFromDN(
-                        CertTools.getSubjectDN(certificate), "CN")));
-        roleMgmg.addSubjectsToRole(authenticationToken, role, accessUsers);
-
-        // Add rules to the role
-        List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-        accessRules.add(new AccessRuleData(role.getRoleName(), StandardRules.ROLE_ROOT.resource(), AccessRuleState.RULE_ACCEPT, true));
-        roleMgmg.addAccessRulesToRole(authenticationToken, role, accessRules);
+        final HashMap<String,Boolean> accessRules = new HashMap<>();
+        accessRules.put(StandardRules.ROLE_ROOT.resource(), Role.STATE_ALLOW);
+        final Role role = roleSession.persistRole(authenticationToken, new Role(null, roleName, accessRules));
+        roleMemberSession.persist(authenticationToken, new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE,
+                CertTools.getIssuerDN(certificate).hashCode(),
+                X500PrincipalAccessMatchValue.WITH_SERIALNUMBER.getNumericValue(),
+                AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                CertTools.getSerialNumber(certificate).toString(16),
+                role.getRoleId(),
+                null));
         if (log.isTraceEnabled()) {
             log.trace("<initializeAccessWithCert: " + authenticationToken.toString() + ", " + roleName);
         }
     }
 
+    @Override
+    public void createRoleAndAddCertificateAsRoleMember(final X509Certificate x509Certificate, final String roleNameSpace, final String roleName,
+            final List<String> resourcesAllowed, final List<String> resourcesDenied) throws RoleExistsException {
+        final AuthenticationToken alwaysAllowAuthenticationToken = new AlwaysAllowLocalAuthenticationToken("createAuthenticationTokenAndAssignToNewRole - " + roleName);
+        // Define initial access rules
+        final HashMap<String,Boolean> initialAccessRules = new HashMap<>();
+        if (resourcesAllowed!=null) {
+            for (final String resource : resourcesAllowed) {
+                initialAccessRules.put(resource, Role.STATE_ALLOW);
+            }
+        }
+        if (resourcesDenied!=null) {
+            for (final String resource : resourcesDenied) {
+                initialAccessRules.put(resource, Role.STATE_DENY);
+            }
+        }
+        if (resourcesAllowed==null && resourcesDenied==null) {
+            initialAccessRules.put(StandardRules.ROLE_ROOT.resource(), Role.STATE_ALLOW);
+        }
+        // Setup Role and RoleMember matching by certificate serial number
+        try {
+            // Clean up old left overs from a failed previous run
+            final Role oldRole = roleSession.getRole(alwaysAllowAuthenticationToken, null, roleName);
+            if (oldRole!=null) {
+                roleSession.deleteRoleIdempotent(alwaysAllowAuthenticationToken, oldRole.getRoleId());
+            }
+            final Role role = roleSession.persistRole(alwaysAllowAuthenticationToken, new Role(roleNameSpace, roleName, initialAccessRules));
+            roleMemberSession.persist(alwaysAllowAuthenticationToken, new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE,
+                    CertTools.getIssuerDN(x509Certificate).hashCode(),
+                    X500PrincipalAccessMatchValue.WITH_SERIALNUMBER.getNumericValue(),
+                    AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                    CertTools.getSerialNumber(x509Certificate).toString(16),
+                    role.getRoleId(),
+                    null));
+            if (log.isDebugEnabled()) {
+                log.debug("Added role '"+role.getRoleNameFull()+"' ("+role.getRoleId()+") matching certificate " + CertTools.getSubjectDN(x509Certificate));
+            }
+        } catch (AuthorizationDeniedException e) {
+            // AlwaysAllowLocalAuthenticationToken should never be denied access
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+	public TestX509CertificateAuthenticationToken createAuthenticationTokenAndAssignToNewRole(final String subjectDn, final String roleNameSpace, final String roleName,
+	        final List<String> resourcesAllowed, final List<String> resourcesDenied) throws RoleExistsException {
+	    // Create X509Certificate based test authentication token
+        final AuthenticationSubject authenticationSubject = new AuthenticationSubject(new HashSet<Principal>(Arrays.asList(new X500Principal(subjectDn))), null);
+        final TestX509CertificateAuthenticationToken authenticationToken = (TestX509CertificateAuthenticationToken) simpleAuthenticationProviderSession.authenticate(authenticationSubject);
+        if (authenticationToken==null) {
+            log.debug("TestX509CertificateAuthenticationToken was null. No clean up will take place.");
+            throw new IllegalStateException("Creation of role management token failed.");
+        }
+        final X509Certificate x509Certificate = (X509Certificate) authenticationToken.getCredentials().iterator().next();
+        createRoleAndAddCertificateAsRoleMember(x509Certificate, roleNameSpace, roleName, resourcesAllowed, resourcesDenied);
+        return authenticationToken;
+	}
+
+    @Override
+    public void removeAllAuthenticationTokensRoles(final TestX509CertificateAuthenticationToken authenticationToken) {
+        if (authenticationToken==null) {
+            log.debug("TestX509CertificateAuthenticationToken was null. No clean up will take place.");
+        } else {
+            final List<Role> roles = new ArrayList<>(roleSession.getRolesAuthenticationTokenIsMemberOf(authenticationToken));
+            // Check that we really added the match value to each of these roles, so we don't accidently nuke other roles
+            final String expectedTokenMatchValue = CertTools.getSerialNumberAsString(authenticationToken.getCertificate());
+            final AuthenticationToken alwaysAllowAuthenticationToken = new AlwaysAllowLocalAuthenticationToken("removeAllAuthenticationTokensRoles");
+            for (final Role role : new ArrayList<>(roles)) {
+                try {
+                    boolean roleMemberAddedToRoleByThisClass = false;
+                    for (final RoleMember roleMember : roleMemberSession.getRoleMembersByRoleId(alwaysAllowAuthenticationToken, role.getRoleId())) {
+                        if (X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE.equals(roleMember.getTokenType()) &&
+                                roleMember.getTokenMatchKey() == X500PrincipalAccessMatchValue.WITH_SERIALNUMBER.getNumericValue() &&
+                                expectedTokenMatchValue.equals(roleMember.getTokenMatchValue())) {
+                            roleMemberAddedToRoleByThisClass = true;
+                            break;
+                        }
+                    }
+                    if (!roleMemberAddedToRoleByThisClass) {
+                        roles.remove(role);
+                    }
+                } catch (AuthorizationDeniedException e) {
+                    log.debug("Unexpected authorization failure for AlwaysAllowLocalAuthenticationToken: " + e.getMessage());
+                }
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("Removing " + roles.size() + " roles matching " + authenticationToken);
+            }
+            for (final Role role : roles) {
+                try {
+                    if (roleSession.deleteRoleIdempotent(alwaysAllowAuthenticationToken, role.getRoleId())) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Removed role '"+role.getRoleNameFull()+"' ("+role.getRoleId()+") matching " + authenticationToken);
+                        }
+                    }
+                } catch (AuthorizationDeniedException e) {
+                    // AlwaysAllowLocalAuthenticationToken should never be denied access
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+    }
 }

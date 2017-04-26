@@ -471,24 +471,25 @@
         	<!-- The place where to find plugins -->
 		    <zipfileset dir="${ejbca.plugin.gen.path}" erroronmissingdir="false"/>
             <zipfileset prefix="lib" dir="${lib}">
-                <include name="bcpkix-jdk15on-154.jar"/>
-                <include name="bcprov-jdk15on-154.jar"/>
-                <include name="cert-cvc-1.4.5.jar" />
+                <include name="bcpkix-jdk15on-156.jar"/>
+                <include name="bcprov-jdk15on-156.jar"/>
+                <include name="cert-cvc-1.4.6.jar" />
             	<!-- JBoss EAP 6 comes with a new Log4j and there may be issues if we bundle it. -->
                 <include name="log4j-1.2.16.jar" unless="jbosseap6-specials"/>
                 <include name="ldap.jar" />
                 <include name="commons-*.jar" />
 				<include name="nimbus-jose-jwt-*.jar"/>
 				<include name="json-smart-*.jar"/>
+				                <include name="httpclient-*.jar" />
+                <include name="httpcore-*.jar" />
+                <include name="httpmime-*.jar" />
+                <include name="json-simple-*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/ct" erroronmissingdir="false">
                 <!-- Certificate Transparency -->
                 <include name="ctlog-jdk7-*.jar" />
                 <include name="protobuf-java-*.jar" />
-                <include name="httpclient-*.jar" />
-                <include name="httpcore-*.jar" />
                 <include name="guava-*.jar" />
-                <include name="json-simple-*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/batik" includes="*.jar" excludes="${bundle-xerces-exclude}"/>
             <fileset dir="${dist.dir}" includes="doc.war"/>

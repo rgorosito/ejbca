@@ -20,9 +20,7 @@ import javax.ejb.TransactionAttributeType;
 
 import org.cesecore.audit.audit.SecurityEventsAuditorSessionLocal;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
-import org.cesecore.authorization.rules.AccessRuleManagementSessionLocal;
-import org.cesecore.authorization.user.AccessUserAspectManagerSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateCreateSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
@@ -30,16 +28,19 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLoc
 import org.cesecore.certificates.crl.CrlCreateSessionLocal;
 import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
+import org.cesecore.keybind.InternalKeyBindingDataSessionLocal;
 import org.cesecore.keybind.InternalKeyBindingMgmtSessionLocal;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
-import org.cesecore.roles.access.RoleAccessSessionLocal;
-import org.cesecore.roles.management.RoleManagementSessionLocal;
+import org.cesecore.roles.management.RoleDataSessionLocal;
+import org.cesecore.roles.management.RoleSessionLocal;
+import org.cesecore.roles.member.RoleMemberDataSessionLocal;
+import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.ejb.audit.EjbcaAuditorSessionLocal;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
-import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionLocal;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherQueueSessionLocal;
@@ -80,15 +81,14 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@EJB ApprovalExecutionSessionLocal approvalExecutionSession;
 	@EJB ApprovalSessionLocal approvalSession;
 	@EJB ApprovalProfileSessionLocal approvalProfileSession;
-	@EJB AccessControlSessionLocal authorizationSession;
-	@EJB AccessRuleManagementSessionLocal accessRuleManagementSession;
+    @EJB AuthorizationSessionLocal authorizationSession;
+    @EJB AuthorizationSystemSessionLocal authorizationSystemSession;
 	@EJB CAAdminSessionLocal caAdminSession;
 	@EJB CaSessionLocal caSession;
 	@EJB CertificateProfileSessionLocal certificateProfileSession;
 	@EJB CertificateStoreSessionLocal certificateStoreSession;
 	@EJB CertReqHistorySessionLocal certReqHistorySession;
 	@EJB CmpMessageDispatcherSessionLocal cmpMessageDispatcherSession;
-	@EJB ComplexAccessControlSessionLocal complexAccessControlSession;
 	@EJB CrlStoreSessionLocal crlStoreSession;
 	@EJB CrlCreateSessionLocal crlCreateSession;
 	@EJB CertificateCreateSessionLocal certificateCreateSession;
@@ -98,6 +98,7 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@EJB GlobalConfigurationSessionLocal globalConfigurationSession;
 	@EJB HardTokenBatchJobSessionLocal hardTokenBatchJobSession;
 	@EJB HardTokenSessionLocal hardTokenSession;
+    @EJB InternalKeyBindingDataSessionLocal internalKeyBindingDataSession;
     @EJB InternalKeyBindingMgmtSessionLocal internalKeyBindingMgmtSession;
 	@EJB KeyRecoverySessionLocal keyRecoverySession;
 	@EJB PublisherQueueSessionLocal publisherQueueSession;
@@ -105,8 +106,10 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@EJB AdminPreferenceSessionLocal raSession;
     @EJB RaMasterApiProxyBeanLocal raMasterApiProxyBean;
 	@EJB RevocationSessionLocal revocationSession;
-	@EJB RoleAccessSessionLocal roleAccessSession;
-	@EJB RoleManagementSessionLocal roleManagementSession;
+    @EJB RoleDataSessionLocal roleDataSession;
+	@EJB RoleMemberDataSessionLocal roleMemberDataSession;
+    @EJB RoleMemberSessionLocal roleMemberSession;
+    @EJB RoleSessionLocal roleSession;
 	@EJB SecurityEventsAuditorSessionLocal securityEventsAuditorSession;
 	@EJB SecurityEventsLoggerSessionLocal securityEventsLoggerSession;
 	@EJB ServiceSessionLocal serviceSession;
@@ -116,7 +119,6 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@EJB EndEntityManagementSessionLocal endEntityManagementSession;
 	@EJB WebAuthenticationProviderSessionLocal webAuthenticationProviderSession;
 	@EJB EndEntityAuthenticationSessionLocal endEntityAuthenticationSession;
-	@EJB AccessUserAspectManagerSessionLocal accessUserAspectSession;
 	@EJB CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
 	@EJB PublishingCrlSessionLocal publishingCrlSessionLocal;
 	@EJB ImportCrlSessionLocal importCrlSessionLocal;
@@ -124,15 +126,14 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@Override public ApprovalExecutionSessionLocal getApprovalExecutionSession() { return approvalExecutionSession; }
 	@Override public ApprovalSessionLocal getApprovalSession() { return approvalSession; }
 	@Override public ApprovalProfileSessionLocal getApprovalProfileSession() { return approvalProfileSession; }
-	@Override public AccessControlSessionLocal getAccessControlSession() { return authorizationSession; }
-	@Override public AccessRuleManagementSessionLocal getAccessRuleManagementSession() { return accessRuleManagementSession; }
+    @Override public AuthorizationSessionLocal getAuthorizationSession() { return authorizationSession; }
+    @Override public AuthorizationSystemSessionLocal getAuthorizationSystemSession() { return authorizationSystemSession; }
 	@Override public CAAdminSessionLocal getCaAdminSession() { return caAdminSession; }
 	@Override public CaSessionLocal getCaSession() { return caSession; }
 	@Override public CertificateProfileSessionLocal getCertificateProfileSession() { return certificateProfileSession; }
 	@Override public CertificateStoreSessionLocal getCertificateStoreSession() { return certificateStoreSession; }
 	@Override public CertReqHistorySessionLocal getCertReqHistorySession() { return certReqHistorySession; }
 	@Override public CmpMessageDispatcherSessionLocal getCmpMessageDispatcherSession() { return cmpMessageDispatcherSession; }
-	@Override public ComplexAccessControlSessionLocal getComplexAccessControlSession() { return complexAccessControlSession; }
 	@Override public CrlStoreSessionLocal getCrlStoreSession() { return crlStoreSession; }
 	@Override public CrlCreateSessionLocal getCrlCreateSession() { return crlCreateSession; }
 	@Override public CertificateCreateSessionLocal getCertificateCreateSession() { return certificateCreateSession; }
@@ -141,6 +142,7 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@Override public GlobalConfigurationSessionLocal getGlobalConfigurationSession() { return globalConfigurationSession; }
 	@Override public HardTokenBatchJobSessionLocal getHardTokenBatchJobSession() { return hardTokenBatchJobSession; }
 	@Override public HardTokenSessionLocal getHardTokenSession() { return hardTokenSession; }
+    @Override public InternalKeyBindingDataSessionLocal getInternalKeyBindingDataSession() { return internalKeyBindingDataSession; }
     @Override public InternalKeyBindingMgmtSessionLocal getInternalKeyBindingMgmtSession() { return internalKeyBindingMgmtSession; }
 	@Override public KeyRecoverySessionLocal getKeyRecoverySession() { return keyRecoverySession; }
 	@Override public PublisherQueueSessionLocal getPublisherQueueSession() { return publisherQueueSession; }
@@ -148,8 +150,10 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@Override public AdminPreferenceSessionLocal getRaAdminSession() { return raSession; }
     @Override public RaMasterApiProxyBeanLocal getRaMasterApiProxyBean() { return raMasterApiProxyBean; }
 	@Override public RevocationSessionLocal getRevocationSession() { return revocationSession; }
-	@Override public RoleAccessSessionLocal getRoleAccessSession() { return roleAccessSession; }
-	@Override public RoleManagementSessionLocal getRoleManagementSession() { return roleManagementSession; }
+    @Override public RoleDataSessionLocal getRoleDataSession() { return roleDataSession; }
+    @Override public RoleMemberDataSessionLocal getRoleMemberDataSession() { return roleMemberDataSession; }
+    @Override public RoleMemberSessionLocal getRoleMemberSession() { return roleMemberSession; }
+    @Override public RoleSessionLocal getRoleSession() { return roleSession; }
 	@Override public SecurityEventsAuditorSessionLocal getSecurityEventsAuditorSession() { return securityEventsAuditorSession; }
 	@Override public SecurityEventsLoggerSessionLocal getSecurityEventsLoggerSession() { return securityEventsLoggerSession; }
 	@Override public ServiceSessionLocal getServiceSession() { return serviceSession; }
@@ -159,7 +163,6 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@Override public EndEntityManagementSessionLocal getEndEntityManagementSession() { return endEntityManagementSession; }
 	@Override public WebAuthenticationProviderSessionLocal getWebAuthenticationProviderSession() { return webAuthenticationProviderSession; }
 	@Override public EndEntityAuthenticationSessionLocal getEndEntityAuthenticationSession() { return endEntityAuthenticationSession; }
-	@Override public AccessUserAspectManagerSessionLocal getAccessUserAspectSession() { return accessUserAspectSession; }
 	@Override public EndEntityAccessSessionLocal getEndEntityAccessSession() { return endEntityAccessSession; }
     @Override public CryptoTokenManagementSessionLocal getCryptoTokenManagementSession() { return cryptoTokenManagementSession; }
     @Override public PublishingCrlSessionLocal getPublishingCrlSession() { return publishingCrlSessionLocal; }

@@ -25,17 +25,17 @@ org.ejbca.ui.web.admin.configuration.EjbcaWebBean,
 org.ejbca.config.GlobalConfiguration,
 org.ejbca.core.model.authorization.AccessRulesConstants,
 org.cesecore.authorization.control.StandardRules,
-org.cesecore.authorization.control.AccessControlSession,
+org.cesecore.authorization.AuthorizationSessionLocal,
 org.cesecore.authorization.AuthorizationDeniedException
 "%>
 <jsp:useBean id="ejbcawebbean" scope="session" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBean" />
 <%
-    AccessControlSession accessControlSession = ejbcawebbean.getEjb().getAccessControlSession();
+    AuthorizationSessionLocal authorizationSession = ejbcawebbean.getEjb().getAuthorizationSession();
     GlobalConfiguration globalconfiguration = null;
     globalconfiguration = ejbcawebbean.initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR); // will check authorization of the page below
-    if (!accessControlSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.SYSTEMCONFIGURATION_VIEW.resource()) &&
-        !accessControlSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.EKUCONFIGURATION_VIEW.resource()) &&
-        !accessControlSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource())) {
+    if (!authorizationSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.SYSTEMCONFIGURATION_VIEW.resource()) &&
+        !authorizationSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.EKUCONFIGURATION_VIEW.resource()) &&
+        !authorizationSession.isAuthorized(ejbcawebbean.getAdminObject(), StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource())) {
         throw new AuthorizationDeniedException("Administrator was not authorized to any configuration.");
     }
 %>
@@ -204,8 +204,8 @@ org.cesecore.authorization.AuthorizationDeniedException
 
 		<h:panelGrid columns="2" styleClass="edit-top" cellspacing="3" cellpadding="3" border="0" width="100%" rowClasses="Row0" columnClasses="editColumnSystem1,editColumn2">
 			<h:panelGroup>
-				<h:outputLabel for="header_autoenrollment" value="#{web.text.AUTOENROLLMENT}" style="font-weight: bold; font-size:1.2em;"/>
-				<%= ejbcawebbean.getExternalHelpReference("https://www.ejbca.org/guides.html#Setting%20up%20Autoenrollment%20for%20Windows%20clients%20with%20EJBCA") %>
+				<h:outputLabel for="header_autoenrollment" value="#{web.text.AUTOENROLLMENT_SCRIPT}" style="font-weight: bold; font-size:1.2em;"/>
+				<%= ejbcawebbean.getExternalHelpReference("doc/adminguide.html#MS%20Autoenrollment%20(Enterprise%20Edition%20only)") %>
 			</h:panelGroup>
 			<h:panelGroup id="header_autoenrollment"/>
 			

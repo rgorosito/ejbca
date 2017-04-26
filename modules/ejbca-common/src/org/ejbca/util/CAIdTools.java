@@ -22,12 +22,17 @@ import org.apache.commons.lang.StringUtils;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.authorization.rules.AccessRuleData;
 import org.cesecore.authorization.user.AccessUserAspectData;
+import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
+import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.config.GlobalOcspConfiguration;
 import org.cesecore.keybind.InternalKeyBinding;
 import org.cesecore.keybind.InternalKeyBindingTrustEntry;
+import org.cesecore.roles.AccessRulesHelper;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.member.RoleMember;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.model.ca.caadmin.extendedcaservices.CmsCAServiceInfo;
@@ -253,6 +258,40 @@ public final class CAIdTools {
     }
     
     /**
+     * Updates any references to a CA's CAId and Subject DN in the given role and list of role members.
+     * @param role Role to modify.
+     * @param members List of the role's members. The members may be modified.
+     * @param fromId Old CA Id.
+     * @param toId New CA Id.
+     * @param toSubjectDN New CA Subject DN.
+     * @return True if there was a change.
+     */
+    public static boolean updateCAIds(final Role role, final List<RoleMember> roleMembers, final int fromId, final int toId, final String toSubjectDN) {
+        boolean changed = false;
+        // Look for references from access rules (currently only the /ca/<CA ID> rule) */
+        final String oldResource = AccessRulesHelper.normalizeResource(StandardRules.CAACCESS.resource() + String.valueOf(fromId));
+        final String newResource = AccessRulesHelper.normalizeResource(StandardRules.CAACCESS.resource() + String.valueOf(toId));
+        final Boolean state = role.getAccessRules().remove(oldResource);
+        if (state != null) { // rule for old CA ID exists
+            role.getAccessRules().put(newResource, state);
+            changed = true;
+        }
+        // Look for references from members
+        for (final RoleMember roleMember : roleMembers) {
+            if (roleMember.getTokenIssuerId() == fromId) {
+                // Also check that tokenIssuerId refers to a CA. This check is more expensive performance-wise so it's done last
+                final AccessMatchValue accessMatchValue = AccessMatchValueReverseLookupRegistry.INSTANCE.getMetaData(
+                        roleMember.getTokenType()).getAccessMatchValueIdMap().get(roleMember.getTokenMatchKey());
+                if (accessMatchValue.isIssuedByCa()) {
+                    roleMember.setTokenIssuerId(toId);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+    
+    /**
      * Updates any references to a CA's CAId and Subject DN.
      * @param roleName Name of the role. Used when creating roles to replace the old roles with.
      * @param rules Access rules of the role. Updated in place.
@@ -262,6 +301,7 @@ public final class CAIdTools {
      * @param toSubjectDN New CA Subject DN.
      * @return True if there was a change.
      */
+    @Deprecated
     public static boolean updateCAIds(final String roleName, final Map<Integer,AccessRuleData> rules, final Map<Integer,AccessUserAspectData> users, final int fromId, final int toId, final String toSubjectDN) {
         final String toReplace = StandardRules.CAACCESS.resource()+String.valueOf(fromId);
         final String toReplaceSlash = toReplace+"/";

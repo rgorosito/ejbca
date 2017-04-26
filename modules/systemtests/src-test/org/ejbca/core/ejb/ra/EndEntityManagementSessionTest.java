@@ -42,14 +42,10 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.cesecore.ErrorCode;
 import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionRemote;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleState;
 import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -74,9 +70,10 @@ import org.cesecore.keys.util.PublicKeyWrapper;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.mock.authentication.tokens.TestX509CertificateAuthenticationToken;
-import org.cesecore.roles.AdminGroupData;
-import org.cesecore.roles.access.RoleAccessSessionRemote;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.management.RoleSessionRemote;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
@@ -112,7 +109,7 @@ import org.junit.runners.MethodSorters;
 public class EndEntityManagementSessionTest extends CaTestCase {
 
     private static final Logger log = Logger.getLogger(EndEntityManagementSessionTest.class);
-    private static final AuthenticationToken admin = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("EndEntityManagementSessionTest"));
+    private static final AuthenticationToken admin = new TestAlwaysAllowLocalAuthenticationToken("EndEntityManagementSessionTest");
     private int caid = getTestCAId();
 
     private static String username;
@@ -129,9 +126,8 @@ public class EndEntityManagementSessionTest extends CaTestCase {
     private CertificateStoreSessionRemote certificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateStoreSessionRemote.class);
     private SignSessionRemote signSession = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class);
     private SimpleAuthenticationProviderSessionRemote simpleAuthenticationProvider = EjbRemoteHelper.INSTANCE.getRemoteSession(SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-    private RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
-    private RoleAccessSessionRemote roleAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
-    private AccessControlSessionRemote accessControlSession = EjbRemoteHelper.INSTANCE.getRemoteSession(AccessControlSessionRemote.class);
+    private RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
+    private RoleMemberSessionRemote roleMemberSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberSessionRemote.class);
     private GlobalConfigurationSessionRemote globalConfSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
     private EndEntityManagementProxySessionRemote endEntityManagementProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityManagementProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST); 
     private PublisherQueueProxySessionRemote publisherQueueSession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublisherQueueProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
@@ -152,12 +148,12 @@ public class EndEntityManagementSessionTest extends CaTestCase {
     @After
     public void tearDown() throws Exception {
         super.tearDown();
-        for (int i = 0; i < usernames.size(); i++) {
+        for (final String username : usernames) {
             try {
-                endEntityManagementSession.deleteUser(admin, (String) usernames.get(i));
+                endEntityManagementSession.deleteUser(admin, username);
             } catch (Exception e) {
-            } // NOPMD, ignore errors so we don't stop deleting users because
-              // one of them does not exist.
+                // NOPMD, ignore errors so we don't stop deleting users because one of them does not exist.
+            }
         }
         try {
             endEntityProfileSession.removeEndEntityProfile(admin, "TESTMERGEWITHWS");
@@ -218,6 +214,14 @@ public class EndEntityManagementSessionTest extends CaTestCase {
 
         log.trace("<addUser()");
     }
+    
+    private boolean setEnableEndEntityProfileLimitations(final boolean newValue) throws AuthorizationDeniedException {
+        final GlobalConfiguration gc = (GlobalConfiguration) globalConfSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        final boolean previousValue = gc.getEnableEndEntityProfileLimitations();
+        gc.setEnableEndEntityProfileLimitations(newValue);
+        globalConfSession.saveConfiguration(admin, gc);
+        return previousValue;
+    }
 
     /**
      * tests creation of new user testing behavior of empty passwords
@@ -227,10 +231,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
     @Test
     public void testAddUserWithEmptyPwd() throws Exception {
         // First make sure we have end entity profile limitations enabled
-        final GlobalConfiguration gc = (GlobalConfiguration) globalConfSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        final boolean eelimitation = gc.getEnableEndEntityProfileLimitations();
-        gc.setEnableEndEntityProfileLimitations(true);
-        globalConfSession.saveConfiguration(roleMgmgToken, gc);   
+        final boolean eelimitation = setEnableEndEntityProfileLimitations(true);
         final String eeprofileName = "TESTADDUSER";
         try {            
             // Add a new end entity profile, by default password is required and we should not be able to add a user with empty or null password.
@@ -280,8 +281,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
                 fail("User " + thisusername + " was not added to the database although it should have been.");
             }
         } finally {
-            gc.setEnableEndEntityProfileLimitations(eelimitation);
-            globalConfSession.saveConfiguration(roleMgmgToken, gc);            
+            setEnableEndEntityProfileLimitations(eelimitation);
             endEntityProfileSession.removeEndEntityProfile(admin, eeprofileName);
         }
     }
@@ -341,7 +341,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
         // Make user that we know later...
         String secondUserName;
         if (usernames.size() > 1) {
-            secondUserName = (String) usernames.get(1);
+            secondUserName = usernames.get(1);
         } else {
             secondUserName = username;
         }
@@ -547,10 +547,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
     @Test
     public void test07MergeWithWS() throws Exception {
         // First make sure we have end entity profile limitations enabled
-        final GlobalConfiguration gc = (GlobalConfiguration) globalConfSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        final boolean eelimitation = gc.getEnableEndEntityProfileLimitations();
-        gc.setEnableEndEntityProfileLimitations(true);
-        globalConfSession.saveConfiguration(roleMgmgToken, gc);   
+        final boolean eelimitation = setEnableEndEntityProfileLimitations(true);
         try {
             // An end entity profile that has CN,DNEMAIL,OU=FooOrgUnit,O,C
             EndEntityProfile profile = new EndEntityProfile();
@@ -656,8 +653,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
                 log.debug("Skipped test related to Enterprise DN properties.");
             }
         } finally {
-            gc.setEnableEndEntityProfileLimitations(eelimitation);
-            globalConfSession.saveConfiguration(roleMgmgToken, gc);
+            setEnableEndEntityProfileLimitations(eelimitation);
         }
     }
     
@@ -676,8 +672,7 @@ public class EndEntityManagementSessionTest extends CaTestCase {
         final X509Certificate adminCert = adminTokenNoAuth.getCertificate();
 
         final String testRole = "EndEntityManagementSessionTestAuthRole";
-        GlobalConfiguration gc = (GlobalConfiguration) globalConfSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        boolean eelimitation = gc.getEnableEndEntityProfileLimitations();
+        Boolean eelimitation = null;
 
         final String authUsername = genRandomUserName();
         String email = authUsername + "@anatom.se";
@@ -713,29 +708,26 @@ public class EndEntityManagementSessionTest extends CaTestCase {
                 assertTrue("Wrong auth denied message: "+e.getMessage(), StringUtils.startsWith(e.getMessage(), "Administrator not authorized to CA"));
             }
             // Now add the administrator to a role that has access to /ca/* but not ee profiles
-            AdminGroupData role = roleAccessSession.findRole(testRole);
-            if (role == null) {
-                role = roleManagementSession.create(roleMgmgToken, testRole);
+            final Role oldRole = roleSession.getRole(admin, null, testRole);
+            if (oldRole!=null) {
+                roleSession.deleteRoleIdempotent(admin, oldRole.getRoleId());
             }
-            final List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-            accessRules.add(new AccessRuleData(testRole, StandardRules.CAACCESSBASE.resource(), AccessRuleState.RULE_ACCEPT, true));
-            role = roleManagementSession.addAccessRulesToRole(roleMgmgToken, role, accessRules);
-
-            final List<AccessUserAspectData> accessUsers = new ArrayList<AccessUserAspectData>();
-            accessUsers.add(new AccessUserAspectData(testRole, CertTools.getIssuerDN(adminCert).hashCode(), X500PrincipalAccessMatchValue.WITH_COMMONNAME,
-                    AccessMatchType.TYPE_EQUALCASE, CertTools.getPartFromDN(CertTools.getSubjectDN(adminCert), "CN")));
-            roleManagementSession.addSubjectsToRole(roleMgmgToken, role, accessUsers);
-            accessControlSession.forceCacheExpire();
+            final Role role = roleSession.persistRole(admin, new Role(null, testRole, Arrays.asList(StandardRules.CAACCESSBASE.resource()), null));
+            roleMemberSession.persist(admin, new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE,
+                    CertTools.getIssuerDN(adminCert).hashCode(),
+                    X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(),
+                    AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                    CertTools.getPartFromDN(CertTools.getSubjectDN(adminCert), "CN"),
+                    role.getRoleId(),
+                    null));
             // We must enforce end entity profile limitations for this, with false it should be ok now
-            gc.setEnableEndEntityProfileLimitations(false);
-            globalConfSession.saveConfiguration(roleMgmgToken, gc);
+            eelimitation = setEnableEndEntityProfileLimitations(false);
             // Do the same test, now it should work since we are authorized to CA and we don't enforce EE profile authorization
             endEntityManagementSession.changeUser(adminTokenNoAuth, userdata, false);
             endEntityManagementSession.renameEndEntity(adminTokenNoAuth, authUsername, authUsername+"_renamed");
             endEntityManagementSession.renameEndEntity(adminTokenNoAuth, authUsername+"_renamed", authUsername);
             // Enforce EE profile limitations
-            gc.setEnableEndEntityProfileLimitations(true);
-            globalConfSession.saveConfiguration(roleMgmgToken, gc);
+            setEnableEndEntityProfileLimitations(true);
             // Do the same test, now we should get auth denied on EE profiles instead
             try {
                 endEntityManagementSession.changeUser(adminTokenNoAuth, userdata, false);
@@ -750,16 +742,17 @@ public class EndEntityManagementSessionTest extends CaTestCase {
                 assertTrue("Wrong auth denied message: "+e.getMessage(), StringUtils.startsWith(e.getMessage(), "Administrator not authorized to end entity profile"));
             }
         } finally {
-            gc.setEnableEndEntityProfileLimitations(eelimitation);
-            globalConfSession.saveConfiguration(roleMgmgToken, gc);
+        	if (eelimitation!=null) {
+                setEnableEndEntityProfileLimitations(eelimitation);
+        	}
             try {
                 endEntityManagementSession.deleteUser(admin, authUsername);
             } catch (Exception e) { // NOPMD
                 log.info("Error in finally: ", e);
             }
-            AdminGroupData role = roleAccessSession.findRole(testRole);
-            if (role != null) {
-                roleManagementSession.remove(roleMgmgToken, role);
+            final Role oldRole = roleSession.getRole(admin, null, testRole);
+            if (oldRole!=null) {
+                roleSession.deleteRoleIdempotent(admin, oldRole.getRoleId());
             }
         }
     }

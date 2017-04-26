@@ -39,6 +39,7 @@ import javax.ejb.TransactionAttributeType;
 import javax.naming.InvalidNameException;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -56,9 +57,8 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
@@ -83,6 +83,7 @@ import org.cesecore.certificates.util.DnComponents;
 import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.jndi.JndiConstants;
+import org.cesecore.roles.member.RoleMemberData;
 import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.PrintableStringNameStyle;
@@ -94,8 +95,8 @@ import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
+import org.ejbca.core.ejb.authentication.cli.CliAuthenticationTokenMetaData;
 import org.ejbca.core.ejb.authentication.cli.CliUserAccessMatchValue;
-import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionLocal;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherQueueData;
 import org.ejbca.core.ejb.ca.revoke.RevocationSessionLocal;
@@ -156,7 +157,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     private EntityManager entityManager;
 
     @EJB
-    private AccessControlSessionLocal authorizationSession;
+    private AuthorizationSessionLocal authorizationSession;
     @EJB
     private ApprovalSessionLocal approvalSession;
     @EJB
@@ -171,8 +172,6 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     private CertificateStoreSessionLocal certificateStoreSession;
     @EJB
     private CertReqHistorySessionLocal certreqHistorySession;
-    @EJB
-    private ComplexAccessControlSessionLocal complexAccessControlSession;
     @EJB
     private EndEntityAccessSessionLocal endEntityAccessSession;
     @EJB
@@ -586,8 +585,8 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         entityManager.persist(userDataClone);
         entityManager.remove(currentUserData);
         // Find all entities and update the username (we cant just do UPDATE ... SET username.. WHERE username since rowProtection might be enabled)
-        final List<CertificateData> certificateDatas = (List<CertificateData>) entityManager.createQuery(
-                "SELECT a FROM CertificateData a WHERE a.username=:username").setParameter("username", currentUsername).getResultList();
+        final List<CertificateData> certificateDatas = entityManager.createQuery(
+                "SELECT a FROM CertificateData a WHERE a.username=:username", CertificateData.class).setParameter("username", currentUsername).getResultList();
         int updatedPublisherQueueDataRows = 0;
         for (final CertificateData certificateData : certificateDatas) {
             final String fingerprint = certificateData.getFingerprint();
@@ -612,8 +611,8 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + certificateDatas.size() + " rows of CertificateData.");
             log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + updatedPublisherQueueDataRows + " rows of PublisherQueueData.");
         }
-        final List<CertReqHistoryData> certReqHistoryDatas = (List<CertReqHistoryData>) entityManager.createQuery(
-                "SELECT a FROM CertReqHistoryData a WHERE a.username=:username").setParameter("username", currentUsername).getResultList();
+        final List<CertReqHistoryData> certReqHistoryDatas = entityManager.createQuery(
+                "SELECT a FROM CertReqHistoryData a WHERE a.username=:username", CertReqHistoryData.class).setParameter("username", currentUsername).getResultList();
         for (final CertReqHistoryData current : certReqHistoryDatas) {
             // Note: Ignore the username inside certReqHistoryData.getUserDataVO(), since this should reflect the state of the UserData at the time of certificate issuance
             current.setUsername(newUsername);
@@ -621,16 +620,16 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         if (log.isDebugEnabled()) {
             log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + certReqHistoryDatas.size() + " rows of CertReqHistoryData.");
         }
-        final List<KeyRecoveryData> keyRecoveryDatas = (List<KeyRecoveryData>) entityManager.createQuery(
-                "SELECT a FROM KeyRecoveryData a WHERE a.username=:username").setParameter("username", currentUsername).getResultList();
+        final List<KeyRecoveryData> keyRecoveryDatas = entityManager.createQuery(
+                "SELECT a FROM KeyRecoveryData a WHERE a.username=:username", KeyRecoveryData.class).setParameter("username", currentUsername).getResultList();
         for (final KeyRecoveryData current : keyRecoveryDatas) {
             current.setUsername(newUsername);
         }
         if (log.isDebugEnabled()) {
             log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + keyRecoveryDatas.size() + " rows of KeyRecoveryData.");
         }
-        final List<HardTokenData> hardTokenDatas = (List<HardTokenData>) entityManager.createQuery(
-                "SELECT a FROM HardTokenData a WHERE a.username=:username").setParameter("username", currentUsername).getResultList();
+        final List<HardTokenData> hardTokenDatas = entityManager.createQuery(
+                "SELECT a FROM HardTokenData a WHERE a.username=:username", HardTokenData.class).setParameter("username", currentUsername).getResultList();
         for (final HardTokenData current : hardTokenDatas) {
             current.setUsername(newUsername);
         }
@@ -638,17 +637,17 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + hardTokenDatas.size() + " rows of HardTokenData.");
         }
         // Update CLI admins where this username is used in AdminEntityData table.
-        final List<AccessUserAspectData> accessUserAspectDatas = (List<AccessUserAspectData>) entityManager.createQuery(
-                "SELECT a FROM AccessUserAspectData a WHERE a.tokenType=:tokenType AND a.matchWith=:matchWith AND a.matchValue=:matchValue")
-                .setParameter("tokenType", CliUserAccessMatchValue.USERNAME.getTokenType())
-                .setParameter("matchWith", CliUserAccessMatchValue.USERNAME.getNumericValue())
-                .setParameter("matchValue", currentUsername)
+        final List<RoleMemberData> roleMemberDatas = entityManager.createQuery(
+                "SELECT a FROM RoleMemberData a WHERE a.tokenType=:tokenType AND a.tokenMatchKey=:tokenMatchKey AND a.tokenMatchValueColumn=:tokenMatchValue", RoleMemberData.class)
+                .setParameter("tokenType", CliAuthenticationTokenMetaData.TOKEN_TYPE)
+                .setParameter("tokenMatchKey", CliUserAccessMatchValue.USERNAME.getNumericValue())
+                .setParameter("tokenMatchValue", currentUsername)
                 .getResultList();
-        for (final AccessUserAspectData current : accessUserAspectDatas) {
-            current.setMatchValue(newUsername);
+        for (final RoleMemberData current : roleMemberDatas) {
+            current.setTokenMatchValue(newUsername);
         }
         if (log.isDebugEnabled()) {
-            log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + accessUserAspectDatas.size() + " rows of AdminEntityData.");
+            log.debug("Changed username '" + currentUsername + "' to '" + newUsername + "' in " + roleMemberDatas.size() + " rows of RoleMemberData.");
         }
         final String msg = intres.getLocalizedMessage("ra.editedentityrename", currentUsername, newUsername);
         auditSession.log(EjbcaEventTypes.RA_EDITENDENTITY, EventStatus.SUCCESS, EjbcaModuleTypes.RA, ServiceTypes.CORE, admin.toString(),
@@ -1927,7 +1926,6 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         return returnval;
     }
 
-    @SuppressWarnings("unchecked")
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<EndEntityInformation> findUsers(List<Integer> caIds, long timeModified, int status) {
@@ -1943,7 +1941,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
             log.debug("Checking for " + caIds.size() + " CAs");
             log.debug("Generated query string: " + queryString);
         }
-        javax.persistence.Query query = entityManager.createQuery(queryString);
+        TypedQuery<UserData> query = entityManager.createQuery(queryString, UserData.class);
         query.setParameter("timeModified", timeModified);
         query.setParameter("status", status);
         if (caIds.size() > 0) {
@@ -1951,7 +1949,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                 query.setParameter("caId" + i, caIds.get(i));
             }
         }
-        final List<UserData> queryResult = (List<UserData>) query.getResultList();
+        final List<UserData> queryResult = query.getResultList();
         final List<EndEntityInformation> ret = new ArrayList<EndEntityInformation>(queryResult.size());
         for (UserData userData : queryResult) {
             ret.add(userData.toEndEntityInformation());
@@ -2062,8 +2060,7 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         String endentityauth = endentityprofilestring;
         RAAuthorization raauthorization = null;
         if (caauthorizationstring == null || endentityprofilestring == null) {
-            raauthorization = new RAAuthorization(admin, globalConfigurationSession, authorizationSession, complexAccessControlSession, caSession,
-                    endEntityProfileSession, approvalProfileSession);
+            raauthorization = new RAAuthorization(admin, globalConfigurationSession, authorizationSession, caSession, endEntityProfileSession);
             caauthstring = raauthorization.getCAAuthorizationString();
             if (globalconfiguration.getEnableEndEntityProfileLimitations()) {
                 endentityauth = raauthorization.getEndEntityProfileAuthorizationString(true, endentityAccessRule);

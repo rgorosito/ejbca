@@ -40,7 +40,6 @@ import org.ejbca.util.query.TimeMatch;
  * @version $Id$
  */
 public class ListApproveActionManagedBean extends BaseManagedBean {
-	//private static final Logger log = Logger.getLogger(ListApproveActionSessionBean.class);
 
 	private static final long serialVersionUID = 1L;
 	public static int QUERY_MAX_NUM_ROWS = 300;
@@ -108,15 +107,12 @@ public class ListApproveActionManagedBean extends BaseManagedBean {
             query.add(getStartDate(), new Date());
 		}else{	
 			query.add(ApprovalMatch.MATCH_WITH_STATUS, BasicMatch.MATCH_TYPE_EQUALS, selectedStatus, Query.CONNECTOR_AND);
-			query.add(getStartDate(), new Date(), Query.CONNECTOR_ANDNOT);
-	        //No expired requests
-			query.add(TimeMatch.MATCH_WITH_EXPIRETIME, null, new Date());
+			query.add(getStartDate(), new Date());
 		}
         List<ApprovalDataVO> result = new ArrayList<ApprovalDataVO>();
 		try {
             RAAuthorization raAuthorization = new RAAuthorization(EjbcaJSFHelper.getBean().getAdmin(), ejbLocalHelper.getGlobalConfigurationSession(),
-            		ejbLocalHelper.getAccessControlSession(), ejbLocalHelper.getComplexAccessControlSession(), ejbLocalHelper.getCaSession(), 
-            		ejbLocalHelper.getEndEntityProfileSession(), ejbLocalHelper.getApprovalProfileSession());
+            		ejbLocalHelper.getAuthorizationSession(), ejbLocalHelper.getCaSession(), ejbLocalHelper.getEndEntityProfileSession());
 			result = ejbLocalHelper.getApprovalSession().query(query, 0, QUERY_MAX_NUM_ROWS, 
 			        raAuthorization.getCAAuthorizationString(), raAuthorization.getEndEntityProfileAuthorizationString(AccessRulesConstants.APPROVE_END_ENTITY));
 			if(result.size() == QUERY_MAX_NUM_ROWS){

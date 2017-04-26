@@ -36,7 +36,7 @@ import org.cesecore.audit.enums.ServiceTypes;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.crl.CRLData;
 import org.cesecore.config.CesecoreConfiguration;
@@ -62,7 +62,7 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
     private EntityManager entityManager;
 
     @EJB
-    private AccessControlSessionLocal accessSession;
+    private AuthorizationSessionLocal authorizationSession;
     @EJB
     private CertificateStoreSessionLocal certStore;
     @EJB
@@ -117,6 +117,14 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
     }
     
     @Override
+    public void removeCertificatesByUsername(final String username) {
+        Collection<CertificateWrapper> certs = certStore.findCertificatesByUsername(username);
+        for (CertificateWrapper certificate : certs) {
+            removeCertificate(certificate.getCertificate());
+        }  
+    }
+    
+    @Override
     public List<Object[]> findExpirationInfo(Collection<String> cas, long activeNotifiedExpireDateMin, long activeNotifiedExpireDateMax,
             long activeExpireDateMin) {
         return certStore.findExpirationInfo(cas, new ArrayList<Integer>(), activeNotifiedExpireDateMin, activeNotifiedExpireDateMax,
@@ -159,7 +167,6 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public boolean setStatus(AuthenticationToken admin, String fingerprint, int status) throws IllegalArgumentException, AuthorizationDeniedException {
-
         CertificateData data = CertificateData.findByFingerprint(entityManager, fingerprint);
         if (data != null) {
             if (log.isDebugEnabled()) {
@@ -185,7 +192,7 @@ public class InternalCertificateStoreSessionBean implements InternalCertificateS
     }
     
     private void authorizedToCA(final AuthenticationToken admin, final int caid) throws AuthorizationDeniedException {
-        if (!accessSession.isAuthorized(admin, StandardRules.CAACCESS.resource() + caid)) {
+        if (!authorizationSession.isAuthorized(admin, StandardRules.CAACCESS.resource() + caid)) {
             final String msg = INTRES.getLocalizedMessage("caadmin.notauthorizedtoca", admin.toString(), caid);
             throw new AuthorizationDeniedException(msg);
         }

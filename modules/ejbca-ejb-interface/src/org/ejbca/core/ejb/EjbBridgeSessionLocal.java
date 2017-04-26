@@ -17,9 +17,7 @@ import javax.ejb.Local;
 
 import org.cesecore.audit.audit.SecurityEventsAuditorSessionLocal;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
-import org.cesecore.authorization.rules.AccessRuleManagementSessionLocal;
-import org.cesecore.authorization.user.AccessUserAspectManagerSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateCreateSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
@@ -27,16 +25,19 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLoc
 import org.cesecore.certificates.crl.CrlCreateSessionLocal;
 import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
+import org.cesecore.keybind.InternalKeyBindingDataSessionLocal;
 import org.cesecore.keybind.InternalKeyBindingMgmtSessionLocal;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
-import org.cesecore.roles.access.RoleAccessSessionLocal;
-import org.cesecore.roles.management.RoleManagementSessionLocal;
+import org.cesecore.roles.management.RoleDataSessionLocal;
+import org.cesecore.roles.management.RoleSessionLocal;
+import org.cesecore.roles.member.RoleMemberDataSessionLocal;
+import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.ejb.audit.EjbcaAuditorSessionLocal;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
-import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionLocal;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherQueueSessionLocal;
@@ -73,18 +74,16 @@ import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
 @Local
 public interface EjbBridgeSessionLocal {
 
-	AccessControlSessionLocal getAccessControlSession();
-	AccessRuleManagementSessionLocal getAccessRuleManagementSession();
-	AccessUserAspectManagerSessionLocal getAccessUserAspectSession();
 	ApprovalExecutionSessionLocal getApprovalExecutionSession();
 	ApprovalSessionLocal getApprovalSession();
 	ApprovalProfileSessionLocal getApprovalProfileSession();
+    AuthorizationSessionLocal getAuthorizationSession();
+    AuthorizationSystemSessionLocal getAuthorizationSystemSession();
 	CAAdminSessionLocal getCaAdminSession();
 	CaSessionLocal getCaSession();
 	CertificateProfileSessionLocal getCertificateProfileSession();
 	CertificateStoreSessionLocal getCertificateStoreSession();
 	CertReqHistorySessionLocal getCertReqHistorySession();
-	ComplexAccessControlSessionLocal getComplexAccessControlSession();
 	RevocationSessionLocal getRevocationSession();
 	CmpMessageDispatcherSessionLocal getCmpMessageDispatcherSession();
 	CrlStoreSessionLocal getCrlStoreSession();
@@ -100,8 +99,10 @@ public interface EjbBridgeSessionLocal {
 	PublisherQueueSessionLocal getPublisherQueueSession();
 	PublisherSessionLocal getPublisherSession();
 	AdminPreferenceSessionLocal getRaAdminSession();
-	RoleAccessSessionLocal getRoleAccessSession();
-	RoleManagementSessionLocal getRoleManagementSession();
+    RoleDataSessionLocal getRoleDataSession();
+    RoleMemberSessionLocal getRoleMemberSession();
+    RoleMemberDataSessionLocal getRoleMemberDataSession();
+    RoleSessionLocal getRoleSession();
 	SecurityEventsAuditorSessionLocal getSecurityEventsAuditorSession();
 	SecurityEventsLoggerSessionLocal getSecurityEventsLoggerSession();
 	ServiceSessionLocal getServiceSession();
@@ -112,6 +113,7 @@ public interface EjbBridgeSessionLocal {
 	EndEntityManagementSessionLocal getEndEntityManagementSession();
 	WebAuthenticationProviderSessionLocal getWebAuthenticationProviderSession();
     CryptoTokenManagementSessionLocal getCryptoTokenManagementSession();
+    InternalKeyBindingDataSessionLocal getInternalKeyBindingDataSession();
     InternalKeyBindingMgmtSessionLocal getInternalKeyBindingMgmtSession();
     PublishingCrlSessionLocal getPublishingCrlSession();
     ImportCrlSessionLocal getImportCrlSession();

@@ -133,6 +133,17 @@ public class CliAuthenticationToken extends AuthenticationToken {
         }
         return false;
     }
+    
+    @Override
+    public int getPreferredMatchKey() {
+        return CliUserAccessMatchValue.USERNAME.getNumericValue();
+    }
+    
+    /** Returns the username */
+    @Override
+    public String getPreferredMatchValue() {
+        return userName;
+    }
    
 
     /**
@@ -263,7 +274,7 @@ public class CliAuthenticationToken extends AuthenticationToken {
 
     @Override
     protected String generateUniqueId() {
-        return generateUniqueId(isVerified, userName);
+        return generateUniqueId(isVerified, userName, referenceNumber, sha1Hash, sha1Salt, hashAlgorithm);
     }
 
     @Override

@@ -37,18 +37,20 @@ import org.apache.myfaces.renderkit.html.util.AddResourceFactory;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.internal.InternalResources;
-import org.cesecore.roles.AdminGroupData;
+import org.cesecore.roles.AccessRulesHelper;
+import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleInformation;
-import org.cesecore.roles.access.RoleAccessSessionLocal;
+import org.cesecore.roles.management.RoleSessionLocal;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.cesecore.util.ui.DynamicUiProperty;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
-import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.Approval;
@@ -116,18 +118,18 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     @EJB
     private ApprovalExecutionSessionLocal approvalExecutionSession;
     @EJB
-    private RoleAccessSessionLocal roleAccessSession;
+    private RoleSessionLocal roleSession;
+    @EJB
+    private RoleMemberSessionLocal roleMemberSession;
     
     @EJB
-    private AccessControlSessionLocal accessControlSession;
+    private AuthorizationSessionLocal authorizationSession;
     @EJB
     private ApprovalProfileSessionLocal approvalProfileSession;
     @EJB
     private ApprovalSessionLocal approvalSession;
     @EJB
     private CaSessionLocal caSession;
-    @EJB
-    private ComplexAccessControlSessionLocal complexAccessControlSession;
     @EJB
     private EndEntityProfileSessionLocal endEntityProfileSession;
     @EJB
@@ -299,8 +301,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     	List<ApprovalDataVO> result;
     	try {
     		RAAuthorization raAuthorization = new RAAuthorization(EjbcaJSFHelper.getBean().getAdmin(), globalConfigurationSession,
-    				accessControlSession, complexAccessControlSession, caSession, endEntityProfileSession, 
-    				approvalProfileSession);
+    				authorizationSession, caSession, endEntityProfileSession);
     		result = approvalSession.query(query, 0, 1, raAuthorization.getCAAuthorizationString(), 
     		        raAuthorization.getEndEntityProfileAuthorizationString(AccessRulesConstants.APPROVE_END_ENTITY));
     		if (result.size() > 0) {
@@ -494,12 +495,20 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                         approvalPartition.getPropertyList().get(propertyName));
                 switch (propertyClone.getPropertyCallback()) {
                 case ROLES:
-                    List<AdminGroupData> allAuthorizedRoles = roleAccessSession.getAllAuthorizedRoles(getAdmin());
-                    List<RoleInformation> roleRepresentations = new ArrayList<>();
-                    for (AdminGroupData role : allAuthorizedRoles) {
-                        RoleInformation identifierNamePair = new RoleInformation(role.getPrimaryKey(), role.getRoleName(),
-                                new ArrayList<>(role.getAccessUsers().values()));
-                        roleRepresentations.add(identifierNamePair);
+                    final List<Role> allAuthorizedRoles = roleSession.getAuthorizedRoles(getAdmin());
+                    final List<RoleInformation> roleRepresentations = new ArrayList<>();
+                    for (final Role role : allAuthorizedRoles) {
+                        if (AccessRulesHelper.hasAccessToResource(role.getAccessRules(), AccessRulesConstants.REGULAR_APPROVEENDENTITY)
+                                || AccessRulesHelper.hasAccessToResource(role.getAccessRules(), AccessRulesConstants.REGULAR_APPROVECAACTION)) {
+                            try {
+                                final List<RoleMember> roleMembers = roleMemberSession.getRoleMembersByRoleId(getAdmin(), role.getRoleId());
+                                roleRepresentations.add(RoleInformation.fromRoleMembers(role.getRoleId(), role.getNameSpace(), role.getRoleName(), roleMembers));
+                            } catch (AuthorizationDeniedException e) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Not authorized to members of authorized role '"+role.getRoleNameFull()+"' (?):" + e.getMessage());
+                                }
+                            }
+                        }
                     }
                     if (!roleRepresentations.contains(propertyClone.getDefaultValue())) {
                         //Add the default, because it makes no sense why it wouldn't be there. Also, it may be a placeholder for something else. 

@@ -12,76 +12,26 @@
  *************************************************************************/
 package org.ejbca.core.model.era;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateParsingException;
-import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
-import javax.ejb.EJB;
-import javax.ejb.RemoveException;
-import javax.ejb.Stateless;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceException;
-import javax.persistence.Query;
-import javax.persistence.QueryTimeoutException;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.CesecoreException;
 import org.cesecore.ErrorCode;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.PublicAccessAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.access.AccessSet;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.authorization.control.AuditLogRules;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
-import org.cesecore.certificates.ca.CAConstants;
-import org.cesecore.certificates.ca.CADoesntExistsException;
-import org.cesecore.certificates.ca.CAInfo;
-import org.cesecore.certificates.ca.CAOfflineException;
-import org.cesecore.certificates.ca.CaSessionLocal;
-import org.cesecore.certificates.ca.IllegalNameException;
-import org.cesecore.certificates.ca.IllegalValidityException;
-import org.cesecore.certificates.ca.InvalidAlgorithmException;
-import org.cesecore.certificates.ca.SignRequestException;
-import org.cesecore.certificates.ca.SignRequestSignatureException;
-import org.cesecore.certificates.certificate.CertificateConstants;
-import org.cesecore.certificates.certificate.CertificateCreateException;
-import org.cesecore.certificates.certificate.CertificateCreateSessionLocal;
-import org.cesecore.certificates.certificate.CertificateDataWrapper;
-import org.cesecore.certificates.certificate.CertificateRevokeException;
-import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
-import org.cesecore.certificates.certificate.IllegalKeyException;
+import org.cesecore.certificates.ca.*;
+import org.cesecore.certificates.certificate.*;
 import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
 import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
-import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
@@ -94,6 +44,7 @@ import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
+import org.cesecore.keys.token.CryptoTokenSessionLocal;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
@@ -108,6 +59,8 @@ import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
+import org.ejbca.core.ejb.authentication.cli.CliAuthenticationTokenMetaData;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionLocal;
@@ -116,22 +69,16 @@ import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
+import org.ejbca.core.ejb.ra.userdatasource.UserDataSourceSessionLocal;
 import org.ejbca.core.model.CertificateSignatureException;
 import org.ejbca.core.model.SecConst;
-import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
-import org.ejbca.core.model.approval.Approval;
-import org.ejbca.core.model.approval.ApprovalDataText;
-import org.ejbca.core.model.approval.ApprovalDataVO;
-import org.ejbca.core.model.approval.ApprovalException;
-import org.ejbca.core.model.approval.ApprovalRequest;
-import org.ejbca.core.model.approval.ApprovalRequestExecutionException;
-import org.ejbca.core.model.approval.ApprovalRequestExpiredException;
-import org.ejbca.core.model.approval.SelfApprovalException;
-import org.ejbca.core.model.approval.WaitingForApprovalException;
+import org.ejbca.core.model.approval.*;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.EditEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
+import org.ejbca.core.model.ca.AuthLoginException;
+import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
 import org.ejbca.core.model.ra.EndEntityProfileValidationRaException;
 import org.ejbca.core.model.ra.KeyStoreGeneralRaException;
@@ -142,6 +89,20 @@ import org.ejbca.core.model.util.GenerateToken;
 import org.ejbca.util.query.ApprovalMatch;
 import org.ejbca.util.query.BasicMatch;
 import org.ejbca.util.query.IllegalQueryException;
+
+import javax.ejb.*;
+import javax.persistence.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Implementation of the RaMasterApi that invokes functions at the local node.
@@ -155,13 +116,17 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private static final Logger log = Logger.getLogger(RaMasterApiSessionBean.class);
 
     @EJB
+    private AccessTreeUpdateSessionLocal accessTreeUpdateSession;
+    @EJB
     private ApprovalProfileSessionLocal approvalProfileSession;
     @EJB
     private ApprovalSessionLocal approvalSession;
     @EJB
     private ApprovalExecutionSessionLocal approvalExecutionSession;
     @EJB
-    private AccessControlSessionLocal accessControlSession;
+    private AuthorizationSessionLocal authorizationSession;
+    @EJB
+    private AuthorizationSystemSessionLocal authorizationSystemSession;
     @EJB
     private CaSessionLocal caSession;
     @EJB
@@ -170,6 +135,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private CertificateStoreSessionLocal certificateStoreSession;
     @EJB
     private CertificateCreateSessionLocal certificateCreateSession;
+    @EJB
+    private CryptoTokenSessionLocal cryptoTokenSession;
     @EJB
     private EndEntityAccessSessionLocal endEntityAccessSession;
     @EJB
@@ -182,6 +149,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private HardTokenSessionLocal hardTokenSession;
     @EJB
     private KeyRecoverySessionLocal keyRecoverySessionLocal;
+    @EJB
+    private UserDataSourceSessionLocal userDataSourceSession;
     @EJB
     private SignSessionLocal signSessionLocal;
     @EJB
@@ -218,22 +187,34 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
+    public boolean isAuthorizedNoLogging(AuthenticationToken authenticationToken, String... resources) {
+        return authorizationSession.isAuthorizedNoLogging(authenticationToken, resources);
+    }
+
+    @Override
+    public RaAuthorizationResult getAuthorization(AuthenticationToken authenticationToken) throws AuthenticationFailedException {
+        final HashMap<String, Boolean> accessRules = authorizationSession.getAccessAvailableToAuthenticationToken(authenticationToken);
+        final int updateNumber = accessTreeUpdateSession.getAccessTreeUpdateNumber();
+        return new RaAuthorizationResult(accessRules, updateNumber);
+    }
+
+    @Override
+    @Deprecated
     public AccessSet getUserAccessSet(final AuthenticationToken authenticationToken) throws AuthenticationFailedException  {
-        return accessControlSession.getAccessSetForAuthToken(authenticationToken);
+        return authorizationSystemSession.getAccessSetForAuthToken(authenticationToken);
     }
     
     @Override
+    @Deprecated
     public List<AccessSet> getUserAccessSets(final List<AuthenticationToken> authenticationTokens)  {
         final List<AccessSet> ret = new ArrayList<>();
-        for (AuthenticationToken authToken : authenticationTokens) {
-            // Always add, even if null. Otherwise the caller won't be able to determine which AccessSet belongs to which AuthenticationToken
-            AccessSet as;
+        for (final AuthenticationToken authenticationToken : authenticationTokens) {
             try {
-                as = accessControlSession.getAccessSetForAuthToken(authToken);
+                ret.add(authorizationSystemSession.getAccessSetForAuthToken(authenticationToken));
             } catch (AuthenticationFailedException e) {
-                as = null;
+                // Always add, even if null. Otherwise the caller won't be able to determine which AccessSet belongs to which AuthenticationToken
+                ret.add(null);
             }
-            ret.add(as);
         }
         return ret;
     }
@@ -257,7 +238,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public List<String> getAuthorizedRoleNamespaces(final AuthenticationToken authenticationToken, final int roleId) {
         // Skip roles that come from other peers if roleId is set
         try {
-            if (roleId != 0 && getRole(authenticationToken, roleId) == null) {
+            if (roleId != Role.ROLE_ID_UNASSIGNED && getRole(authenticationToken, roleId) == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("Requested role with ID " + roleId + " does not exist on this system, returning empty list of namespaces");
                 }
@@ -275,20 +256,25 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
-    public Map<String,RaRoleMemberTokenTypeInfo> getAuthorizedRoleMemberTokenTypes(final AuthenticationToken authenticationToken) {
+    public Map<String,RaRoleMemberTokenTypeInfo> getAvailableRoleMemberTokenTypes(final AuthenticationToken authenticationToken) {
         final Map<String,RaRoleMemberTokenTypeInfo> result = new HashMap<>();
         for (final String tokenType : AccessMatchValueReverseLookupRegistry.INSTANCE.getAllTokenTypes()) {
-            if (!AccessMatchValueReverseLookupRegistry.INSTANCE.getMetaData(tokenType).isUserConfigurable()) {
+            // Disallow access to Public Access and CLI token types on the RA, as well as non-user-configurable token types such as AlwaysAllowLocal 
+            if (!AccessMatchValueReverseLookupRegistry.INSTANCE.getMetaData(tokenType).isUserConfigurable() ||
+                    PublicAccessAuthenticationTokenMetaData.TOKEN_TYPE.equals(tokenType) ||
+                    CliAuthenticationTokenMetaData.TOKEN_TYPE.equals(tokenType)) {
                 continue;
-            }
+            } 
             
             final Map<String,Integer> stringToNumberMap = new HashMap<>();
             for (final Entry<String,AccessMatchValue> entry : AccessMatchValueReverseLookupRegistry.INSTANCE.getNameLookupRegistryForTokenType(tokenType).entrySet()) {
                 stringToNumberMap.put(entry.getKey(), entry.getValue().getNumericValue());
             }
             final AccessMatchValue defaultValue = AccessMatchValueReverseLookupRegistry.INSTANCE.getDefaultValueForTokenType(tokenType);
+            final boolean hasMatchTypes = !defaultValue.getAvailableAccessMatchTypes().isEmpty();
             
-            result.put(tokenType, new RaRoleMemberTokenTypeInfo(stringToNumberMap, defaultValue.name(), defaultValue.isIssuedByCa()));
+            result.put(tokenType, new RaRoleMemberTokenTypeInfo(stringToNumberMap, defaultValue.name(), defaultValue.isIssuedByCa(),
+                    hasMatchTypes, hasMatchTypes ? defaultValue.getAvailableAccessMatchTypes().get(0).getNumericValue() : 0));
             
         }
         return result;
@@ -331,9 +317,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         if (log.isDebugEnabled()) {
             log.debug("Persisting a role member with ID " + roleMember.getRoleId() + " and match value '" + roleMember.getTokenMatchValue() + "'");
         }
-        int id = roleMemberSession.createOrEdit(authenticationToken, roleMember);
-        roleMember.setId(id);
-        return roleMember;
+        return roleMemberSession.persist(authenticationToken, roleMember);
     }
     
     @Override
@@ -660,8 +644,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         try {
             String endEntityProfileAuthorizationString = getEndEntityProfileAuthorizationString(authenticationToken, AccessRulesConstants.APPROVE_END_ENTITY);
             RAAuthorization raAuthorization = new RAAuthorization(authenticationToken, globalConfigurationSession,
-                    accessControlSession, null, caSession, endEntityProfileSession,  
-                    approvalProfileSession);
+                    authorizationSession, caSession, endEntityProfileSession);
             approvals = approvalSession.queryByStatus(request.isSearchingWaitingForMe() || request.isSearchingPending(), request.isSearchingHistorical(),
                     request.isSearchingExpired(), request.getStartDate(), request.getEndDate(), request.getExpiresBefore(), 0, 100, raAuthorization.getCAAuthorizationString(), endEntityProfileAuthorizationString);
         } catch (AuthorizationDeniedException e) {
@@ -713,10 +696,10 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     // We should find a way to use ComplexAccessControlSession here instead
     private String getEndEntityProfileAuthorizationString(AuthenticationToken authenticationToken, String endentityAccessRule) throws AuthorizationDeniedException {
         // i.e approvals with endentityprofile ApprovalDataVO.ANY_ENDENTITYPROFILE
-        boolean authorizedToApproveCAActions = accessControlSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_APPROVECAACTION);
+        boolean authorizedToApproveCAActions = authorizationSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_APPROVECAACTION);
         // i.e approvals with endentityprofile not ApprovalDataVO.ANY_ENDENTITYPROFILE 
-        boolean authorizedToApproveRAActions = accessControlSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_APPROVEENDENTITY);
-        boolean authorizedToAudit = accessControlSession.isAuthorizedNoLogging(authenticationToken, AuditLogRules.VIEW.resource());
+        boolean authorizedToApproveRAActions = authorizationSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_APPROVEENDENTITY);
+        boolean authorizedToAudit = authorizationSession.isAuthorizedNoLogging(authenticationToken, AuditLogRules.VIEW.resource());
         
         if (!authorizedToApproveCAActions && !authorizedToApproveRAActions && !authorizedToAudit) {
             throw new AuthorizationDeniedException("Not authorized to query for approvals: "+authorizedToApproveCAActions+", "+authorizedToApproveRAActions+", "+authorizedToAudit);
@@ -769,10 +752,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private Collection<Integer> getAuthorizedEndEntityProfileIds(AuthenticationToken authenticationToken, String rapriviledge,
             Collection<Integer> availableEndEntityProfileId) {
         ArrayList<Integer> returnval = new ArrayList<>();
-        Iterator<Integer> iter = availableEndEntityProfileId.iterator();
-        while (iter.hasNext()) {
-            Integer profileid = iter.next();
-            if (accessControlSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.ENDENTITYPROFILEPREFIX + profileid + rapriviledge)) {
+        for (final Integer profileid : availableEndEntityProfileId) {
+            if (authorizationSession.isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.ENDENTITYPROFILEPREFIX + profileid + rapriviledge)) {
                 returnval.add(profileid);
             } else {
                 if (log.isDebugEnabled()) {
@@ -1229,15 +1210,15 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public RaRoleSearchResponse searchForRoles(AuthenticationToken authenticationToken, RaRoleSearchRequest request) {
         // TODO optimize this (ECA-5721), should filter with a database query
         final List<Role> authorizedRoles = getAuthorizedRoles(authenticationToken);
-        final RaRoleSearchResponse resp = new RaRoleSearchResponse();
+        final RaRoleSearchResponse searchResponse = new RaRoleSearchResponse();
         final String searchString = request.getGenericSearchString();
         for (final Role role : authorizedRoles) {
             if (searchString == null || StringUtils.containsIgnoreCase(role.getRoleName(), searchString) ||
                     (role.getNameSpace() != null && StringUtils.containsIgnoreCase(role.getNameSpace(), searchString))) {
-                resp.getRoles().add(role);
+                searchResponse.getRoles().add(role);
             }
         }
-        return resp;
+        return searchResponse;
     }
     
     @SuppressWarnings("unchecked")
@@ -1265,13 +1246,21 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
         
         // Token types
-        final List<String> authorizedLocalTokenTypes = new ArrayList<>(getAuthorizedRoleMemberTokenTypes(authenticationToken).keySet());
+        final List<String> authorizedLocalTokenTypes = new ArrayList<>(getAvailableRoleMemberTokenTypes(authenticationToken).keySet());
         if (!request.getTokenTypes().isEmpty()) {
             authorizedLocalTokenTypes.retainAll(request.getTokenTypes());
         }
         
-        if (authorizedLocalCaIds.isEmpty() || authorizedLocalRoleIds.isEmpty() || authorizedLocalTokenTypes.isEmpty()) {
-            log.debug("No authorized CAs, no authorized Roles, and/or token types. Returning empty response in role member search");
+        if (authorizedLocalCaIds.isEmpty()) {
+            log.debug("No authorized CAs. Returning empty response in role member search");
+            return response;
+        }
+        if (authorizedLocalRoleIds.isEmpty()) {
+            log.debug("No authorized Roles. Returning empty response in role member search");
+            return response;
+        }
+        if (authorizedLocalTokenTypes.isEmpty()) {
+            log.debug("No authorized token types. Returning empty response in role member search");
             return response;
         }
         
@@ -1279,8 +1268,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         final StringBuilder sb = new StringBuilder("SELECT a FROM RoleMemberData a WHERE a.tokenIssuerId IN (:caId) AND a.roleId IN (:roleId) AND a.tokenType IN (:tokenType)");
         // TODO only search by exact tokenMatchValue if it seems to be a serial number?
         if (!StringUtils.isEmpty(request.getGenericSearchString())) {
-            //sb.append(" AND (a.tokenMatchValue = :searchString OR a.memberBindingValue LIKE :searchStringInexact)");
-            sb.append(" AND (a.tokenMatchValue LIKE :searchStringInexact OR a.memberBindingValue LIKE :searchStringInexact)");
+            sb.append(" AND (a.tokenMatchValueColumn LIKE :searchStringInexact OR a.descriptionColumn LIKE :searchStringInexact)");
         }
         final Query query = entityManager.createQuery(sb.toString());
         query.setParameter("caId", authorizedLocalCaIds);
@@ -1300,7 +1288,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         
         // Execute
         try {
-            final List<RoleMemberData> roleMemberDatas = (List<RoleMemberData>) query.getResultList();
+            final List<RoleMemberData> roleMemberDatas = query.getResultList();
             for (final RoleMemberData roleMemberData : roleMemberDatas) {
                 response.getRoleMembers().add(roleMemberData.asValueObject());
             }
@@ -1375,6 +1363,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
+    public CertificateProfile getCertificateProfile(int id) {
+        return certificateProfileSession.getCertificateProfile(id);
+    }
+
+    @Override
     public IdNameHashMap<CAInfo> getAuthorizedCAInfos(AuthenticationToken authenticationToken) {
         IdNameHashMap<CAInfo> authorizedCAInfos = new IdNameHashMap<>();
         List<CAInfo> authorizedCAInfosList = caSession.getAuthorizedAndNonExternalCaInfos(authenticationToken);
@@ -1436,6 +1429,13 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public EndEntityInformation searchUser(final AuthenticationToken admin, String username) {
         return endEntityAccessSession.findUser(username);
     }
+    
+    @Override
+    public void checkUserStatus(AuthenticationToken admin, String username, String password) throws NoSuchEndEntityException, AuthStatusException, AuthLoginException {
+        endEntityAuthenticationSessionLocal.authenticateUser(admin, username, password);
+    }
+
+
     
     @Override
     public byte[] generateKeyStore(final AuthenticationToken admin, final EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException{
@@ -1529,7 +1529,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         if (StringUtils.isEmpty(request.getAcmeBaseUrl())) {
             throw new IllegalArgumentException("ACME base URL must be set");
         }
-        if (request.getType() == 0) {
+        if (request.getType() == 0) { // default value for uninitialized int value in java
             throw new IllegalArgumentException("ACME request type must be set");
         }
         
@@ -1540,28 +1540,180 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         
         final RaAcmeResponse response = new RaAcmeResponse();
         switch (request.getType()) {
-        case RaAcmeRequest.TYPE_CERTREQ:
+
+
+        case RaAcmeRequest.TYPE_GETCERT:
+        {
+            log.info(">>>>>>>>>>>>>>>>>>>>RaAcmeRequest.TYPE_GETCERT::Start");
             // TODO this is test code
             try {
                 //final CAInfo caInfo = caSession.getCAInfo(authenticationToken, caName);
-                
-                final RequestMessage certReq = new PKCS10RequestMessage(request.getCsr());
+
+                final PKCS10RequestMessage certReq = new PKCS10RequestMessage(request.getCsr());
+                certReq.setUsername("acmetestuser");
+                certReq.setPassword("foo123");
+
                 final EndEntityInformation eei = endEntityAccessSession.findUser("acmetestuser");
                 eei.setPassword("foo123");
                 ResponseMessage certResp = signSessionLocal.createCertificate(authenticationToken, certReq, X509ResponseMessage.class, eei);
-                
+
                 response.setCertificate(certResp.getResponseMessage());
             } catch (CryptoTokenOfflineException | CAOfflineException e) {
+                e.printStackTrace();
                 throw new EjbcaException(ErrorCode.CA_OFFLINE, e);
             } catch (NoSuchEndEntityException | CustomCertificateSerialNumberException | IllegalKeyException | SignRequestException |
                     SignRequestSignatureException | IllegalNameException | CertificateCreateException | CertificateRevokeException |
                     CertificateSerialNumberException | IllegalValidityException | InvalidAlgorithmException | CertificateExtensionException |
                     CertificateEncodingException | CADoesntExistsException e) {
+                e.printStackTrace();
                 throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e);
             }
+
+
+            if (response == null)
+                log.info(">>>>>>>>>>>>>>>>>>>>RaAcmeRequest.TYPE_GETCERT::reponse::null");
+            else
+                log.info(">>>>>>>>>>>>>>>>>>>>RaAcmeRequest.TYPE_GETCERT::reponse::not null");
+
+            log.info(">>>>>>>>>>>>>>>>>>>>RaAcmeRequest.TYPE_GETCERT::[" + response.getCertificate() + "]");
+
             return response;
+        }
+        //Nonce Funtionality
+        case RaAcmeRequest.TYPE_GETNONCE:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_GETNONCE,result);
+
+            result.put("data",RaAcmePersistence.getNonce());
+
+            return response;
+        }
+        case RaAcmeRequest.TYPE_ISNONCE:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_ISNONCE,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            result.put("data",RaAcmePersistence.isNonce(uuid));
+
+            return response;
+        }
+
+        //Authorization object
+        case RaAcmeRequest.TYPE_GETAUTHOBJ:{
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_GETAUTHOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            HashMap authObj = new HashMap(RaAcmePersistence.getAuthObj(uuid));
+
+            result.put("data",authObj);
+            result.put("isdata",authObj.isEmpty());
+
+            return response;
+        }
+        case RaAcmeRequest.TYPE_ISAUTHOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_ISAUTHOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            HashMap authObj = new HashMap(RaAcmePersistence.isAuthObj(uuid));
+
+            result.put("data",authObj);
+            result.put("isdata",authObj.isEmpty());
+
+            return response;
+        }
+        case RaAcmeRequest.TYPE_SETAUTHOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_SETAUTHOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+            HashMap authObj = (HashMap) data.get("data");
+
+            result.put("data",(HashMap)RaAcmePersistence.setAuthObj(uuid,authObj));
+            return response;
+        }
+        case RaAcmeRequest.TYPE_REMAUTHOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_REMAUTHOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            result.put("data",(HashMap)RaAcmePersistence.remAuthObj(uuid));
+            return response;
+        }
+
+        //Registration Object functionality
+        case RaAcmeRequest.TYPE_GETREGOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_GETREGOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            HashMap regObj = new HashMap(RaAcmePersistence.getRegObj(uuid));
+
+            result.put("data",regObj);
+            result.put("isdata",regObj.isEmpty());
+
+            return response;
+
+        }
+        case RaAcmeRequest.TYPE_ISREGOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_ISREGOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            HashMap regObj = new HashMap(RaAcmePersistence.getRegObj(uuid));
+
+            result.put("data",regObj);
+            result.put("isdata",regObj.isEmpty());
+
+            return response;
+        }
+        case RaAcmeRequest.TYPE_SETREGOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_SETREGOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+            HashMap regObj = (HashMap) data.get("data");
+
+            result.put("data",(HashMap)RaAcmePersistence.setRegObj(uuid,regObj));
+            return  response;
+        }
+
+        case RaAcmeRequest.TYPE_REMREGOBJ:
+        {
+            HashMap result = new HashMap();
+            response.setOperation(RaAcmeRequest.TYPE_REMREGOBJ,result);
+
+            HashMap data = request.getData();
+            String uuid = String.valueOf(data.get("uuid"));
+
+            result.put("data",(HashMap)RaAcmePersistence.remRegObj(uuid));
+            return response;
+        }
         default:
-            return null;
+            return response;
         }
     }
 

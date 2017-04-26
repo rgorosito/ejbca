@@ -48,7 +48,7 @@
         <h:panelGroup layout="block" class="header" id="title">
             <h1><h:outputText value="#{msg.role_members_page_title}"/></h1>
         </h:panelGroup>
-        <h:outputText value="#{msg.manage_roles_page_error_unauthorized}" rendered="#{!raAccessBean.authorizedToRoleMembers}"/>
+        <h:outputText value="#{msg.role_members_page_error_unauthorized}" rendered="#{!raAccessBean.authorizedToRoleMembers}"/>
         <h:panelGroup layout="block" styleClass="content-body" rendered="#{raAccessBean.authorizedToRoleMembers}">
         
             <h:panelGroup id="basic" layout="block">
@@ -74,8 +74,8 @@
                         <h:commandButton action="#{raRoleMembersBean.searchAndFilterAction}" value="#{msg.role_members_page_search_command}" styleClass="pure-button pure-button-primary searchButton jsHide"/>
                     </h:panelGroup>
                     
-                    <!-- TODO: choose namespace also? and only show the first 100 roles here? -->
-                    <h:panelGroup id="parentCriteriaRoleId" styleClass="pure-u-1 pure-u-lg-1-5" rendered="#{!raRoleMembersBean.onlyOneRoleAvailable}">
+                    <ui:remove><!-- TODO: choose namespace also? and only show the first 100 roles here? --></ui:remove>
+                    <h:panelGroup id="parentCriteriaRoleId" styleClass="pure-u-1 pure-u-lg-1-5">
                         <h:selectOneMenu id="criteriaRoleId" value="#{raRoleMembersBean.criteriaRoleId}" styleClass="pure-input-1">
                             <f:selectItems value="#{raRoleMembersBean.availableRoles}"/>
                             <f:ajax event="change" execute="@this" render=":roleMembersForm:filteredResults" listener="#{raRoleMembersBean.searchAndFilterAjaxListener}"
@@ -127,7 +127,19 @@
                                         onerror="function(data){ejbca.ra.onAjaxError(data,'roleMembersForm:filteredResults');}"/>
                                 </h:commandButton>
                             </f:facet>
-                            <h:outputText value="#{not empty raRoleMember.roleName ? raRoleMember.roleName : msg.role_members_page_role_none}" style="white-space: nowrap" styleClass="#{empty raRoleMember.roleName ? &quot;noneCell&quot; : &quot;&quot;}"/>
+                            <h:outputText value="#{not empty raRoleMember.roleName ? raRoleMember.roleName : msg.role_members_page_role_none}" style="white-space: nowrap"
+                                styleClass="#{empty raRoleMember.roleName ? &quot;noneCell&quot; : &quot;&quot;}"/>
+                        </h:column>
+                        <h:column rendered="#{raRoleMembersBean.hasMultipleNamespaces}">
+                            <f:facet name="header">
+                                <h:outputLabel for="sortRoleNamespace" value="#{msg.role_members_page_colhead_role_namespace} #{raRoleMembersBean.sortedByRoleNamespace}"/>
+                                <h:commandButton id="sortRoleNamespace" action="#{raRoleMembersBean.sortByRoleNamespace}" value="#{msg.generic_sort_command}" style="display: none;">
+                                    <f:ajax execute="@this" render=":roleMembersForm:filteredResults"
+                                        onevent="function(data){ejbca.ra.onAjaxEvent(data,'roleMembersForm:filteredResults');}"
+                                        onerror="function(data){ejbca.ra.onAjaxError(data,'roleMembersForm:filteredResults');}"/>
+                                </h:commandButton>
+                            </f:facet>
+                            <h:outputText value="#{raRoleMember.roleNamespace}" style="white-space: nowrap"/>
                         </h:column>
                         <h:column>
                             <f:facet name="header">
@@ -140,7 +152,7 @@
                             </f:facet>
                             <h:outputText value="#{raRoleMember.caName}" style="white-space: nowrap"/>
                         </h:column>
-                        <h:column>
+                        <h:column rendered="#{raRoleMembersBean.hasMultipleTokenTypes}">
                             <f:facet name="header">
                                 <h:outputLabel for="sortTokenType" value="#{msg.role_members_page_colhead_tokentype} #{raRoleMembersBean.sortedByTokenType}"/>
                                 <h:commandButton id="sortTokenType" action="#{raRoleMembersBean.sortByTokenType}" value="#{msg.generic_sort_command}" style="display: none;">
@@ -154,7 +166,7 @@
                         <h:column>
                             <f:facet name="header">
                                 <h:outputLabel for="sortTokenMatchValue" value="#{msg.role_members_page_colhead_tokenidentifier} #{raRoleMembersBean.sortedByTokenMatchValue}"/>
-                                <h:commandButton id="sortTokenMatchValue" action="#{raRoleMembersBean.sortByMatchValue}" value="#{msg.generic_sort_command}" style="display: none;">
+                                <h:commandButton id="sortTokenMatchValue" action="#{raRoleMembersBean.sortByTokenMatchValue}" value="#{msg.generic_sort_command}" style="display: none;">
                                     <f:ajax execute="@this" render=":roleMembersForm:filteredResults"
                                         onevent="function(data){ejbca.ra.onAjaxEvent(data,'roleMembersForm:filteredResults');}"
                                         onerror="function(data){ejbca.ra.onAjaxError(data,'roleMembersForm:filteredResults');}"/>
@@ -168,26 +180,25 @@
                         </h:column>
                         <h:column>
                             <f:facet name="header">
-                                <h:outputLabel for="sortBinding" value="#{msg.role_members_page_colhead_binding} #{raRoleMembersBean.sortedByBinding}"/>
-                                <h:commandButton id="sortBinding" action="#{raRoleMembersBean.sortByBinding}" value="#{msg.generic_sort_command}" style="display: none;">
+                                <h:outputLabel for="sortDescription" value="#{msg.role_members_page_colhead_description} #{raRoleMembersBean.sortedByDescription}"/>
+                                <h:commandButton id="sortDescription" action="#{raRoleMembersBean.sortByDescription}" value="#{msg.generic_sort_command}" style="display: none;">
                                     <f:ajax execute="@this" render=":roleMembersForm:filteredResults"
                                         onevent="function(data){ejbca.ra.onAjaxEvent(data,'roleMembersForm:filteredResults');}"
                                         onerror="function(data){ejbca.ra.onAjaxError(data,'roleMembersForm:filteredResults');}"/>
                                 </h:commandButton>
                             </f:facet>
-                            <h:outputText value="#{raRoleMember.roleMember.memberBindingValue}" style="white-space: nowrap"/>
+                            <h:outputText value="#{raRoleMember.roleMember.description}" style="white-space: nowrap"/>
                         </h:column>
                         
-                        
-                        <h:column>
+                        <h:column rendered="#{raAccessBean.authorizedToEditRoleMembers}">
                             <h:link id="editButton" styleClass="viewMoreLink" outcome="role_member" includeViewParams="true">
                                 <f:param name="roleMemberId" value="#{raRoleMember.roleMember.id}"/>
                                 <h:outputText value="#{msg.role_members_page_edit_command}"/>
                             </h:link>
                         </h:column>
                         
-                        <h:column>
-                            <h:link id="removeButton" styleClass="viewMoreLink" outcome="remove_role_member" includeViewParams="true">
+                        <h:column rendered="#{raAccessBean.authorizedToEditRoleMembers}">
+                            <h:link id="removeButton" styleClass="viewMoreLink" outcome="role_member_remove" includeViewParams="true">
                                 <f:param name="roleMemberId" value="#{raRoleMember.roleMember.id}"/>
                                 <h:outputText value="#{msg.role_members_page_remove_command}"/>
                             </h:link>

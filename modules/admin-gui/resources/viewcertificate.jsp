@@ -48,7 +48,7 @@
 
 %><%
   // Initialize environment.
-  GlobalConfiguration globalconfiguration = ejbcawebbean.initialize(request, AccessRulesConstants.REGULAR_VIEWCERTIFICATE); 
+  GlobalConfiguration globalconfiguration = ejbcawebbean.initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR); 
                                             rabean.initialize(request, ejbcawebbean);
                                             cabean.initialize(ejbcawebbean); 
 
@@ -77,18 +77,28 @@
   RequestHelper.setDefaultCharacterEncoding(request);
 
   if( request.getParameter(HARDTOKENSN_PARAMETER) != null && request.getParameter(USER_PARAMETER ) != null){
-     username = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER),"UTF-8");
-     tokensn  = request.getParameter(HARDTOKENSN_PARAMETER);
-     rabean.loadTokenCertificates(tokensn);
      notauthorized = false;
      noparameter = false;
+     try {
+    	 ejbcawebbean.isAuthorized(AccessRulesConstants.REGULAR_VIEWCERTIFICATE);
+	     username = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER),"UTF-8");
+	     tokensn  = request.getParameter(HARDTOKENSN_PARAMETER);
+	     rabean.loadTokenCertificates(tokensn);
+     } catch (AuthorizationDeniedException e) {
+    	 notauthorized = true;
+     }
   }
 
   if( request.getParameter(USER_PARAMETER ) != null && request.getParameter(HARDTOKENSN_PARAMETER) == null){
-     username = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER),"UTF-8");
-     rabean.loadCertificates(username);
-     notauthorized = false;
+	 notauthorized = false;
      noparameter = false;
+     try {
+    	 ejbcawebbean.isAuthorized(AccessRulesConstants.REGULAR_VIEWCERTIFICATE);
+	     username = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER),"UTF-8");
+	     rabean.loadCertificates(username);
+     } catch (AuthorizationDeniedException e) {
+    	 notauthorized = true;
+     }
   }
 
   if( request.getParameter(CERTSERNO_PARAMETER ) != null){     
@@ -105,20 +115,27 @@
   if (request.getParameter(SERNO_PARAMETER) != null && request.getParameter(CACERT_PARAMETER) != null) {
 		 certificateserno = request.getParameter(SERNO_PARAMETER);
 		 caid = Integer.parseInt(request.getParameter(CACERT_PARAMETER));
-	     rabean.loadCertificates(new BigInteger(certificateserno,16), caid); 
-	     notauthorized = false;
+		 notauthorized = false;
 	     noparameter = false;
+		 try {
+			 ejbcawebbean.isAuthorized(StandardRules.CAVIEW.resource(), StandardRules.CAACCESS.resource() + caid);
+			 rabean.loadCertificates(new BigInteger(certificateserno,16), caid); 
+		 } catch (AuthorizationDeniedException e) {
+		     notauthorized = true;
+		 }
   } else if( request.getParameter(CACERT_PARAMETER ) != null){
      caid = Integer.parseInt(request.getParameter(CACERT_PARAMETER));
      if(request.getParameter(BUTTON_VIEW_NEWER) == null && request.getParameter(BUTTON_VIEW_OLDER) == null){
        try{  
-         ejbcawebbean.isAuthorized(StandardRules.CAVIEW.resource());
+         ejbcawebbean.isAuthorized(StandardRules.CAVIEW.resource(), StandardRules.CAACCESS.resource() + caid);
          rabean.loadCACertificates(cabean.getCACertificates(caid)); 
          numberofcertificates = rabean.getNumberOfCertificates();
          if(numberofcertificates > 0)
           currentindex = 0;     
-         notauthorized = false;
-       }catch(AuthorizationDeniedException e){}
+          notauthorized = false;
+       }catch(AuthorizationDeniedException e){
+    	   notauthorized = true;
+       }
        noparameter = false;
      }
      cacerts = true;

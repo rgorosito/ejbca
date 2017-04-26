@@ -30,6 +30,7 @@ import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleData;
+import org.cesecore.roles.member.RoleMemberDataSessionLocal;
 import org.cesecore.util.ProfileID;
 import org.cesecore.util.QueryResultWrapper;
 
@@ -46,6 +47,8 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
 
     @EJB
     private AccessTreeUpdateSessionLocal accessTreeUpdateSession;
+    @EJB
+    private RoleMemberDataSessionLocal roleMemberDataSession;
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
@@ -78,11 +81,11 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
 
     private RoleData getRoleData(final String nameSpace, final String roleName) {
         if (StringUtils.isEmpty(nameSpace)) {
-            final Query query = entityManager.createQuery("SELECT a FROM RoleData a WHERE a.roleName=:roleName AND a.nameSpace IS NULL");
+            final Query query = entityManager.createQuery("SELECT a FROM RoleData a WHERE a.roleName=:roleName AND a.nameSpaceColumn IS NULL");
             query.setParameter("roleName", roleName);
             return QueryResultWrapper.getSingleResult(query);
         } else {
-            final Query query = entityManager.createQuery("SELECT a FROM RoleData a WHERE a.roleName=:roleName AND a.nameSpace=:nameSpace");
+            final Query query = entityManager.createQuery("SELECT a FROM RoleData a WHERE a.roleName=:roleName AND a.nameSpaceColumn=:nameSpace");
             query.setParameter("roleName", roleName);
             query.setParameter("nameSpace", nameSpace);
             return QueryResultWrapper.getSingleResult(query);
@@ -92,6 +95,10 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public Role getRole(final int roleId) {
+        if (roleId==Role.ROLE_ID_UNASSIGNED) {
+            // The reserved ID will never have a database entry, so return quickly with what we know will be the result
+            return null;
+        }
         // 1. Check cache if it is time to sync-up with database
         if (RoleCache.INSTANCE.shouldCheckForUpdates(roleId)) {
             if (log.isDebugEnabled()) {
@@ -124,17 +131,37 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
     }
 
     @Override
-    public int persistRole(final Role role) {
+    public Role persistRole(final Role role) {
+        if (role==null) {
+            // Successfully did nothing
+            return null;
+        }
+        boolean authorizationMightHaveChanged = true;
         if (role.getRoleId()==Role.ROLE_ID_UNASSIGNED) {
             role.setRoleId(findFreeRoleId());
             entityManager.persist(new RoleData(role));
         } else {
             final RoleData roleData = getRoleData(role.getRoleId());
-            roleData.setRole(role);
+            if (roleData==null) {
+                // Must have been removed by another process, but caller wants to persist it, so we proceed (keeping the requested Role ID)
+                entityManager.persist(new RoleData(role));
+            } else {
+                final Role oldRole = roleData.getRole();
+                if (role.getAccessRules().equals(oldRole.getAccessRules())) {
+                    // We will not care if the role has any members, since there is no change to the access rules
+                    authorizationMightHaveChanged = false;
+                }
+                // Since the entity is managed, we just update its values
+                roleData.setRole(role);
+            }
         }
         RoleCache.INSTANCE.updateWith(role.getRoleId(), role.hashCode(), Role.getRoleNameFullAsCacheName(role.getNameSpace(), role.getRoleName()), role);
-        accessTreeUpdateSession.signalForAccessTreeUpdate();
-        return role.getRoleId();
+        // If we only created a new Role that has no members yet or the access rules did no change, the authorization would not have changed
+        authorizationMightHaveChanged &= isRoleMembersPresent(role.getRoleId());
+        if (authorizationMightHaveChanged) {
+            accessTreeUpdateSession.signalForAccessTreeUpdate();
+        }
+        return role;
     }
 
     /** @return a integer Id that is currently unused in the database */
@@ -153,10 +180,14 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
         // Use an DELETE query instead of entityManager.remove to tolerate concurrent deletion better
         final Query query = entityManager.createQuery("DELETE FROM RoleData a WHERE a.id=:id");
         query.setParameter("id", roleId);
-        boolean ret = query.executeUpdate()==1;
-        if (ret) {
+        final boolean ret = query.executeUpdate()==1;
+        if (ret && isRoleMembersPresent(roleId)) {
             accessTreeUpdateSession.signalForAccessTreeUpdate();
         }
         return ret;
-    }    
+    }
+    
+    private boolean isRoleMembersPresent(final int roleId) {
+        return !roleMemberDataSession.findByRoleId(roleId).isEmpty();
+    }
 }

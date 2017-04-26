@@ -34,12 +34,10 @@ import javax.ejb.RemoveException;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleState;
 import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -67,10 +65,10 @@ import org.cesecore.keys.util.KeyPairWrapper;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.keys.util.PublicKeyWrapper;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
-import org.cesecore.roles.AdminGroupData;
-import org.cesecore.roles.RoleNotFoundException;
-import org.cesecore.roles.access.RoleAccessSessionRemote;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.management.RoleSessionRemote;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EJBTools;
@@ -113,8 +111,8 @@ public class KeyRecoveryTest extends CaTestCase {
 
     private static final KeyRecoverySessionRemote keyRecoverySession = EjbRemoteHelper.INSTANCE.getRemoteSession(KeyRecoverySessionRemote.class);
     private static final SignSessionRemote signSession = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class);
-    private static final RoleAccessSessionRemote roleAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
-    private static final RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
+    private static final RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
+    private static final RoleMemberSessionRemote roleMemberSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberSessionRemote.class);
     private static final EndEntityAuthenticationSessionRemote endEntityAuthSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAuthenticationSessionRemote.class);
     private static final EndEntityManagementSessionRemote endEntityManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityManagementSessionRemote.class);
     private static final EndEntityAccessSessionRemote eeAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAccessSessionRemote.class);
@@ -129,31 +127,29 @@ public class KeyRecoveryTest extends CaTestCase {
     @BeforeClass
     public static void beforeClass() {
         CryptoProviderTools.installBCProvider();
-
     }
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
         admin = createCaAuthenticatedToken();
-
-        AdminGroupData role = roleManagementSession.create(internalAdmin, KEYRECOVERY_ROLE);
-        Collection<AccessUserAspectData> subjects = new ArrayList<AccessUserAspectData>();
-        subjects.add(new AccessUserAspectData(KEYRECOVERY_ROLE, getTestCAId(), X500PrincipalAccessMatchValue.WITH_COMMONNAME, AccessMatchType.TYPE_EQUALCASE,
-                CertTools.getPartFromDN(CertTools.getSubjectDN(getTestCACert()), "CN")));
-        role = roleManagementSession.addSubjectsToRole(internalAdmin, role, subjects);
-        Collection<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-        accessRules.add(new AccessRuleData(KEYRECOVERY_ROLE, AccessRulesConstants.ENDENTITYPROFILEPREFIX + SecConst.EMPTY_ENDENTITYPROFILE
-                + AccessRulesConstants.KEYRECOVERY_RIGHTS, AccessRuleState.RULE_ACCEPT, true));
-        accessRules.add(new AccessRuleData(KEYRECOVERY_ROLE, AccessRulesConstants.REGULAR_KEYRECOVERY, AccessRuleState.RULE_ACCEPT, true));
-        role = roleManagementSession.addAccessRulesToRole(internalAdmin, role, accessRules);
+        final Role role = roleSession.persistRole(internalAdmin, new Role(null, KEYRECOVERY_ROLE, Arrays.asList(
+                AccessRulesConstants.ENDENTITYPROFILEPREFIX + SecConst.EMPTY_ENDENTITYPROFILE + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                AccessRulesConstants.REGULAR_KEYRECOVERY,
+                StandardRules.CAACCESS.resource() + getTestCAId()
+                ), null));
+        roleMemberSession.persist(internalAdmin, new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE, getTestCAId(),
+                X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(), AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                CertTools.getPartFromDN(CertTools.getSubjectDN(getTestCACert()), "CN"), role.getRoleId(), null));
     }
 
     @After
     public void tearDown() throws Exception {
         super.tearDown();
-        roleManagementSession.remove(internalAdmin, KEYRECOVERY_ROLE);
-
+        final Role role = roleSession.getRole(internalAdmin, null, KEYRECOVERY_ROLE);
+        if (role!=null) {
+            roleSession.deleteRoleIdempotent(internalAdmin, role.getRoleId());
+        }
     }
 
     public String getRoleName() {
@@ -162,7 +158,6 @@ public class KeyRecoveryTest extends CaTestCase {
 
     /**
      * tests adding a keypair and checks if it can be read again, including rollover of the CAs keyEncryptKey and storing a second set of key recovery data.
-     * 
      */
     @Test
     public void testAddAndRemoveKeyPairWithKeyRollOver() throws Exception {
@@ -182,9 +177,6 @@ public class KeyRecoveryTest extends CaTestCase {
                             getTestCAId());
                     cert1 = (X509Certificate) signSession.createCertificate(internalAdmin, user, "foo123", new PublicKeyWrapper(keypair1.getPublic()));
                     fp1 = CertTools.getFingerprintAsString(cert1);
-                    Collection<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-                    accessRules.add(new AccessRuleData(KEYRECOVERY_ROLE, StandardRules.CAACCESS.resource() + CertTools.getIssuerDN(cert1).hashCode(), AccessRuleState.RULE_ACCEPT, false));
-                    roleManagementSession.addAccessRulesToRole(internalAdmin, roleAccessSession.findRole(KEYRECOVERY_ROLE), accessRules);
                 }
             } catch (Exception e) {
                 log.error("Exception generating keys/cert: ", e);
@@ -305,15 +297,11 @@ public class KeyRecoveryTest extends CaTestCase {
                     cert1 = (X509Certificate) signSession.createCertificate(internalAdmin, user, "foo123",
                             new PublicKeyWrapper(keypair1.getPublic()));
                     fp1 = CertTools.getFingerprintAsString(cert1);
-                    Collection<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-                    accessRules.add(new AccessRuleData(KEYRECOVERY_ROLE, StandardRules.CAACCESS.resource() + CertTools.getIssuerDN(cert1).hashCode(),
-                            AccessRuleState.RULE_ACCEPT, false));
-                    roleManagementSession.addAccessRulesToRole(internalAdmin, roleAccessSession.findRole(KEYRECOVERY_ROLE), accessRules);
                 } catch (InvalidAlgorithmParameterException | CADoesntExistsException | EndEntityExistsException | AuthorizationDeniedException
                         | EndEntityProfileValidationException | EjbcaException | NoSuchEndEntityException | IllegalKeyException
                         | CertificateCreateException | IllegalNameException | CertificateRevokeException | CertificateSerialNumberException
                         | CryptoTokenOfflineException | IllegalValidityException | CAOfflineException | InvalidAlgorithmException
-                        | CustomCertificateSerialNumberException | RoleNotFoundException e) {
+                        | CustomCertificateSerialNumberException e) {
                     throw new IllegalStateException("Exception generating keys/cert", e);
                 }
             }

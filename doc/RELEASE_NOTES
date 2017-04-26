@@ -1,8 +1,18 @@
+EJBCA 6.8.0
+-----------
+
+API compatibility note: In EJBCA 2.6.0, during rework of Approvals the exception, used in the Web service API, WaitingForApprovalException was changed. 
+In 6.8.0 we have changed the corresponding Web service API class. The change was that the attribute approvalId was changed to requestId 
+to be consistent and understandable (for developers).
+Under the condition that you used approvals through the Web service API, and was reading this attribute from this exception, 
+you may experience a break in backwards compatibility. If the above conditions does not apply to you, you can expect the usual full backwards compatibility.
+
+
 EJBCA 6.7.0
 -----------
 We are pleased to release EJBCA 6.7.0. This release adds official support for MS Autoenrollment, implemented as an enrollment Proxy/Gateway, which is
 delivered as a separate component. In addition to this, there are many security fixes and enhancements in this release, plugging a few holes and 
-making it harder than ever to misuse EJBCA. All in all, 76 issues that have been fixed for this release
+making it harder than ever to misuse EJBCA. All in all, 82 issues that have been fixed for this release
 
 The most notable changes are:
 
@@ -214,6 +224,11 @@ Read the full change log for details, and see the UPGRADE document for all funct
 	* 	Some ECDSA key specifiers missing in drop down menu for crypto tokens using PKCS#11 after JDK update: https://jira.primekey.se/browse/ECA-4251	
     *	Race condition when multiple RA threads are requesting certificates for the same user: https://jira.primekey.se/browse/ECA-4347
     * 	ClientToolBox is unable to verify signature when testing more exotic EC keys in HSM: https://jira.primekey.se/browse/ECA-4596
+
+EJBCA 6.5.0.5
+-----------
+
+Patch release for a few issues during upgrade from EJBCA 4.0, and a contributed patch for script based auto enrollment.
 
 EJBCA 6.5.0.4
 -----------

@@ -14,6 +14,7 @@ package org.cesecore.roles;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.cesecore.internal.UpgradeableDataHashMap;
@@ -49,6 +50,14 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
     private String roleName;
     private String nameSpace;
 
+    /** Copy constructor */
+    public Role(final Role role) {
+        this.roleId = role.roleId;
+        this.nameSpace = role.nameSpace;
+        this.roleName = role.roleName;
+        getAccessRules().putAll(role.getAccessRules());
+    }
+
     public Role(final String nameSpace, final String roleName) {
         this.roleId = ROLE_ID_UNASSIGNED;
         setNameSpace(nameSpace);
@@ -60,6 +69,22 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
         setNameSpace(nameSpace);
         this.roleName = roleName;
         getAccessRules().putAll(accessRules);
+    }
+
+    public Role(final String nameSpace, final String roleName, final List<String> resourcesAllowed, final List<String> resourcesDenied) {
+        this.roleId = ROLE_ID_UNASSIGNED;
+        setNameSpace(nameSpace);
+        this.roleName = roleName;
+        if (resourcesAllowed!=null) {
+            for (final String resource : resourcesAllowed) {
+                getAccessRules().put(AccessRulesHelper.normalizeResource(resource), Role.STATE_ALLOW);
+            }
+        }
+        if (resourcesDenied!=null) {
+            for (final String resource : resourcesDenied) {
+                getAccessRules().put(AccessRulesHelper.normalizeResource(resource), Role.STATE_DENY);
+            }
+        }
     }
 
     /** Constructor used during load from database */
@@ -105,6 +130,7 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
         // TODO
     }
 
+    /** @return the comparison of nameSpace and if equal the comparison of roleName */
     @Override
     public int compareTo(Role role) {
         final int nameSpaceCompare = getNameSpace().compareTo(role.getNameSpace());

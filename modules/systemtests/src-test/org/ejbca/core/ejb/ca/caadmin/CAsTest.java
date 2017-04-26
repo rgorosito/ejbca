@@ -279,7 +279,17 @@ public class CAsTest extends CaTestCase {
             // Make BC cert instead to make sure the public key is BC provider type (to make our test below easier)
             X509Certificate bccert = CertTools.getCertfromByteArray(cert.getEncoded(), X509Certificate.class);
             PublicKey pk = bccert.getPublicKey();
-            checkECKey(pk);
+            org.bouncycastle.jce.spec.ECParameterSpec spec = checkECKey(pk);
+            final String H = spec.getH().toString(16);
+            final String N = spec.getN().toString(16);
+            final String A = spec.getG().getCurve().getA().toString();
+            final String B = spec.getG().getCurve().getB().toString();
+            assertEquals("H not secp256r1", "1", H);
+            assertEquals("N not secp256r1", "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551", N);
+            assertEquals("A not secp256r1", "ffffffff00000001000000000000000000000000fffffffffffffffffffffffc", A);
+            assertEquals("B not secp256r1", "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b", B);
+            final String keySpec = AlgorithmTools.getKeySpecification(pk);
+            assertEquals("Standard keySpec should be prime256v1", "prime256v1", keySpec);
             ret = true;
         } catch (CAExistsException pee) {
             log.info("CA exists.");
@@ -290,20 +300,58 @@ public class CAsTest extends CaTestCase {
         assertTrue("Creating ECDSA CA failed", ret);
     }
 
-    private void checkECKey(PublicKey pk) {
+    /** Adds a CA Using ECDSA keys, using the new curve curve25519, to the database. It also checks that the CA is stored correctly. */
+    @Test
+    public void testAddECDSACAWithCurve25519() throws Exception {
+        boolean ret = false;
+        try {
+            createEllipticCurveDsaCa("curve25519");
+            CAInfo info = caSession.getCAInfo(admin, "TESTECDSA");
+            X509Certificate cert = (X509Certificate) info.getCertificateChain().iterator().next();
+            String sigAlg = AlgorithmTools.getSignatureAlgorithm(cert);
+            assertEquals(AlgorithmConstants.SIGALG_SHA256_WITH_ECDSA, sigAlg);
+            assertTrue("Error in created ca certificate", cert.getSubjectDN().toString().equals("CN=TESTECDSA"));
+            assertTrue("Creating CA failed", info.getSubjectDN().equals("CN=TESTECDSA"));
+            // Make BC cert instead to make sure the public key is BC provider type (to make our test below easier)
+            X509Certificate bccert = CertTools.getCertfromByteArray(cert.getEncoded(), X509Certificate.class);
+            PublicKey pk = bccert.getPublicKey();
+            org.bouncycastle.jce.spec.ECParameterSpec spec = checkECKey(pk);
+            final String H = spec.getH().toString(16);
+            final String N = spec.getN().toString(16);
+            final String A = spec.getG().getCurve().getA().toString();
+            final String B = spec.getG().getCurve().getB().toString();
+            assertEquals("H not secp256r1", "8", H);
+            assertEquals("N not secp256r1", "1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed", N);
+            assertEquals("A not secp256r1", "2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa984914a144", A);
+            assertEquals("B not secp256r1", "7b425ed097b425ed097b425ed097b425ed097b425ed097b4260b5e9c7710c864", B);
+            final String keySpec = AlgorithmTools.getKeySpecification(pk);
+            assertEquals("Standard keySpec should be unknown", "unknown", keySpec);
+            ret = true;
+        } catch (CAExistsException pee) {
+            log.info("CA exists.");
+            fail("Creating ECDSA CA failed because CA exists.");
+        } finally {
+            removeOldCa(TEST_ECDSA_CA_NAME);
+        }
+        assertTrue("Creating ECDSA CA failed", ret);
+    }
+
+    private org.bouncycastle.jce.spec.ECParameterSpec checkECKey(PublicKey pk) {
+        org.bouncycastle.jce.spec.ECParameterSpec spec = null;
         if (pk instanceof JCEECPublicKey) {
             JCEECPublicKey ecpk = (JCEECPublicKey) pk;
             assertEquals(ecpk.getAlgorithm(), "EC");
-            org.bouncycastle.jce.spec.ECParameterSpec spec = ecpk.getParameters();
+            spec = ecpk.getParameters();
             assertNotNull("Only ImplicitlyCA curves can have null spec", spec);
         } else if (pk instanceof BCECPublicKey) {
             BCECPublicKey ecpk = (BCECPublicKey) pk;
             assertEquals(ecpk.getAlgorithm(), "EC");
-            org.bouncycastle.jce.spec.ECParameterSpec spec = ecpk.getParameters();
+            spec = ecpk.getParameters();
             assertNotNull("Only ImplicitlyCA curves can have null spec", spec);
         } else {
             assertTrue("Public key is not EC: "+pk.getClass().getName(), false);
-        }        
+        }
+        return spec;
     }
 
     /** Adds a CA using ECGOST3410 keys to the database. It also checks that the CA is stored correctly. */
@@ -1252,14 +1300,14 @@ public class CAsTest extends CaTestCase {
                 // Expected
             }
             try {
-                caAdminSession.importCACertificateUpdate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {oldCaCertificate})));
+                caAdminSession.updateCACertificate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {oldCaCertificate})));
                 fail("Should not be allowed to update with existing CA certificate");
             } catch (CertificateImportException e) {
                 // Expected
             }
             final X509Certificate newDnCaCertificate = CertTools.genSelfCert(subjectDn+"x", 365, null, keyPair.getPrivate(), keyPair.getPublic(), AlgorithmConstants.SIGALG_SHA256_WITH_RSA, true);
             try {
-                caAdminSession.importCACertificateUpdate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {newDnCaCertificate})));
+                caAdminSession.updateCACertificate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {newDnCaCertificate})));
                 fail("Should not be allowed to update existing CA with a different subject DN.");
             } catch (CertificateImportException e) {
                 // Expected
@@ -1270,20 +1318,20 @@ public class CAsTest extends CaTestCase {
             Thread.sleep(waitTime);
             final X509Certificate newCaCertificate = CertTools.genSelfCert(subjectDn, 365, null, keyPair.getPrivate(), keyPair.getPublic(), AlgorithmConstants.SIGALG_SHA256_WITH_RSA, true);
             log.debug("new notBefore:" + newCaCertificate.getNotBefore());
-            caAdminSession.importCACertificateUpdate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {newCaCertificate})));
+            caAdminSession.updateCACertificate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {newCaCertificate})));
             final CAInfo newCaInfo = caSession.getCAInfo(admin, TEST_NAME);
             assertEquals("Wrong certificate profile.", CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, newCaInfo.getCertificateProfileId());
             assertEquals("Wrong status.", CAConstants.CA_EXTERNAL, newCaInfo.getStatus());
             assertEquals("Wrong 'signed by'.", CAInfo.SELFSIGNED, newCaInfo.getSignedBy());
             try {
-                caAdminSession.importCACertificateUpdate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {oldCaCertificate})));
+                caAdminSession.updateCACertificate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {oldCaCertificate})));
                 fail("Should not be allowed to update existing CA with an older CA certificate.");
             } catch (CertificateImportException e) {
                 // Expected
             }
             final X509Certificate nonCaCertificate2 = CertTools.genSelfCert(subjectDn, 365, null, keyPair.getPrivate(), keyPair.getPublic(), AlgorithmConstants.SIGALG_SHA256_WITH_RSA, false);
             try {
-                caAdminSession.importCACertificateUpdate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {nonCaCertificate2})));
+                caAdminSession.updateCACertificate(admin, caId, EJBTools.wrapCertCollection(Arrays.asList(new Certificate[] {nonCaCertificate2})));
                 fail("Import of non-CA certificate should not be allowed using this method.");
             } catch (CertificateImportException e) {
                 // Expected

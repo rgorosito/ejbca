@@ -13,6 +13,7 @@
 package org.ejbca.ra;
 
 import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.ejb.EJB;
 import javax.faces.bean.ManagedBean;
@@ -22,7 +23,11 @@ import javax.faces.bean.SessionScoped;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.access.AccessSet;
+import org.cesecore.authorization.access.AuthorizationCacheReload;
+import org.cesecore.authorization.access.AuthorizationCacheReloadListener;
+import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.authorization.cache.RemoteAccessSetCacheHolder;
 import org.cesecore.authorization.control.AuditLogRules;
 import org.cesecore.authorization.control.StandardRules;
@@ -46,13 +51,33 @@ public class RaAccessBean implements Serializable {
     
     @EJB
     private RaMasterApiProxyBeanLocal raMasterApiProxyBean;
+    @EJB
+    private AuthorizationSessionLocal authorizationSession;
+    @EJB
+    private AccessTreeUpdateSessionLocal accessTreeUpdateSession;
 
     @ManagedProperty(value="#{raAuthenticationBean}")
     private RaAuthenticationBean raAuthenticationBean;
     public void setRaAuthenticationBean(final RaAuthenticationBean raAuthenticationBean) { this.raAuthenticationBean = raAuthenticationBean; }
     
+    private static AtomicBoolean reloadEventRegistered = new AtomicBoolean(false);
+    
     private boolean isAuthorized(String... resources) {
         final AuthenticationToken authenticationToken = raAuthenticationBean.getAuthenticationToken();
+        if (raMasterApiProxyBean.getApiVersion()>=1) {
+            return raMasterApiProxyBean.isAuthorizedNoLogging(authenticationToken, resources);
+        } else {
+            return isAuthorizedViaAccessSet(authenticationToken, resources);
+        }
+    }
+
+    /** 
+     * Check authorization using AccessSet which do not support deny rules.
+     * @deprecated since EJBCA 6.8.0
+     */
+    @Deprecated
+    private boolean isAuthorizedViaAccessSet(final AuthenticationToken authenticationToken, String... resources) {
+        ensureCacheReloadEventRegistered();
         AccessSet myAccess;
         final ConcurrentCache<AuthenticationToken,AccessSet> cache = RemoteAccessSetCacheHolder.getCache();
         
@@ -70,7 +95,7 @@ public class RaAccessBean implements Serializable {
                     myAccess = raMasterApiProxyBean.getUserAccessSet(authenticationToken);
                 } catch (AuthenticationFailedException e) {
                     log.info("Failed to match authentication token '" + authenticationToken + "' to a role.");
-                    myAccess = new AccessSet(); // empty access set
+                    myAccess = new AccessSet();
                 }
                 entry.putValue(myAccess);
             }
@@ -78,6 +103,28 @@ public class RaAccessBean implements Serializable {
             entry.close();
         }
         return myAccess.isAuthorized(resources);
+    }
+
+    @Deprecated
+    private void ensureCacheReloadEventRegistered() {
+        if (reloadEventRegistered.compareAndSet(false, true)) {
+          accessTreeUpdateSession.addReloadEvent(new AuthorizationCacheReloadListener() {
+                private int lastUpdate = -1;
+                
+                @Override
+                public void onReload(final AuthorizationCacheReload event) {
+                    if (event.getAccessTreeUpdateNumber() > lastUpdate) {
+                        lastUpdate = event.getAccessTreeUpdateNumber();
+                        RemoteAccessSetCacheHolder.forceEmptyCache();
+                    }
+                }
+                
+                @Override
+                public String getListenerName() {
+                    return RemoteAccessSetCacheHolder.class.getName();
+                }
+            });
+        }
     }
     
     // Methods for checking authorization to various parts of EJBCA can be defined below
@@ -98,8 +145,13 @@ public class RaAccessBean implements Serializable {
     /** correspond to menu items in menu.xhtml
      * This method shows and hides the make request sub menu item */
     public boolean isAuthorizedToEnrollMakeRequest() {
-        // Authorized to make request if user have access to at least one end entity profile
-        return isAuthorized(AccessRulesConstants.ENDENTITYPROFILEPREFIX + AccessSet.WILDCARD_SOME + AccessRulesConstants.CREATE_END_ENTITY) && isAuthorized(AccessRulesConstants.REGULAR_CREATEENDENTITY);
+        /*
+         * Only check if this admin has been configured to create end entities to display the meny.
+         * In order to actually make a request, the admin has to have access to
+         *  AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.CREATE_END_ENTITY
+         * and the CAs available via this profile.
+         */
+        return isAuthorized(AccessRulesConstants.REGULAR_CREATEENDENTITY);
     }
     
     /** correspond to menu items in menu.xhtml
@@ -154,7 +206,7 @@ public class RaAccessBean implements Serializable {
     }
     
     public boolean isAuthorizedToSearchCerts() {
-        return isAuthorized(AccessRulesConstants.REGULAR_VIEWENDENTITY); // TODO perhaps a different access rule for certs?
+        return isAuthorized(AccessRulesConstants.REGULAR_VIEWCERTIFICATE);
     }
     
     public boolean isAuthorizedToSearchEndEntities() {

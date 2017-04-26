@@ -33,8 +33,10 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCSException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.rules.AccessRuleNotFoundException;
+import org.cesecore.authorization.user.AccessMatchType;
+import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -44,11 +46,15 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileSessionRem
 import org.cesecore.certificates.crl.CrlStoreSessionRemote;
 import org.cesecore.keys.token.CryptoTokenInfo;
 import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
-import org.cesecore.roles.RoleExistsException;
+import org.cesecore.roles.Role;
+import org.cesecore.roles.management.RoleSessionRemote;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionRemote;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EjbRemoteHelper;
-import org.ejbca.core.ejb.authorization.ComplexAccessControlSessionRemote;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSession;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionRemote;
 import org.ejbca.core.ejb.crl.PublishingCrlSessionRemote;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.ui.cli.infrastructure.command.EjbcaCliUserCommandBase;
@@ -185,15 +191,24 @@ public abstract class BaseCaAdminCommand extends EjbcaCliUserCommandBase {
     }
 
     protected void initAuthorizationModule(AuthenticationToken authenticationToken, int caid, String superAdminCN)
-            throws AccessRuleNotFoundException, RoleExistsException, AuthorizationDeniedException {
+            throws AuthorizationDeniedException {
         if (superAdminCN == null) {
             log.info("Not initializing authorization module.");
         } else {
             log.info("Initalizing authorization module with caid=" + caid + " and superadmin CN '" + superAdminCN + "'.");
         }
-        EjbRemoteHelper.INSTANCE.getRemoteSession(ComplexAccessControlSessionRemote.class).initializeAuthorizationModule(authenticationToken, caid,
+        EjbRemoteHelper.INSTANCE.getRemoteSession(AuthorizationSystemSessionRemote.class).initializeAuthorizationModuleWithSuperAdmin(authenticationToken, caid,
                 superAdminCN);
-    } // initAuthorizationModule
+        // Add certificate match by common name to "Super Administrator Role"
+        final Role role = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class).getRole(getAuthenticationToken(), null,
+                AuthorizationSystemSession.SUPERADMIN_ROLE);
+        if (role!=null) {
+            final RoleMember roleMember = new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE,
+                    caid, X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(), AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                    superAdminCN, role.getRoleId(), null);
+            EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberSessionRemote.class).persist(getAuthenticationToken(), roleMember);
+        }
+    }
 
     protected String getAvailableCasString() {
         // List available CAs by name

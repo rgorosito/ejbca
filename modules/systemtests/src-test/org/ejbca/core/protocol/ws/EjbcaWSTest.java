@@ -21,6 +21,8 @@ import static org.junit.Assume.assumeTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.security.KeyManagementException;
 import java.security.KeyPair;
@@ -31,7 +33,9 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -48,6 +52,8 @@ import java.util.TimeZone;
 
 import javax.ejb.RemoveException;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.DERSet;
@@ -61,10 +67,7 @@ import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleState;
 import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -76,6 +79,7 @@ import org.cesecore.certificates.ca.catoken.CATokenConstants;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateCreateSessionRemote;
 import org.cesecore.certificates.certificate.CertificateStoreSessionRemote;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificate.InternalCertificateStoreSessionRemote;
 import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
@@ -100,10 +104,11 @@ import org.cesecore.keys.token.KeyPairInfo;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
-import org.cesecore.roles.AdminGroupData;
+import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleNotFoundException;
-import org.cesecore.roles.access.RoleAccessSessionRemote;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
+import org.cesecore.roles.management.RoleSessionRemote;
+import org.cesecore.roles.member.RoleMember;
+import org.cesecore.roles.member.RoleMemberSessionRemote;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CertTools;
@@ -177,7 +182,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     private final CertificateCreateSessionRemote certificateCreateSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateCreateSessionRemote.class);
     private final CertificateProfileSessionRemote certificateProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class);
     private final CertificateStoreSessionRemote certificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateStoreSessionRemote.class);
-    private final  CesecoreConfigurationProxySessionRemote cesecoreConfigurationProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(
+    private final CesecoreConfigurationProxySessionRemote cesecoreConfigurationProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(
             CesecoreConfigurationProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final CryptoTokenManagementSessionRemote cryptoTokenManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CryptoTokenManagementSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final EndEntityAccessSessionRemote endEntityAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAccessSessionRemote.class);
@@ -187,8 +192,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     private final HardTokenSessionRemote hardTokenSessionRemote = EjbRemoteHelper.INSTANCE.getRemoteSession(HardTokenSessionRemote.class);
     private final InternalCertificateStoreSessionRemote internalCertificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(InternalCertificateStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final SimpleAuthenticationProviderSessionRemote simpleAuthenticationProvider = EjbRemoteHelper.INSTANCE.getRemoteSession(SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-    private final RoleAccessSessionRemote roleAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
-    private final RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
+    private final RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
+    private final RoleMemberSessionRemote roleMemberSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberSessionRemote.class);
     private final EnterpriseEditionEjbBridgeProxySessionRemote enterpriseEjbBridgeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EnterpriseEditionEjbBridgeProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     
     private static String originalForbiddenChars;
@@ -244,20 +249,27 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public void tearDown() throws Exception {
         super.tearDown();
         // Restore WS admin access
-        setAccessRulesForWsAdmin(new AccessRuleData(WS_ADMIN_ROLENAME, StandardRules.ROLE_ROOT.resource(), AccessRuleState.RULE_ACCEPT, true));
+        setAccessRulesForWsAdmin(Arrays.asList(StandardRules.ROLE_ROOT.resource()), null);
         // Restore key recovery, end entity profile limitations etc
         if (originalGlobalConfiguration!=null) {
             globalConfigurationSession.saveConfiguration(intAdmin, originalGlobalConfiguration);
         }
     }
 
-    private void setAccessRulesForWsAdmin(final AccessRuleData...accessRuleDatas) throws AuthorizationDeniedException, RoleNotFoundException {
-        final RoleAccessSessionRemote roleAccessSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleAccessSessionRemote.class);
-        final RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
-        final List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>(Arrays.asList(accessRuleDatas));
-        final AdminGroupData adminGroupData = roleAccessSession.findRole(WS_ADMIN_ROLENAME);
-        assertNotNull("Role " + WS_ADMIN_ROLENAME + " does not exist!", adminGroupData);
-        roleManagementSession.replaceAccessRulesInRole(intAdmin, adminGroupData, accessRules);
+    private void setAccessRulesForWsAdmin(final List<String> resourcesAllowed, final List<String> resourcesDenied) throws AuthorizationDeniedException, RoleNotFoundException {
+        final Role role = roleSession.getRole(intAdmin, null, WS_ADMIN_ROLENAME);
+        assertNotNull("Role " + WS_ADMIN_ROLENAME + " does not exist!", role);
+        role.getAccessRules().clear();
+        if (resourcesAllowed!=null) {
+            for (final String resource : resourcesAllowed) {
+                role.getAccessRules().put(resource, Role.STATE_ALLOW);
+            }
+        }
+        if (resourcesDenied!=null) {
+            for (final String resource : resourcesDenied) {
+                role.getAccessRules().put(resource, Role.STATE_DENY);
+            }
+        }
     }
 
     /** This test is not a WebService test, but for simplicity it re-uses the created administrator certificate in order to connect to the
@@ -292,7 +304,6 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         final String subCaSubjectDn = "CN=" + subCaName;
         X509CA subCA = null;
         X509CA rootCA = null;
-
         try {
             //rootCA a rootCA
             rootCA = CaTestUtils.createTestX509CA(rootCaDn, PASSWORD.toCharArray(), false);
@@ -722,10 +733,10 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         java.security.KeyStore ks2 = KeyStoreHelper.getKeyStore(ksenv2.getKeystoreData(), "PKCS12", "foo456");
         assertNotNull(ks2);
         en = ks2.aliases();
-        alias = (String) en.nextElement();
+        alias = en.nextElement();
         // You never know in which order the certificates in the KS are returned, it's different between java 6 and 7 for ex 
         if(!ks2.isKeyEntry(alias)) {
-            alias = (String) en.nextElement();
+            alias = en.nextElement();
         }
         X509Certificate cert2 = (X509Certificate) ks2.getCertificate(alias);
         assertEquals(cert2.getSubjectDN().toString(), "CN=WSTESTUSERKEYREC1");
@@ -795,21 +806,21 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
                 user1.setEndEntityProfileName(KEY_RECOVERY_EEP);
                 user1.setCertificateProfileName("ENDUSER");
-                setAccessRulesForWsAdmin(new AccessRuleData(WS_ADMIN_ROLENAME, StandardRules.ROLE_ROOT.resource(), AccessRuleState.RULE_ACCEPT, true));
+                setAccessRulesForWsAdmin(Arrays.asList(StandardRules.ROLE_ROOT.resource()), null);
                 ejbcaraws.editUser(user1);
-                setAccessRulesForWsAdmin(
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ROLE_ADMINISTRATOR, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, StandardRules.CAACCESS.resource() + caId, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_CREATECERTIFICATE, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_VIEWENDENTITY, AccessRuleState.RULE_ACCEPT, false),
+                setAccessRulesForWsAdmin(Arrays.asList(
+                        AccessRulesConstants.ROLE_ADMINISTRATOR,
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY,
+                        StandardRules.CAACCESS.resource() + caId,
+                        AccessRulesConstants.REGULAR_CREATECERTIFICATE,
+                        AccessRulesConstants.REGULAR_VIEWENDENTITY,
                         // Additionally we need to have edit rights to clear the password, since this is currently not implicitly granted for non-key recovery
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.EDIT_END_ENTITY, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_EDITENDENTITY, AccessRuleState.RULE_ACCEPT, false),
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.EDIT_END_ENTITY,
+                        AccessRulesConstants.REGULAR_EDITENDENTITY,
                         // Additionally we need to have access to key recovery in this special case
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_KEYRECOVERY, AccessRuleState.RULE_ACCEPT, false)
-                        );
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                        AccessRulesConstants.REGULAR_KEYRECOVERY
+                        ), null);
                 KeyStore ksenv = ejbcaraws.pkcs12Req("WSTESTUSERKEYREC2", "foo456", null, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
                 java.security.KeyStore ks = KeyStoreHelper.getKeyStore(ksenv.getKeystoreData(), "PKCS12", "foo456");
                 assertNotNull(ks);
@@ -830,28 +841,28 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 PrivateKey privK = (PrivateKey) ks.getKey(alias, "foo456".toCharArray());
                 log.info("recovering key. sn "+ cert.getSerialNumber().toString(16) + " issuer "+ cert.getIssuerDN().toString());
                 // recover key
-                setAccessRulesForWsAdmin(
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ROLE_ADMINISTRATOR, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, StandardRules.CAACCESS.resource() + caId, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_VIEWCERTIFICATE, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_KEYRECOVERY, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_VIEWENDENTITY, AccessRuleState.RULE_ACCEPT, false)
-                        );
+                setAccessRulesForWsAdmin(Arrays.asList(
+                        AccessRulesConstants.ROLE_ADMINISTRATOR,
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY,
+                        StandardRules.CAACCESS.resource() + caId,
+                        AccessRulesConstants.REGULAR_VIEWCERTIFICATE,
+                        AccessRulesConstants.REGULAR_KEYRECOVERY,
+                        AccessRulesConstants.REGULAR_VIEWENDENTITY
+                        ), null);
                 ejbcaraws.keyRecover("WSTESTUSERKEYREC2",cert.getSerialNumber().toString(16),cert.getIssuerDN().toString());
                 assertEquals("EjbcaWS.keyRecover failed to set status for end entity.", EndEntityConstants.STATUS_KEYRECOVERY, endEntityAccessSession.findUser(intAdmin, "WSTESTUSERKEYREC2").getStatus());
                 // A new PK12 request now should return the same key and certificate
-                setAccessRulesForWsAdmin(
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ROLE_ADMINISTRATOR, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, StandardRules.CAACCESS.resource() + caId, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_CREATECERTIFICATE, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_VIEWENDENTITY, AccessRuleState.RULE_ACCEPT, false),
+                setAccessRulesForWsAdmin(Arrays.asList(
+                        AccessRulesConstants.ROLE_ADMINISTRATOR,
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.VIEW_END_ENTITY,
+                        StandardRules.CAACCESS.resource() + caId,
+                        AccessRulesConstants.REGULAR_CREATECERTIFICATE,
+                        AccessRulesConstants.REGULAR_VIEWENDENTITY,
                         // Additionally we need to have access to key recovery in this special case
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS, AccessRuleState.RULE_ACCEPT, false),
-                        new AccessRuleData(WS_ADMIN_ROLENAME, AccessRulesConstants.REGULAR_KEYRECOVERY, AccessRuleState.RULE_ACCEPT, false)
-                        );
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                        AccessRulesConstants.REGULAR_KEYRECOVERY
+                        ), null);
                 KeyStore ksenv = ejbcaraws.pkcs12Req("WSTESTUSERKEYREC2", "foo456", null, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
                 java.security.KeyStore ks2 = KeyStoreHelper.getKeyStore(ksenv.getKeystoreData(), "PKCS12", "foo456");
                 assertNotNull(ks2);
@@ -1031,26 +1042,37 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         log.trace("<test36EjbcaWsHelperTimeFormatConversion()");
     }
     
-    /**
-     * Simulate a simple SQL injection by sending the illegal char "'".
-     * 
-     * @throws Exception
-     */
+    /** Simulate a simple SQL injection by sending the to-be-escaped char "'". */
     @Test
     public void test40EvilFind01() throws Exception {
-        log.trace(">testEvilFind01()");
+        log.trace(">test40EvilFind01");
         UserMatch usermatch = new UserMatch();
         usermatch.setMatchwith(org.ejbca.util.query.UserMatch.MATCH_WITH_USERNAME);
         usermatch.setMatchtype(org.ejbca.util.query.UserMatch.MATCH_TYPE_EQUALS);
         usermatch.setMatchvalue("A' OR '1=1");
         try {
             List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
-            fail("SQL injection did not cause an error! " + userdatas.size());
+            assertEquals("SQL injection caused results to be returned!", 0, userdatas.size());
         } catch (IllegalQueryException_Exception e) {
-            // NOPMD, this should be thrown and we ignore it because we fail if
-            // it is not thrown
+            fail("SQL injection did cause an unexpected error: " + e.getMessage());
         }
-        log.trace("<testEvilFind01()");
+        log.trace("<test40EvilFind01");
+    }
+
+    @Test
+    public void test40EvilFind02() throws Exception {
+        log.trace(">test40EvilFind02");
+        UserMatch usermatch = new UserMatch();
+        usermatch.setMatchwith(org.ejbca.util.query.UserMatch.MATCH_WITH_USERNAME);
+        usermatch.setMatchtype(org.ejbca.util.query.UserMatch.MATCH_TYPE_EQUALS);
+        usermatch.setMatchvalue("A'' OR ''1=1");
+        try {
+            List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
+            assertEquals("SQL injection caused results to be returned!", 0, userdatas.size());
+        } catch (IllegalQueryException_Exception e) {
+            fail("SQL injection did cause an unexpected error: " + e.getMessage());
+        }
+        log.trace("<test40EvilFind02");
     }
 
     /**
@@ -1534,10 +1556,10 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         String rolename = "TestWSNewAccessRole";
         String testAdminUsername = "newWsAdminUserName";
         
-     // Remove any residues from earlier test runs
-        AdminGroupData role = roleAccessSession.findRole(rolename);
-        if(role != null) {
-            roleManagementSession.remove(intAdmin, role);
+        // Remove any residues from earlier test runs
+        final Role oldRole = roleSession.getRole(intAdmin, null, rolename);
+        if (oldRole!=null) {
+            roleSession.deleteRoleIdempotent(intAdmin, oldRole.getRoleId());
         }
         File fileHandle = null;
         try {
@@ -1572,16 +1594,9 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         
             // Create a new role
             log.info("Creating new role: "+rolename);
-            role = roleManagementSession.create(intAdmin, rolename);
-            
-            // Set access rules for the new role
-            final List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-            accessRules.add(new AccessRuleData(rolename, StandardRules.ROLE_ROOT.resource(), AccessRuleState.RULE_ACCEPT, true));
-            role = roleManagementSession.addAccessRulesToRole(intAdmin, role, accessRules);
-            
-            // Verify that there are no admins from the start
-            assertTrue(role.getAccessUsers().size()==0);
-        
+            final Role role = roleSession.persistRole(intAdmin, new Role(null, rolename, Arrays.asList(StandardRules.ROLE_ROOT.resource()), null));
+            List<RoleMember> roleMembers = roleMemberSession.getRoleMembersByRoleId(intAdmin, role.getRoleId());
+            assertTrue("New role "+rolename+" should have been empty.", roleMembers.isEmpty());
             
             // Add adminUser to a non-existing role. It should fail
             try {
@@ -1597,18 +1612,15 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             // Add adminUser to the new role. It should succeed
             ejbcaraws.addSubjectToRole(rolename, getAdminCAName(), X500PrincipalAccessMatchValue.WITH_FULLDN.name(), 
                     AccessMatchType.TYPE_EQUALCASE.name(), adminUser.getCertificateDN());
-            role = roleAccessSession.findRole(rolename);
-            
             // Verify the admin data
-            Collection <AccessUserAspectData> admins = role.getAccessUsers().values();
-            assertTrue(admins.size()==1);
-            AccessUserAspectData addedAdmin = admins.iterator().next();
-            assertEquals(cainfo.getCAId(), addedAdmin.getCaId().intValue());
-            assertEquals(AccessMatchType.TYPE_EQUALCASE.getNumericValue(), addedAdmin.getMatchType());
-            assertEquals(adminUser.getCertificateDN(), addedAdmin.getMatchValue());
-            assertEquals(X500PrincipalAccessMatchValue.WITH_FULLDN.getNumericValue(), addedAdmin.getMatchWith());
-
-            
+            final Role roleAfterAdd = roleSession.getRole(intAdmin, null, rolename);
+            final List<RoleMember> roleMembersAfterAdd = roleMemberSession.getRoleMembersByRoleId(intAdmin, roleAfterAdd.getRoleId());
+            assertEquals("Failed to add subject to role.", 1, roleMembersAfterAdd.size());
+            final RoleMember roleMember = roleMembersAfterAdd.get(0);
+            assertEquals(cainfo.getCAId(), roleMember.getTokenIssuerId());
+            assertEquals(X500PrincipalAccessMatchValue.WITH_FULLDN.getNumericValue(), roleMember.getTokenMatchKey());
+            assertEquals(AccessMatchType.TYPE_EQUALCASE.getNumericValue(), roleMember.getTokenMatchOperator());
+            assertEquals(adminUser.getCertificateDN(), roleMember.getTokenMatchValue());
             // Remove adminUser specified by a non-existing CA. It should fail
             try {
                 ejbcaraws.removeSubjectFromRole(rolename, "NoneExistingCA", X500PrincipalAccessMatchValue.WITH_FULLDN.name(), 
@@ -1619,22 +1631,21 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                     throw e;
                 }
             }
-            
             // Remove adminUser from the new role. It should succeed
             ejbcaraws.removeSubjectFromRole(rolename, getAdminCAName(), X500PrincipalAccessMatchValue.WITH_FULLDN.name(), 
                     AccessMatchType.TYPE_EQUALCASE.name(), adminUser.getCertificateDN());
-            role = roleAccessSession.findRole(rolename);            
-            assertTrue(role.getAccessUsers().values().size()==0);
-            
+            final Role roleAfterRemove = roleSession.getRole(intAdmin, null, rolename);
+            final List<RoleMember> roleMembersAfterRemove = roleMemberSession.getRoleMembersByRoleId(intAdmin, roleAfterRemove.getRoleId());
+            assertTrue("Failed to remove subject to role.", roleMembersAfterRemove.isEmpty());
         } finally {
             endEntityManagementSession.revokeAndDeleteUser(intAdmin, testAdminUsername, RevokedCertInfo.REVOCATION_REASON_PRIVILEGESWITHDRAWN);
-            if(roleAccessSession.findRole(rolename)!=null) {
-                roleManagementSession.remove(intAdmin, roleAccessSession.findRole(rolename));
+            final Role role = roleSession.getRole(intAdmin, null, rolename);
+            if (role!=null) {
+                roleSession.deleteRoleIdempotent(intAdmin, role.getRoleId());
             }
             if( fileHandle != null) {
                 FileTools.delete(fileHandle);
             }
-                
         }
         log.trace("<test73AddSubjectToRole()");
     }
@@ -1714,6 +1725,205 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             } catch (AuthorizationDeniedException e) {
                 log.debug("Error during cleanup: " + e.getMessage());
             }
+        }
+    }
+    
+    
+    @Test
+    public void test76ImportAndUpdateExternalCvcaCaCertificate() throws Exception {
+        log.trace(">test76ImportAndUpdateExternalCvcaCaCertificate");
+        log.debug("Enterprise Edition: " + enterpriseEjbBridgeSession.isRunningEnterprise());
+        assumeTrue("Enterprise Edition only. Skipping the test", enterpriseEjbBridgeSession.isRunningEnterprise());
+        
+        try {
+            // A: Imports a CA certificate of an external CVCA (CVC certificate with at least C=${ISO-3166-2}, CN != null).
+            log.debug("Test import a CA certificate of an external CVCA.");
+            String caname = "Test-Import-CVCA";
+            removeCaIfExists(caname);
+            final byte[] importFile = readDerFile("external_cvca_certificate_for_import.der");
+            ejbcaraws.importCaCert(caname, importFile);
+            assertTrue("Imported CVCA must exists.", caSession.existsCa(caname));
+            CAInfo cainfo = caSession.getCAInfo(intAdmin, caname);
+            assertEquals("CVCA must be a CVC CA.", cainfo.getCAType(), CAInfo.CATYPE_CVC);
+            assertCertificateEquals("The imported CA certificate chain must match the CA certificate chain after import.", importFile, cainfo);
+            
+            // Exceptions: Import of the same CA again must throw a CAExistsException.
+            log.debug("Test import a CA certificate of an external CVCA again (one time too much).");
+            caname = "Test-Import-CVCA";
+            try {
+                ejbcaraws.importCaCert(caname, importFile);
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, "CA with name " + caname + " already exists.");
+            }
+            // Exceptions: Import of the same CA certificate again (with other name) must throw a CAExistsException.
+            log.debug("Test import a CA certificate of an external CVCA again (with other name).");
+            caname = "Test-Import-CVCA-new";
+            removeCaIfExists(caname);
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("external_cvca_certificate_for_import.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                final int caid = caSession.getCAInfo(intAdmin, "Test-Import-CVCA").getCAId();
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, "CA with id " + caid + " already exists.");
+            }
+            
+            // B: Updates a CA certificate of an external CVCA (CVC certificate with at least C=${ISO-3166-2}, CN != null).
+            log.debug("Test update a CA certificate of an external CVCA.");
+            caname = "Test-Import-CVCA";
+            final byte[] updateFile = readDerFile("external_cvca_certificate_for_update.der");
+            ejbcaraws.updateCaCert(caname, updateFile);
+            cainfo = caSession.getCAInfo(intAdmin, caname);
+            assertCertificateEquals("The updated CA certificate chain must replace the existing CA certificate chain.", updateFile, cainfo);
+              
+            // Exceptions: Update of the same CA again must throw a CertificateImportException.
+            log.debug("Test update a CA certificate of an external CVCA again (one time to much).");
+            caname = "Test-Import-CVCA";
+            try {
+                ejbcaraws.updateCaCert(caname, updateFile);
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.CERTIFICATE_IMPORT, "The CA certificate chain is already imported.");
+            }
+            
+            // Exceptions: Import of technical invalid file must throw an EjbcaException with a CertificateParsingException.
+            log.debug("Test import a CA certificate with an invalid PEM file.");
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("invalid_certificate.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, null);
+            }
+            // Exceptions: Import of a certificate file with an invalid certificate chain must throw an EjbcaException with a CertificateImportException.
+            log.debug("Test import a CA certificate with an invalid PEM certificate chain.");
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("invalid_certificate_chain.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.CERTIFICATE_IMPORT, "The provided certificates does not form a full certificate chain.");
+            }
+        }
+        finally { // Clean up.
+            removeCaIfExists("Test-Import-CVCA");
+        }
+        log.trace("<test76ImportAndUpdateExternalCvcaCaCertificate");
+    }
+    
+    @Test
+    public void test77ImportAndUpdateExternalCscaCaCertificate() throws Exception {
+        log.trace(">test77ImportAndUpdateExternalCscaCaCertificate");
+        try {
+            // A: Imports a CA certificate of an external CSCA (X.509 certificate with at least C=${ISO-3166-2}, CN != null and serialNumber != null).
+            log.debug("Test import a CA certificate of an external CSCA.");
+            String caname = "Test-Import-CSCA";
+            removeCaIfExists(caname);
+            
+            final byte[] importFile = readPemFile("external_csca_certificate_for_import.pem").getBytes();
+            ejbcaraws.importCaCert(caname, importFile);
+            assertTrue("Imported CSCA must exists.", caSession.existsCa(caname));
+            CAInfo cainfo = caSession.getCAInfo(intAdmin, caname);
+            assertEquals("CSCA must be a X.509 CA.", cainfo.getCAType(), CAInfo.CATYPE_X509);
+            assertCertificateEquals("The imported CA certificate chain must match the existing CA certificate chain after import.", importFile, cainfo);
+            
+            // Exceptions: Import of the same CA again must throw a CAExistsException.
+            log.debug("Test import a CA certificate of an external CSCA again (one time too much).");
+            caname = "Test-Import-CSCA";
+            try {
+                ejbcaraws.importCaCert(caname, readDerFile("external_csca_certificate_for_import.der"));
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, "CA with name " + caname + " already exists.");
+            }
+            // Exceptions: Import of the same CA certificate again (with other name) must throw a CAExistsException.
+            log.debug("Test import a CA certificate of an external CSCA again (with other name).");
+            caname = "Test-Import-CSCA-new";
+            removeCaIfExists(caname);
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("external_csca_certificate_for_import.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                final int caid = caSession.getCAInfo(intAdmin, "Test-Import-CSCA").getCAId();
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, "CA with id " + caid + " already exists.");
+            }
+            if(caSession.existsCa(caname)) {
+                log.debug("Remove CA " + caname + " before test.");
+                caSession.removeCA(intAdmin, caSession.getCAInfo(intAdmin, caname).getCAId());
+            }
+            
+            // B: Updates a CA certificate of an external CSCA (X.509 certificate with at least C=${ISO-3166-2}, CN != null and serialNumber != null).
+            log.debug("Test update a CA certificate of an external CSCA.");
+            caname = "Test-Import-CSCA";
+            final byte[] updateFile = readDerFile("external_csca_certificate_for_update.der");
+            ejbcaraws.updateCaCert(caname, updateFile);
+            // Optional change of serialNumber could be checked here, but is stored in the CVCs key sequence ... 
+            cainfo = caSession.getCAInfo(intAdmin, caname);
+            assertCertificateEquals("The updated CA certificate chain must replace the existing CA certificate chain.", updateFile, cainfo);
+
+            // Exceptions: Update of the same CA again must throw a CertificateImportException.
+            log.debug("Test update a CA certificate of an external CSCA again (one time to much).");
+            caname = "Test-Import-CSCA";
+            try {
+                ejbcaraws.updateCaCert(caname, readDerFile("external_csca_certificate_for_update.der"));
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.CERTIFICATE_IMPORT, "The CA certificate chain is already imported.");
+            }
+            // Exceptions: Update of a CA with a DN which does not match (except CSCA certificates with at least C=${ISO-3166-2}, CN != null and different serialNumber).
+            log.debug("Test update a CA certificate of an external CA with different Subject-DN.");
+            caname = "Test-Import-CSCA";
+            try {
+                ejbcaraws.updateCaCert(caname, readDerFile("external_cvca_certificate_for_update.der"));
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.CERTIFICATE_IMPORT, "Only able to update imported CA certificate if Subject DN of the leaf CA certificate is the same.");
+            }
+            
+            // Exceptions: Import of technical invalid file must throw an EjbcaException with a CertificateParsingException.
+            log.debug("Test import a CA certificate with an invalid PEM file.");
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("invalid_certificate.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.INTERNAL_ERROR, null);
+            }
+            // Exceptions: Import of a certificate file with an invalid certificate chain must throw an EjbcaException with a CertificateImportException.
+            log.debug("Test import a CA certificate with an invalid PEM certificate chain.");
+            try {
+                ejbcaraws.importCaCert(caname, readPemFile("invalid_certificate_chain.pem").getBytes());
+                fail();
+            } catch(Exception e) {
+                assertEjbcaException(e, ErrorCode.CERTIFICATE_IMPORT, "The provided certificates does not form a full certificate chain.");
+            }
+        }
+        finally { // Clean up.
+            removeCaIfExists("Test-Import-CSCA");
+        }
+        log.trace("<test77ImportAndUpdateExternalCscaCaCertificate");
+    }
+    
+    private void assertCertificateEquals(final String label, final byte[] left, final CAInfo caInfo) 
+            throws CertificateParsingException, CertificateEncodingException {
+        final List<CertificateWrapper> leftSide = CertTools.bytesToListOfCertificateWrapperOrThrow(left);
+        final List<CertificateWrapper> rightSide = CertTools.bytesToListOfCertificateWrapperOrThrow(
+                caInfo.getCertificateChain().iterator().next().getEncoded());
+        assertEquals(label, leftSide.get(0).getCertificate(), rightSide.get(0).getCertificate());
+        
+    }
+    
+    private void removeCaIfExists(final String caname ) throws Exception {
+        if(caSession.existsCa(caname)) {
+            log.debug("Remove CA " + caname + " after test.");
+            caSession.removeCA(intAdmin, caSession.getCAInfo(intAdmin, caname).getCAId());
+        }
+    }
+    
+    private void assertEjbcaException(final Exception exception, final ErrorCode errorCode, final String errorMessage) {
+        assertTrue("EjbcaException expected.", exception instanceof EjbcaException_Exception);
+        if (StringUtils.isNotEmpty(errorCode.getInternalErrorCode())) {
+            assertEquals("Error code:",  errorCode.getInternalErrorCode(), ((EjbcaException_Exception) exception).getFaultInfo().getErrorCode().getInternalErrorCode());
+        }
+        if (StringUtils.isNotEmpty(errorMessage)) {
+            assertEquals("Error message:", errorMessage, ((EjbcaException_Exception) exception).getMessage());
         }
     }
     
@@ -1885,7 +2095,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     } // createHardToken
 
     /**
-     * Create a user a generate cert.
+     * Create a user a generate certificate.
      */
     private X509Certificate createUserAndCert(String username, int caID) throws Exception {
         EndEntityInformation userdata = new EndEntityInformation(username, "CN=" + username, caID, null, null, new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE,
@@ -1897,5 +2107,22 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         assertTrue(userCerts.size() == 1);
         return (X509Certificate) userCerts.iterator().next();
     }
+    
+    /** Reads a PEM file by the class path. */
+    private String readPemFile(final String filename) throws IOException {
+        final InputStream stream = getClass().getResourceAsStream(filename);
+        final StringWriter writer = new StringWriter();
+        IOUtils.copy(stream, writer);
+        IOUtils.closeQuietly(stream);
+        return writer.toString();
+    }
 
+    /** Reads a DER file by the class path. */
+    private byte[] readDerFile(final String filename) throws IOException {
+        final InputStream stream = getClass().getResourceAsStream(filename);
+        final byte[] data = new byte[stream.available()]; 
+        stream.read(data);
+        IOUtils.closeQuietly(stream);
+        return data;
+    }
 }

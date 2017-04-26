@@ -46,7 +46,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Random;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -79,10 +78,8 @@ import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.user.AccessUserAspectData;
 import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CAData;
@@ -131,6 +128,7 @@ import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.certificates.ocsp.exception.NotSupportedException;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
+import org.cesecore.certificates.util.dn.DNFieldsUtil;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.keybind.CertificateImportException;
@@ -149,11 +147,7 @@ import org.cesecore.keys.token.PKCS11CryptoToken;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.roles.AdminGroupData;
-import org.cesecore.roles.RoleExistsException;
-import org.cesecore.roles.RoleNotFoundException;
-import org.cesecore.roles.access.RoleAccessSessionLocal;
-import org.cesecore.roles.management.RoleManagementSessionLocal;
+import org.cesecore.roles.management.RoleSessionLocal;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
@@ -174,6 +168,7 @@ import org.ejbca.core.ejb.ca.revoke.RevocationSessionLocal;
 import org.ejbca.core.ejb.crl.PublishingCrlSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
+import org.ejbca.core.ejb.ra.UserData;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.ejb.ra.userdatasource.UserDataSourceSessionLocal;
 import org.ejbca.core.ejb.services.ServiceSessionLocal;
@@ -213,7 +208,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     private EntityManager entityManager;
 
     @EJB
-    private AccessControlSessionLocal accessSession;
+    private AuthorizationSessionLocal authorizationSession;
     @EJB
     private ApprovalSessionLocal approvalSession;
     @EJB
@@ -245,9 +240,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     @EJB
     private RevocationSessionLocal revocationSession;
     @EJB
-    private RoleAccessSessionLocal roleAccessSession;
-    @EJB
-    private RoleManagementSessionLocal roleManagementSession;
+    private RoleSessionLocal roleSession;
     @EJB
     private SecurityEventsLoggerSessionLocal auditSession;
     @EJB
@@ -515,33 +508,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         }
         
         // Update Roles
-        final Random random = new Random(System.nanoTime()); 
-        for (AdminGroupData role : roleAccessSession.getAllRoles()) {
-            final String roleName = role.getRoleName();
-            final Map<Integer,AccessRuleData> rules = new HashMap<>(role.getAccessRules());
-            final Map<Integer,AccessUserAspectData> users = new HashMap<>(role.getAccessUsers());
-            if (CAIdTools.updateCAIds(roleName, rules, users, fromId, toId, toDN)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Changing CA Ids in Role "+roleName);
-                }
-                try {
-                    // Rename old role so we can replace it without getting locked out
-                    final String oldTempName = roleName + "_CAIdUpdateOld" + random.nextLong();
-                    roleManagementSession.renameRole(authenticationToken, roleName, oldTempName);
-                    
-                    AdminGroupData newRole = roleManagementSession.create(authenticationToken, roleName);
-                    newRole = roleManagementSession.addAccessRulesToRole(authenticationToken, newRole, rules.values());
-                    newRole = roleManagementSession.addSubjectsToRole(authenticationToken, newRole, users.values());
-
-                    roleManagementSession.remove(authenticationToken, oldTempName);
-                } catch (RoleNotFoundException e) {
-                    throw new IllegalStateException("Newly created temporary role was not found", e);
-                } catch (RoleExistsException e) {
-                    throw new IllegalStateException("Temporary role name already exists", e);
-                }
-            }
-        }
-        
+        roleSession.updateCaId(fromId, toId, false, true);
         log.debug("Done updating CA Ids");
         final String detailsMsg = intres.getLocalizedMessage("caadmin.updatedcaid", fromId, toId, toDN);
         auditSession.log(EventTypes.CA_EDITING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(), String.valueOf(toId),
@@ -551,9 +518,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     @Override
     public void renewAndRevokeCmsCertificate(final AuthenticationToken admin, int caid) throws AuthorizationDeniedException, CADoesntExistsException, CAOfflineException, CertificateRevokeException {
         CAInfo cainfo = caSession.getCAInfo(admin, caid);
-        Iterator<ExtendedCAServiceInfo> iter = cainfo.getExtendedCAServiceInfos().iterator();
-        while (iter.hasNext()) {
-            ExtendedCAServiceInfo next = (ExtendedCAServiceInfo) iter.next(); 
+        for (final ExtendedCAServiceInfo next : cainfo.getExtendedCAServiceInfos()) {
             if (next instanceof CmsCAServiceInfo) {
                 List<Certificate> cmscerts = ((CmsCAServiceInfo) next).getCertificatePath();
                 if (cmscerts != null) {
@@ -616,7 +581,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         }
         final int caid = cainfo.getCAId();
         // Check that administrator has superadminstrator rights.
-        if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtocreateca", cainfo.getName());
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -653,7 +618,6 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         CertificateProfile certprofile = certificateProfileSession.getCertificateProfile(cainfo.getCertificateProfileId());
         // Create CA
         CA ca = createCAObject(cainfo, caToken, certprofile);
-
         if (cainfo.getStatus() != CAConstants.CA_UNINITIALIZED) {
             // See if CA token is OK before storing CA, but skip if no keys can be guaranteed to exist.
             try {
@@ -683,6 +647,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             // Special handling for uninitialized CAs
             ca.setCertificateChain(new ArrayList<Certificate>());
             ca.setStatus(CAConstants.CA_UNINITIALIZED);
+            
             if (log.isDebugEnabled()) {
                 log.debug("Setting CA status to: " + CAConstants.CA_UNINITIALIZED);
             }
@@ -885,7 +850,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         boolean cmsrenewcert = false;
         final int caid = cainfo.getCAId();
         // Check authorization
-        if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoeditca", admin.toString(), cainfo.getName());
             Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
@@ -965,7 +930,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             log.trace(">makeRequest: " + caid + ", certChain=" + certChain + ", nextSignKeyAlias=" + nextSignKeyAlias);
         }
         byte[] returnval = null;
-        if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtocertreq", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -1058,7 +1023,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 if (authCertSignRequest != null) {
                     returnval = authCertSignRequest;
                 } else {
-                    // This is expected if we try to generate another CSR from a CA which has not yet recieved a response.
+                    // This is expected if we try to generate another CSR from a CA which has not yet received a response.
                     log.debug("Unable to create authorization signature on CSR. Returning a regular request.");
                     returnval = request;
                 }
@@ -1095,7 +1060,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     @Override
     public byte[] createAuthCertSignRequest(AuthenticationToken authenticationToken, int caid, byte[] certSignRequest)
             throws AuthorizationDeniedException, CADoesntExistsException, CryptoTokenOfflineException {
-        if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.ROLE_ROOT.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.ROLE_ROOT.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtocertreq", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -1123,7 +1088,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         if (log.isTraceEnabled()) {
             log.trace(">receiveResponse: " + caid);
         }
-        if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtocertresp", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -1221,7 +1186,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     try {
                         if (cvccert.getCVCertificate().getCertificateBody().getAuthorizationTemplate().getAuthorizationField().getAuthRole().isDV()) {
                             log.debug("Enriching DV public key with EC parameters from CVCA");
-                            Certificate cvcacert = (Certificate) reqchain.iterator().next();
+                            Certificate cvcacert = reqchain.iterator().next();
                             caCertPublicKey = KeyTools.getECPublicKeyWithParams(caCertPublicKey, cvcacert.getPublicKey());
                         }
                     } catch (InvalidKeySpecException e) {
@@ -1466,7 +1431,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         CertificateResponseMessage returnval = null;
         int caid = cainfo.getCAId();
         // check authorization
-        if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtocertresp", cainfo.getName());
             Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
@@ -1729,7 +1694,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     }
 
     @Override
-    public void importCACertificateUpdate(final AuthenticationToken authenticationToken, final int caId, Collection<CertificateWrapper> wrappedCerts)
+    public void updateCACertificate(final AuthenticationToken authenticationToken, final int caId, Collection<CertificateWrapper> wrappedCerts)
             throws CADoesntExistsException, AuthorizationDeniedException, CertificateImportException {
         Collection<Certificate> certificates = EJBTools.unwrapCertCollection(wrappedCerts);
         // Re-order if needed and validate chain
@@ -1777,9 +1742,35 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 throw new CertificateImportException("The CA certificate chain is already imported.");
             }
         }
-        if (!CertTools.getSubjectDN(oldCaCertificate).equals(newSubjectDn)) {
-            throw new CertificateImportException("Only able to update imported CA certificate if Subject DN of the leaf CA certificate is the same.");
+        
+        final String oldSubjectDn = CertTools.getSubjectDN(oldCaCertificate);
+        boolean storeCscaWithChangedSubjectDn = false;
+        if (!oldSubjectDn.equals(newSubjectDn)) {
+            // Could be a CSCA certificate with other SubjectDN SN (C and CN attribute must match). 
+            // This is only for X.509 CAs (serialNumber in CVC certificates is the key sequence).
+        	// For example the German CSCA has same subjectDN except a SN (serialNumber) element after rollover.
+            boolean sameCsca = true;
+            final Map<String,String> oldSubjectDnMap = DNFieldsUtil.dnStringToMap(oldSubjectDn);
+            final Map<String,String> newSubjectDnMap = DNFieldsUtil.dnStringToMap(newSubjectDn);
+            if (!DNFieldsUtil.mapContainsCountryAndCN( oldSubjectDnMap)) {
+                sameCsca = false;
+            }
+            if (!DNFieldsUtil.mapContainsCountryAndCN( newSubjectDnMap)) {
+                sameCsca = false;
+            }
+            if (!DNFieldsUtil.dnEqualsWithOtherSerialNumber(oldSubjectDnMap, newSubjectDnMap)) {
+                sameCsca = false;
+            }
+            if (!sameCsca) {
+                throw new CertificateImportException("Only able to update imported CA certificate if Subject DN of the leaf CA certificate is the same.");
+            }
+            if (caInfo instanceof X509CAInfo) {
+                caInfo.setSubjectDN(newSubjectDn);
+                caInfo.setCertificateChain(certificates); // required for storing!
+                storeCscaWithChangedSubjectDn = true;
+            }
         }
+        
         // Check that update is newer if information is present
         final Date newValidFrom = CertTools.getNotBefore(newCaCertificate);
         final Date oldValidFrom = CertTools.getNotBefore(oldCaCertificate);
@@ -1800,17 +1791,29 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             caInfo.setSignedBy(CAInfo.SIGNEDBYEXTERNALCA);
         }
         ca.setCertificateChain(certificates);
+        
+        // Only for CSCAs: Set state to CAConstants.CA_UNINITIALIZED to store the CA with a new subject-DN and CA-ID.
+        if (storeCscaWithChangedSubjectDn) {    
+            final int currentCaState = caInfo.getStatus();
+            caInfo.setCertificateChain(certificates);
+            // Don't set CA-ID here, it is derived later by the CA certificates subject DN in editCA(), if we set state to UNINITIALIZED.
+            // caInfo.setCAId(CAData.calculateCAId(ca.getSubjectDN()));
+            caInfo.setStatus(CAConstants.CA_UNINITIALIZED);
+            editCA(authenticationToken, caInfo);
+            caInfo.setStatus(currentCaState);
+            // Add CA certificate chain again, because it is removed in createCA() for CAs with state CAConstants.CA_UNINITIALIZED.
+            caInfo.setCertificateChain(certificates);
+        }
+     
         // Update CA in database
-        caSession.editCA(authenticationToken, ca, true);
-        // Persist ("Publish") the CA certificates to the local CertificateData database.
-        publishCACertificate(authenticationToken, certificates, null, ca.getSubjectDN());
+        editCA(authenticationToken, caInfo);
     }
-
+           
     @Override
     public void initExternalCAService(AuthenticationToken admin, int caid, ExtendedCAServiceInfo info) throws CADoesntExistsException,
             AuthorizationDeniedException, CAOfflineException {
         // check authorization
-        if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {        
+        if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {        
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoeditca", admin.toString(), caSession.getCAInfoInternal(caid));
             Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
@@ -1912,7 +1915,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         Collection<Certificate> cachain = null;
         Certificate cacertificate = null;
         // check authorization
-        if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtorenew", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -1989,7 +1992,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             details.put("sequence", caToken.getKeySequence());
             auditSession.log(EventTypes.CA_KEYACTIVATE, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, details);
-            // if issuer is insystem CA or selfsigned, then generate new certificate.
+            // if issuer is in-system CA or selfsigned, then generate new certificate.
             log.info("Renewing CA using " + caToken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN));
             final PublicKey caPublicKey = cryptoToken.getPublicKey(caToken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN));
             ca.setCAToken(caToken);
@@ -2023,7 +2026,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 if(certificateChain != null){
                     Iterator<Certificate> iterator = certificateChain.iterator();
                     while(iterator.hasNext()){
-                        tmp = (Certificate) iterator.next();
+                        tmp = iterator.next();
                     }
                 }
                 Collection<Certificate> renewedCertificateChain = ca.getRenewedCertificateChain();
@@ -2102,20 +2105,9 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                         endEntityProfileSession.changeEndEntityProfile(authenticationToken, allEndEntityProfileIdMap.get(endEntityProfileId), endEntityProfile);                            
                     }
                 }
-                
-                //If CA has gone through Name Change, clone all this CA specific access rules with new one with replaced caid for every roles.
-                for(AdminGroupData adminGroupData : roleAccessSession.getAllRoles()){
-                    final List<AccessRuleData> accessRulesToBeAdded = new ArrayList<AccessRuleData>();
-                    for(Map.Entry<Integer, AccessRuleData > accessRuleData: adminGroupData.getAccessRules().entrySet()){
-                        String accessRuleName = accessRuleData.getValue().getAccessRuleName();
-                        if(accessRuleName.contains(caidBeforeNameChange + "")){
-                          accessRulesToBeAdded.add(new AccessRuleData(adminGroupData.getRoleName(), accessRuleName.replace(caidBeforeNameChange+"", caid+""), accessRuleData.getValue().getInternalState(), accessRuleData.getValue().getRecursiveBool())); 
-                        }
-                    }
-                    roleManagementSession.addAccessRulesToRole(authenticationToken, adminGroupData, accessRulesToBeAdded);
-                }
+                // If CA has gone through Name Change, clone all this CA specific access rules with new one with replaced caid for every roles.
+                roleSession.updateCaId(caidBeforeNameChange, caid, true, false);
             }
-            
             // Audit log
             final String detailsMsg = intres.getLocalizedMessage("caadmin.renewdca", Integer.valueOf(caid));
             auditSession.log(EjbcaEventTypes.CA_RENEWED, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
@@ -2147,7 +2139,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             log.trace(">CAAdminSession, rolloverCA(), caid=" + caid);
         }
         // check authorization. we require RENEWCA access for this
-        if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CARENEW.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtorollover", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -2213,7 +2205,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     @Override
     public void revokeCA(AuthenticationToken admin, int caid, int reason) throws CADoesntExistsException, AuthorizationDeniedException {
         // check authorization
-        if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtorevoke", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -2257,7 +2249,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             String privateSignatureKeyAlias, String privateEncryptionKeyAlias) {
         try {
             // check authorization
-            if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+            if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtocreateca", caname);
                 Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
@@ -2277,7 +2269,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 log.error(msg);
                 throw new Exception(msg);
             }
-            Certificate caSignatureCertificate = (Certificate) signatureCertChain[0];
+            Certificate caSignatureCertificate = signatureCertChain[0];
             PublicKey p12PublicSignatureKey = caSignatureCertificate.getPublicKey();
             PrivateKey p12PrivateSignatureKey = null;
             p12PrivateSignatureKey = (PrivateKey) keystore.getKey(privateSignatureKeyAlias, privkeypass.toCharArray());
@@ -2297,7 +2289,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     log.error(msg);
                     throw new Exception(msg);
                 }
-                caEncryptionCertificate = (Certificate) encryptionCertChain[0];
+                caEncryptionCertificate = encryptionCertChain[0];
                 p12PrivateEncryptionKey = (PrivateKey) keystore.getKey(privateEncryptionKeyAlias, privkeypass.toCharArray());
                 p12PublicEncryptionKey = caEncryptionCertificate.getPublicKey();
             }
@@ -2318,7 +2310,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         }
         try {
             // check authorization
-            if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+            if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoremovecatoken", caname);
                 Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
@@ -2368,7 +2360,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         }
         try {
             // check authorization
-            if (!accessSession.isAuthorizedNoLogging(authenticationToken, StandardRules.ROLE_ROOT.resource())) {
+            if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.ROLE_ROOT.resource())) {
                 final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtorestorecatoken", caname);
                 auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, authenticationToken.toString(),
                         null, null, null, detailsMsg);
@@ -2392,7 +2384,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 log.error(msg);
                 throw new Exception(msg);
             }
-            Certificate caSignatureCertificate = (Certificate) signatureCertChain[0];
+            Certificate caSignatureCertificate = signatureCertChain[0];
             PublicKey p12PublicSignatureKey = caSignatureCertificate.getPublicKey();
             PrivateKey p12PrivateSignatureKey = null;
             p12PrivateSignatureKey = (PrivateKey) keystore.getKey(privateSignatureKeyAlias, privkeypass.toCharArray());
@@ -2411,7 +2403,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     log.error(msg);
                     throw new Exception(msg);
                 }
-                caEncryptionCertificate = (Certificate) encryptionCertChain[0];
+                caEncryptionCertificate = encryptionCertChain[0];
                 p12PrivateEncryptionKey = (PrivateKey) keystore.getKey(privateEncryptionKeyAlias, privkeypass.toCharArray());
                 p12PublicEncryptionKey = caEncryptionCertificate.getPublicKey();
             } else {
@@ -2817,7 +2809,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 throw new IllegalArgumentException("Cannot export a token without password protection.");
             }
             // Check authorization
-            if (!accessSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
+            if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.ROLE_ROOT.resource())) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoexportcatoken", caname);
                 Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
@@ -2851,7 +2843,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                 KeyStore keystore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
                 keystore.load(null, keystorepass.toCharArray());
                 // Load keys into keystore
-                Certificate[] certificateChainSignature = (Certificate[]) thisCa.getCertificateChain().toArray(new Certificate[0]);
+                Certificate[] certificateChainSignature = thisCa.getCertificateChain().toArray(new Certificate[0]);
                 Certificate[] certificateChainEncryption = new Certificate[1];
                 // certificateChainSignature[0].getSigAlgName(),
                 // generate dummy certificate for encryption key.
@@ -2919,7 +2911,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     public void activateCAService(AuthenticationToken admin, int caid) throws AuthorizationDeniedException, ApprovalException,
             WaitingForApprovalException, CADoesntExistsException {
         // Authorize
-        if (!accessSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_ACTIVATECA)) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_ACTIVATECA)) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtoactivatetoken", Integer.valueOf(caid));
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -2960,7 +2952,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     @Override
     public void deactivateCAService(AuthenticationToken admin, int caid) throws AuthorizationDeniedException, CADoesntExistsException {
         // Authorize
-        if (!accessSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_ACTIVATECA)) {
+        if (!authorizationSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_ACTIVATECA)) {
             final String detailsMsg = intres.getLocalizedMessage("caadmin.notauthorizedtodeactivatetoken", caSession.getCAInfoInternal(caid).getName());
             auditSession.log(EventTypes.ACCESS_CONTROL, EventStatus.FAILURE, ModuleTypes.CA, ServiceTypes.CORE, admin.toString(),
                     String.valueOf(caid), null, null, detailsMsg);
@@ -3252,7 +3244,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
      */
     private void assertSignerValidity(AuthenticationToken admin, CA signca) {
         // Check validity of signers certificate
-        final Certificate signcert = (Certificate) signca.getCACertificate();
+        final Certificate signcert = signca.getCACertificate();
         try {
             CertTools.checkValidity(signcert, new Date());
         } catch (CertificateExpiredException ce) {
@@ -3282,11 +3274,8 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             throws AuthorizationDeniedException {
         final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration) 
                 globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
-        
         // activate External CA Services
-        Iterator<ExtendedCAServiceInfo> iter = extendedCAServiceInfos.iterator();
-        while (iter.hasNext()) {
-            ExtendedCAServiceInfo info = (ExtendedCAServiceInfo) iter.next();
+        for (final ExtendedCAServiceInfo info : extendedCAServiceInfos) {
             ArrayList<Certificate> certificates = new ArrayList<Certificate>();
             if (info instanceof CmsCAServiceInfo) {
                 try {
@@ -3321,5 +3310,4 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         // want to be able to use it from CLI
         caSession.flushCACache();
     }
-    
 }

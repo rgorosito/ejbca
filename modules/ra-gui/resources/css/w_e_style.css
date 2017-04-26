@@ -254,6 +254,19 @@ span .approvalStep,
 /* For fields/labels in forms etc., to get some extra padding between it and unrelated fields below */  
 .bottomMargin { margin-bottom: 1em; }
 
+.addRemoveListEnabled label, .addRemoveListAvailable label { color: #fff; }
+
+.collapsableSectionHeader { color: #fff; font-weight: bold; }
+.collapsableSection { margin-top: 1em; }
+.checkboxWithSpacing { margin-right: 0.5em; }
+.noticeText { color: #aaa; font-style: italic; }
+
+/* when viewing a read-only page, use black color on form fields, so they are easily readable */
+.readOnlyView input[disabled],
+.readOnlyView select[disabled],
+.readOnlyView select[disabled] option {
+    color: #000 !important; }
+
 .language_button,
 .language_button:hover,
 .language_button:hover {
@@ -340,6 +353,11 @@ td.noneCell, td span.noneCell { color: #aaa; font-style: italic;  }
     color: #fff; }
 
 textarea#keyPairForm\:certificateRequest {
+  width: 98%;
+  margin: 0 auto 2% auto;
+  display: block; }
+
+textarea#enrollWithUsernameForm\:certificateRequest {
   width: 98%;
   margin: 0 auto 2% auto;
   display: block; }
@@ -1373,6 +1391,10 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
   #roleMembersForm\:criteriaCaId {
     width: 96%;
   }
+  #roleForm\:roleRules {
+    margin-top: 2.5em;
+  }
+  #roleForm\:endEntityRules .collapsableSection { margin-top: 0.75em; }
 
   .footer > .align-center > p {
     /*footer-texten*/

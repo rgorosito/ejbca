@@ -47,7 +47,7 @@ import org.cesecore.audit.enums.ServiceTypes;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.authorization.control.AccessControlSessionLocal;
+import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.CryptoTokenRules;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.catoken.CAToken;
@@ -89,7 +89,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     private SessionContext sessionContext;
     
     @EJB
-    private AccessControlSessionLocal accessSession;
+    private AuthorizationSessionLocal authorizationSession;
     @EJB
     private CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
     @EJB
@@ -122,7 +122,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     public void addCA(final AuthenticationToken admin, final CA ca) throws CAExistsException, AuthorizationDeniedException {
         if (ca != null) {
             final int cryptoTokenId = ca.getCAToken().getCryptoTokenId();
-            if (!accessSession.isAuthorized(admin, StandardRules.CAADD.resource(), CryptoTokenRules.USE.resource() + "/" + cryptoTokenId)) {
+            if (!authorizationSession.isAuthorized(admin, StandardRules.CAADD.resource(), CryptoTokenRules.USE.resource() + "/" + cryptoTokenId)) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoaddca", admin.toString(), Integer.valueOf(ca.getCAId()));
                 throw new AuthorizationDeniedException(msg);
             }
@@ -139,7 +139,8 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 String msg = intres.getLocalizedMessage("caadmin.caexistsid", Integer.valueOf(ca.getCAId()));
                 throw new CAExistsException(msg);
             }
-            entityManager.persist(new CAData(cainfo.getSubjectDN(), cainfo.getName(), cainfo.getStatus(), ca));
+            final CAData caData = new CAData(cainfo.getSubjectDN(), cainfo.getName(), cainfo.getStatus(), ca);
+            entityManager.persist(caData);
             String msg = intres.getLocalizedMessage("caadmin.addedca", ca.getCAId(), cainfo.getName(), cainfo.getStatus());
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
@@ -243,28 +244,35 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
 	/** Ensure that the caller is authorized to the CA we are about to edit and that the CA name and subjectDN matches. */
 	private void assertAuthorizationAndTarget(AuthenticationToken admin, final String name, final String subjectDN, final int cryptoTokenId, final CA ca)
 			throws CADoesntExistsException, AuthorizationDeniedException {
+		assertAuthorizationAndTargetWithNewSubjectDn(admin, name, subjectDN, cryptoTokenId, ca);
+        if (!StringUtils.equals(subjectDN, ca.getSubjectDN()) && ca.getCAInfo().getStatus() != CAConstants.CA_UNINITIALIZED) {
+            throw new CADoesntExistsException("Not same CA subject DN.");
+        }
+	}
+	
+	/** Ensure that the caller is authorized to the CA we are about to edit and that the CA name matches. */
+    private void assertAuthorizationAndTargetWithNewSubjectDn(AuthenticationToken admin, final String name, final String subjectDN, final int cryptoTokenId, final CA ca)
+            throws CADoesntExistsException, AuthorizationDeniedException {
         // Check if we are authorized to edit CA and authorization to specific CA
         if (cryptoTokenId == ca.getCAToken().getCryptoTokenId() || cryptoTokenId==0) {
-            if (!accessSession.isAuthorized(admin, StandardRules.CAEDIT.resource(), StandardRules.CAACCESS.resource())) {
+            if (!authorizationSession.isAuthorized(admin, StandardRules.CAEDIT.resource(), StandardRules.CAACCESS.resource())) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoeditca", admin.toString(), Integer.valueOf(ca.getCAId()));
                 throw new AuthorizationDeniedException(msg);
             }
         } else {
             // We only need to check usage authorization if we change CryptoToken reference (and not to 0 which means "removed").
-            if (!accessSession.isAuthorized(admin, StandardRules.CAEDIT.resource(), StandardRules.CAACCESS.resource(), CryptoTokenRules.USE.resource() + "/" + cryptoTokenId)) {
+            if (!authorizationSession.isAuthorized(admin, StandardRules.CAEDIT.resource(), StandardRules.CAACCESS.resource(), CryptoTokenRules.USE.resource() + "/" + cryptoTokenId)) {
                 String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoeditca", admin.toString(), Integer.valueOf(ca.getCAId()));
                 throw new AuthorizationDeniedException(msg);
             }
         }
-		// The CA needs the same name and subject DN in order to store it
-		if (name == null || subjectDN == null) {
-		    throw new CADoesntExistsException("Null CA name or SubjectDN");
-		} else if (!StringUtils.equals(name, ca.getName())) {
-		    throw new CADoesntExistsException("Not same CA name.");
-		} else if (!StringUtils.equals(subjectDN, ca.getSubjectDN()) && ca.getCAInfo().getStatus() != CAConstants.CA_UNINITIALIZED) {
-            throw new CADoesntExistsException("Not same CA subject DN.");
+        // The CA needs the same name and subject DN in order to store it
+        if (name == null || subjectDN == null) {
+            throw new CADoesntExistsException("Null CA name or SubjectDN");
+        } else if (!StringUtils.equals(name, ca.getName())) {
+            throw new CADoesntExistsException("Not same CA name.");
         }
-	}
+    }
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -349,7 +357,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     @Override
     public void removeCA(final AuthenticationToken admin, final int caid) throws AuthorizationDeniedException {
         // check authorization
-        if (!accessSession.isAuthorized(admin, StandardRules.CAREMOVE.resource())) {
+        if (!authorizationSession.isAuthorized(admin, StandardRules.CAREMOVE.resource())) {
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoremoveca", admin.toString(), Integer.valueOf(caid));
             throw new AuthorizationDeniedException(msg);
         }
@@ -371,7 +379,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         // Get CA from database
         CAData cadata = CAData.findByNameOrThrow(entityManager, oldname);
         // Check authorization, to rename we need remove (for the old name) and add for the new name)
-        if (!accessSession.isAuthorized(admin, StandardRules.CAREMOVE.resource(), StandardRules.CAADD.resource())) {
+        if (!authorizationSession.isAuthorized(admin, StandardRules.CAREMOVE.resource(), StandardRules.CAADD.resource())) {
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtorenameca", admin.toString(), cadata.getCaId());
             throw new AuthorizationDeniedException(msg);
         }
@@ -603,7 +611,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             if (caid != -1) {
                 // subject DN of the CA certificate might not have all objects
                 // that is the DN of the certificate data.
-                final Integer oRealCAId = (Integer) CACacheHelper.getCaCertHash(Integer.valueOf(caid));
+                final Integer oRealCAId = CACacheHelper.getCaCertHash(Integer.valueOf(caid));
                 // has the "real" CAID been mapped to the certificate subject
                 // hash by a previous call?
                 if (oRealCAId != null) {
@@ -647,7 +655,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     
     @Override
     public boolean authorizedToCANoLogging(final AuthenticationToken admin, final int caid) {
-        final boolean ret = accessSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() + caid);
+        final boolean ret = authorizationSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() + caid);
         if (log.isDebugEnabled() && !ret) {
             final String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoca", admin.toString(), caid);
             log.debug(msg);
@@ -657,7 +665,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
 
     @Override
     public boolean authorizedToCA(final AuthenticationToken admin, final int caid) {
-    	final boolean ret = accessSession.isAuthorized(admin, StandardRules.CAACCESS.resource() + caid);
+    	final boolean ret = authorizationSession.isAuthorized(admin, StandardRules.CAACCESS.resource() + caid);
         if (log.isDebugEnabled() && !ret) {
         	final String msg = intres.getLocalizedMessage("caadmin.notauthorizedtoca", admin.toString(), caid);
         	log.debug(msg);
@@ -715,7 +723,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         CaCache.INSTANCE.removeEntry(caId);
         return caId;
     }
-
+    
     /** Performs upgrades on the entity if needed within a transaction. */
     private CAData upgradeAndMergeToDatabase(CAData cadata) {
         if (cadata == null) {
@@ -781,12 +789,12 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         tokendata = (LinkedHashMap<String, String>) new CAToken(tokendata).saveData();
         data.put(CA.CATOKENDATA, tokendata);
         log.info("Pulling CryptoToken out of CA '" + caName + "' with id " + caid + " into a separate database table.");
-        final String str = (String) tokendata.get(CAToken.KEYSTORE);
+        final String str = tokendata.get(CAToken.KEYSTORE);
         byte[] keyStoreData = null;
         if (StringUtils.isNotEmpty(str)) {
             keyStoreData = Base64.decode(str.getBytes());
         }
-        String propertyStr = (String) tokendata.get(CAToken.PROPERTYDATA);
+        String propertyStr = tokendata.get(CAToken.PROPERTYDATA);
         final Properties prop = new Properties();
         if (StringUtils.isNotEmpty(propertyStr)) {
             try {
@@ -798,7 +806,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 log.error("Error getting CA token properties: ", e);
             }
         }
-        final String classpath = (String) tokendata.get(CAToken.CLASSPATH);
+        final String classpath = tokendata.get(CAToken.CLASSPATH);
         if (log.isDebugEnabled()) {
             log.debug("CA token classpath: " + classpath);
         }

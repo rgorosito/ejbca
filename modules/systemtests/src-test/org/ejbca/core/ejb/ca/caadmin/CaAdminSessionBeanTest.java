@@ -21,32 +21,22 @@ import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
-import java.security.Principal;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
 import javax.ejb.EJBException;
-import javax.security.auth.x500.X500Principal;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.CaTestUtils;
-import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.authorization.rules.AccessRuleData;
-import org.cesecore.authorization.rules.AccessRuleState;
-import org.cesecore.authorization.user.AccessMatchType;
-import org.cesecore.authorization.user.AccessUserAspectData;
-import org.cesecore.authorization.user.matchvalues.X500PrincipalAccessMatchValue;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAExistsException;
@@ -72,12 +62,10 @@ import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
-import org.cesecore.roles.AdminGroupData;
+import org.cesecore.mock.authentication.tokens.TestX509CertificateAuthenticationToken;
 import org.cesecore.roles.RoleExistsException;
-import org.cesecore.roles.RoleNotFoundException;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
+import org.cesecore.roles.management.RoleInitializationSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EJBTools;
@@ -104,7 +92,6 @@ public class CaAdminSessionBeanTest {
     private CertificateProfileSessionRemote certificateProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class);
     private PublisherProxySessionRemote publisherProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublisherProxySessionRemote.class,
             EjbRemoteHelper.MODULE_TEST);
-    private RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleManagementSessionRemote.class);
     private InternalCertificateStoreSessionRemote internalCertStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(InternalCertificateStoreSessionRemote.class,
             EjbRemoteHelper.MODULE_TEST);
 
@@ -166,36 +153,12 @@ public class CaAdminSessionBeanTest {
         certificateProfileSession.addCertificateProfile(alwaysAllowToken, certificateProfileName, certificateProfile);
         
         //Set up a role for this test
+        RoleInitializationSessionRemote roleInitializationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleInitializationSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
         final String roleName = "testGetAuthorizedPublisherIds";
-        AdminGroupData role = roleManagementSession.create(alwaysAllowToken, roleName);
-        List<AccessRuleData> accessRules = new ArrayList<AccessRuleData>();
-        //Give our admin access to the authorized CA. 
-        accessRules.add(new AccessRuleData(roleName, StandardRules.CAACCESS.resource() +  authorizedCa.getCAId(), AccessRuleState.RULE_ACCEPT, false));
-        accessRules.add(new AccessRuleData(roleName, StandardRules.CAACCESS.resource() + certProfileCa.getCAId(), AccessRuleState.RULE_ACCEPT, false));
-        try {
-            role = roleManagementSession.addAccessRulesToRole(alwaysAllowToken, role, accessRules);
-        } catch (RoleNotFoundException e2) {
-            // NOPMD: Ignore
-        }
-        List<AccessUserAspectData> subjects = new ArrayList<AccessUserAspectData>();
-        //SimpleAuthenticationProviderSession used below will presume that our ad hoc user issued themselves. 
-        subjects.add(new AccessUserAspectData(roleName, ("CN=" + roleName).hashCode(), X500PrincipalAccessMatchValue.WITH_COMMONNAME,
-                AccessMatchType.TYPE_EQUALCASE, roleName));
-        try {
-            role = roleManagementSession.addSubjectsToRole(alwaysAllowToken, role, subjects);
-        } catch (RoleNotFoundException e) {
-            // NOPMD: Ignore
-        }
-        
-        //Create the authentication token we'll be using for this test.
-        Set<Principal> principals = new HashSet<Principal>();
-        X500Principal p = new X500Principal("CN=" + roleName);
-        AuthenticationSubject subject = new AuthenticationSubject(principals, null);
-        principals.add(p);
-        final SimpleAuthenticationProviderSessionRemote authenticationProvider = EjbRemoteHelper.INSTANCE.getRemoteSession(
-                SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-        AuthenticationToken authenticationToken = authenticationProvider.authenticate(subject);
-
+        TestX509CertificateAuthenticationToken authenticationToken = roleInitializationSession.createAuthenticationTokenAndAssignToNewRole("CN="+roleName, null, roleName, Arrays.asList(
+                StandardRules.CAACCESS.resource() +  authorizedCa.getCAId(),
+                StandardRules.CAACCESS.resource() + certProfileCa.getCAId()
+                ), null);
         try {
             Set<Integer> publisherIds = caAdminSession.getAuthorizedPublisherIds(authenticationToken);
             assertTrue("Publisher attached to an authorized CA was not in list.", publisherIds.contains(Integer.valueOf(caPublisherId)));
@@ -206,29 +169,14 @@ public class CaAdminSessionBeanTest {
             assertFalse("Unauthorized custom publisher was in list.", publisherIds.contains(Integer.valueOf(unAuthorizedCustomPublisherId)));         
         } finally {
             //Remove the test role
-            try {
-                roleManagementSession.remove(alwaysAllowToken, role);
-            } catch (RoleNotFoundException e1) {
-                // NOPMD: Ignore
-            } catch (AuthorizationDeniedException e1) {
-                // NOPMD: Ignore
-            }
-
-            //Remove the test CAs
-            try {
-                CaTestUtils.removeCa(alwaysAllowToken, authorizedCa.getCAInfo());
-            } catch (AuthorizationDeniedException e) {
-                // NOPMD: Ignore
-            }
-            try {
-                CaTestUtils.removeCa(alwaysAllowToken, unauthorizedCa.getCAInfo());
-            } catch (AuthorizationDeniedException e) {
-                // NOPMD: Ignore
-            }
-            try {
-                CaTestUtils.removeCa(alwaysAllowToken, certProfileCa.getCAInfo());
-            } catch (AuthorizationDeniedException e) {
-                // NOPMD: Ignore
+            roleInitializationSession.removeAllAuthenticationTokensRoles(authenticationToken);
+            // Remove the test CAs
+            for (final X509CA ca : Arrays.asList(authorizedCa, unauthorizedCa, certProfileCa)) {
+                try {
+                    CaTestUtils.removeCa(alwaysAllowToken, ca.getCAInfo());
+                } catch (AuthorizationDeniedException e) {
+                    // NOPMD: Ignore
+                }
             }
 
             //Remove the certificate profile

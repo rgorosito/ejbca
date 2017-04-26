@@ -13,7 +13,6 @@
 
 package org.ejbca.core.protocol.cmp;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -26,14 +25,14 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 
 import org.apache.log4j.Logger;
-import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIHeader;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -102,11 +101,7 @@ public class NestedMessageContent extends BaseCmpMessage implements RequestMessa
 
     public PKIMessage getPKIMessage() {
         if (getMessage() == null) {
-            try {
-                setMessage(PKIMessage.getInstance(new ASN1InputStream(new ByteArrayInputStream(pkimsgbytes)).readObject()));                
-            } catch (IOException e) {
-                log.error("Error decoding bytes for PKIMessage: ", e);
-            }
+            setMessage(PKIMessage.getInstance(pkimsgbytes));
         }
         return getMessage();
     }
@@ -121,12 +116,10 @@ public class NestedMessageContent extends BaseCmpMessage implements RequestMessa
 
     
     @Override
-    /**
-     * Verifies the signature of the pkimessage using the trusted RA certificate stored in cmpConfiguration.getRaCertificatePath()
-     * 
-     * @return True if the verification succeeds. False otherwise.
-     */
     public boolean verify() {
+        /*
+         * Verifies the signature of the pkimessage using the trusted RA certificate stored in cmpConfiguration.getRaCertificatePath()
+         */
         boolean ret = false;
         try {
             final List<X509Certificate> racerts = getRaCerts();
@@ -138,19 +131,16 @@ public class NestedMessageContent extends BaseCmpMessage implements RequestMessa
                 log.info(errorMessage);
             }
 
-            final Iterator<X509Certificate> itr = racerts.iterator();
-            X509Certificate cert = null;
-            while(itr.hasNext() && !ret) {
-                cert = itr.next();
+            for (X509Certificate cert : racerts) {
                 if(log.isDebugEnabled()) {
                     log.debug("Trying to verifying the NestedMessageContent using the RA certificate with subjectDN '" + cert.getSubjectDN() + "'");
                 }
 
                 try {
                     cert.checkValidity();
-                } catch(Exception e) {
+                } catch(CertificateExpiredException | CertificateNotYetValidException e) {                  
                     if(log.isDebugEnabled()) {
-                        log.debug("Certificate with subjectDN '" + CertTools.getSubjectDN(cert) + "' is no longer valid.");
+                        log.debug("Certificate with subjectDN '" + CertTools.getSubjectDN(cert) + "' is not valid.");
                         log.debug(e.getLocalizedMessage());
                     }
                     continue;

@@ -13,7 +13,6 @@
 
 package org.ejbca.core.protocol.cmp;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -32,7 +31,6 @@ import java.util.Date;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
@@ -67,7 +65,6 @@ import org.ejbca.core.protocol.cmp.authentication.RegTokenPasswordExtractor;
  * -- raVerified (null), i.e. no POPO verification is done, it should be configurable if the CA should allow this or require a real POPO
  * -- Self signature, using the key in CertTemplate, or POPOSigningKeyInput (name and public key), option 2 and 3 in RFC4211, section "4.1.  Signature Key POP"
  * 
- * @author tomas
  * @version $Id$
  */
 public class CrmfRequestMessage extends BaseCmpMessage implements ICrmfRequestMessage {
@@ -141,11 +138,7 @@ public class CrmfRequestMessage extends BaseCmpMessage implements ICrmfRequestMe
 
     public PKIMessage getPKIMessage() {
         if (getMessage() == null) {
-            try {
-                setMessage(PKIMessage.getInstance(new ASN1InputStream(new ByteArrayInputStream(pkimsgbytes)).readObject()));
-            } catch (IOException e) {
-                log.error("Error decoding bytes for PKIMessage: ", e);
-            }
+            setMessage(PKIMessage.getInstance(pkimsgbytes));
         }
         return getMessage();
     }
@@ -342,7 +335,7 @@ public class CrmfRequestMessage extends BaseCmpMessage implements ICrmfRequestMe
         final CertTemplate templ = getReq().getCertReq().getCertTemplate();
         X500Name name = templ.getSubject();
         if(name != null) {
-            name = new X500Name(new CeSecoreNameStyle(), name);
+            name = X500Name.getInstance(new CeSecoreNameStyle(), name);
         }
         if (log.isDebugEnabled()) {
             log.debug("Request X500Name is: " + name);

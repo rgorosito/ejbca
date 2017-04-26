@@ -15,6 +15,7 @@ package org.ejbca.ui.web.admin.administratorprivileges;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -45,12 +46,16 @@ import org.cesecore.roles.AccessRulesHelper;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.management.RoleSessionLocal;
+import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
 /**
- * Managed Bean for the Role's access rules manage/view page.
+ * Managed Bean for the Role's access rules pages:
+ * - Basic mode access rule configuration
+ * - Advanced mode access rule configuration
+ * - Advanced mode access rule summary
  * 
  * @version $Id$
  */
@@ -58,19 +63,18 @@ import org.ejbca.ui.web.admin.BaseManagedBean;
 @ManagedBean
 public class AccessRulesBean extends BaseManagedBean implements Serializable {
 
-    public static class AccessRule {
+    /** Basic mode access rule holder */
+    private static class AccessRule {
         private final String resource;
         private final boolean state;
 
-        public AccessRule(final String resource, final boolean state) {
-            this.resource = resource;
+        AccessRule(final String resource, final boolean state) {
+            this.resource = AccessRulesHelper.normalizeResource(resource);
             this.state = state;
         }
-
-        public String getResource() { return resource; }
-        public boolean isState() { return state; }
     }
 
+    /** Basic mode access rule holder sorted by section */
     private static class AccessRulesTemplate {
         private final String name;
         private final HashMap<String,Boolean> accessRules = new HashMap<>();
@@ -78,7 +82,7 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         public AccessRulesTemplate(final String name, final AccessRule...accessRules) {
             this.name = name;
             for (final AccessRule accessRule : accessRules) {
-                this.getAccessRules().put(accessRule.getResource(), accessRule.isState());
+                this.getAccessRules().put(accessRule.resource, accessRule.state);
             }
             AccessRulesHelper.normalizeResources(this.accessRules);
             AccessRulesHelper.minimizeAccessRules(this.accessRules);
@@ -86,6 +90,82 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
 
         public String getName() { return name; }
         public HashMap<String,Boolean> getAccessRules() { return accessRules; }
+    }
+
+    /** Advanced mode access rule holder sorted for a category */
+    public static class AccessRuleCollection {
+        private String name;
+        private List<AccessRuleItem> collection;
+
+        public AccessRuleCollection(String name, List<AccessRuleItem> collection) {
+            this.name = name;
+            this.collection = collection;
+        }
+
+        public String getName() { return name; }
+        public List<AccessRuleItem> getCollection() { return collection; }
+    }
+
+    /** Advanced mode access rule tri-state */
+    private static enum AccessRuleState {
+        UNDEFINED, ALLOW, DENY;
+
+        static AccessRuleState toAccessRuleState(final Boolean state) {
+            return state==null ? UNDEFINED : state ? ALLOW : DENY;
+        }
+    }
+
+    /** Advanced mode access rule representation */
+    public static class AccessRuleItem implements Comparable<AccessRuleItem> {
+        private final String category;
+        private final String resource;
+        private final String resourceName;
+        private final String resourceMain;
+        private final String resourceSub;
+        private AccessRuleState state = AccessRuleState.UNDEFINED;
+
+        public AccessRuleItem(final String category, final String resource, final String resourceName) {
+            this.category = category;
+            this.resource = AccessRulesHelper.normalizeResource(resource);
+            this.resourceName = resourceName==null ? this.resource : AccessRulesHelper.normalizeResource(resourceName);
+            final String[] resourceSplit = this.resourceName.split("/");
+            if (resourceSplit.length==0) {
+                this.resourceSub = "/";
+                this.resourceMain = "";
+            } else {
+                this.resourceSub = resourceSplit[resourceSplit.length-1] + "/";
+                String resourceMain = "/";
+                for (int i=1; i<resourceSplit.length-1; i++) {
+                    resourceMain += resourceSplit[i] + "/";
+                }
+                this.resourceMain = resourceMain;
+            }
+        }
+
+        /** @return the category this resource belongs to */
+        public String getCategory() { return category; }
+        /** @return the normalized resource with Id kept intact for objects */
+        public String getResource() { return resource; }
+        /** @return the normalized resource with Id replaced by names for objects */
+        public String getResourceName() { return resourceName; }
+        /** @return the first part(s) of the resourceName e.g.  '/mainrule/subrule/' from '/mainrule/subrule/subsubrule/' */
+        public String getResourceMain() { return resourceMain; }
+        /** @return the last part of the resourceName e.g. 'subsubrule/' from '/mainrule/subrule/subsubrule/' */
+        public String getResourceSub() { return resourceSub; }
+        /** @return one of the {@link AccessRuleState} enum names representing the current state of this rule */
+        public String getState() { return state.name(); }
+        /** Set one of the {@link AccessRuleState} enum names representing the current state of this rule */
+        public void setState(String state) { this.state = AccessRuleState.valueOf(state); }
+        /** @return one of the {@link AccessRuleState} enum representing the current state of this rule */
+        private AccessRuleState getStateEnum() { return state; }
+        /** @return true if the resource in this istance is '/' */
+        public boolean isRootResource() { return StandardRules.ROLE_ROOT.resource().equals(resource); }
+
+        @Override
+        public int compareTo(final AccessRuleItem other) {
+            // Sort by resource name (with IDs replaced by names)
+            return getResourceName().compareTo(other.getResourceName());
+        }
     }
 
     private static final long serialVersionUID = 1L;
@@ -176,6 +256,8 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
     @EJB
     private AuthorizationSessionLocal authorizationSession;
     @EJB
+    private AuthorizationSystemSessionLocal authorizationSystemSession;
+    @EJB
     private CaSessionLocal caSession;
     @EJB
     private EndEntityProfileSessionLocal endEntityProfileSession;
@@ -186,6 +268,7 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
     private Map<Integer, String> eepIdToNameMap;
     private String roleIdParam;
     private String advancedParam;
+    private String summaryParam;
     private Role role;
 
     private String accessRulesTemplateSelected = TEMPLATE_NAME_CUSTOM;
@@ -201,6 +284,9 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
     private List<String> resourcesOtherSelected = new ArrayList<>();
     private List<SelectItem> availableResourcesOther = null;
 
+    private List<AccessRuleItem> authorizedAccessRuleItems = null;
+    private final List<SelectItem> availableAccessRuleStates = new ArrayList<SelectItem>();
+
     @PostConstruct
     private void postConstruct() {
         final Map<String, String> requestParameterMap = FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap();
@@ -208,14 +294,33 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         roleIdParam = requestParameterMap.get("roleId");
         // Read HTTP param "advanced" that should be interpreted as an boolean
         advancedParam = requestParameterMap.get("advanced");
+        // Read HTTP param "summary" that should be interpreted as an boolean
+        summaryParam = requestParameterMap.get("summary");
         caIdToNameMap = caSession.getCAIdToNameMap();
         eepIdToNameMap = endEntityProfileSession.getEndEntityProfileIdToNameMap();
         reinitSelection();
     }
 
+    /** Perform POST-REDIRECT-GET when this method is invoked from a non-AJAX context. */
+    private void nonAjaxPostRedirectGet() {
+        String requestParams = "?roleId=" + role.getRoleId();
+        if (isAdvancedMode()) {
+            requestParams += "&advanced=true";
+            if (isAdvancedModeSummary()) {
+                requestParams += "&summary=true";
+            }
+        }
+        super.nonAjaxPostRedirectGet(requestParams);
+    }
+
     /** @return true in advanced access rule mode */
     public boolean isAdvancedMode() {
         return Boolean.parseBoolean(advancedParam);
+    }
+    
+    /** @return true in advanced access rule mode */
+    public boolean isAdvancedModeSummary() {
+        return Boolean.parseBoolean(summaryParam);
     }
     
     /** @return true when admin is authorized to edit access rules of this role */
@@ -326,6 +431,10 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         accessRules.clear();
         accessRules.putAll(accessRulesTemplate.getAccessRules());
         reinitSelection();
+        if (!isAccessRulesTemplateCustom()) {
+            // Remove the CUSTOM template from the list of selectable templates since it is really configured in advanced mode
+            removeAccessRulesTemplateCustomOption();
+        }
     }
 
     /** @return a list of available access rules templates (and detects the best match to the existing role's rules for performance reasons at the same time) */
@@ -363,16 +472,20 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
             }
             if (!isAccessRulesTemplateCustom()) {
                 // Remove the CUSTOM template from the list of selectable templates since it is really configured in advanced mode
-                for (final SelectItem selectItem : new ArrayList<>(availableAccessRulesTemplates)) {
-                    if (selectItem.getValue().equals(TEMPLATE_NAME_CUSTOM)) {
-                        availableAccessRulesTemplates.remove(selectItem);
-                        break;
-                    }
-                }
+                removeAccessRulesTemplateCustomOption();
             }
             super.sortSelectItemsByLabel(availableAccessRulesTemplates);
         }
         return availableAccessRulesTemplates;
+    }
+    
+    private void removeAccessRulesTemplateCustomOption() {
+        for (final SelectItem selectItem : new ArrayList<>(availableAccessRulesTemplates)) {
+            if (selectItem.getValue().equals(TEMPLATE_NAME_CUSTOM)) {
+                availableAccessRulesTemplates.remove(selectItem);
+                break;
+            }
+        }
     }
 
     /** @return true if the CA selection box should be modifiable */
@@ -529,6 +642,11 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         return availableResourcesOther;
     }
 
+    /** @return true if this installation is configured to use EndEntityProfileLimitations */
+    private boolean isEnableEndEntityProfileLimitations() {
+        return super.getEjbcaWebBean().getGlobalConfiguration().getEnableEndEntityProfileLimitations();
+    }
+
     /** @return true if this installation is configured to issue hardware tokens */
     private boolean isEnabledIssueHardwareTokens() {
         return super.getEjbcaWebBean().getGlobalConfiguration().getIssueHardwareTokens();
@@ -539,7 +657,7 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         return super.getEjbcaWebBean().getGlobalConfiguration().getEnableKeyRecovery();
     }
 
-    /** Invoked by the user to save the current selection */
+    /** Invoked by the user to save the current selection in Basic mode */
     public void actionSaveAccessRules() {
         // Add access rules from template that are not user configurable
         final HashMap<String,Boolean> newAccessRules = new HashMap<>(getAccessRulesTemplate().getAccessRules());
@@ -557,6 +675,18 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         }
         for (final String resource : getResourcesEepSelected()) {
             newAccessRules.put(resource, Role.STATE_ALLOW);
+        }
+        if (isEnableEndEntityProfileLimitations()) {
+            /* 
+             * To be authorized to an EEP, the authentication token needs to be authorized to both
+             *  '/ra_functionality/some_function/'
+             *  '/endentityprofilesrules/<eepId>/some_function/'
+             * 
+             * So here in basic mode, we simply allow '/endentityprofilesrules/<eepId>/' and rely
+             * on the '/ra_functionality/' sub-rules to limit functions.
+             * 
+             * Long story short: Do nothing here.
+             */
         }
         for (final String resource : getResourcesIkbSelected()) {
             newAccessRules.put(resource, Role.STATE_ALLOW);
@@ -576,7 +706,7 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         } catch (AuthorizationDeniedException e) {
             super.addGlobalMessage(FacesMessage.SEVERITY_ERROR, "ACCESSRULES_ERROR_UNAUTH", e.getMessage());
         } finally {
-            super.nonAjaxPostRedirectGet("?roleId=" + role.getRoleId());
+            nonAjaxPostRedirectGet();
         }
     }
 
@@ -591,16 +721,115 @@ public class AccessRulesBean extends BaseManagedBean implements Serializable {
         }
     }
     
-    /** @return a normalized, minimized and sorted list of access rules  */
-    public List<AccessRule> getAccessRules() {
-        final List<AccessRule> ret = new ArrayList<>();
-        final LinkedHashMap<String, Boolean> accessRules = getRole().getAccessRules();
-        AccessRulesHelper.normalizeResources(accessRules);
-        AccessRulesHelper.minimizeAccessRules(accessRules);
-        AccessRulesHelper.sortAccessRules(accessRules);
-        for (final Entry<String,Boolean> entry : accessRules.entrySet()) {
-            ret.add(new AccessRule(entry.getKey(), entry.getValue()));
+    /** @return a normalized, minimized and sorted list of access rules that is set to ALLOW or DENY */
+    public List<AccessRuleItem> getAccessRules() {
+        final List<AccessRuleItem> ret = new ArrayList<>();
+        for (final AccessRuleItem accessRuleItem : getAuthorizedAccessRuleItems()) {
+            if (!AccessRuleState.UNDEFINED.name().equals(accessRuleItem.getState())) {
+                ret.add(accessRuleItem);
+            }
         }
+        Collections.sort(ret);
         return ret;
+    }
+
+    /** @return the advanced mode list of access rule collections  */
+    public List<AccessRuleCollection> getAuthorizedResourcesByCategory() {
+        final Map<String, AccessRuleCollection> categoryToAccessRuleCollectionMap = new LinkedHashMap<>();
+        for (final AccessRuleItem accessRuleItem : getAuthorizedAccessRuleItems()) {
+            final String category = accessRuleItem.getCategory();
+            AccessRuleCollection accessRuleCollection = categoryToAccessRuleCollectionMap.get(category);
+            if (accessRuleCollection==null) {
+                accessRuleCollection = new AccessRuleCollection(category, new ArrayList<AccessRuleItem>());
+                categoryToAccessRuleCollectionMap.put(category, accessRuleCollection);
+            }
+            accessRuleCollection.getCollection().add(accessRuleItem);
+        }
+        for (final AccessRuleCollection accessRuleCollection : categoryToAccessRuleCollectionMap.values()) {
+            Collections.sort(accessRuleCollection.getCollection());
+        }
+        return new ArrayList<>(categoryToAccessRuleCollectionMap.values());
+    }
+
+    /** @return the advanced mode list of all authorized access rule items */
+    private List<AccessRuleItem> getAuthorizedAccessRuleItems() {
+        if (authorizedAccessRuleItems==null) {
+            final List<AccessRuleItem> allAccessRuleItems = getAllAccessRuleItems();
+            final LinkedHashMap<String, Boolean> rolesAccesssRules = getRole().getAccessRules();
+            AccessRulesHelper.minimizeAccessRules(rolesAccesssRules);
+            for (final AccessRuleItem accessRuleItem : new ArrayList<>(allAccessRuleItems)) {
+                if (authorizationSession.isAuthorizedNoLogging(getAdmin(), accessRuleItem.getResource())) {
+                    // Check current Role' state of this rule
+                    accessRuleItem.setState(AccessRuleState.toAccessRuleState(rolesAccesssRules.get(accessRuleItem.getResource())).name());
+                } else {
+                    // Note that for EEPs you are only "really" authorized to it if you also are authorized to all the CAs in it
+                    // Similar goes for UserDataSources which is super-inefficient to check..
+                    // BUT if the current admin is authorized to a rule he is also authorized to give the same access to others
+                    allAccessRuleItems.remove(accessRuleItem);
+                }
+            }
+            authorizedAccessRuleItems = allAccessRuleItems;
+        }
+        return authorizedAccessRuleItems;
+    }
+
+    /** @return the advanced mode list of all access rule items without any state */
+    private List<AccessRuleItem> getAllAccessRuleItems() {
+        final List<AccessRuleItem> allAccessRuleItem = new ArrayList<>();
+        final Map<String, Map<String,String>> categorizedAccessRules = authorizationSystemSession.getAllResourceAndResourceNamesByCategory();
+        for (final Entry<String,Map<String,String>> categoryEntry : categorizedAccessRules.entrySet()) {
+            for (final Entry<String,String> entry : categoryEntry.getValue().entrySet()) {
+                allAccessRuleItem.add(new AccessRuleItem(categoryEntry.getKey(), entry.getKey(), entry.getValue()));
+            }
+        }
+        return allAccessRuleItem;
+    }
+
+    /** @return a viewable list of the possible values for a access rule */
+    public List<SelectItem> getAvailableAccessRuleStates() {
+        if (availableAccessRuleStates.isEmpty()) {
+            availableAccessRuleStates.add(new SelectItem(AccessRuleState.ALLOW.name(), super.getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.ALLOW.name())));
+            availableAccessRuleStates.add(new SelectItem(AccessRuleState.DENY.name(), super.getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.DENY.name())));
+            availableAccessRuleStates.add(new SelectItem(AccessRuleState.UNDEFINED.name(), super.getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.UNDEFINED.name())));
+        }
+        return availableAccessRuleStates;
+    }
+
+    /** @return a viewable list of the possible values for a access rule */
+    public List<SelectItem> getAvailableAccessRuleStatesRoot() {
+        final List<SelectItem> result = new ArrayList<SelectItem>();
+        result.add(new SelectItem(AccessRuleState.ALLOW.name(), getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.ALLOW.name())));
+        result.add(new SelectItem(AccessRuleState.DENY.name(), getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.DENY.name()), null, true));
+        result.add(new SelectItem(AccessRuleState.UNDEFINED.name(), getEjbcaWebBean().getText("ACCESSRULES_STATE_"+AccessRuleState.UNDEFINED.name() + "_ROOT")));
+        return result;
+    }
+
+    /** Invoked by the admin when saving access rules in advanced mode. */
+    public void actionSaveAccessRulesAdvanced() {
+        final Role role = getRole();
+        final LinkedHashMap<String, Boolean> accessRules = role.getAccessRules();
+        accessRules.clear();
+        for (final AccessRuleItem accessRuleItem : authorizedAccessRuleItems) {
+            if (!AccessRuleState.UNDEFINED.equals(accessRuleItem.getStateEnum())) {
+                accessRules.put(accessRuleItem.getResource(), AccessRuleState.ALLOW.equals(accessRuleItem.getStateEnum()));
+            }
+        }
+        final int numberOfRulesBeforeSave = accessRules.size();
+        try {
+            this.role = roleSession.persistRole(getAdmin(), role);
+            final int numberOfRedundantRules = numberOfRulesBeforeSave-role.getAccessRules().size();
+            if (numberOfRedundantRules==0) {
+                super.addGlobalMessage(FacesMessage.SEVERITY_INFO, "ACCESSRULES_INFO_SAVED");
+            } else {
+                super.addGlobalMessage(FacesMessage.SEVERITY_INFO, "ACCESSRULES_INFO_SAVED_MIN", numberOfRedundantRules);
+            }
+        } catch (RoleExistsException e) {
+            throw new IllegalStateException(e);
+        } catch (AuthorizationDeniedException e) {
+            super.addGlobalMessage(FacesMessage.SEVERITY_ERROR, "ACCESSRULES_ERROR_UNAUTH", e.getMessage());
+        } finally {
+            nonAjaxPostRedirectGet();
+        }
+        authorizedAccessRuleItems = null;
     }
 }

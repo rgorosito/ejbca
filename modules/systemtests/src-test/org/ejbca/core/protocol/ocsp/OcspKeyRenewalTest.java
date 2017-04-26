@@ -61,8 +61,8 @@ import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
+import org.cesecore.mock.authentication.tokens.TestX509CertificateAuthenticationToken;
 import org.cesecore.roles.management.RoleInitializationSessionRemote;
-import org.cesecore.roles.management.RoleManagementSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.EjbRemoteHelper;
@@ -113,8 +113,6 @@ public class OcspKeyRenewalTest {
             .getRemoteSession(InternalKeyBindingMgmtSessionRemote.class);
     private static final CryptoTokenManagementSessionRemote cryptoTokenManagementSession = EjbRemoteHelper.INSTANCE
             .getRemoteSession(CryptoTokenManagementSessionRemote.class);
-    private static final RoleManagementSessionRemote roleManagementSession = EjbRemoteHelper.INSTANCE
-            .getRemoteSession(RoleManagementSessionRemote.class);
     private static final EndEntityManagementSessionRemote endEntityManagementSession = EjbRemoteHelper.INSTANCE
             .getRemoteSession(EndEntityManagementSessionRemote.class);
 
@@ -222,6 +220,7 @@ public class OcspKeyRenewalTest {
             // Add authorization rules for this client SSL certificate
             final RoleInitializationSessionRemote roleInitSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleInitializationSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
             roleInitSession.initializeAccessWithCert(authenticationToken, TESTCLASSNAME, clientSSLCertificate);
+            roleInitSession.createRoleAndAddCertificateAsRoleMember(clientSSLCertificate, null, TESTCLASSNAME, null, null);
         }
         // Set re-keying URL to our local instance
         final String remotePort = SystemTestsConfiguration.getRemotePortHttps("8443");
@@ -236,11 +235,9 @@ public class OcspKeyRenewalTest {
     }
     
     private static void cleanup() throws Exception {
-        try {
-            roleManagementSession.remove(authenticationToken, TESTCLASSNAME);
-        } catch (Exception e) {
-            //Ignore any failures.
-            log.debug(e.getMessage());
+        if (clientSSLCertificate!=null) {
+            final RoleInitializationSessionRemote roleInitializationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleInitializationSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+            roleInitializationSession.removeAllAuthenticationTokensRoles(new TestX509CertificateAuthenticationToken(clientSSLCertificate));
         }
         try {
             // find all certificates for Ocsp signing user and remove them

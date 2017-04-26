@@ -324,6 +324,16 @@ In the CA configuration, set 'Delta CRL Period' to the amount of time your delta
 Command line interface and CRL Update service will generate delta CRLs if 'Delta CRL Period' is larger than 0.</p>
 </subsection>
 
+<subsection name="Retrieving CRLs">
+<p>EJBCA will store all generated CRLs unless you manually remove them from the database.</p>
+<p>You can retrieve CRLs using the command line interface or Web UIs, either the latest CRL or a CRL with a specific CRL number.</p>
+<ul>
+<li>Command line interface: bin/ejbca.sh ca getcrl --help</li>
+<li>Public Web->Fetch CA CRLs, with additional 'crlnumber=&lt;crl number&gt;' parameter</li>
+<li>RA Web->CA Certificates and CRLs, with additional 'crlnumber=&lt;crl number&gt;' parameter</li>
+</ul>
+</subsection>
+
 </section>
 
 <section name="SCEP">
@@ -848,7 +858,7 @@ Although EJBCA still supports CMP over TCP for now, it will not be supported for
             this module in client mode.</li>
         <li>In RA mode, as a parameter, this module expects the name of the CA that that has issued the certificate in the extraCert field. If a parameter is specified, 
             EJBCA will then check if the certificate in extraCert does exist in the database, that it was issued by the right CA (the CA specified as a parameter) and that it 
-            belongs to a registerd administrator in EJBCA with the right authorizations to perform the operations required in the request. If no parameter is specified, 
+            belongs to a registered administrator in EJBCA with the right authorizations to perform the operations required in the request. If no parameter is specified, 
             none of the mentioned checks will be performed, however, Ejbca will expect the CMP request to have been previously authenticated by other ways, for example, 
             by sending the request inside a signed NestedMessageContent</li>
       </ul>
@@ -871,7 +881,7 @@ EJBCA supports two types of response message protection: 'pbe' and 'signature'.
 <subsubsection name="pbe">
 <p>
 This type of protection of the response message can be used only when the request was authenticaed using HMAC authentication module. The parameters used for 
-the 'pbe' protection are based on the parameters used in the recieved HMAC authentication.
+the 'pbe' protection are based on the parameters used in the received HMAC authentication.
 </p>
 </subsubsection>
 <subsubsection name="signature">
@@ -2351,6 +2361,14 @@ Information on how to use the Registration Authority (RA) UI is available <a hre
 available as an add-on module to <a href="https://www.primekey.se/technologies/products-overview/ejbca-enterprise/">EJBCA Enterprise</a>.</p>
 <p>This module provides an environment where Active Directory Domain Users and Computers will seamlessly auto enroll for 
 certificates issued by EJBCA.</p>
+<subsection name="Legacy Script based Autoenrollment">
+<p>
+Script based Autoenrollment is a legacy way of doing autoenrollment and uses login scripts and VB scripts to automatically enroll clients. 
+It is kept for legacy reasons. More information can be found in the <a href="https://www.ejbca.org/guides.html#Native%20Autoenrollment%20for%20Windows%20(Enterprise%20only)">Guides</a>.
+<br/>
+The Native autoenrollment (above) provides a more seamless experience.
+</p>
+</subsection>
 </section>
 
 <section name="External RA (Enterprise Edition Only)">
@@ -2989,6 +3007,7 @@ isn't specified by the worker.
 <subsubsection name="Run on all Nodes">
 <p>By default services will execute on only one node in a cluster, or one of the pinned nodes. There are some services however that we want to run on all nodes, such as the HSM Keepalive Service.
 Checking 'Run on all nodes' disables the check if the service has been running on another node and thus executes the service on all nodes.</p>
+<note>Careful: This checkbox should normally only be checked for the HSM Keepalive service. Don't check for other services unless you are absolutely sure you know what you are doing.</note>
 </subsubsection>
 </subsection>
 
@@ -4401,6 +4420,16 @@ sudo apt-get install softhsm2
 softhsm2-util  --init-token --slot 1 --label slot1 --pin foo123 --so-pin foo123
 </source>
 </subsection>
+<subsection name="PKCS11 Spy">
+<p>You can debug PKCS11 sessions, all calls made, using OpenSC's P11Spy. From EJBCA 6.8.0 it is included by default in known P11 implementation in con/web.properties.</p>
+<p>Stop JBoss, install p11spy and set a couple of environment variables that are used in the JBoss terminal.</p>
+<source>
+apt-get install opensc-pkcs11
+export PKCS11SPY=/usr/local/lib/softhsm/libsofthsm2.so
+export PKCS11SPY_OUTPUT=logfile.log
+</source>
+<p>Start JBoss, and create a new PKCS11 Crypto Token using the PKCS11Spy 'PKCS#11 Library'.</p>
+</subsection>
 <subsection name="Support for new HSMs">
 <p>
 EJBCA uses PKCS#11 so in theory can support any HSMs that provide a decent PKCS#11 implementation.
@@ -4688,7 +4717,7 @@ In EJBCA the parameters are configured in <i>conf/cesecore.properties</i>.
 When creating a new CA using the implicitlyCA facility, you first configure your curve parameters in conf/cesecore.properties and issue commands:
 <ul>
 <li>ant clean</li>
-<li>ant deploy</li>
+<li>ant deployear</li>
 </ul>
 After restarting the application server you can now create a new CA using the name 'implicitlyCA' instead of a curve name as keyspec in the admin-GUI or CLI.
 <br/>
@@ -6261,7 +6290,7 @@ The main purpose of the Security Audit Log is to provide information to an audit
 but is not so interested in what the system did not do.
 </p>
 <p>
-The Security Audit Log is stored in the database and the System Log is stroed in log files. By default the System Log also contains the Security Audit Log, but this can be configured.
+The Security Audit Log is stored in the database and the System Log is stored in log files. By default the System Log also contains the Security Audit Log, but this can be configured.
 </p>
 </subsection>
 <subsection name="Security Audit Log">
@@ -6511,6 +6540,31 @@ You can, in run-time, change between DEBUG and INFO logging with the simple jbos
 <li>Sign logs with <a href="security.html#External%20Log%20Signing">external tools</a> as they are being rotated.</li>
 </ul>
 </subsection>
+<subsection name="Exporting Audit Logs">
+<p>
+All installations have their specific requirements how audit logs should be handled. There are several ways to Export Audit Logs.
+</p>
+<ul>
+<li>Rotate system log files (including the audit log) and archive/process the rotated log files</li>
+<li>Use a SYSLOG appended to send the System log (including the Audit log) to a central log server that performs monitoring functions</li>
+<li>Export the database audit log using the Local Database CLI</li>
+<li>Export the database audit log using database tools</li>
+<li>Export a specific view from the View Log page in Admin GUI to an XML file</li>
+<li>Export a specific view from the View Log page in Admin GUI to a signed CMS (Cryptographic Message Syntax)</li>
+</ul>
+</subsection>
+<subsection name="Log Monitoring">
+<p>
+When monitoring logs from EJBCA the common trigger to monitor for are ERROR events in the System Log.
+Example where there is a error to initialize an (this is a specific exampe and not applicable to all HSMs) HSM during startup:
+</p>
+<source>
+10:46:53,099 ERROR [org.cesecore.keys.token.p11.Pkcs11Wrapper] (default task-9) Wrong arguments were passed to sun.security.pkcs11.wrapper.PKCS11.CK_C_INITIALIZE_ARGS.getInstance threw an exception
+</source>
+<p>
+An error event like this should trigger an operator to take a look at the system to gauge what is wrong.
+</p>
+</subsection>
 </section>
 
 <section name="Command Line Interfaces">
@@ -6628,7 +6682,9 @@ cd dist/ejbca-db-cli
  <p>The cli contains command that directly accesses a database, export, import, copy, verify audit log and OCSP monitoring. 
  Run the command to get a description about all available commands.</p>
 <p>To verify database protection just make sure that you have conf/databaseprotection.properties configured. If you are using database protection for your CA, you can use the same file.
-For verification, you can also use a verification token, without the private key, so you can do verification on another host from the CA.</p>
+For verification, you can also use a verification token, without the private key, so you can do verification on another host from the CA. The file conf/databaseprotection.properties.sample
+provide example configuration and documentation for the various options.</p>
+
 <p>You can also use the DB tool to create databaseprotection in case you started off not enabling it, and want to enable it later.</p>
 <ul>
 <li>Shut down EJBCA</li>

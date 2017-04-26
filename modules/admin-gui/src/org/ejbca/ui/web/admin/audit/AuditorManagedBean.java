@@ -16,6 +16,7 @@ package org.ejbca.ui.web.admin.audit;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -51,6 +52,7 @@ import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.util.StringTools;
 import org.cesecore.util.ValidityDate;
+import org.cesecore.util.XmlSerializer;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
@@ -130,7 +132,10 @@ public class AuditorManagedBean implements Serializable {
 		}
 		columnNameMap.put(AuditLogEntry.FIELD_ADDITIONAL_DETAILS, ejbcaWebBean.getText("ADDITIONAL_DETAILS"));
 		columns.addAll(sortColumns);
-		columns.add(new SelectItem(AuditLogEntry.FIELD_ADDITIONAL_DETAILS, columnNameMap.get(AuditLogEntry.FIELD_ADDITIONAL_DETAILS)));
+	    //Commented out due to the fact that searching through the details field is unreliable. If there are any non ascii-characters in the field,
+        // (such as é), it will in its entirety be b64-encoded, which renders it unsearchable, even for ascii characters that may happen to be there
+        // as well.
+		//columns.add(new SelectItem(AuditLogEntry.FIELD_ADDITIONAL_DETAILS, columnNameMap.get(AuditLogEntry.FIELD_ADDITIONAL_DETAILS)));
 		sortOrders.add(new SelectItem(ORDER_ASC, "ASC"));
 		sortOrders.add(new SelectItem(ORDER_DESC, "DESC"));
 		// If no device is chosen we select the first available as default
@@ -238,6 +243,11 @@ public class AuditorManagedBean implements Serializable {
 			reloadResultsNextView = false;
 		}
 		return results;
+	}
+	
+	/** Converts a map with possibly Base64 encoded items to a string */
+	public String mapToString(final Map<String,Object> value) {
+	    return MapToStringConverter.getAsString(value);
 	}
 
 	public void setSortColumn(String sortColumn) {
@@ -360,7 +370,7 @@ public class AuditorManagedBean implements Serializable {
 	    updateCaIdToNameMap();
 		try {
 	        final AuthenticationToken authenticationToken = EjbcaJSFHelper.getBean().getEjbcaWebBean().getAdminObject();
-	        results = AuditorQueryHelper.getResults(authenticationToken, columnNameMap.keySet(), device, getConditions(), sortColumn, sortOrder, startIndex-1, maxResults);
+	        results = getResults(authenticationToken, columnNameMap.keySet(), device, getConditions(), sortColumn, sortOrder, startIndex-1, maxResults);
 		} catch (Exception e) {
 		    if (results!=null) {
 	            results.clear();
@@ -372,6 +382,84 @@ public class AuditorManagedBean implements Serializable {
 		}
 		renderNext = results!=null && !results.isEmpty() && results.size()==maxResults;
 	}
+	
+    /**
+     * Build and executing audit log queries that are safe from SQL injection.
+     * 
+     * @param token the requesting entity. Will also limit the results to authorized CAs. 
+     * @param validColumns a Set of legal column names
+     * @param device the name of the audit log device
+     * @param conditions the list of conditions to transform into a query
+     * @param sortColumn ORDER BY column
+     * @param sortOrder true=ASC, false=DESC order
+     * @param firstResult first entry from the result set. Index starts with 0.
+     * @param maxResults number of results to return
+     * @return the query result
+     * @throws AuthorizationDeniedException if the administrator is not authorized to perform the requested query
+     */
+    private List<? extends AuditLogEntry> getResults(final AuthenticationToken token, final Set<String> validColumns, final String device,
+            final List<AuditSearchCondition> conditions, final String sortColumn, final boolean sortOrder, final int firstResult, final int maxResults)
+            throws AuthorizationDeniedException {
+        final List<Object> parameters = new ArrayList<Object>();
+        final StringBuilder whereClause = new StringBuilder();
+        final String errorMessage = "This should never happen unless you are intentionally trying to perform an SQL injection attack.";
+        for (int i=0; i<conditions.size(); i++) {
+            final AuditSearchCondition condition = conditions.get(i);
+            if (i>0) {
+                switch (condition.getOperation()) {
+                case AND:
+                    whereClause.append(" AND "); break;
+                case OR:
+                    whereClause.append(" OR "); break;
+                }
+            }
+            // Validate that the column we are adding to the SQL WHERE clause is exactly one of the legal column names
+            if (!validColumns.contains(condition.getColumn())) {
+                throw new IllegalArgumentException(errorMessage);
+            }
+            Object conditionValue = condition.getValue();
+            if (AuditLogEntry.FIELD_TIMESTAMP.equals(condition.getColumn())) {
+                try {
+                    conditionValue = Long.valueOf(ValidityDate.parseAsIso8601(conditionValue.toString()).getTime());
+                } catch (ParseException e) {
+                    log.debug("Admin entered invalid date for audit log search: " + condition.getValue());
+                    continue;
+                }
+            }
+            switch (Condition.valueOf(condition.getCondition())) {
+            case EQUALS:
+                whereClause.append("a.").append(condition.getColumn()).append(" = ?").append(i); break;
+            case NOT_EQUALS:
+                whereClause.append("a.").append(condition.getColumn()).append(" != ?").append(i); break;
+            case CONTAINS:
+                whereClause.append("a.").append(condition.getColumn()).append(" LIKE ?").append(i);
+                conditionValue = "%" + conditionValue + "%";
+                break;
+            case ENDS_WITH:
+                whereClause.append("a.").append(condition.getColumn()).append(" LIKE ?").append(i);
+                conditionValue = "%" + conditionValue;
+                break;
+            case STARTS_WITH:
+                whereClause.append("a.").append(condition.getColumn()).append(" LIKE ?").append(i);
+                conditionValue = conditionValue + "%";
+                break;
+            case GREATER_THAN:
+                whereClause.append("a.").append(condition.getColumn()).append(" > ?").append(i); break;
+            case LESS_THAN:
+                whereClause.append("a.").append(condition.getColumn()).append(" < ?").append(i); break;
+            default:
+                throw new IllegalArgumentException(errorMessage);    
+            }
+            // The condition value will be added to the query using JPA's setParameter (safe from SQL injection)
+            parameters.add(conditionValue);
+        }
+        // Validate that the column we are adding to the SQL ORDER clause is exactly one of the legal column names
+        if (!validColumns.contains(sortColumn)) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+        final String orderClause = new StringBuilder("a.").append(sortColumn).append(sortOrder?" ASC":" DESC").toString();
+        return new EjbLocalHelper().getEjbcaAuditorSession().selectAuditLog(token, device, firstResult, maxResults, whereClause.toString(), orderClause, parameters);
+    }
 	
 	public Map<Object, String> getCaIdToName() {
 		return caIdToNameMap;
@@ -548,7 +636,8 @@ public class AuditorManagedBean implements Serializable {
 
     public void downloadResults() {
         try {
-            downloadResults(exportToByteArray(), "text/xml", "export-"+results.get(0).getTimeStamp()+".xml"); // "application/force-download" is an alternative here..
+            // text/xml doesn't work since it gets filtered and all non-ASCII bytes get encoded as entities as if they were Latin-1 (ECA-5831)
+            downloadResults(exportToByteArray(), "application/octet-stream", "export-"+results.get(0).getTimeStamp()+".xml"); // "application/force-download" is an alternative here..
         } catch (IOException e) {
             log.info("Administration tried to export audit log, but failed. " + e.getMessage());
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(e.getMessage()));
@@ -616,7 +705,9 @@ public class AuditorManagedBean implements Serializable {
         auditExporter.writeField(AuditLogEntry.FIELD_CUSTOM_ID, auditRecordData.getCustomId());
         auditExporter.writeField(AuditLogEntry.FIELD_SEARCHABLE_DETAIL1, auditRecordData.getSearchDetail1());
         auditExporter.writeField(AuditLogEntry.FIELD_SEARCHABLE_DETAIL2, auditRecordData.getSearchDetail2());
-        auditExporter.writeField(AuditLogEntry.FIELD_ADDITIONAL_DETAILS, auditRecordData.getAdditionalDetails());
+        final Map<String,Object> additionalDetails = XmlSerializer.decode(auditRecordData.getAdditionalDetails());
+        final String additionalDetailsEncoded = XmlSerializer.encodeWithoutBase64(additionalDetails);
+        auditExporter.writeField(AuditLogEntry.FIELD_ADDITIONAL_DETAILS, additionalDetailsEncoded);
         auditExporter.writeField("rowProtection", auditRecordData.getRowProtection());
         auditExporter.writeEndObject();
     }

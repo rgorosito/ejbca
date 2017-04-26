@@ -134,7 +134,7 @@ public interface CaSessionLocal extends CaSession {
      * @throws AuthorizationDeniedException
      */
     void editCA(final AuthenticationToken admin, final CA ca, boolean auditlog) throws CADoesntExistsException, AuthorizationDeniedException;
-    
+
     /**
      * Verify that a CA exists.
      * 

@@ -13,12 +13,16 @@
 package org.cesecore.roles.member;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
+import org.cesecore.authentication.AuthenticationFailedException;
+import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.jndi.JndiConstants;
 
@@ -37,9 +41,7 @@ public class RoleMemberDataProxySessionBean implements RoleMemberDataProxySessio
 
     @Override
     public int createOrEdit(RoleMember roleMember) {
-        return roleMemberDataSession.createOrEdit(new RoleMemberData(roleMember.getId(), roleMember.getTokenType(), roleMember.getTokenIssuerId(),
-                roleMember.getTokenMatchKey(), roleMember.getTokenMatchOperator(), roleMember.getTokenMatchValue(),
-                roleMember.getRoleId(), roleMember.getMemberBindingType(), roleMember.getMemberBindingValue()));
+        return roleMemberDataSession.persistRoleMember(roleMember).getId();
     }
 
     @Override
@@ -48,8 +50,8 @@ public class RoleMemberDataProxySessionBean implements RoleMemberDataProxySessio
     }
 
     @Override
-    public int createOrEdit(RoleMemberData roleMember) {
-        return roleMemberDataSession.createOrEdit(roleMember);
+    public int createOrEdit(RoleMemberData roleMemberData) {
+        return roleMemberDataSession.persistRoleMember(roleMemberData.asValueObject()).getId();
     }
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -68,5 +70,18 @@ public class RoleMemberDataProxySessionBean implements RoleMemberDataProxySessio
     @Override
     public boolean isNewAuthorizationPatternMarkerPresent() {
         return accessTreeUpdateSession.isNewAuthorizationPatternMarkerPresent();
+    }
+    
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public Set<Integer> getRoleIdsMatchingAuthenticationTokenOrFail(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
+        return roleMemberDataSession.getRoleIdsMatchingAuthenticationTokenOrFail(authenticationToken);
+    }
+    
+    @SuppressWarnings("deprecation")
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public Map<Integer,Integer> getRoleIdsAndTokenMatchKeysMatchingAuthenticationToken(final AuthenticationToken authenticationToken) throws AuthenticationFailedException {
+        return roleMemberDataSession.getRoleIdsAndTokenMatchKeysMatchingAuthenticationToken(authenticationToken);
     }
 }

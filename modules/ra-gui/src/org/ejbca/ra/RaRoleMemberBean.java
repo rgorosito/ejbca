@@ -13,6 +13,7 @@
 package org.ejbca.ra;
 
 import java.io.Serializable;
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,8 +26,10 @@ import javax.faces.bean.ManagedProperty;
 import javax.faces.bean.ViewScoped;
 import javax.faces.model.SelectItem;
 
+import org.apache.commons.lang.SerializationUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.roles.Role;
@@ -78,24 +81,26 @@ public class RaRoleMemberBean implements Serializable {
     private int roleId;
     private String tokenType;
     private int caId;
-    private Integer matchType;
+    private Integer matchKey;
     private String matchValue;
+    private String description;
     
     public void initialize() throws AuthorizationDeniedException {
         if (tokenType != null && tokenTypeInfos != null) {
-            // Don't re-initialize
+            // Don't re-initialize, that would overwrite the fields (tokenType, etc.)
             return;
         }
         
-        tokenTypeInfos = raMasterApiProxyBean.getAuthorizedRoleMemberTokenTypes(raAuthenticationBean.getAuthenticationToken());
+        tokenTypeInfos = raMasterApiProxyBean.getAvailableRoleMemberTokenTypes(raAuthenticationBean.getAuthenticationToken());
         
         if (roleMemberId != null) {
             roleMember = raMasterApiProxyBean.getRoleMember(raAuthenticationBean.getAuthenticationToken(), roleMemberId);
             roleId = roleMember.getRoleId();
             tokenType = roleMember.getTokenType();
             caId = roleMember.getTokenIssuerId();
-            matchType = roleMember.getTokenMatchKey();
+            matchKey = roleMember.getTokenMatchKey();
             matchValue = roleMember.getTokenMatchValue();
+            description = roleMember.getDescription();
             if (roleId != RoleMember.NO_ROLE) {
                 role = raMasterApiProxyBean.getRole(raAuthenticationBean.getAuthenticationToken(), roleId);
                 if (role == null) {
@@ -103,29 +108,22 @@ public class RaRoleMemberBean implements Serializable {
                 }
             }
         } else {
-            roleMember = new RoleMember(RoleMember.ROLE_MEMBER_ID_UNASSIGNED, "", RoleMember.NO_ISSUER, 0, 0, "", 0, "", "");
+            roleMember = new RoleMember("", RoleMember.NO_ISSUER, 0, 0, "", 0, "");
             // Default values
             if (StringUtils.isEmpty(tokenType)) {
                 tokenType = "CertificateAuthenticationToken";
             }
             
-            if (matchType == null) {
-                final RaRoleMemberTokenTypeInfo tokenTypeInfo = getTokenTypeInfos().get(tokenType);
+            if (matchKey == null) {
+                final RaRoleMemberTokenTypeInfo tokenTypeInfo = tokenTypeInfos.get(tokenType);
                 if (tokenTypeInfo != null) {
-                    matchType = tokenTypeInfo.getMatchKeysMap().get(tokenTypeInfo.getDefaultMatchKey());
+                    matchKey = tokenTypeInfo.getMatchKeysMap().get(tokenTypeInfo.getDefaultMatchKey());
                 } else {
                     log.debug("Missing information about token type " + tokenType);
-                    matchType = 0;
+                    matchKey = 0;
                 }
             }
         }
-    }
-    
-    private Map<String,RaRoleMemberTokenTypeInfo> getTokenTypeInfos() {
-        if (tokenTypeInfos != null) {
-            tokenTypeInfos = raMasterApiProxyBean.getAuthorizedRoleMemberTokenTypes(raAuthenticationBean.getAuthenticationToken());
-        }
-        return tokenTypeInfos;
     }
     
     
@@ -166,12 +164,12 @@ public class RaRoleMemberBean implements Serializable {
         this.caId = caId;
     }
 
-    public int getMatchType() {
-        return matchType;
+    public int getMatchKey() {
+        return matchKey;
     }
 
-    public void setMatchType(final int matchType) {
-        this.matchType = matchType;
+    public void setMatchKey(final int matchKey) {
+        this.matchKey = matchKey;
     }
 
     public String getMatchValue() {
@@ -182,19 +180,28 @@ public class RaRoleMemberBean implements Serializable {
         this.matchValue = matchValue;
     }
     
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description.trim();
+    }
 
     public List<SelectItem> getAvailableRoles() {
         if (availableRoles == null) {
             availableRoles = new ArrayList<>();
             final List<Role> roles = new ArrayList<>(raMasterApiProxyBean.getAuthorizedRoles(raAuthenticationBean.getAuthenticationToken()));
-            Collections.sort(roles, new Comparator<Role>() {
-                @Override
-                public int compare(final Role role1, final Role role2) {
-                    return role1.getRoleName().compareTo(role2.getRoleName());
-                }
-            });
+            Collections.sort(roles);
+            boolean hasNamespaces = false;
             for (final Role role : roles) {
-                availableRoles.add(new SelectItem(role.getRoleId(), role.getRoleName()));
+                if (!StringUtils.isEmpty(role.getNameSpace())) {
+                    hasNamespaces = true;
+                }
+            }
+            for (final Role role : roles) {
+                final String name = hasNamespaces ? role.getRoleNameFull() : role.getRoleName();
+                availableRoles.add(new SelectItem(role.getRoleId(), name));
             }
         }
         return availableRoles;
@@ -202,7 +209,7 @@ public class RaRoleMemberBean implements Serializable {
 
     public List<SelectItem> getAvailableTokenTypes() {
         if (availableTokenTypes == null) {
-            final List<String> tokenTypes = new ArrayList<>(getTokenTypeInfos().keySet());
+            final List<String> tokenTypes = new ArrayList<>(tokenTypeInfos.keySet());
             Collections.sort(tokenTypes);
             availableTokenTypes = new ArrayList<>();
             for (final String tokenType : tokenTypes) {
@@ -229,16 +236,17 @@ public class RaRoleMemberBean implements Serializable {
         return availableCAs;
     }
 
-    public List<SelectItem> getAvailableMatchTypes() {
-        final RaRoleMemberTokenTypeInfo tokenTypeInfo = getTokenTypeInfos().get(tokenType);
+    public List<SelectItem> getAvailableMatchKeys() {
+        final RaRoleMemberTokenTypeInfo tokenTypeInfo = tokenTypeInfos.get(tokenType);
         final List<SelectItem> result = new ArrayList<>();
         if (tokenTypeInfo != null) {
-            // TODO should not be sorted, or should be sorted by numeric value
             final List<String> namesSorted = new ArrayList<>(tokenTypeInfo.getMatchKeysMap().keySet());
-            Collections.sort(namesSorted);
+            Collator coll = Collator.getInstance();
+            coll.setStrength(Collator.PRIMARY);
+            Collections.sort(namesSorted, coll);
             for (final String name : namesSorted) {
-                if ("CertificateAuthenticationToken".equals(tokenType) && "NONE".equals(name) &&
-                        !matchType.equals(tokenType)) {
+                if (X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE.equals(tokenType) && "NONE".equals(name) &&
+                        !matchKey.equals(tokenType)) {
                     continue; // deprecated value
                 }
                 result.add(new SelectItem(tokenTypeInfo.getMatchKeysMap().get(name), raLocaleBean.getMessage("role_member_matchkey_" + tokenType + "_" + name)));
@@ -248,8 +256,13 @@ public class RaRoleMemberBean implements Serializable {
     }
     
     public boolean isTokenTypeIssuedByCA() {
-        final RaRoleMemberTokenTypeInfo tokenTypeInfo = getTokenTypeInfos().get(tokenType);
+        final RaRoleMemberTokenTypeInfo tokenTypeInfo = tokenTypeInfos.get(tokenType);
         return tokenTypeInfo == null || tokenTypeInfo.isIssuedByCA();
+    }
+    
+    public boolean getTokenTypeHasMatchValue() {
+        final RaRoleMemberTokenTypeInfo tokenTypeInfo = tokenTypeInfos.get(tokenType);
+        return tokenTypeInfo.getHasMatchValue();
     }
 
     public String getEditPageTitle() {
@@ -261,42 +274,48 @@ public class RaRoleMemberBean implements Serializable {
     }
     
     /** Called when the token type is changed. Does nothing */
-    public String update() {
-        return "";
+    public void update() {
     }
     
     public String save() throws AuthorizationDeniedException {
-        final RaRoleMemberTokenTypeInfo tokenTypeInfo = getTokenTypeInfos().get(tokenType);
-        if (tokenTypeInfo.isIssuedByCA()) {
+        final RaRoleMemberTokenTypeInfo tokenTypeInfo = tokenTypeInfos.get(tokenType);
+        if (!tokenTypeInfo.isIssuedByCA()) {
             caId = RoleMember.NO_ISSUER;
         }
         
-        roleMember.setRoleId(roleId);
-        roleMember.setTokenType(tokenType);
-        roleMember.setTokenIssuerId(caId);
-        roleMember.setTokenMatchKey(matchType);
-        roleMember.setTokenMatchValue(matchValue);
+        // The getRoleMember method returns a reference to an object which should not be edited directly,
+        // so we make a deep copy of it here, which we can edit freely. This code is not performance critical,
+        // so cloning through serialization is OK (and does not require a copy constructor that needs to be maintained).
+        final RoleMember roleMemberWithChanges = (RoleMember) SerializationUtils.clone(roleMember);
+        roleMemberWithChanges.setRoleId(roleId);
+        roleMemberWithChanges.setTokenType(tokenType);
+        roleMemberWithChanges.setTokenIssuerId(caId);
+        roleMemberWithChanges.setTokenMatchKey(matchKey);
+        roleMemberWithChanges.setTokenMatchOperator(tokenTypeInfo.getMatchOperator());
+        roleMemberWithChanges.setTokenMatchValue(getTokenTypeHasMatchValue() ? matchValue : "");
+        roleMemberWithChanges.setDescription(description);
         
-        roleMember = raMasterApiProxyBean.saveRoleMember(raAuthenticationBean.getAuthenticationToken(), roleMember);
-        if (roleMember == null) {
+        final RoleMember savedRoleMember = raMasterApiProxyBean.saveRoleMember(raAuthenticationBean.getAuthenticationToken(), roleMemberWithChanges);
+        if (savedRoleMember == null) {
             if (log.isDebugEnabled()) {
                 log.debug("The role member could not be saved. Role member ID: " + roleMemberId + ". Role ID: " + roleId + ". Match value: '" + matchValue + "'");
             }
             raLocaleBean.addMessageError("role_member_page_error_generic");
             return "";
         }
+        roleMember = savedRoleMember;
         roleMemberId = roleMember.getId();
         
         // If the active filter does not include the newly added role member, then change the filter to show it
-        if (raRoleMembersBean.getCriteriaCaId() != null && raRoleMembersBean.getCriteriaCaId() != roleMember.getTokenIssuerId()) {
+        if (raRoleMembersBean.getCriteriaCaId() != null && raRoleMembersBean.getCriteriaCaId().intValue() != roleMember.getTokenIssuerId()) {
             raRoleMembersBean.setCriteriaCaId(caId != RoleMember.NO_ISSUER ? caId : null);
         }
         
-        if (raRoleMembersBean.getCriteriaTokenType() != null && raRoleMembersBean.getCriteriaTokenType() != roleMember.getTokenType()) {
+        if (raRoleMembersBean.getCriteriaTokenType() != null && !raRoleMembersBean.getCriteriaTokenType().equals(roleMember.getTokenType())) {
             raRoleMembersBean.setCriteriaTokenType(tokenType);
         }
         
-        if (raRoleMembersBean.getCriteriaRoleId() != null && raRoleMembersBean.getCriteriaRoleId() != roleMember.getRoleId()) {
+        if (raRoleMembersBean.getCriteriaRoleId() != null && raRoleMembersBean.getCriteriaRoleId().intValue() != roleMember.getRoleId()) {
             raRoleMembersBean.setCriteriaRoleId(roleId);
         }
         

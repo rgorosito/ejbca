@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.PostConstruct;
 import javax.ejb.EJB;
@@ -79,6 +80,7 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
     private String matchWithSelected = X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE + ":" + X500PrincipalAccessMatchValue.WITH_SERIALNUMBER.getNumericValue();
     private Integer tokenIssuerId;
     private String tokenMatchValue = "";
+    private String description = "";
 
     private ListDataModel<RoleMember> roleMembers = null;
     private RoleMember roleMemberToDelete = null;
@@ -98,7 +100,7 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
     public boolean isAuthorizedToEditRole() {
         try {
             if (authorizationSession.isAuthorizedNoLogging(getAdmin(), StandardRules.EDITROLES.resource()) && getRole()!=null) {
-                roleSession.assertAuthorizedToEditRoleMembers(getAdmin(), getRole().getRoleId());
+                roleSession.assertAuthorizedToRoleMembers(getAdmin(), getRole().getRoleId(), true);
                 return true;
             }
         } catch (AuthorizationDeniedException e) {
@@ -214,8 +216,17 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
         if (tokenIssuerId==RoleMember.NO_ISSUER) {
             return "-";
         }
-        final Map<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
-        return caIdToNameMap.get(tokenIssuerId);
+        if (getAccessMatchValue(roleMember.getTokenType(), roleMember.getTokenMatchKey()).isIssuedByCa()) {
+            final Map<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
+            final String caName = caIdToNameMap.get(tokenIssuerId);
+            if (caName==null) {
+                return super.getEjbcaWebBean().getText("UNKNOWNCAID") + " " + tokenIssuerId;
+            } else {
+                return caName;
+            }
+        } else {
+            return String.valueOf(tokenIssuerId);
+        }
     }
 
     /** @return a human readable version of the RoleMember's tokenMatchOperator */
@@ -253,6 +264,11 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
         return metaData.getAccessMatchValueIdMap().get(tokenMatchKey);
     }
 
+    /** @return the current human readable description */
+    public String getDescription() { return description; }
+    /** Set the current human readable description */
+    public void setDescription(final String description) { this.description = description.trim(); }
+
     /** Invoked by the admin when adding a new RoleMember. */
     public void actionAddRoleMember() {
         try {
@@ -277,8 +293,13 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
             }
             // Validate that the tokenMatchValue contains no illegal characters
             // (Check this here instead of using an f:validator validatorId="legalCharsValidator" since we might need to do PRG later)
-            if (StringTools.hasSqlStripChars(tokenMatchValue)) {
-                super.addGlobalMessage(FacesMessage.SEVERITY_ERROR, "INVALIDCHARS");
+            Set<String> invalidCharacters = StringTools.hasSqlStripChars(tokenMatchValue);
+            if (!invalidCharacters.isEmpty()) {
+                StringBuilder sb = new StringBuilder("");
+                for (String error : invalidCharacters) {
+                    sb.append(", " + error);
+                }
+                super.addGlobalMessage(FacesMessage.SEVERITY_ERROR, "INVALIDCHARS", sb.substring(2) );
                 return;
             }
             // If the tokenMatchValue should be a hex number, validate that it is
@@ -297,12 +318,9 @@ public class RoleMembersBean extends BaseManagedBean implements Serializable {
             } else {
                 tokenIssuerId = RoleMember.NO_ISSUER;
             }
-            // Placeholders for meta data about each role member
-            final String memberBindingType = null;
-            final String memberBindingValue = null;
             try {
-                roleMemberSession.createOrEdit(getAdmin(), new RoleMember(RoleMember.ROLE_MEMBER_ID_UNASSIGNED, tokenType, tokenIssuerId, tokenMatchKey,
-                        accessMatchType.getNumericValue(), tokenMatchValue, role.getRoleId(), memberBindingType, memberBindingValue));
+                roleMemberSession.persist(getAdmin(), new RoleMember(tokenType, tokenIssuerId, tokenMatchKey,
+                        accessMatchType.getNumericValue(), tokenMatchValue, role.getRoleId(), description));
             } catch (AuthorizationDeniedException e) {
                 super.addGlobalMessage(FacesMessage.SEVERITY_ERROR, "AUTHORIZATIONDENIED");
             }

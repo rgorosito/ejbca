@@ -28,6 +28,7 @@ import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.member.RoleMember;
 import org.ejbca.core.EjbcaException;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.ApprovalException;
 import org.ejbca.core.model.approval.ApprovalRequestExecutionException;
@@ -35,6 +36,8 @@ import org.ejbca.core.model.approval.ApprovalRequestExpiredException;
 import org.ejbca.core.model.approval.SelfApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
+import org.ejbca.core.model.ca.AuthLoginException;
+import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 
 /**
@@ -56,15 +59,49 @@ public interface RaMasterApi {
     boolean isBackendAvailable();
     
     /**
+     * Get the current (lowest) back-end API version.
+     * 
+     * Note that this will not lead to a request over network since peers (if any) will report their API version when
+     * connecting and this will return the cached and current number.
+     * 
      * @return the current (lowest) back-end API version
-     * @since Master RA API version 1 (EJBCA 6.8.0)
+     * @since RA Master API version 1 (EJBCA 6.8.0)
      */
     int getApiVersion();
 
-    /** Returns an AccessSet containing the access rules that are allowed for the given authentication token. */
+    /**
+     * The AuthenticationToken is preliminary authorized to a resource if it is either
+     * 1. authorized by the local system
+     * 2. authorized by the remote system(s)
+     * 
+     * The local authorization system is always checked first and authorization is cached separately for local and remote system.
+     * Since actual authorization check is performed during API call, a local override can never harm the remote system.
+     * 
+     * @return true if the authenticationToken is authorized to all the resources
+     */
+    boolean isAuthorizedNoLogging(AuthenticationToken authenticationToken, String...resources);
+
+    /**
+     * @return the access rules and corresponding authorization system update number for the specified AuthenticationToken.
+     * @throws AuthenticationFailedException if the provided authenticationToken is invalid
+     * @since RA Master API version 1 (EJBCA 6.8.0)
+     */
+    RaAuthorizationResult getAuthorization(AuthenticationToken authenticationToken) throws AuthenticationFailedException;
+
+    /**
+     * Returns an AccessSet containing the access rules that are allowed for the given authentication token.
+     * Note that AccessSets do not support deny rules.
+     * @deprecated RA Master API version 1 (EJBCA 6.8.0). Use {@link #getAuthorization(AuthenticationToken)} instead.
+     */
+    @Deprecated
     AccessSet getUserAccessSet(AuthenticationToken authenticationToken) throws AuthenticationFailedException;
-    
-    /** Gets multiple access sets at once. Returns them in the same order as in the parameter */
+
+    /**
+     * Gets multiple access sets at once. Returns them in the same order as in the parameter.
+     * Note that AccessSets do not support deny rules.
+     * @deprecated RA Master API version 1 (EJBCA 6.8.0). Use {@link #getAuthorization(AuthenticationToken)} instead.
+     */
+    @Deprecated
     List<AccessSet> getUserAccessSets(List<AuthenticationToken> authenticationTokens);
 
     /** @return a list with information about non-external CAs that the caller is authorized to see. */
@@ -94,7 +131,7 @@ public interface RaMasterApi {
      * @return a list of token types and their match keys, which the caller is authorized to. Only user-configurable token types are returned.
      * @since Master RA API version 1 (EJBCA 6.8.0)
      */
-    Map<String,RaRoleMemberTokenTypeInfo> getAuthorizedRoleMemberTokenTypes(AuthenticationToken authenticationToken);
+    Map<String,RaRoleMemberTokenTypeInfo> getAvailableRoleMemberTokenTypes(AuthenticationToken authenticationToken);
     
     
     /**
@@ -111,7 +148,11 @@ public interface RaMasterApi {
 
     /**
      * Deletes a role.
+     * @param authenticationToken Administrator
+     * @param roleId ID of role to delete.
      * @return true if the role was found and was deleted, and false if it didn't exist.
+     * @throws AuthorizationDeniedException If unauthorized, or if trying to delete a role that the requesting admin belongs to itself.
+     * @since Master RA API version 1 (EJBCA 6.8.0)
      */
     boolean deleteRole(AuthenticationToken authenticationToken, int roleId) throws AuthorizationDeniedException;
     
@@ -135,7 +176,12 @@ public interface RaMasterApi {
     
     /**
      * Removes a role member from a role.
+     * @param authenticationToken Administrator
+     * @param roleId ID of role (used as a safety check to prevent ID collisions).
+     * @param roleMemberId ID of role member to delete.
      * @return true if the role member was found and was deleted, and false if it didn't exist.
+     * @throws AuthorizationDeniedException If not authorized to edit the given role
+     * @since Master RA API version 1 (EJBCA 6.8.0)
      */
     boolean deleteRoleMember(AuthenticationToken authenticationToken, int roleId, int roleMemberId) throws AuthorizationDeniedException;
     
@@ -227,6 +273,9 @@ public interface RaMasterApi {
     /** @return map of authorized certificate profiles for the provided authentication token*/
     IdNameHashMap<CertificateProfile> getAuthorizedCertificateProfiles(AuthenticationToken authenticationToken);
     
+    /** @return CertificateProfile with the specified Id or null if it can not be found */
+    CertificateProfile getCertificateProfile(int id);
+    
     /**
      * Adds (end entity) user.
      * @param admin authentication token
@@ -316,7 +365,7 @@ public interface RaMasterApi {
     /**
      * Gets approval profile for specified action.
      * @param authenticationToken auth. token to be checked if it has access to the specified caInfo and certificateProfile
-     * @param action. Check CAInfo.AVAILABLE_APPROVALSETTINGS for valid values.
+     * @param action Check CAInfo.AVAILABLE_APPROVALSETTINGS for valid values.
      * @param caId id of specified CA
      * @param certificateProfileId id of specified certificate profile
      * @return approval profile if it is required for specified caInfo and certificateProfile, null if it is not
@@ -332,4 +381,6 @@ public interface RaMasterApi {
      * @throws EjbcaException exception with errorCode if check fails
      */
     void checkSubjectDn(AuthenticationToken admin, EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException;
+
+    void checkUserStatus(AuthenticationToken authenticationToken, String username, String password) throws NoSuchEndEntityException, AuthStatusException, AuthLoginException;
 }

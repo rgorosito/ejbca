@@ -20,13 +20,20 @@ Log4j.jar is from apache, License is Apache.
 The file is used for logging throughout EJBCA.
 Version is 1.2.16.
 
+The following jars are from the Apache Http Components project, using the Apache license:
+httpclient-4.3.6.jar
+httpcore-4.3.3.jar
+httpmime-4.5.3.jar
+
 bc-x jars are BouncyCastle (http://www.bouncycastle.org), License is BC (BSD like).
 These jars are the cryptographic foundation in EJBCA.
 
 Ldap.jar is from OpenLDAP and used for publishing in LDAP directories, current version is from 2009-10-07.
 OpenLDAP Public License, http://www.openldap.org/software/release/license.html
  
-cert-cvc-1.4.5.jar is a library for handling Card Verifiable Certificates, built from the sub project cert-cvc of EJBCA, 
+cert-cvc-1.4.6.jar is a library for handling Card Verifiable Certificates, built from the sub project cert-cvc of EJBCA, 
 originally developed by Keijo Kurkinen, and contributed to EJBCA. License is LGPL.
 
 libidn.jar: version 0.6.9, http://www.gnu.org/software/libidn/, java library is LGPL.
+
+nimbus-jose-jwt-4.36.1.jar, from https://connect2id.com/products/nimbus-jose-jwt/download. Using Apache License. 

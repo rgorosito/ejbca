@@ -73,7 +73,7 @@ public class EnrollWithRequestIdBean implements Serializable {
     }
 
     @ManagedProperty(value = "#{raLocaleBean}")
-    private RaLocaleBean raLocaleBean;
+    protected RaLocaleBean raLocaleBean;
 
     public void setRaLocaleBean(final RaLocaleBean raLocaleBean) {
         this.raLocaleBean = raLocaleBean;
@@ -83,12 +83,11 @@ public class EnrollWithRequestIdBean implements Serializable {
     private int requestStatus;
     private EndEntityInformation endEntityInformation;
     private byte[] generatedToken;
-    private String password;
     private IdNameHashMap<CAInfo> authorizedCAInfos;
     private IdNameHashMap<EndEntityProfile> authorizedEndEntityProfiles = new IdNameHashMap<EndEntityProfile>();
 
     @PostConstruct
-    private void postConstruct() {
+    protected void postConstruct() {
         HttpServletRequest httpServletRequest = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
         this.authorizedEndEntityProfiles = raMasterApiProxyBean.getAuthorizedEndEntityProfiles(raAuthenticationBean.getAuthenticationToken(), AccessRulesConstants.CREATE_END_ENTITY);
         requestId = httpServletRequest.getParameter(EnrollMakeNewRequestBean.PARAM_REQUESTID);
@@ -212,13 +211,7 @@ public class EnrollWithRequestIdBean implements Serializable {
         reset();
     }
     
-    private final void generateCertificate(){
-        byte[] certificateRequest = endEntityInformation.getExtendedinformation().getCertificateRequest();
-        if (certificateRequest == null) {
-            raLocaleBean.addMessageError("enrollwithrequestid_could_not_find_csr_inside_enrollment_request_with_request_id", requestId);
-            log.info("Could not find CSR inside enrollment request with ID " + requestId);
-            return;
-        }
+    protected final void generateCertificateAfterCheck(){
         try {
             generatedToken = raMasterApiProxyBean.createCertificate(raAuthenticationBean.getAuthenticationToken(), endEntityInformation);
             log.info(endEntityInformation.getTokenType() + " token has been generated for the end entity with username " +
@@ -242,6 +235,16 @@ public class EnrollWithRequestIdBean implements Serializable {
             }
         }
     }
+
+    protected void generateCertificate() {
+        byte[] certificateRequest = endEntityInformation.getExtendedinformation().getCertificateRequest();
+        if (certificateRequest == null) {
+            raLocaleBean.addMessageError("enrollwithrequestid_could_not_find_csr_inside_enrollment_request_with_request_id", requestId);
+            log.info("Could not find CSR inside enrollment request with ID " + requestId);
+            return;
+        }
+        generateCertificateAfterCheck();
+    }
     
     public void generateKeyStoreJks() {
         endEntityInformation.setTokenType(EndEntityConstants.TOKEN_SOFT_JKS);
@@ -264,7 +267,7 @@ public class EnrollWithRequestIdBean implements Serializable {
         reset();
     }
     
-    private final void generateKeyStore(){
+    protected void generateKeyStore(){
         try {
             byte[] keystoreAsByteArray = raMasterApiProxyBean.generateKeyStore(raAuthenticationBean.getAuthenticationToken(), endEntityInformation);
             log.info(endEntityInformation.getTokenType() + " token has been generated for the end entity with username " +
@@ -422,19 +425,4 @@ public class EnrollWithRequestIdBean implements Serializable {
         this.generatedToken = generatedToken;
     }
 
-    /**
-     * @return the password
-     */
-    public String getPassword() {
-        return password;
-    }
-
-    /**
-     * @param password the password to set
-     */
-    public void setPassword(String password) {
-        this.password = password;
-    }
-    
-    
 }

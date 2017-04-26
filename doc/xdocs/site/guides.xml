@@ -501,6 +501,7 @@ Router#debug crypto pki validation
   This example was created on Ubuntu 64-bit Server 7.10 using the Apache Web Server 2.2 package,
   but should be easy to adapt to any system able to run Apache.
   </p>
+  <p>In order to support OCSP GET requests through the proxy in recent version of Apache (2.4) you may need to activate, mod_lbmethod_byrequests. You may also need to use the 'nocanon' directory to ProxyPass in order to correctly-forward encoded slash characters(/).</p>
   <p>
   Start by installing EJBCA as normal. If you intend to have the CA on the same machine as
   the proxy you should modify $EJBCA_HOME/conf/web.properties to only listen to localhost
@@ -759,6 +760,7 @@ JkWorkersFile /etc/libapache2-mod-jk/workers.properties
   </section>
 
   <section name="Setting up a HA Proxy in front of EJBCA">
+  <subsection name="OCSP URL rewriting">
     <p>
       Scenario: redirect "http://ocsp.website.com" -> "http://1.2.3.4:80/ejbca/publicweb/status/ocsp"
     </p>
@@ -778,6 +780,27 @@ backend ocsp_back
         server ejbca 1.2.3.4:80 check
 [...] 
     </source>
+   </subsection>
+   <subsection name="TLS Pass-through">
+   <p>Scenario: Have a proxy in front of Admin UI/WebService but just pass-through the TLS traffic in order to keep mutual authentication 
+   (allowing client certificate authentication to work in EJBCA). To do this you must use tcp mode. Hide 192.168.10.32/33 behind proxy.</p>
+   <source>
+[...]
+frontend ejbca_front
+    bind *:443
+    option tcplog
+    mode tcp
+    default_backend ca_nodes
+    
+backend ca_nodes
+    mode tcp
+    balance roundrobin
+    option ssl-hello-chk
+    server web01 192.168.10.32:8443 check
+    server web02 192.168.10.33:8443 check
+[...]
+   </source>
+   </subsection>
   </section>
 
   <section name="Native Autoenrollment for Windows (Enterprise only)">
@@ -788,6 +811,10 @@ backend ocsp_back
   </section>
   
   <section name="Script based Autoenrollment for Windows clients with EJBCA">
+  <p>
+  Script based Autoenrollment is a legacy way of doing autoenrollment and is kept for legacy reasons. 
+  Native autoenrollment (above) provides a more seamless experience.
+  </p>
   <p>
   This section will show you how to set up automatic certificate enroll of
   machines and users in an Windows environment with EJBCA.
