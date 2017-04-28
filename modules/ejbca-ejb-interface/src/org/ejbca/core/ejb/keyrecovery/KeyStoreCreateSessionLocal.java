@@ -10,23 +10,16 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
- 
-package org.ejbca.core.model.ra;
+package org.ejbca.core.ejb.keyrecovery;
 
-import org.cesecore.NonSensitiveException;
-import org.ejbca.core.EjbcaException;
+import javax.ejb.Local;
 
 /**
- * Wraps the original java.lang.Exception thrown with {@link #KeyStoreCreateSessionBean.generateOrKeyRecoverToken}.
- *
+ * @see KeyStoreCreateSession
  * @version $Id$
+ *
  */
-@NonSensitiveException
-public class KeyStoreGeneralRaException extends EjbcaException {
-    
-    private static final long serialVersionUID = 1L;
+@Local
+public interface KeyStoreCreateSessionLocal extends KeyStoreCreateSession {
 
-    public KeyStoreGeneralRaException(Exception exception){
-        super(exception);
-    }
 }

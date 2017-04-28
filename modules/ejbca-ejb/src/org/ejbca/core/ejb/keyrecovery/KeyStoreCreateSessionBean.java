@@ -11,8 +11,10 @@
  *                                                                       *
  *************************************************************************/
 
-package org.ejbca.core.model.util;
+package org.ejbca.core.ejb.keyrecovery;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
@@ -25,6 +27,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 
+import javax.ejb.EJB;
+import javax.ejb.Stateless;
+import javax.ejb.TransactionAttribute;
+import javax.ejb.TransactionAttributeType;
+
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -32,7 +39,7 @@ import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAOfflineException;
-import org.cesecore.certificates.ca.CaSession;
+import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.ca.IllegalNameException;
 import org.cesecore.certificates.ca.IllegalValidityException;
 import org.cesecore.certificates.ca.InvalidAlgorithmException;
@@ -43,16 +50,15 @@ import org.cesecore.certificates.certificate.exception.CertificateSerialNumberEx
 import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.jndi.JndiConstants;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyPairWrapper;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.keys.util.PublicKeyWrapper;
 import org.cesecore.util.CertTools;
-import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSession;
-import org.ejbca.core.ejb.ca.sign.SignSession;
-import org.ejbca.core.ejb.keyrecovery.KeyRecoverySession;
-import org.ejbca.core.ejb.ra.EndEntityAccessSession;
-import org.ejbca.core.ejb.ra.EndEntityManagementSession;
+import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
+import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
+import org.ejbca.core.ejb.ra.EndEntityAccessSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.CertificateSignatureException;
@@ -61,73 +67,51 @@ import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.core.model.keyrecovery.KeyRecoveryInformation;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 
-/** Class that has helper methods to generate tokens for users in ejbca. 
- * Generating tokens can often depend on the ejb services (local interfaces), for example for key recovery.
+/** 
+ * Implementation of KeyStoreCreateSession
+ * Class that has helper methods to generate tokens for users in ejbca. 
  * 
  * @version $Id$
  */
-public class GenerateToken {
-    private static final Logger log = Logger.getLogger(GenerateToken.class);
 
-	private EndEntityAuthenticationSession authenticationSession;
-	private EndEntityAccessSession endEntityAccessSession;
-	private EndEntityManagementSession endEntityManagementSession;
-	private CaSession caSession;
-	private KeyRecoverySession keyRecoverySession;
-	private SignSession signSession;
-	
-    public GenerateToken(EndEntityAuthenticationSession authenticationSession, EndEntityAccessSession endEntityAccessSession, EndEntityManagementSession endEntityManagementSession, CaSession caSession, KeyRecoverySession keyRecoverySession, SignSession signSession) {
-    	this.authenticationSession = authenticationSession;
-    	this.endEntityAccessSession = endEntityAccessSession;
-    	this.endEntityManagementSession = endEntityManagementSession;
-    	this.caSession = caSession;
-    	this.keyRecoverySession = keyRecoverySession;
-    	this.signSession = signSession;
+@Stateless(mappedName = JndiConstants.APP_JNDI_PREFIX + "KeyStoreCreateSessionRemote")
+@TransactionAttribute(TransactionAttributeType.REQUIRED)
+public class KeyStoreCreateSessionBean implements KeyStoreCreateSessionLocal, KeyStoreCreateSessionRemote {
+    private static final Logger log = Logger.getLogger(KeyStoreCreateSessionBean.class);
+
+    @EJB
+	private EndEntityAuthenticationSessionLocal authenticationSession;
+    @EJB
+    private EndEntityAccessSessionLocal endEntityAccessSession;
+    @EJB
+    private EndEntityManagementSessionLocal endEntityManagementSession;
+    @EJB
+    private CaSessionLocal caSession;
+    @EJB
+    private KeyRecoverySessionLocal keyRecoverySession;
+    @EJB
+    private SignSessionLocal signSession;
+    
+    @Override
+    public byte[] generateOrKeyRecoverTokenAsByteArray(AuthenticationToken administrator, String username, String password, int caid, String keyspec,
+            String keyalg, boolean createJKS, boolean loadkeys, boolean savekeys, boolean reusecertificate, int endEntityProfileId)
+            throws AuthorizationDeniedException, KeyStoreException, InvalidAlgorithmParameterException, CADoesntExistsException, IllegalKeyException,
+            CertificateCreateException, IllegalNameException, CertificateRevokeException, CertificateSerialNumberException,
+            CryptoTokenOfflineException, IllegalValidityException, CAOfflineException, InvalidAlgorithmException,
+            CustomCertificateSerialNumberException, AuthStatusException, AuthLoginException, EndEntityProfileValidationException, NoSuchEndEntityException,
+            CertificateSignatureException, CertificateEncodingException, CertificateException, NoSuchAlgorithmException, InvalidKeySpecException { 
+        
+        KeyStore keyStore = generateOrKeyRecoverToken(administrator,  username,  password,  caid,  keyspec, keyalg,  createJKS,  loadkeys,  savekeys,  reusecertificate,  endEntityProfileId);
+        try(ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            keyStore.store(outputStream, password.toCharArray());
+            return outputStream.toByteArray();
+        } catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException e) {
+            log.error(e); //should never happen if keyStore is valid object
+        }
+        return null;
     }
     
-    /**
-     * This method generates a new pkcs12 or jks token for a user, and key recovers the token, if the user is configured for that in EJBCA.
-     * 
-     * @param administrator administrator performing the action
-     * @param username username in ejbca
-     * @param password password for user
-     * @param caid caid of the CA the user is registered for
-     * @param keyspec name of ECDSA key or length of RSA and DSA keys (endEntityInformation.extendedInformation.keyStoreAlgorithmSubType has priority over this value) 
-     * @param keyalg AlgorithmConstants.KEYALGORITHM_RSA, AlgorithmConstants.KEYALGORITHM_DSA or AlgorithmConstants.KEYALGORITHM_ECDSA (endEntityInformation.extendedInformation.keyStoreAlgorithmType has priority over this value)
-     * @param createJKS true to create a JKS, false to create a PKCS12
-     * @param loadkeys true if keys should be recovered
-     * @param savekeys true if generated keys should be stored for keyrecovery
-     * @param reusecertificate true if the old certificate should be reused for a recovered key
-     * @param endEntityProfileId the end entity profile the user is registered for
-     * 
-     * @return a keystore
-     * 
-     * @throws AuthorizationDeniedException if the authentication token was not allowed access to the EEP or CA of the end entity, to recover keys,
-     * to issue certificates
-     * @throws KeyStoreException if keys were set to be recovered, but no key recovery data was found
-     * @throws InvalidAlgorithmParameterException  if the given parameters (keyspec, keyalg) are inappropriate for this key pair generator.
-     * @throws CADoesntExistsException if the CA defined by caid does not exist
-     * @throws AuthLoginException If the password was incorrect.
-     * @throws AuthStatusException If the end entity's status is incorrect.
-     * @throws CustomCertificateSerialNumberException (no rollback) if custom serial number is registered for user, but it is not allowed to be used (either
-     *             missing unique index in database, or certificate profile does not allow it
-     * @throws InvalidAlgorithmException if the signing algorithm in the certificate profile (or the CA Token if not found) was invalid.
-     * @throws CAOfflineException if the CA was offline
-     * @throws IllegalValidityException if the validity defined by notBefore and notAfter was invalid
-     * @throws CryptoTokenOfflineException if the crypto token for the CA wasn't found 
-     * @throws CertificateSerialNumberException if certificate with same subject DN or key already exists for a user, if these limitations are enabled in CA. 
-     * @throws CertificateRevokeException (rollback) if certificate was meant to be issued revoked, but could not. 
-     * @throws IllegalNameException if the certificate request contained an illegal name 
-     * @throws CertificateCreateException (rollback) if certificate couldn't be created. 
-     * @throws IllegalKeyException if the public key didn't conform to the constrains of the CA's certificate profile. 
-     * @throws NoSuchEndEntityException if the end entity was not found
-     * @throws EndEntityProfileValidationException if the password doesn't fulfill the demands set by the EE profile
-     * @throws CertificateSignatureException if verification of the CA certificate failed
-     * @throws InvalidKeySpecException if the key specification defined in keys couldn't be found
-     * @throws NoSuchAlgorithmException if the algorithm defined in the keys couldn't be found
-     * @throws CertificateException if there was a problem with the certificate
-     * @throws CertificateEncodingException if there was a problem with the certificate
-     */
+    @Override
     public KeyStore generateOrKeyRecoverToken(AuthenticationToken administrator, String username, String password, int caid, String keyspec,
             String keyalg, boolean createJKS, boolean loadkeys, boolean savekeys, boolean reusecertificate, int endEntityProfileId)
             throws AuthorizationDeniedException, KeyStoreException, InvalidAlgorithmParameterException, CADoesntExistsException, IllegalKeyException,
@@ -138,9 +122,13 @@ public class GenerateToken {
         if (log.isTraceEnabled()) {
             log.trace(">generateOrKeyRecoverToken");
         }
+        boolean isNewToken = false;
     	KeyRecoveryInformation keyData = null;
     	KeyPair rsaKeys = null;
     	EndEntityInformation userdata = endEntityAccessSession.findUser(administrator, username);
+    	if (userdata.getStatus() == EndEntityConstants.STATUS_NEW) {
+    	    isNewToken = true;
+    	}
     	if (loadkeys) {
     	    if (log.isDebugEnabled()) {
     	        log.debug("Recovering keys for user: "+ username);
@@ -200,10 +188,13 @@ public class GenerateToken {
     	userdata = endEntityAccessSession.findUser(administrator, username); //Get GENERATED end entity information
         if (userdata.getStatus() == EndEntityConstants.STATUS_GENERATED) {
             // If we have a successful key recovery via EJBCA WS we implicitly want to allow resetting of the password without edit_end_entity rights (ECA-4947)
-            // FIXME: This instanceof can't make any sense...
-            if (loadkeys && endEntityManagementSession instanceof EndEntityManagementSessionLocal) {
+            if (loadkeys) {
                 endEntityManagementSession.setClearTextPassword(new AlwaysAllowLocalAuthenticationToken(
                         new UsernamePrincipal("Implicit authorization from key recovery operation to reset password.")), username, null);
+            } else if (isNewToken) {
+                // If we generate a new token through an enrollment, we don't want to demand access to edit_end_entity
+                endEntityManagementSession.setClearTextPassword(new AlwaysAllowLocalAuthenticationToken(
+                        new UsernamePrincipal("Implicit authorazation from new enrollments")), username, null);
             } else {
                 endEntityManagementSession.setClearTextPassword(administrator, username, null);
             }
