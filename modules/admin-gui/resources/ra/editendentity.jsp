@@ -9,7 +9,7 @@
                  javax.ejb.CreateException, java.io.Serializable, org.cesecore.authorization.AuthorizationDeniedException, org.cesecore.certificates.util.DNFieldExtractor, org.ejbca.core.model.ra.ExtendedInformationFields, org.cesecore.certificates.endentity.EndEntityInformation,
                  org.ejbca.ui.web.admin.hardtokeninterface.HardTokenInterfaceBean, org.ejbca.core.model.hardtoken.HardTokenIssuer,org.ejbca.core.model.hardtoken.HardTokenIssuerInformation,java.math.BigInteger,org.ejbca.core.model.SecConst,org.cesecore.util.StringTools,
                  org.cesecore.certificates.util.DnComponents,org.apache.commons.lang.time.DateUtils,org.cesecore.certificates.endentity.ExtendedInformation,org.cesecore.certificates.crl.RevokedCertInfo,org.cesecore.ErrorCode,org.ejbca.core.model.authorization.AccessRulesConstants,
-                 org.cesecore.certificates.certificate.certextensions.standard.NameConstraint, org.ejbca.util.HTMLTools" %>
+                 org.cesecore.certificates.certificate.certextensions.standard.NameConstraint, org.ejbca.util.HTMLTools, org.cesecore.util.CertTools" %>
 <html> 
 <jsp:useBean id="ejbcawebbean" scope="session" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBean" />
 <jsp:useBean id="rabean" scope="session" class="org.ejbca.ui.web.admin.rainterface.RAInterfaceBean" />
@@ -184,15 +184,13 @@
                             newuser.setClearTextPassword(false);
                         }
                     }
-                    ExtendedInformation ei = newuser.getExtendedInformation();
+                    // Start by filling all old ExtendedInformation from the existing user, if any
+                    // Fields that can be edited are changed below, but we don't want to loose anything
+                    ExtendedInformation ei = userdata.getExtendedInformation();
                     if (ei == null) {
                         ei = new ExtendedInformation();
                     }
                     editendentitybean.setExtendedInformation(ei);
-                    ExtendedInformation userei = userdata.getExtendedInformation();
-                    if (userei != null) {
-                        ei.setRemainingLoginAttempts(userei.getRemainingLoginAttempts());
-                    }
                     value = request.getParameter(RADIO_MAXFAILEDLOGINS);
                     if (RADIO_MAXFAILEDLOGINS_VAL_UNLIMITED.equals(value)) {
                         value = "-1";
@@ -1823,6 +1821,28 @@ function checkUseInBatch(){
       </td>
       <td>&nbsp;</td>
     </tr>
+    <% } %>
+
+    <!-- ---------- CSR -------------------- -->
+    <% if (  userdata.getExtendedInformation() != null
+    	  && userdata.getExtendedInformation().getCertificateRequest() != null
+    	  ) {
+        %>
+
+       <tr id="Row<%=(row++)%2%>" class="section">
+	 <td align="right"><strong><%= ejbcawebbean.getText("CERTIFICATEREQUESTDATA") %></strong></td>
+	 <td>&nbsp;</td>
+       </tr>
+	  <%{
+		final ExtendedInformation ei = userdata.getExtendedInformation();
+		final byte[] csr = userdata.getExtendedInformation().getCertificateRequest();
+		final String csrPem = new String(CertTools.getPEMFromCertificateRequest(csr));
+		%>
+			<tr id="Row<%=(row++)%2%>">
+			<td align="right"><%= ejbcawebbean.getText("CSR") %></td>
+			<td style="text-align: left"><pre><c:out value="<%= csrPem %>"/></pre></td>
+			</tr> 
+      <% } %>
     <% } %>
 
 
