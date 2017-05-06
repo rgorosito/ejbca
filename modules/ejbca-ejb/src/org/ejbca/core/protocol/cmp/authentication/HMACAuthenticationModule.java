@@ -28,9 +28,11 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.X509CAInfo;
+import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.core.ejb.ra.EndEntityAccessSession;
+import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSession;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.protocol.cmp.CmpMessageHelper;
 import org.ejbca.core.protocol.cmp.CmpPKIBodyConstants;
@@ -44,43 +46,35 @@ import org.ejbca.core.protocol.cmp.InvalidCmpProtectionException;
  * the configuration file or in the CA.
  * 
  * In client mode, the authenticity is checked through the clear-text-password of the 
- * pre-registered endentity from the database. 
+ * pre-registered end entity from the database. 
  * 
  * @version $Id$
- *
  */
 public class HMACAuthenticationModule implements ICMPAuthenticationModule {
 
     private static final Logger LOG = Logger.getLogger(HMACAuthenticationModule.class);
     private static final InternalEjbcaResources INTRES = InternalEjbcaResources.getInstance();
 
-
+    private final AuthenticationToken authenticationToken;
+    private final EndEntityAccessSession endEntityAccessSession;
     
-    private AuthenticationToken admin;
-    private EndEntityAccessSession eeAccessSession;
+    private final String globalSharedSecret;
+    private final CAInfo caInfo;
+    private final String confAlias;
+    private final CmpConfiguration cmpConfiguration;
     
-    private String globalSharedSecret;
-    private String password;
-    private String errorMessage;
-    private CAInfo cainfo;
-    private String confAlias;
-    private CmpConfiguration cmpConfiguration;
-    
-    private CmpPbeVerifyer verifyer;
+    private String password = null;
+    private String errorMessage = null;
+    private CmpPbeVerifyer verifyer = null;
         
-    public HMACAuthenticationModule(AuthenticationToken admin, String authParameter, String confAlias, CmpConfiguration cmpConfig, 
-            CAInfo cainfo, EndEntityAccessSession eeSession) {
-        this.globalSharedSecret = authParameter;
+    public HMACAuthenticationModule(AuthenticationToken authenticationToken, String globalSharedSecret, String confAlias, CmpConfiguration cmpConfiguration, 
+            CAInfo caInfo, EndEntityAccessSession endEntityAccessSession) {
+        this.globalSharedSecret = "-".equals(globalSharedSecret) ? null : globalSharedSecret;
         this.confAlias = confAlias;
-        this.cainfo = cainfo;
-        this.cmpConfiguration = cmpConfig;
-        
-        this.admin = admin;
-        this.eeAccessSession = eeSession;
-        
-        this.verifyer = null;
-        this.password = null;
-        this.errorMessage = null;
+        this.caInfo = caInfo;
+        this.cmpConfiguration = cmpConfiguration;
+        this.authenticationToken = authenticationToken;
+        this.endEntityAccessSession = endEntityAccessSession;
     }
     
     @Override
@@ -102,9 +96,8 @@ public class HMACAuthenticationModule implements ICMPAuthenticationModule {
         return this.verifyer;
     }
     
-    @Override
     /*
-     * Verifies that 'msg' is sent by a trusted source. 
+     * Verifies that 'pkiMessage' is sent by a trusted source. 
      * 
      * In RA mode:
      *      - A globally configured shared secret for all CAs will be used to authenticate the message.
@@ -114,205 +107,165 @@ public class HMACAuthenticationModule implements ICMPAuthenticationModule {
      * 
      * When successful, the authentication string will be set to the password that was successfully used in authenticating the message.
      */
-    public boolean verifyOrExtract(final PKIMessage msg, final String username) {
-        
-        if(msg == null) {
+    @Override
+    public boolean verifyOrExtract(final PKIMessage pkiMessage, final String username) {
+        if (pkiMessage == null) {
             this.errorMessage = "No PKIMessage was found";
             return false;
         }
-        
-        if((msg.getProtection() == null) || (msg.getHeader().getProtectionAlg() == null)) {
-            this.errorMessage = "PKI Message is not athenticated properly. No HMAC protection was found.";
+        if (pkiMessage.getProtection() == null || pkiMessage.getHeader().getProtectionAlg() == null) {
+            this.errorMessage = "PKI Message is not authenticated properly. No HMAC protection was found.";
             return false;
         }
-
         try {
-            verifyer = new CmpPbeVerifyer(msg);
-        } catch(InvalidCmpProtectionException e) {
-            this.errorMessage = "Could not create CmpPbeVerifyer. "+e.getMessage();
+            verifyer = new CmpPbeVerifyer(pkiMessage);
+        } catch (InvalidCmpProtectionException e) {
+            this.errorMessage = e.getMessage();
             return false;
         }
-        
-        if(verifyer == null) {
-            this.errorMessage = "Could not create CmpPbeVerifyer Object";
-            return false;
-        }
-            
-        if(this.cmpConfiguration.getRAMode(this.confAlias)) { //RA mode
-            if(LOG.isDebugEnabled()) {
-                LOG.debug("Verifying HMAC in RA mode");
-            }
-
-            // Check that the value of KeyId from the request is allowed 
-            // Note that this restriction only applies to HMAC and not EndEntityCertificate because in the latter, the use of profiles can be restricted through 
-            // Administrator privileges. Other authentication modules are not used in RA mode
-            if(StringUtils.equals(cmpConfiguration.getRAEEProfile(confAlias), CmpConfiguration.PROFILE_USE_KEYID) ||  StringUtils.equals(cmpConfiguration.getRACertProfile(confAlias), CmpConfiguration.PROFILE_USE_KEYID) ) {
-                final String keyId = CmpMessageHelper.getStringFromOctets(msg.getHeader().getSenderKID());
-                if(StringUtils.equals(keyId, "EMPTY") || StringUtils.equals(keyId, "ENDUSER")) {
-                    errorMessage = "Unaccepted KeyId '" + keyId + "' in CMP request";
-                    LOG.info(errorMessage);
-                    return false;
-                }
-            }
-            
-            
-            // If we use a globally configured shared secret for all CAs we check it right away
-            String authSecret = globalSharedSecret;
-
-            if (globalSharedSecret != null) {
+        try {
+            if (this.cmpConfiguration.getRAMode(this.confAlias)) {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Verifying message using Global Shared secret");
+                    LOG.debug("Verifying HMAC in RA mode");
                 }
-                try {
-                    if(verifyer.verify(authSecret)) {
-                        this.password = authSecret;
-                    } else {
-                        String errmsg = INTRES.getLocalizedMessage("cmp.errorauthmessage", "Global auth secret");
-                        LOG.info(errmsg); // info because this is something we should expect and we handle it
-                        if (verifyer.getErrMsg() != null) {
-                            errmsg = verifyer.getErrMsg();
-                            LOG.info(errmsg);
-                        }   
+                // Check that the value of KeyId from the request is allowed 
+                // Note that this restriction only applies to HMAC and not EndEntityCertificate because in the latter, the use of profiles can be restricted through 
+                // Administrator privileges. Other authentication modules are not used in RA mode
+                final boolean useKeyIdForEndEntityProfile = StringUtils.equals(cmpConfiguration.getRAEEProfile(confAlias), CmpConfiguration.PROFILE_USE_KEYID);
+                final boolean useKeyIdForCertificateProfile = StringUtils.equals(cmpConfiguration.getRACertProfile(confAlias), CmpConfiguration.PROFILE_USE_KEYID);
+                if (useKeyIdForEndEntityProfile || useKeyIdForCertificateProfile) {
+                    final String keyId = CmpMessageHelper.getStringFromOctets(pkiMessage.getHeader().getSenderKID());
+                    if ((useKeyIdForEndEntityProfile && StringUtils.equals(keyId, EndEntityProfileSession.EMPTY_ENDENTITYPROFILENAME)) ||
+                            (useKeyIdForCertificateProfile && StringUtils.equals(keyId, CertificateProfile.ENDUSERPROFILENAME))) {
+                        errorMessage = "Unaccepted KeyId '" + keyId + "' in CMP request";
+                        LOG.info(errorMessage);
+                        return false;
                     }
-                } catch (InvalidKeyException | NoSuchAlgorithmException e) {
-                    this.errorMessage = e.getLocalizedMessage();
-                    if(LOG.isDebugEnabled()) {
-                        LOG.debug(this.errorMessage, e);
-                    }
-                    return false;
                 }
-            }
-
-            // If password is null, then we failed verification using global shared secret
-            if (this.password == null) {
-                
-                if (cainfo instanceof X509CAInfo) {
-                    authSecret = ((X509CAInfo) cainfo).getCmpRaAuthSecret();
-               
+                // If we use a globally configured shared secret for all CAs we check it right away
+                if (globalSharedSecret != null) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Verifying message using Global Shared secret");
+                    }
+                    if (performPbeVerification(globalSharedSecret, "cmp.errorauthmessage", "Global auth secret")) {
+                        return true;
+                    }
+                }
+                // We failed verification using global shared secret, try the CA secret
+                if (caInfo instanceof X509CAInfo) {
+                    final String authSecret = ((X509CAInfo) caInfo).getCmpRaAuthSecret();
                     if (StringUtils.isNotEmpty(authSecret)) {
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("Verify message using 'CMP RA Authentication Secret' from CA '"+cainfo.getName()+"'.");
+                            LOG.debug("Verify message using 'CMP RA Authentication Secret' from CA '" + caInfo.getName() + "'.");
                         }
-                        try {
-                            if(verifyer.verify(authSecret)) {
-                                this.password = authSecret;
-                            } else {
-                                // info because this is something we should expect and we handle it
-                                LOG.info(INTRES.getLocalizedMessage("cmp.errorauthmessage", "Auth secret for CA="+cainfo.getName()));
-                                if (verifyer.getErrMsg() != null) {
-                                    LOG.info(verifyer.getErrMsg());
-                                }
-                            }
-                        } catch (InvalidKeyException | NoSuchAlgorithmException e) {
-                            this.errorMessage = INTRES.getLocalizedMessage("cmp.errorgeneral");
-                            LOG.error(this.errorMessage, e);
-                            return false;
-                        } 
+                        if (performPbeVerification(authSecret, "cmp.errorauthmessage", "Auth secret for CA=" + caInfo.getName())) {
+                            return true;
+                        }
                     } else {
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("CMP password is null from CA '"+cainfo.getName()+"'.");
+                            LOG.debug("CMP password is null from CA '"+caInfo.getName()+"'.");
                         }
                     }
                 }
-            }
-            
-            // If password is still null, then we have failed verification with CA authentication secret too.
-            if(password == null) {
+                // We have failed verification with CA authentication secret too.
                 this.errorMessage = "Failed to verify message using both Global Shared Secret and CMP RA Authentication Secret";
-                return false;
-            }
-
-        } else { //client mode
-            if(LOG.isDebugEnabled()) {
-                LOG.debug("Verifying HMAC in Client mode");
-            }
-            //If client mode, we try to get the pre-registered endentity from the DB, and if there is a 
-            //clear text password we check HMAC using this password.
-            EndEntityInformation userdata = null;
-            String subjectDN = null;
-
-            try {
-                if (username != null) {
-                    if(LOG.isDebugEnabled()) {
-                        LOG.debug("Searching for an end entity with username='" + username+"'.");
-                    }
-                    userdata = this.eeAccessSession.findUser(admin, username);
-                } else {
-                    // No username given, so we try to find from subject/issuerDN from the certificate request
-                    final CertTemplate certTemp = getCertTemplate(msg);
-                    subjectDN = certTemp.getSubject().toString();
-                    
-                    String issuerDN = null;
-                    final X500Name issuer = certTemp.getIssuer();
-                    if ((issuer != null) && (subjectDN != null)) {
-                        issuerDN = issuer.toString();
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Searching for an end entity with SubjectDN='" + subjectDN + "' and isserDN='" + issuerDN + "'");
-                        }
-                        
-                        List<EndEntityInformation> userdataList = eeAccessSession.findUserBySubjectAndIssuerDN(this.admin, subjectDN, issuerDN);
-                        userdata = userdataList.get(0);
-                        if (userdataList.size() > 1) {
-                            LOG.warn("Multiple end entities with subject DN " + subjectDN + " and issuer DN" + issuerDN
-                                    + " were found. This may lead to unexpected behavior.");
-                        }
-                    } else if (subjectDN != null) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Searching for an end entity with SubjectDN='" + subjectDN + "'.");
-                        }
-                        List<EndEntityInformation> userdataList = this.eeAccessSession.findUserBySubjectDN(admin, subjectDN);
-                        if (userdataList.size() > 0) {
-                            userdata = userdataList.get(0);
-                        }
-                        if (userdataList.size() > 1) {
-                            LOG.warn("Multiple end entities with subject DN " + subjectDN + " were found. This may lead to unexpected behavior.");
-                        }
-                    }                    
+            } else {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Verifying HMAC in Client mode");
                 }
-            } catch (AuthorizationDeniedException e) {
-                LOG.info("No EndEntity with subjectDN '" + subjectDN + "' could be found. " + e.getLocalizedMessage() );
-            }
-            
-            if(userdata != null) {
-                if(LOG.isDebugEnabled()) {
-                    LOG.debug("Comparing HMAC password authentication for user '"+userdata.getUsername()+"'.");
-                }
-
-                final String eepassword = userdata.getPassword();
-                if(StringUtils.isNotEmpty(eepassword)) {
-                    try {
-                        if(verifyer.verify(eepassword)) {
-                            this.password = eepassword;
-                        } else {
-                            String errmsg = INTRES.getLocalizedMessage("cmp.errorauthmessage", userdata.getUsername());
-                            LOG.info(errmsg); // info because this is something we should expect and we handle it
-                            if (verifyer.getErrMsg() != null) {
-                                errmsg = verifyer.getErrMsg();
-                                LOG.info(errmsg);
+                //If client mode, we try to get the pre-registered endentity from the DB, and if there is a 
+                //clear text password we check HMAC using this password.
+                EndEntityInformation endEntityInformation = null;
+                String subjectDN = null;
+                try {
+                    if (username != null) {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Searching for an end entity with username='" + username + "'.");
+                        }
+                        endEntityInformation = this.endEntityAccessSession.findUser(authenticationToken, username);
+                    } else {
+                        // No username given, so we try to find from subject/issuerDN from the certificate request
+                        final CertTemplate certTemplate = getCertTemplate(pkiMessage);
+                        subjectDN = certTemplate.getSubject().toString();
+                        if (subjectDN != null) {
+                            final List<EndEntityInformation> endEntityInformations;
+                            final X500Name issuer = certTemplate.getIssuer();
+                            if (issuer == null) {
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("Searching for an end entity with SubjectDN='" + subjectDN + "'.");
+                                }
+                                endEntityInformations = this.endEntityAccessSession.findUserBySubjectDN(authenticationToken, subjectDN);
+                                if (endEntityInformations.size() > 1) {
+                                    LOG.warn("Multiple end entities with subject DN " + subjectDN + " were found. This may lead to unexpected behavior.");
+                                }
+                            } else {
+                                final String issuerDN = issuer.toString();
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("Searching for an end entity with SubjectDN='" + subjectDN + "' and isserDN='" + issuerDN + "'");
+                                }
+                                endEntityInformations = endEntityAccessSession.findUserBySubjectAndIssuerDN(this.authenticationToken, subjectDN, issuerDN);
+                                if (endEntityInformations.size() > 1) {
+                                    LOG.warn("Multiple end entities with subject DN " + subjectDN + " and issuer DN" + issuerDN
+                                            + " were found. This may lead to unexpected behavior.");
+                                }
+                            }                    
+                            if (!endEntityInformations.isEmpty()) {
+                                endEntityInformation = endEntityInformations.get(0);
                             }
-                            this.errorMessage = errmsg;
-                            return false;
                         }
-                    } catch (InvalidKeyException | NoSuchAlgorithmException e) {
-                        this.errorMessage = INTRES.getLocalizedMessage("cmp.errorgeneral");
-                        LOG.error(this.errorMessage, e);
-                        return false;
-                    } 
-                } else {
-                    this.errorMessage = "No clear text password for user '"+userdata.getUsername()+"', not possible to check authentication.";
+                    }
+                } catch (AuthorizationDeniedException e) {
+                    LOG.info("Not authorized to search for end entity: " + e.getMessage());
+                }
+                if (endEntityInformation == null) {
+                    LOG.info(INTRES.getLocalizedMessage("ra.errorentitynotexist", StringUtils.isNotEmpty(username) ? username : subjectDN));
+                    this.errorMessage = INTRES.getLocalizedMessage("ra.wrongusernameorpassword");
                     return false;
                 }
-            } else {
-                LOG.info(INTRES.getLocalizedMessage("ra.errorentitynotexist", StringUtils.isNotEmpty(username) ? username : subjectDN));
-                this.errorMessage = INTRES.getLocalizedMessage("ra.wrongusernameorpassword");
-                return false;
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Comparing HMAC password authentication for user '" + endEntityInformation.getUsername() + "'.");
+                }
+                final String eepassword = endEntityInformation.getPassword();
+                if (StringUtils.isEmpty(eepassword)) {
+                    this.errorMessage = "No clear text password for user '" + endEntityInformation.getUsername() + "', not possible to check authentication.";
+                    return false;
+                }
+                if (performPbeVerification(eepassword, "cmp.errorauthmessage", endEntityInformation.getUsername())) {
+                    return true;
+                }
             }
+        } catch (InvalidKeyException | NoSuchAlgorithmException e) {
+            // We don't want to explain in detail to the client why the configured key on the CA was invalid
+            this.errorMessage = INTRES.getLocalizedMessage("cmp.errorgeneral");
+            LOG.info(this.errorMessage, e);
+        } 
+        return false;
+    }
+    
+    /**
+     * Try to validate the PKIMessage using the provided shared secret.
+     * 
+     * Saves last error message on failure to validate.
+     * Saves raAuthenticationSecret on successful validation (to be used later when creating response protection)
+     * @return true if the validation was successful.
+     */
+    private boolean performPbeVerification(final String raAuthenticationSecret, final String errorMessageKey, final String errorMessageParameter)
+            throws InvalidKeyException, NoSuchAlgorithmException {
+        if (verifyer.verify(raAuthenticationSecret)) {
+            this.password = raAuthenticationSecret;
+            return true;
+        } else {
+            String errmsg = INTRES.getLocalizedMessage(errorMessageKey, errorMessageParameter);
+            LOG.info(errmsg);
+            if (verifyer.getErrMsg() != null) {
+                errmsg = verifyer.getErrMsg();
+                LOG.info(errmsg);
+            }
+            this.errorMessage = errmsg;
         }
-        
-        return this.password != null;
+        return false;
     }
 
-    
     /**
      * Returns the certificate template specified in the request impeded in msg.
      * 
@@ -333,5 +286,4 @@ public class HMACAuthenticationModule implements ICMPAuthenticationModule {
         }
         return null;
     }
-
 }
