@@ -12,17 +12,25 @@
 # - ca.cmskeystorepass (in ejbca.properties)
 
 # -------------- General security --------------
-# The following key (strictly speaking, PBE input password) allows for encrypting passwords used in EJBCA (e.g. Crypto Token
+# The following key (strictly speaking, PBE input password) allows for encrypting passwords used in EJBCA (e.g. End Entity and Crypto Token
 #   passwords stored in database).
 # This property should be set before initial EJBCA installation and it should't be changed later, because there could exist
 #   passwords encrypted with the key about to be changed and EJBCA would be unable to decrypt them (note that the current implementation
 #   is capable to try decryption with the default key, i.e. qhrnf.f8743;12%#75, but it won't be able to decrypt passwords encrypted
 #   with a custom key being replaced for another custom key).
 # For setting this property you could use any password you consider safe, but it is strongly recommended that you use a randomly
-#   generated password, e.g. by using `openssl rand -base64 16`.
+#   generated password, e.g. by using `openssl rand -base64 24`.
+#
+# When upgrading a 100% up-time cluster all nodes must produce password encryption that is decryptable by old nodes.
+# When all nodes run EJBCA 6.8.0 or higher you can change the password, and count, to increase security when passwords are saved in clear text.
+# (mostly used for batch generation and auto-activation) 
+#
 # Default: qhrnf.f8743;12%#75
-#password.encryption.key=3YL2QzyiYmM=
 #password.encryption.key=!secret!
+
+# Nr of rounds when creating password based encryption keys (PBE).
+# To be able to change this you also need to set password.encryption.key to something other than the default (with applicable 100% uptime consideration). 
+#password.encryption.count=100
 
 # ------------ Basic CA configuration ---------------------
 # This password is used internally to protect CA keystores in database (i.e. the CAs private key).
@@ -100,16 +108,29 @@ certificate.validityoffset=-10m
 # And nothing forbidden will be:
 #forbidden.characters  =
 
+# When generating large CRLs, the RAM of the Java process will limit how many entries that can be
+# fetched from the database at the time. A small value will lead to multiple round-trips to the
+# database and CRL generation will take more time.
+#
+# The heap usage can be estimated to roughly 600 bytes * rows per database read. The default of
+# 0.5M revoked entries per database round trip will usually fit within a 2GiB heap assigned to the
+# application server. If multiple large CRLs are generated at the same time, the used heap will be
+# the sum of the heap used by each CRL generation.
+#
+# If you have plenty of RAM assigned to the application server you should increase this value.
+# Default: 500000
+#database.crlgenfetchsize=500000
+
 # ------------- Core language configuration -------------
 # The language that should be used internally for logging, exceptions and approval notifications.
 # The languagefile is stored in 'src/intresources/ejbcaresources.xx.properties' and 'intresources.xx.properties'.
-# Should be one of: en, fr, ja, pt, sv.
+# Should be one of: en, fr, ja, pt, sv, vi.
 # Default: en
 #intresources.preferredlanguage=en
 
 # The language used internally if a resource not found in the preferred language.
-# Default: sv
-#intresources.secondarylanguage=sv
+# Default: en
+#intresources.secondarylanguage=en
 
 # ------------ Audit log configuration ---------------------
 # I you want to use integrity protection of the audit log (in the IntegrityProtectedDevice) you
@@ -154,40 +175,6 @@ securityeventsaudit.exporter.1=org.cesecore.audit.impl.AuditExporterXml
 # Nodeid used for integrity protected audit log. If not set the hostname of local host is used.
 # Default: not set
 #cluster.nodeid=
-
-# When upgrading a 100% up-time cluster, all nodes should be deployed with db.keepjbossserialization=true.
-# For upgrades from EJBCA version 4.0 to later versions.
-# Once all nodes are running > 4.0, set to false to increase efficiency and portability.
-# Default: false
-#db.keepjbossserialization=true
-
-# Option if we should keep internal CA keystores in the CAData table to be compatible with CeSecore 1.1/EJBCA 5.0.
-# Default to true. Set to false when all nodes in a cluster have been upgraded to CeSecore 1.2/EJBCA 5.1 or later,
-# then internal keystore in CAData will be replaced with a foreign key in to the migrated entry in CryptotokenData.
-#
-# When upgrading a 100% up-time cluster, all nodes should initially be deployed with db.keepinternalcakeystores=true.
-# Once all nodes are running > EJBCA 5.0, set to false again to increase efficiency and portability.
-# For upgrades from EJBCA version 5.0 to later versions.
-# Default: true
-#db.keepinternalcakeystores=true
-
-# When upgrading a 100% up-time cluster, all nodes should be deployed with ca.keepocspextendedservice=true.
-# Once all nodes are running > 6.0, set to true to increase efficiency and portability.
-# Default: false
-#ca.keepocspextendedservice=true
-
-# When generating large CRLs, the RAM of the Java process will limit how many entries that can be
-# fetched from the database at the time. A small value will lead to multiple round-trips to the
-# database and CRL generation will take more time.
-#
-# The heap usage can be estimated to roughly 600 bytes * rows per database read. The default of
-# 0.5M revoked entries per database round trip will usually fit within a 2GiB heap assigned to the
-# application server. If multiple large CRLs are generated at the same time, the used heap will be
-# the sum of the heap used by each CRL generation.
-#
-# If you have plenty of RAM assigned to the application server you should increase this value.
-# Default: 500000
-#database.crlgenfetchsize=500000
 
 #------------------- ECDSA implicitlyCA settings -------------
 # Sets pre-defined EC curve parameters for the implicitlyCA facility.
@@ -286,3 +273,28 @@ securityeventsaudit.exporter.1=org.cesecore.audit.impl.AuditExporterXml
 # Default: 1000 (1 second)
 #ct.fastfail.backoff=60000
 
+# ------------ Upgrade and compatibility setting ---------------------
+# In order to enable 100% uptime, i.e. old versions running in parallell with new versions
+# we need some configuration option to force old behavior in new versions, until we have upgrade
+# all nodes and can set the system to use new (improved) behavior.
+
+# When upgrading a 100% up-time cluster, all nodes should be deployed with db.keepjbossserialization=true.
+# For upgrades from EJBCA version 4.0 to later versions.
+# Once all nodes are running > 4.0, set to false to increase efficiency and portability.
+# Default: false
+#db.keepjbossserialization=true
+
+# Option if we should keep internal CA keystores in the CAData table to be compatible with CeSecore 1.1/EJBCA 5.0.
+# Default to true. Set to false when all nodes in a cluster have been upgraded to CeSecore 1.2/EJBCA 5.1 or later,
+# then internal keystore in CAData will be replaced with a foreign key in to the migrated entry in CryptotokenData.
+#
+# When upgrading a 100% up-time cluster, all nodes should initially be deployed with db.keepinternalcakeystores=true.
+# Once all nodes are running > EJBCA 5.0, set to false again to increase efficiency and portability.
+# For upgrades from EJBCA version 5.0 to later versions.
+# Default: true
+#db.keepinternalcakeystores=true
+
+# When upgrading a 100% up-time cluster, all nodes should be deployed with ca.keepocspextendedservice=true.
+# Once all nodes are running > 6.0, set to true to increase efficiency and portability.
+# Default: false
+#ca.keepocspextendedservice=true
