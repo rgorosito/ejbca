@@ -73,16 +73,19 @@ public class OcspKeyBinding extends InternalKeyBindingBase {
     public static final String IMPLEMENTATION_ALIAS = "OcspKeyBinding"; // This should not change, even if we rename the class in EJBCA 5.3+..
     public static final String PROPERTY_NON_EXISTING_GOOD = "nonexistingisgood";
     public static final String PROPERTY_NON_EXISTING_REVOKED = "nonexistingisrevoked";
+    public static final String PROPERTY_NON_EXISTING_UNAUTHORIZED = "nonexistingisunauthorized";
     public static final String PROPERTY_INCLUDE_CERT_CHAIN = "includecertchain";
     public static final String PROPERTY_INCLUDE_SIGN_CERT = "includesigncert";
     public static final String PROPERTY_RESPONDER_ID_TYPE = "responderidtype";  // keyhash, name
     public static final String PROPERTY_REQUIRE_TRUSTED_SIGNATURE = "requireTrustedSignature";
     public static final String PROPERTY_UNTIL_NEXT_UPDATE = "untilNextUpdate";
     public static final String PROPERTY_MAX_AGE = "maxAge";
+    public static final String PROPERTY_ENABLE_NONCE = "enableNonce";
     
     {
         addProperty(new DynamicUiProperty<Boolean>(PROPERTY_NON_EXISTING_GOOD, Boolean.FALSE));
         addProperty(new DynamicUiProperty<Boolean>(PROPERTY_NON_EXISTING_REVOKED, Boolean.FALSE));
+        addProperty(new DynamicUiProperty<Boolean>(PROPERTY_NON_EXISTING_UNAUTHORIZED, Boolean.FALSE));
         addProperty(new DynamicUiProperty<Boolean>(PROPERTY_INCLUDE_CERT_CHAIN, Boolean.TRUE));
         addProperty(new DynamicUiProperty<Boolean>(PROPERTY_INCLUDE_SIGN_CERT, Boolean.TRUE));
         addProperty(new DynamicUiProperty<String>(PROPERTY_RESPONDER_ID_TYPE, ResponderIdType.KEYHASH.name(),
@@ -90,6 +93,7 @@ public class OcspKeyBinding extends InternalKeyBindingBase {
         addProperty(new DynamicUiProperty<Boolean>(PROPERTY_REQUIRE_TRUSTED_SIGNATURE, Boolean.FALSE));
         addProperty(new DynamicUiProperty<Long>(PROPERTY_UNTIL_NEXT_UPDATE, Long.valueOf(0L)));
         addProperty(new DynamicUiProperty<Long>(PROPERTY_MAX_AGE, Long.valueOf(0L)));
+        addProperty(new DynamicUiProperty<Boolean>(PROPERTY_ENABLE_NONCE, Boolean.TRUE));
     }
 
     
@@ -124,6 +128,15 @@ public class OcspKeyBinding extends InternalKeyBindingBase {
     }
     public void setNonExistingRevoked(boolean nonExistingRevoked) {
         setProperty(PROPERTY_NON_EXISTING_REVOKED, Boolean.valueOf(nonExistingRevoked));
+    }
+    public boolean getNonExistingUnauthorized() {
+        if(getProperty(PROPERTY_NON_EXISTING_UNAUTHORIZED) == null) {
+            setNonExistingUnauthorized(false);
+        }
+        return (Boolean) getProperty(PROPERTY_NON_EXISTING_UNAUTHORIZED).getValue();
+    }
+    public void setNonExistingUnauthorized(boolean nonExistingUnauthorized) {
+        setProperty(PROPERTY_NON_EXISTING_UNAUTHORIZED, Boolean.valueOf(nonExistingUnauthorized));
     }
     public boolean getIncludeCertChain() {
         return (Boolean) getProperty(PROPERTY_INCLUDE_CERT_CHAIN).getValue();
@@ -164,6 +177,20 @@ public class OcspKeyBinding extends InternalKeyBindingBase {
     /** Set the value in seconds (granularity defined in RFC 5019) */
     public void setMaxAge(long maxAge) {
         setProperty(PROPERTY_MAX_AGE, Long.valueOf(maxAge));
+    }
+    
+    /** @return true if NONCE's are to be used in replies */
+    public boolean isNonceEnabled() {
+        if(getProperty(PROPERTY_ENABLE_NONCE) == null) {
+            setNonceEnabled(true);
+        }
+        return (Boolean) getProperty(PROPERTY_ENABLE_NONCE).getValue();
+    }
+    /** 
+     * @param enabled as true of NONCE's are to be included in replies
+     *  */
+    public void setNonceEnabled(boolean enabled) {
+        setProperty(PROPERTY_ENABLE_NONCE, Boolean.valueOf(enabled));
     }
 
     public static boolean isOcspSigningCertificate(final Certificate certificate, AvailableExtendedKeyUsagesConfiguration ekuConfig) {

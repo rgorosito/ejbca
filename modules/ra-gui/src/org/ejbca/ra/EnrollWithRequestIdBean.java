@@ -173,7 +173,7 @@ public class EnrollWithRequestIdBean implements Serializable {
     }
 
     public boolean isFinalizeEnrollmentRendered() {
-        return (requestStatus == ApprovalDataVO.STATUS_APPROVED || requestStatus == ApprovalDataVO.STATUS_EXECUTED) && endEntityInformation.getStatus() == EndEntityConstants.STATUS_NEW;
+        return (requestStatus == ApprovalDataVO.STATUS_APPROVED || requestStatus == ApprovalDataVO.STATUS_EXECUTED) && endEntityInformation != null && endEntityInformation.getStatus() == EndEntityConstants.STATUS_NEW;
     }
 
     public void generateCertificatePem() {
@@ -243,7 +243,7 @@ public class EnrollWithRequestIdBean implements Serializable {
                     endEntityInformation.getUsername());
         } catch (AuthorizationDeniedException e){
             raLocaleBean.addMessageInfo("enroll_unauthorized_operation", e.getMessage());
-            log.info("You are not authorized to execute this operation", e);
+            log.info(raAuthenticationBean.getAuthenticationToken() + " is not authorized to execute this operation", e);
         } catch (EjbcaException e) {
             ErrorCode errorCode = EjbcaException.getErrorCode(e);
             if (errorCode != null) {
@@ -346,7 +346,7 @@ public class EnrollWithRequestIdBean implements Serializable {
             }
         } catch (AuthorizationDeniedException e){
             raLocaleBean.addMessageInfo("enroll_unauthorized_operation", e.getMessage());
-            log.info("You are not authorized to execute this operation", e);
+            log.info(raAuthenticationBean.getAuthenticationToken() + " is not authorized to execute this operation", e);
         } catch (EjbcaException | IOException e) {
             ErrorCode errorCode = EjbcaException.getErrorCode(e);
             if (errorCode != null) {
@@ -372,7 +372,7 @@ public class EnrollWithRequestIdBean implements Serializable {
         if (endEntityInformation.getTokenType() == EndEntityConstants.TOKEN_USERGEN) {
             // If CSR is already uploaded, load its key algorithm and display it to end user
             if (isCsrPreSet() && !isCsrChanged) {
-                getKeysFromCsr();
+                selectKeyAlgorithmFromCsr();
             }
             return true;
         }
@@ -388,7 +388,6 @@ public class EnrollWithRequestIdBean implements Serializable {
             return false;
         }
         String availableKeyStores = endEntityProfile.getValue(EndEntityProfile.AVAILKEYSTORE, 0);
-        log.info(availableKeyStores);
         return availableKeyStores != null && availableKeyStores.contains(String.valueOf(SecConst.TOKEN_SOFT_JKS));
     }
 
@@ -464,6 +463,7 @@ public class EnrollWithRequestIdBean implements Serializable {
                 try {
                     output.close();
                 } catch (IOException e) {
+                    throw new IllegalStateException("Failed to close outputstream", e);
                 }
             }
         }
@@ -471,7 +471,7 @@ public class EnrollWithRequestIdBean implements Serializable {
 
     /** @return true if the the CSR has been uploaded */
     public boolean isUploadCsrDoneRendered() {
-        return selectedAlgorithm!=null;
+        return selectedAlgorithm != null;
     }
 
     /** @return the current certificateRequest if available */
@@ -488,7 +488,7 @@ public class EnrollWithRequestIdBean implements Serializable {
         this.certificateRequest = certificateRequest;
     }
     
-    /** Populate the state of modifiable fields with the CSR that was saved during file upload validation */
+    /** Backing method for upload CSR button (used for uploading pasted CSR) populating fields is handled by AJAX */
     public void uploadCsr() {
     }
 
@@ -499,7 +499,7 @@ public class EnrollWithRequestIdBean implements Serializable {
     }
 
     /** Updates selected algorithm with key algorithm and key size from the CSR preset in EEI. */
-    protected void getKeysFromCsr() {
+    protected void selectKeyAlgorithmFromCsr() {
         try {
             PKCS10CertificationRequest pkcs10CertificationRequest = new PKCS10CertificationRequest(endEntityInformation.getExtendedinformation().getCertificateRequest());
             final JcaPKCS10CertificationRequest jcaPKCS10CertificationRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
@@ -552,9 +552,7 @@ public class EnrollWithRequestIdBean implements Serializable {
             }
             selectedAlgorithm = keyAlgorithm + " " + keySpecification; // Save for later use
             // For yet unknown reasons, the setter is never when invoked during AJAX request
-            log.info("Cert request 1: \n" + getCertificateRequest());
             certificateRequest = value.toString();
-            log.info("Cert request 2: \n" + getCertificateRequest());
         } catch (InvalidKeyException | NoSuchAlgorithmException e) {
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_unknown_key_algorithm")));
         }
