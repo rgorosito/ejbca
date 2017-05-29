@@ -23,6 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
@@ -82,6 +83,7 @@ import org.cesecore.certificates.certificate.CertificateCreateSessionLocal;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateRevokeException;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificate.IllegalKeyException;
 import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
@@ -108,6 +110,7 @@ import org.cesecore.roles.member.RoleMember;
 import org.cesecore.roles.member.RoleMemberData;
 import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EJBTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.EjbcaException;
@@ -129,6 +132,7 @@ import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.ejb.ra.userdatasource.UserDataSourceSessionLocal;
 import org.ejbca.core.ejb.ws.EjbcaWSHelperSessionLocal;
 import org.ejbca.core.model.CertificateSignatureException;
+import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.Approval;
@@ -171,6 +175,7 @@ import org.ejbca.util.query.IllegalQueryException;
 public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     
     private static final Logger log = Logger.getLogger(RaMasterApiSessionBean.class);
+    private static final InternalEjbcaResources intres = InternalEjbcaResources.getInstance();
 
     @EJB
     private AccessTreeUpdateSessionLocal accessTreeUpdateSession;
@@ -430,8 +435,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     /** @param approvalId Calculated hash of the request (this somewhat confusing name is re-used from the ApprovalRequest class) 
      * @return ApprovalDataVO or null if not found
      */
-    private ApprovalDataVO getApprovalDataByRequestHash(final AuthenticationToken authenticationToken, final int approvalId) {
-        final List<ApprovalDataVO> approvalDataVOs = approvalSession.findApprovalDataVO(authenticationToken, approvalId);
+    private ApprovalDataVO getApprovalDataByRequestHash(final int approvalId) {
+        final List<ApprovalDataVO> approvalDataVOs = approvalSession.findApprovalDataVO(approvalId);
         return approvalDataVOs.isEmpty() ? null : approvalDataVOs.get(0);
     }
     
@@ -486,7 +491,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     
     @Override
     public RaApprovalRequestInfo getApprovalRequestByRequestHash(final AuthenticationToken authenticationToken, final int approvalId) {
-        final ApprovalDataVO advo = getApprovalDataByRequestHash(authenticationToken, approvalId);
+        final ApprovalDataVO advo = getApprovalDataByRequestHash(approvalId);
         if (advo == null) {
             return null;
         }
@@ -620,7 +625,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
         
         final int newCalculatedHash = approvalRequest.generateApprovalId();
-        final Collection<ApprovalDataVO> advosNew = approvalSession.findApprovalDataVO(authenticationToken, newCalculatedHash);
+        final Collection<ApprovalDataVO> advosNew = approvalSession.findApprovalDataVO(newCalculatedHash);
         if (advosNew.isEmpty()) {
             throw new IllegalStateException("Approval with calculated hash (approvalId) " + newCalculatedHash + " could not be found");
         }
@@ -1558,19 +1563,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
     }
     
-    /*
-        Classes that are not available in this module:
-        
-        UserDataVOWS
-        javax.ejb.ObjectNotFoundException [FIXED]
-        javax.ejb.CreateException [FIXED]
-        
-    */
     @Override
     public byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
-            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, NotFoundException, ApprovalException, EjbcaException,
-            NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchProviderException, SignatureException,
-            CertificateException, IOException, EndEntityProfileValidationException, CesecoreException, CertificateExtensionException {
+            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
+            EndEntityProfileValidationException {
+        try {
             // Some of the session beans are only needed for authentication or certation operations, and are passed as null
             final EndEntityInformation endEntityInformation = ejbcaWSHelperSession.convertUserDataVOWS(authenticationToken, userdata);
             int responseTypeInt = CertificateConstants.CERT_RES_TYPE_CERTIFICATE;
@@ -1586,57 +1583,105 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 }
             }
             return certificateRequestSession.processCertReq(authenticationToken, endEntityInformation, requestData, requestType, hardTokenSN, responseTypeInt);
-// TODO should probably handle the exceptions here, and not on the calling side
-//        } catch( CADoesntExistsException t ) {
-//            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), t.toString());
-//            throw new EjbcaException(t);
-//        } catch( AuthorizationDeniedException t ) {
-//            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), t.toString());
-//            throw t;
-//        } catch( NotFoundException t ) {
-//            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), t.toString());
-//            throw t;
-//        } catch (CertificateExtensionException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (InvalidKeyException e) {
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.INVALID_KEY, Level.ERROR);
-//        } catch (IllegalKeyException e) {
-//            // Don't log a bad error for this (user's key length too small)
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.ILLEGAL_KEY, Level.DEBUG);
-//        } catch (AuthStatusException e) {
-//            // Don't log a bad error for this (user wrong status)
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.USER_WRONG_STATUS, Level.DEBUG);
-//        } catch (AuthLoginException e) {
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.LOGIN_ERROR, Level.ERROR);
-//        } catch (SignatureException e) {
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.SIGNATURE_ERROR, Level.ERROR);
-//        } catch (SignRequestSignatureException e) {
-//            throw EjbcaWSHelper.getEjbcaException(e.getMessage(), logger, null, Level.ERROR);
-//        } catch (InvalidKeySpecException e) {
-//            throw EjbcaWSHelper.getEjbcaException(e, logger, ErrorCode.INVALID_KEY_SPEC, Level.ERROR);
-//        } catch (NoSuchAlgorithmException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (NoSuchProviderException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (CertificateException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (CreateException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (IOException e) {
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (CesecoreException e) {
-//            // Will convert the CESecore exception to an EJBCA exception with the same error code
-//            throw EjbcaWSHelper.getEjbcaException(e, null, e.getErrorCode(), null);
-//        } catch (FinderException e) {
-//            throw new NotFoundException(e.getMessage());
-//        } catch (RuntimeException e) {  // EJBException, ClassCastException, ...
-//            throw EjbcaWSHelper.getInternalException(e, logger);
-//        } catch (EndEntityProfileValidationException e) {
-//           throw new UserDoesntFullfillEndEntityProfile(e);
-//        } finally {
-//            logger.writeln();
-//            logger.flush();
-//        }
+        } catch (NotFoundException e) {
+            log.debug("EJBCA WebService error", e);
+            throw e; // NFE extends EjbcaException
+        } catch (CertificateExtensionException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e.getMessage());
+        } catch (InvalidKeyException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.INVALID_KEY, e.getMessage());
+        } catch (IllegalKeyException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.ILLEGAL_KEY, e.getMessage());
+        } catch (AuthStatusException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.USER_WRONG_STATUS, e.getMessage());
+        } catch (AuthLoginException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.LOGIN_ERROR, e.getMessage());
+        } catch (SignatureException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.SIGNATURE_ERROR, e.getMessage());
+        } catch (SignRequestSignatureException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(e.getMessage());
+        } catch (InvalidKeySpecException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.INVALID_KEY_SPEC, e.getMessage());
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | CertificateException | IOException e) {
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e.getMessage());
+        } catch (CesecoreException e) {
+            log.debug("EJBCA WebService error", e);
+            // Will convert the CESecore exception to an EJBCA exception with the same error code
+            throw new EjbcaException(e.getErrorCode(), e);
+        } catch (RuntimeException e) {  // EJBException, ClassCastException, ...
+            log.debug("EJBCA WebService error", e);
+            throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e.getMessage());
+        }
+    }
+    
+    @Override
+    public List<CertificateWrapper> getLastCertChain(final AuthenticationToken authenticationToken, final String username) throws AuthorizationDeniedException, EjbcaException {
+        if (log.isTraceEnabled()) {
+            log.trace(">getLastCertChain: "+username);
+        }
+        final List<CertificateWrapper> retval = new ArrayList<>();
+        if (endEntityAccessSession.findUser(authenticationToken, username) != null) { // checks authorization on CA and profiles and view_end_entity
+            Collection<CertificateWrapper> certs = certificateStoreSession.findCertificatesByUsername(username);
+            if (certs.size() > 0) {
+                // The latest certificate will be first
+                CertificateWrapper firstcert = certs.iterator().next();
+                Certificate lastcert;
+                if (firstcert != null) {
+                    retval.add(firstcert);
+                    lastcert = firstcert.getCertificate();
+                    if (log.isDebugEnabled()) {
+                        log.debug("Found certificate for user with subjectDN: "+CertTools.getSubjectDN(lastcert)+" and serialNo: "+CertTools.getSerialNumberAsString(lastcert));
+                    }
+                    // If we added a certificate, we will also append the CA certificate chain
+                    boolean selfSigned = false;
+                    int iteration = 0; // to control so we don't enter an infinite loop. Max chain length is 10
+                    while (!selfSigned && iteration < 10) {
+                        iteration++;
+                        final String issuerDN = CertTools.getIssuerDN(lastcert); 
+                        final Collection<Certificate> cacerts = certificateStoreSession.findCertificatesBySubject(issuerDN);
+                        if (cacerts == null || cacerts.size() == 0) {                         
+                            log.info("No certificate found for CA with subjectDN: "+issuerDN);
+                            break;
+                        }
+                        for (final Certificate cert : cacerts) {
+                            try {
+                                lastcert.verify(cert.getPublicKey());
+                                // this was the right certificate
+                                retval.add(EJBTools.wrap(cert));
+                                // To determine if we have found the last certificate or not
+                                selfSigned = CertTools.isSelfSigned(cert);
+                                // Find the next certificate in the chain now
+                                lastcert = cert;
+                                break; // Break of iteration over this CAs certs
+                            } catch (Exception e) {
+                                log.debug("Failed verification when looking for CA certificate, this was not the correct CA certificate. IssuerDN: "+issuerDN+", serno: "+CertTools.getSerialNumberAsString(cert));
+                            }
+                        }                           
+                    }
+                    
+                } else {
+                    log.debug("Found no certificate (in non null list??) for user "+username);
+                }
+            } else {
+                log.debug("Found no certificate for user "+username);
+            }
+        } else {
+            String msg = intres.getLocalizedMessage("ra.errorentitynotexist", username);
+            log.debug(msg);
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("<getLastCertChain: "+username);
+        }
+        return retval;
     }
 
     @Override

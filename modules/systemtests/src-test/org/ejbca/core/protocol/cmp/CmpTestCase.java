@@ -41,9 +41,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Date;
@@ -238,7 +240,7 @@ public abstract class CmpTestCase extends CaTestCase {
         this.certProfileSession.removeCertificateProfile(ADMIN, CP_DN_OVERRIDE_NAME);
     }
 
-    protected static PKIMessage genCertReq(String issuerDN, X500Name userDN, KeyPair keys, Certificate cacert, byte[] nonce, byte[] transid,
+    public static PKIMessage genCertReq(String issuerDN, X500Name userDN, KeyPair keys, Certificate cacert, byte[] nonce, byte[] transid,
             boolean raVerifiedPopo, Extensions extensions, Date notBefore, Date notAfter, BigInteger customCertSerno, 
             AlgorithmIdentifier pAlg, DEROctetString senderKID)
             throws NoSuchAlgorithmException, IOException, InvalidKeyException, SignatureException {
@@ -443,7 +445,7 @@ public abstract class CmpTestCase extends CaTestCase {
 
     protected static PKIMessage genRenewalReq(X500Name userDN, Certificate cacert, byte[] nonce, byte[] transid, KeyPair keys, boolean raVerifiedPopo,
             X500Name reqSubjectDN, String reqIssuerDN, AlgorithmIdentifier pAlg, DEROctetString senderKID)
-            throws IOException, NoSuchAlgorithmException, InvalidKeyException, SignatureException, CertificateEncodingException {
+            throws NoSuchAlgorithmException, InvalidKeyException, SignatureException, CertificateEncodingException {
  
      CertTemplateBuilder certTemplateBuilder = new CertTemplateBuilder();
 
@@ -488,20 +490,20 @@ public abstract class CmpTestCase extends CaTestCase {
      } else {
          ByteArrayOutputStream baos = new ByteArrayOutputStream();
          DEROutputStream mout = new DEROutputStream(baos);
-         mout.writeObject(certRequest);
-         mout.close();
-         byte[] popoProtectionBytes = baos.toByteArray();
-         String sigalg = AlgorithmTools.getSignAlgOidFromDigestAndKey(null, keys.getPrivate().getAlgorithm()).getId();
-         try {
-             final Signature signature = Signature.getInstance(sigalg, BouncyCastleProvider.PROVIDER_NAME);
-             signature.initSign(keys.getPrivate());
-             signature.update(popoProtectionBytes);
-             DERBitString bs = new DERBitString(signature.sign());
-             POPOSigningKey popoSigningKey = new POPOSigningKey(null, new AlgorithmIdentifier(new ASN1ObjectIdentifier(sigalg)), bs);
-             proofOfPossession = new ProofOfPossession(popoSigningKey);
-         } catch (NoSuchProviderException e) {
-             throw new IllegalStateException(e);
-         }
+            try {
+                mout.writeObject(certRequest);
+                mout.close();
+                byte[] popoProtectionBytes = baos.toByteArray();
+                String sigalg = AlgorithmTools.getSignAlgOidFromDigestAndKey(null, keys.getPrivate().getAlgorithm()).getId();
+                final Signature signature = Signature.getInstance(sigalg, BouncyCastleProvider.PROVIDER_NAME);
+                signature.initSign(keys.getPrivate());
+                signature.update(popoProtectionBytes);
+                DERBitString bs = new DERBitString(signature.sign());
+                POPOSigningKey popoSigningKey = new POPOSigningKey(null, new AlgorithmIdentifier(new ASN1ObjectIdentifier(sigalg)), bs);
+                proofOfPossession = new ProofOfPossession(popoSigningKey);
+            } catch (NoSuchProviderException | IOException e) {
+                throw new IllegalStateException(e);
+            }
      }
 
      // certReqMsg.addRegInfo(new AttributeTypeAndValue(new ASN1ObjectIdentifier("1.3.6.2.2.2.2.3.1"), new DERInteger(1122334455)));
@@ -640,8 +642,8 @@ public abstract class CmpTestCase extends CaTestCase {
             return respBytes;
     }
 
-    protected static void checkCmpResponseGeneral(byte[] retMsg, String issuerDN, X500Name userDN, Certificate cacert, byte[] senderNonce, byte[] transId,
-            boolean signed, String pbeSecret, String expectedSignAlg) throws IOException, InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException {
+    public static void checkCmpResponseGeneral(byte[] retMsg, String issuerDN, X500Name userDN, Certificate cacert, byte[] senderNonce, byte[] transId,
+            boolean signed, String pbeSecret, String expectedSignAlg) throws IOException, InvalidKeyException, NoSuchAlgorithmException {
         assertNotNull("No response from server.", retMsg);
         assertTrue("Response was of 0 length.", retMsg.length > 0);
         boolean pbe = (pbeSecret != null);
@@ -658,14 +660,6 @@ public abstract class CmpTestCase extends CaTestCase {
         if(StringUtils.isEmpty(expectedSignAlg)) {
             expectedSignAlg = PKCSObjectIdentifiers.sha1WithRSAEncryption.getId();
         }
-        // if cacert is ECDSA we should expect an ECDSA signature alg
-        //if (AlgorithmTools.getSignatureAlgorithm(cacert).contains("ECDSA")) {
-        //    expectedSignAlg = X9ObjectIdentifiers.ecdsa_with_SHA1.getId();
-        //} else if(AlgorithmTools.getSignatureAlgorithm(cacert).contains("ECGOST3410")) {
-        //    expectedSignAlg = CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001.getId();
-        //} else if(AlgorithmTools.getSignatureAlgorithm(cacert).contains("DSTU4145")) {
-        //    expectedSignAlg = (new ASN1ObjectIdentifier(CesecoreConfiguration.getOidDstu4145())).getId();
-        //}
         if (signed) {
             AlgorithmIdentifier algId = header.getProtectionAlg();
             assertNotNull("Protection algorithm was null when expecting a signed response, this was probably an unprotected error message: "+header.getFreeText(), algId);
@@ -726,23 +720,27 @@ public abstract class CmpTestCase extends CaTestCase {
                 basekey[raSecret.length + i] = salt[i];
             }
             // Construct the base key according to rfc4210, section 5.1.3.1
-            MessageDigest dig = MessageDigest.getInstance(owfAlg.getAlgorithm().getId(), BouncyCastleProvider.PROVIDER_NAME);
-            for (int i = 0; i < iterationCount; i++) {
-                basekey = dig.digest(basekey);
-                dig.reset();
+            try {
+                MessageDigest dig = MessageDigest.getInstance(owfAlg.getAlgorithm().getId(), BouncyCastleProvider.PROVIDER_NAME);
+                for (int i = 0; i < iterationCount; i++) {
+                    basekey = dig.digest(basekey);
+                    dig.reset();
+                }
+                // HMAC/SHA1 os normal 1.3.6.1.5.5.8.1.2 or 1.2.840.113549.2.7
+                String macOid = macAlg.getAlgorithm().getId();
+                Mac mac = Mac.getInstance(macOid, BouncyCastleProvider.PROVIDER_NAME);
+                SecretKey key = new SecretKeySpec(basekey, macOid);
+                mac.init(key);
+                mac.reset();
+                mac.update(protectedBytes, 0, protectedBytes.length);
+                byte[] out = mac.doFinal();
+                // My out should now be the same as the protection bits
+                byte[] pb = protection.getBytes();
+                boolean ret = Arrays.equals(out, pb);
+                assertTrue(ret);
+            } catch (NoSuchProviderException e) {
+                throw new IllegalStateException("BouncyCastle was not found as a provider.", e);
             }
-            // HMAC/SHA1 os normal 1.3.6.1.5.5.8.1.2 or 1.2.840.113549.2.7
-            String macOid = macAlg.getAlgorithm().getId();
-            Mac mac = Mac.getInstance(macOid, BouncyCastleProvider.PROVIDER_NAME);
-            SecretKey key = new SecretKeySpec(basekey, macOid);
-            mac.init(key);
-            mac.reset();
-            mac.update(protectedBytes, 0, protectedBytes.length);
-            byte[] out = mac.doFinal();
-            // My out should now be the same as the protection bits
-            byte[] pb = protection.getBytes();
-            boolean ret = Arrays.equals(out, pb);
-            assertTrue(ret);
         }
 
         // --SenderNonce
@@ -904,7 +902,8 @@ public abstract class CmpTestCase extends CaTestCase {
         return leafCertificate;
     }
     
-    protected X509Certificate checkKurCertRepMessage(X500Name eeDN, X509Certificate issuerCert, byte[] pkiMessageBytes, int requestId) throws Exception {
+    protected X509Certificate checkKurCertRepMessage(X500Name eeDN, X509Certificate issuerCert, byte[] pkiMessageBytes, int requestId)
+            throws CertificateParsingException, CertPathValidatorException {
         // Parse response message
         final PKIMessage pkiMessage = PKIMessage.getInstance(pkiMessageBytes);
         assertNotNull(pkiMessage);
@@ -929,17 +928,21 @@ public abstract class CmpTestCase extends CaTestCase {
         assertNotNull(certOrEncCert);
         final CMPCertificate cmpCertificate = certOrEncCert.getCertificate();
         assertNotNull(cmpCertificate);
-        final X509Certificate leafCertificate = CertTools.getCertfromByteArray(cmpCertificate.getEncoded(), X509Certificate.class);
-        final X500Name name = new X500Name(CertTools.getSubjectDN(leafCertificate));
-        assertArrayEquals(eeDN.getEncoded(), name.getEncoded());
-        assertEquals(CertTools.stringToBCDNString(CertTools.getIssuerDN(leafCertificate)), CertTools.getSubjectDN(issuerCert));
-        // Verify the issuer of cert
-        final CMPCertificate respCmpCaCert = certRepMessage.getCaPubs()[0];
-        final X509Certificate respCaCert = CertTools.getCertfromByteArray(respCmpCaCert.getEncoded(), X509Certificate.class);
-        assertEquals(CertTools.getFingerprintAsString(issuerCert), CertTools.getFingerprintAsString(respCaCert));
-        assertTrue(CertTools.verify(leafCertificate, Arrays.asList(issuerCert)));
-        assertTrue(CertTools.verify(leafCertificate, Arrays.asList(respCaCert)));
-        return leafCertificate;
+        try {
+            final X509Certificate leafCertificate = CertTools.getCertfromByteArray(cmpCertificate.getEncoded(), X509Certificate.class);
+            final X500Name name = new X500Name(CertTools.getSubjectDN(leafCertificate));
+            assertArrayEquals(eeDN.getEncoded(), name.getEncoded());
+            assertEquals(CertTools.stringToBCDNString(CertTools.getIssuerDN(leafCertificate)), CertTools.getSubjectDN(issuerCert));
+            // Verify the issuer of cert
+            final CMPCertificate respCmpCaCert = certRepMessage.getCaPubs()[0];
+            final X509Certificate respCaCert = CertTools.getCertfromByteArray(respCmpCaCert.getEncoded(), X509Certificate.class);
+            assertEquals(CertTools.getFingerprintAsString(issuerCert), CertTools.getFingerprintAsString(respCaCert));
+            assertTrue(CertTools.verify(leafCertificate, Arrays.asList(issuerCert)));
+            assertTrue(CertTools.verify(leafCertificate, Arrays.asList(respCaCert)));
+            return leafCertificate;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     protected static void checkCmpPKIConfirmMessage(X500Name userDN, Certificate cacert, byte[] pkiMessageBytes) throws IOException {
@@ -1031,7 +1034,7 @@ public abstract class CmpTestCase extends CaTestCase {
         assertEquals(failMsg, pkiStatusInfo.getStatusString().getStringAt(0).getString());
     }
 
-    protected static void checkCmpPKIErrorMessage(byte[] pkiMessageBytes, String sender, X500Name recipient, int expectedErrorCode, String errorMsg) throws IOException {
+    public static void checkCmpPKIErrorMessage(byte[] pkiMessageBytes, String sender, X500Name recipient, int expectedErrorCode, String errorMsg) throws IOException {
         final PKIMessage pkiMessage = PKIMessage.getInstance(pkiMessageBytes);
         assertNotNull(pkiMessage);
         final PKIHeader pkiHeader = pkiMessage.getHeader();
@@ -1039,7 +1042,7 @@ public abstract class CmpTestCase extends CaTestCase {
         final X500Name senderName = X500Name.getInstance(pkiHeader.getSender().getName());
         assertEquals("Not the expected sender.", sender, senderName.toString());
         final X500Name recipientName = X500Name.getInstance(pkiHeader.getRecipient().getName());
-        assertArrayEquals("Not the expected recipient.", recipient.getEncoded(), recipientName.getEncoded());
+        assertEquals("Not the expected recipient.", recipient, recipientName);
         final PKIBody pkiBody = pkiMessage.getBody();
         final int tag = pkiBody.getType();
         assertEquals("Unexpected response PKIBody type", PKIBody.TYPE_ERROR, tag);
@@ -1072,14 +1075,14 @@ public abstract class CmpTestCase extends CaTestCase {
     protected EndEntityInformation createUser(String username, String subjectDN, String password, int caid)
             throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException, NoSuchEndEntityException,
             CADoesntExistsException, CertificateSerialNumberException, IllegalNameException, ApprovalException, CustomFieldException {
-
-        EndEntityInformation user = new EndEntityInformation(username, subjectDN, caid, null, username+"@primekey.se", new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE,
-                CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, SecConst.TOKEN_SOFT_PEM, 0, null);
+        EndEntityInformation user = new EndEntityInformation(username, subjectDN, caid, null, username + "@primekey.se",
+                new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
         user.setPassword(password);
         try {
             this.endEntityManagementSession.addUser(ADMIN, user, false);
             log.debug("created user: " + username);
-        } catch (Exception e) {
+        } catch (EndEntityExistsException e) {
             log.debug("User " + username + " already exists. Setting the user status to NEW");
             this.endEntityManagementSession.changeUser(ADMIN, user, false);
             this.endEntityManagementSession.setUserStatus(ADMIN, username, EndEntityConstants.STATUS_NEW);

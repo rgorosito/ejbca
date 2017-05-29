@@ -1,5 +1,6 @@
 /*************************************************************************
  *                                                                       *
+
  *  EJBCA Community: The OpenSource Certificate Authority                *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
@@ -12,13 +13,6 @@
  *************************************************************************/
 package org.ejbca.core.model.era;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
-import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,15 +35,15 @@ import javax.ejb.TransactionManagement;
 import javax.ejb.TransactionManagementType;
 
 import org.apache.log4j.Logger;
-import org.cesecore.CesecoreException;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
-import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.roles.AccessRulesHelper;
@@ -67,7 +61,6 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
-import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.NoSuchAliasException;
@@ -144,6 +137,16 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         return false;
     }
 
+    @Override
+    public boolean isBackendAvailable(Class<? extends RaMasterApi> apiType) {
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()  && apiType.isInstance(raMasterApi) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     // Added in Master RA API version 1
     @Override
     public int getApiVersion() {
@@ -908,14 +911,19 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     
     @Override
     public byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
-            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, NotFoundException, ApprovalException, EjbcaException,
-            NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchProviderException, SignatureException,
-            CertificateException, IOException, EndEntityProfileValidationException, CesecoreException, CertificateExtensionException {
+            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
+            EndEntityProfileValidationException, CADoesntExistsException {
         AuthorizationDeniedException authorizationDeniedException = null;
-        for (final RaMasterApi raMasterApi : raMasterApis) {
+        CADoesntExistsException caDoesntExistException = null;
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
             if (raMasterApi.isBackendAvailable()) {
                 try {
                     return raMasterApi.createCertificateWS(authenticationToken, userdata, requestData, requestType, hardTokenSN, responseType);
+                } catch (CADoesntExistsException e) {
+                    if (caDoesntExistException == null) {
+                        caDoesntExistException = e;
+                    }
+                    // Just try next implementation
                 } catch (AuthorizationDeniedException e) {
                     if (authorizationDeniedException == null) {
                         authorizationDeniedException = e;
@@ -929,7 +937,37 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         if (authorizationDeniedException != null) {
             throw authorizationDeniedException;
         }
+        if (caDoesntExistException != null) {
+            throw caDoesntExistException;
+        }
         return null;
+    }
+    
+    @Override
+    public List<CertificateWrapper> getLastCertChain(final AuthenticationToken authenticationToken, final String username) throws AuthorizationDeniedException, EjbcaException {
+        AuthorizationDeniedException authorizationDeniedException = null;
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                     final List<CertificateWrapper> chain = raMasterApi.getLastCertChain(authenticationToken, username);
+                     if (!chain.isEmpty()) {
+                         return chain;
+                     }
+                     // Otherwise, try next implementation
+                } catch (AuthorizationDeniedException e) {
+                    if (authorizationDeniedException == null) {
+                        authorizationDeniedException = e;
+                    }
+                    // Just try next implementation
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        if (authorizationDeniedException != null) {
+            throw authorizationDeniedException;
+        }
+        return new ArrayList<>();
     }
 
     @Override
@@ -996,14 +1034,17 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
 
     @Override
-    public byte[] cmpDispatch(final AuthenticationToken authenticationToken, final byte[] pkiMessageBytes, final String cmpConfigurationAlias) throws NoSuchAliasException {
+    public byte[] cmpDispatch(final AuthenticationToken authenticationToken, final byte[] pkiMessageBytes, final String cmpConfigurationAlias) {
         for (final RaMasterApi raMasterApi : raMasterApis) {
             if (raMasterApi.isBackendAvailable() && raMasterApi.getApiVersion()>=1) {
                 try {
-                    final byte[] result = raMasterApi.cmpDispatch(authenticationToken, pkiMessageBytes, cmpConfigurationAlias);
-                    if (result != null) {
+                    byte[] result;
+                    try {
+                        result = raMasterApi.cmpDispatch(authenticationToken, pkiMessageBytes, cmpConfigurationAlias);
                         return result;
-                    }
+                    } catch (NoSuchAliasException e) {
+                        //We might not have an alias in the current RaMasterApi, so let's try another. 
+                    }                    
                 } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
                     // Just try next implementation
                 }

@@ -12,26 +12,19 @@
  *************************************************************************/
 package org.ejbca.core.model.era;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
-import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 import java.util.Map;
 
-import org.cesecore.CesecoreException;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
-import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.roles.Role;
@@ -48,7 +41,6 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
-import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
@@ -351,24 +343,14 @@ public interface RaMasterApi {
      * @param responseType
      * @return
      * @throws AuthorizationDeniedException
-     * @throws NotFoundException
      * @throws ApprovalException
      * @throws EjbcaException
-     * @throws NoSuchAlgorithmException
-     * @throws InvalidKeyException
-     * @throws InvalidKeySpecException
-     * @throws NoSuchProviderException
-     * @throws SignatureException
-     * @throws CertificateException
-     * @throws IOException
      * @throws EndEntityProfileValidationException
-     * @throws CesecoreException
-     * @throws CertificateExtensionException
+     * @throws CADoesntExistsException
      */
     byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
-            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, NotFoundException, ApprovalException, EjbcaException,
-            NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchProviderException, SignatureException,
-            CertificateException, IOException, EndEntityProfileValidationException, CesecoreException, CertificateExtensionException;
+            final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
+            EndEntityProfileValidationException, CADoesntExistsException;
     
     /**
      * Makes a request as part of the ACME protocol. The purpose of the ACME protocol is to allow for automatic
@@ -390,6 +372,17 @@ public interface RaMasterApi {
      */
     EndEntityInformation searchUser(AuthenticationToken authenticationToken, String username);
 
+    /**
+     * Gets the certificate chain for the most recently created certificate for the end entity with the given user name.
+     * @param authenticationToken Authentication token.
+     * @param username User name of end entity.
+     * @return Certificate chain, with the leaf certificate first.
+     * @throws AuthorizationDeniedException If not authorized to the end entity of the user
+     * @throws EjbcaException On internal errors, such as badly encoded certificate.
+     */
+    List<CertificateWrapper> getLastCertChain(AuthenticationToken authenticationToken, String username)
+            throws AuthorizationDeniedException, EjbcaException;
+    
     /**
      * Request status change of a certificate (revoke or reactivate).
      * Requires authorization to CA, EEP for the certificate and '/ra_functionality/revoke_end_entity'.
