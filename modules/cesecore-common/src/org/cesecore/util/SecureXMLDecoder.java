@@ -36,9 +36,11 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.cesecore.certificates.certificateprofile.CertificatePolicy;
+import org.cesecore.certificates.certificateprofile.PKIDisclosureStatement;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
+
 
 /**
  * <p>Implements a subset of XMLDecoder in a secure way, without allowing arbitrary classes to be loaded or methods to be invoked.
@@ -61,7 +63,6 @@ import org.xmlpull.v1.XmlPullParserFactory;
  * @version $Id$
  */
 public class SecureXMLDecoder implements AutoCloseable {
-
     private final InputStream is;
     private final XmlPullParser parser;
     private boolean seenHeader = false;
@@ -256,6 +257,9 @@ public class SecureXMLDecoder implements AutoCloseable {
             case "org.ejbca.core.model.ca.certificateprofiles.CertificatePolicy":
                 value = parseObject(new CertificatePolicy());
                 break;
+            case "org.cesecore.certificates.certificateprofile.PKIDisclosureStatement":
+                value = parseObject(new PKIDisclosureStatement());
+                break;
             case "java.util.Collections":
                 value = parseSpecialCollection(method);
                 method = null; // value has been used, don't report error
@@ -267,6 +271,22 @@ public class SecureXMLDecoder implements AutoCloseable {
             case "java.util.Properties":
                 // Default values (the argument to the constructor) aren't preserved during serialization by XMLEncoder
                 value = parseMap(new Properties());
+                break;
+            case "java.lang.Enum":
+                parser.getName();
+                String enumType = readString();
+                parser.nextTag();
+                parser.getName();
+                String instance = readString();
+                try {
+                    @SuppressWarnings({ "rawtypes", "unchecked" })
+                    Enum<?> enumValue = Enum.valueOf((Class<? extends Enum>) Class.forName(enumType), instance);
+                    value = enumValue;
+                } catch (ClassNotFoundException e) {
+                    throw new IOException(errorMessage("Instantation of enum type \"" + enumType + "\" not supported or not allowed."));
+                }
+                method = null;
+                parser.nextTag();
                 break;
             default:
                 /*

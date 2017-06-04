@@ -39,7 +39,7 @@ import org.junit.runners.model.InitializationError;
  *
  */
 public class PKCS12TestRunner extends CryptoTokenRunner {
-
+    
     private static final String ALIAS = "signKeyAlias";
     
     private final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
@@ -101,6 +101,11 @@ public class PKCS12TestRunner extends CryptoTokenRunner {
     public Integer createCryptoToken() throws Exception {
         cryptoTokenId = CryptoTokenTestUtils.createSoftCryptoToken(alwaysAllowToken, super.getName());
         return cryptoTokenId;
+    }
+    
+    @Override
+    public String getNamingSuffix() {
+        return "P12";
     }
 
 

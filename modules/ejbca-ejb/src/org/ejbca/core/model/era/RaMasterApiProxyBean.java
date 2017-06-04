@@ -35,12 +35,12 @@ import javax.ejb.TransactionManagement;
 import javax.ejb.TransactionManagementType;
 
 import org.apache.log4j.Logger;
+import org.cesecore.ErrorCode;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
@@ -587,12 +587,12 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                     ret.merge(raMasterApi.searchForCertificates(authenticationToken, raCertificateSearchRequest));
                 } catch (UnsupportedOperationException e) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Trouble during back end envocation: " + e.getMessage());
+                        log.debug("Trouble during back end invocation: " + e.getMessage());
                     }
                     // Just try next implementation
                 } catch (RaMasterBackendUnavailableException e) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Timeout during back end envocation.", e);
+                        log.debug("Timeout during back end invocation.", e);
                     }
                     // If the back end timed out due to a too heavy search we want to allow the client to retry with more fine grained criteria
                     ret.setMightHaveMoreResults(true);
@@ -644,12 +644,12 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                     ret.merge(raMasterApi.searchForEndEntities(authenticationToken, raEndEntitySearchRequest));
                 } catch (UnsupportedOperationException e) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Trouble during back end envocation: " + e.getMessage());
+                        log.debug("Trouble during back end invocation: " + e.getMessage());
                     }
                     // Just try next implementation
                 } catch (RaMasterBackendUnavailableException e) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Timeout during back end envocation.", e);
+                        log.debug("Timeout during back end invocation.", e);
                     }
                     // If the back end timed out due to a too heavy search we want to allow the client to retry with more fine grained criteria
                     ret.setMightHaveMoreResults(true);
@@ -912,14 +912,18 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     @Override
     public byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
             final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
-            EndEntityProfileValidationException, CADoesntExistsException {
+            EndEntityProfileValidationException {
         AuthorizationDeniedException authorizationDeniedException = null;
-        CADoesntExistsException caDoesntExistException = null;
+        EjbcaException caDoesntExistException = null;
         for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
             if (raMasterApi.isBackendAvailable()) {
                 try {
                     return raMasterApi.createCertificateWS(authenticationToken, userdata, requestData, requestType, hardTokenSN, responseType);
-                } catch (CADoesntExistsException e) {
+                } catch (EjbcaException e) {
+                    // Only catch "CA doesn't exist" case here
+                    if (e.getErrorCode() != null && !ErrorCode.CA_NOT_EXISTS.getInternalErrorCode().equals(e.getErrorCode().getInternalErrorCode())) {
+                        throw e;
+                    }
                     if (caDoesntExistException == null) {
                         caDoesntExistException = e;
                     }
@@ -990,31 +994,7 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         return ret;
     }
     
-    @Override
-    public RaAcmeResponse makeAcmeRequest(AuthenticationToken authenticationToken, RaAcmeRequest request) throws AuthorizationDeniedException, EjbcaException {
-        AuthorizationDeniedException authorizationDeniedException = null;
-        for (final RaMasterApi raMasterApi : raMasterApis) {
-            if (raMasterApi.isBackendAvailable()) {
-                try {
-                    final RaAcmeResponse resp = raMasterApi.makeAcmeRequest(authenticationToken, request);
-                    if (resp != null) {
-                        return resp;
-                    }
-                } catch (AuthorizationDeniedException e) {
-                    if (authorizationDeniedException == null) {
-                        authorizationDeniedException = e;
-                    }
-                    // Just try next implementation
-                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
-                    // Just try next implementation
-                }
-            }
-        }
-        if (authorizationDeniedException != null) {
-            throw authorizationDeniedException;
-        }
-        return null;
-    }
+
 
     @Override
     public ApprovalProfile getApprovalProfileForAction(final AuthenticationToken authenticationToken, final ApprovalRequestType action, final int caId, final int certificateProfileId) throws AuthorizationDeniedException {
@@ -1034,7 +1014,9 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
 
     @Override
-    public byte[] cmpDispatch(final AuthenticationToken authenticationToken, final byte[] pkiMessageBytes, final String cmpConfigurationAlias) {
+    public byte[] cmpDispatch(final AuthenticationToken authenticationToken, final byte[] pkiMessageBytes, final String cmpConfigurationAlias) throws NoSuchAliasException {
+        NoSuchAliasException caughtException = null;
+        
         for (final RaMasterApi raMasterApi : raMasterApis) {
             if (raMasterApi.isBackendAvailable() && raMasterApi.getApiVersion()>=1) {
                 try {
@@ -1043,13 +1025,20 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                         result = raMasterApi.cmpDispatch(authenticationToken, pkiMessageBytes, cmpConfigurationAlias);
                         return result;
                     } catch (NoSuchAliasException e) {
-                        //We might not have an alias in the current RaMasterApi, so let's try another. 
+                        //We might not have an alias in the current RaMasterApi, so let's try another. Let's store the exception in case we need it
+                        //later though.
+                        caughtException = e;
                     }                    
                 } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
                     // Just try next implementation
                 }
             }
         }
-        return null;
+        // either throw an exception or return null
+        if (caughtException != null) {
+            throw caughtException;
+        } else {
+            return null;
+        }
     }
 }

@@ -21,7 +21,6 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
@@ -335,33 +334,22 @@ public interface RaMasterApi {
 
     /**
      * Generates a certificate. This variant is used from the Web Service interface.
-     * @param authenticationToken
-     * @param userdata
-     * @param requestData
-     * @param requestType
-     * @param hardTokenSN
-     * @param responseType
-     * @return
-     * @throws AuthorizationDeniedException
-     * @throws ApprovalException
-     * @throws EjbcaException
-     * @throws EndEntityProfileValidationException
-     * @throws CADoesntExistsException
+     * @param authenticationToken authentication token.
+     * @param userdata end entity information, encoded as a UserDataVOWS (web service value object). Must have been enriched by the WS setUserDataVOWS/enrichUserDataWithRawSubjectDn methods.
+     * @param requestData see {@link org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest IEjbcaWS.certificateRequest()}
+     * @param requestType see {@link org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest IEjbcaWS.certificateRequest()}
+     * @param hardTokenSN see {@link org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest IEjbcaWS.certificateRequest()}
+     * @param responseType see {@link org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest IEjbcaWS.certificateRequest()}
+     * @return certificate binary data
+     * @throws AuthorizationDeniedException if not authorized to create a certificate with the given CA or the profiles
+     * @throws ApprovalException if the request requires approval
+     * @throws EjbcaException if an EJBCA exception with an error code has occurred during the process, for example non-existent CA
+     * @throws EndEntityProfileValidationException if the certificate does not match the profiles.
+     * @see org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest
      */
     byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
             final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
-            EndEntityProfileValidationException, CADoesntExistsException;
-    
-    /**
-     * Makes a request as part of the ACME protocol. The purpose of the ACME protocol is to allow for automatic
-     * certificate issuance and revocation. It consists of multiple steps, where the final step is typically
-     * either an issuance or a revocation. Called by the ACME module only.
-     * 
-     * @param authenticationToken authentication token
-     * @param response Response information. The type field is mandatory and decides the type of request (i.e. the step in the process). 
-     * @return A response object. Fields that are not related to the request will be null.
-     */
-    RaAcmeResponse makeAcmeRequest(AuthenticationToken authenticationToken, RaAcmeRequest request) throws AuthorizationDeniedException, EjbcaException;
+            EndEntityProfileValidationException;
     
     /**
      * Finds end entity by its username.
