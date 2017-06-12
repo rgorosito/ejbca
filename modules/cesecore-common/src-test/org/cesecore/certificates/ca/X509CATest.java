@@ -124,7 +124,7 @@ import org.junit.Test;
  * @version $Id$
  */
 public class X509CATest {
-
+  
 	public static final String CADN = "CN=TEST";
 	
 	// This will be an empty list of custom certificate extensions

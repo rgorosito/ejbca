@@ -59,7 +59,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     private static final InternalResources intres = InternalResources.getInstance();
 
     // Public Constants
-    public static final float LATEST_VERSION = (float) 46.0;
+    public static final float LATEST_VERSION = (float) 45.0;
 
     public static final String ROOTCAPROFILENAME = "ROOTCA";
     public static final String SUBCAPROFILENAME = "SUBCA";
@@ -2321,18 +2321,17 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      */
     @SuppressWarnings("unchecked")
     public Map<ApprovalRequestType, Integer> getApprovals() {
+        if (data.get(APPROVALS) == null) {
+            Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
+            int approvalProfileId = getApprovalProfileID();
+            if(approvalProfileId != -1) {
+                for(int approvalSetting : getApprovalSettings()) {
+                    approvals.put(ApprovalRequestType.getFromIntegerValue(approvalSetting), approvalProfileId);
+                }
+            }
+            setApprovals(approvals);
+        }
         return (Map<ApprovalRequestType, Integer>) data.get(APPROVALS);
-    }
-    
-
-    /**
-     * Returns true if the action requires approvals.
-     * 
-     * @param action as definde by the ApprovalRequestType enum
-     * @return true if this profile has an approval profile set for the given action.
-     */
-    public boolean isApprovalRequired(ApprovalRequestType action) {    
-        return getApprovals().containsKey(action);
     }
 
     /**
@@ -2942,19 +2941,6 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
                 } else {
                     data.put(QCETSIPDS, null);
                 }
-            }
-            
-            // v46: Remapping approvals to one profile per approval profile (ECA-5845)
-            if(!data.containsKey(APPROVALS)) {
-                int approvalProfileId = getApprovalProfileID();
-                List<Integer> approvalActions = getApprovalSettings();
-                Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
-                if(approvalProfileId != -1) {
-                    for(Integer approvalAction : approvalActions) {
-                        approvals.put(ApprovalRequestType.getFromIntegerValue(approvalAction), approvalProfileId);
-                    }
-                }
-                data.put(APPROVALS, approvals);
             }
             
             data.put(VERSION, new Float(LATEST_VERSION));

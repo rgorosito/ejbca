@@ -525,13 +525,6 @@ public class CertificateProfileTest {
         policy = l.get(0);
         assertEquals("1.1.1.1", policy.getPolicyID());
         
-        assertFalse(profile.isApprovalRequired(ApprovalRequestType.ADDEDITENDENTITY));
-        Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
-        approvals.put(ApprovalRequestType.ADDEDITENDENTITY, 4711);
-        profile.setApprovals(approvals);
-        assertTrue(profile.isApprovalRequired(ApprovalRequestType.ADDEDITENDENTITY));
-        assertFalse(profile.isApprovalRequired(ApprovalRequestType.KEYRECOVER));
-        
         assertNull(profile.getQCEtsiType());
         assertNull(profile.getQCEtsiPds());
         // Setting an empty list causes it to be changed into null
@@ -759,26 +752,5 @@ public class CertificateProfileTest {
             }
         }
     }    
-    
-    /**
-     * Test that certificate profiles are automatically upgraded to the new approvals format introduced in 6.8.0
-     */
-    @SuppressWarnings("deprecation")
-    @Test
-    public void testUpgradeOfApprovals() {
-        CertificateProfile certificateProfile = new CertificateProfile();        
-        final Map<String,Object> data = new HashMap<>();
-        initDataMap(data);
-        data.put(UpgradeableDataHashMap.VERSION, 44.0F);
-        Integer approvalProfile = 4711;
-        data.put(CertificateProfile.APPROVALPROFILE, approvalProfile);
-        data.put(CertificateProfile.APPROVALSETTINGS, Arrays.asList(ApprovalRequestType.ACTIVATECA.getIntegerValue(), ApprovalRequestType.ADDEDITENDENTITY.getIntegerValue()));
-        certificateProfile.loadData(data);
-        @SuppressWarnings("unchecked")
-        final Map<String,Object> result = (Map<String, Object>) certificateProfile.saveData();
-        @SuppressWarnings("unchecked")
-        Map<Integer, Integer> approvals = (Map<Integer, Integer>) result.get(CertificateProfile.APPROVALS);
-        assertEquals("Approvals in certificate profile was not upgraded", approvalProfile, approvals.get(ApprovalRequestType.ACTIVATECA));
-        assertEquals("Approvals in certificate profile was not upgraded", approvalProfile, approvals.get(ApprovalRequestType.ADDEDITENDENTITY));
-    }
+  
 }

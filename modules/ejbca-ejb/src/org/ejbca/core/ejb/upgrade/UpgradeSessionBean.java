@@ -1397,12 +1397,15 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
                         tokenIssuerId, tokenMatchKey, tokenMatchOperator, tokenMatchValue, roleId, description));
             }
         }
-        log.debug("migrateDatabase680: Converting CAs from using one approval profile for all approval types to use 1:1");
+        // Note that this has to happen here and not in X509CA or CvcCA due to the fact that this step has to happen after approval profiles have 
+        // been created in previous upgrade steps. 
+        log.debug("migrateDatabase680: Converting Certificate Authorities from using one approval profile for all request types "
+                + "to using one profile per request type.");
         try {
             for (int caId : caSession.getAllCaIds()) {
                 CA ca = caSession.getCAForEdit(authenticationToken, caId);
-                //If approvals map is null, then this CA is in an unupgraded state.
-                if(ca.getApprovals() == null) {
+                //If approvals map is null or empty, then this CA may be in an unupgraded state.
+                if(ca.getApprovals() == null || ca.getApprovals().isEmpty()) {
                     Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
                     int approvalProfile = ca.getApprovalProfile();
                     if (approvalProfile != -1) {
@@ -1418,6 +1421,29 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
             throw new IllegalStateException("Always allow token was denied access.", e);
         } catch (CADoesntExistsException e) {
             throw new IllegalStateException("CA doesn't exist in spite of just being retrieved", e);
+        }
+        // Note that this has to happen here and not in CertificateProfile due to the fact that this step has to happen after approval profiles have 
+        // been created in previous upgrade steps.
+        log.debug("migrateDatabase680: Converting Certificate Profiles from using one approval profile for all request types "
+                + "to using one profile per request type.");
+        Map<Integer, CertificateProfile> certificateProfiles = certProfileSession.getAllCertificateProfiles();
+        for (Integer profileId : certificateProfiles.keySet()) {
+            CertificateProfile certificateProfile = certificateProfiles.get(profileId);
+            String certificateProfileName = certProfileSession.getCertificateProfileName(profileId);
+            Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
+            int approvalProfile = certificateProfile.getApprovalProfileID();
+            if (approvalProfile != -1) {
+                for (int approvalSetting : certificateProfile.getApprovalSettings()) {
+                    approvals.put(ApprovalRequestType.getFromIntegerValue(approvalSetting), approvalProfile);
+                }
+            }
+            certificateProfile.setApprovals(approvals);
+            try {
+                certProfileSession.changeCertificateProfile(authenticationToken, certificateProfileName, certificateProfile);
+            } catch (AuthorizationDeniedException e) {
+                throw new IllegalStateException("Always allow token was denied access.", e);
+            }
+
         }
         
         log.error("(This is not an error) Completed upgrade procedure to 6.8.0");

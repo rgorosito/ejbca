@@ -51,6 +51,7 @@ import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.ca.X509CA;
 import org.cesecore.certificates.certificate.certextensions.AvailableCustomCertificateExtensionsConfiguration;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
+import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionRemote;
 import org.cesecore.configuration.GlobalConfigurationSessionRemote;
@@ -621,13 +622,13 @@ public class UpgradeSessionBeanTest {
     }
     
     /**
-     * Test upgrading CAs and Certificat Profiles to the 6.8.0 form of approvals, i.e. using one approval profile per approval action instead of one
-     * profile for all actions. Expected behavior is that the upgraded CA/CP should have a map containing all actions mapped to the same (previously)
+     * Test upgrading CAs to the 6.8.0 form of approvals, i.e. using one approval profile per approval action instead of one
+     * profile for all actions. Expected behavior is that the upgraded CA should have a map containing all actions mapped to the same (previously)
      * set profile, and any entities
      * 
      */
     @Test
-    public void testUpgradeTo680Approvals() throws CertificateParsingException, CryptoTokenOfflineException, OperatorCreationException,
+    public void testUpgradeCaTo680Approvals() throws CertificateParsingException, CryptoTokenOfflineException, OperatorCreationException,
             CAExistsException, AuthorizationDeniedException, ApprovalProfileExistsException, CADoesntExistsException {
         //This CA should not be assigned an approval profile on account of lacking any actions
         X509CA noActionsCa = CaTestUtils.createTestX509CA("CN=NoActions", "foo123".toCharArray(), false);
@@ -666,6 +667,53 @@ public class UpgradeSessionBeanTest {
             approvalProfileSession.removeApprovalProfile(alwaysAllowtoken, requireTwoApprovalsId);
         }
     }
+    
+    /**
+     * Test upgrading Certificate Profiles to the 6.8.0 form of approvals, i.e. using one approval profile per approval action instead of one
+     * profile for all actions. Expected behavior is that the upgraded CP should have a map containing all actions mapped to the same (previously)
+     * set profile, and any entities
+     * 
+     */
+    @Test
+    public void testUpgradCertificateProfileTo680Approvals() throws AuthorizationDeniedException, CertificateProfileExistsException, ApprovalProfileExistsException {
+        //This Certificate profile should not be assigned an approval profile on account of lacking any actions
+        CertificateProfile noApprovals = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+        final String noApprovalsName = "noApprovals";
+        certificateProfileSession.addCertificateProfile(alwaysAllowtoken, noApprovalsName, noApprovals);
+
+        ApprovalProfile requireTwoApprovals = new AccumulativeApprovalProfile("testUpgradeTo680Approvals");
+        int requireTwoApprovalsId = approvalProfileSession.addApprovalProfile(alwaysAllowtoken, requireTwoApprovals);
+        
+        //This Certificate Profile should be assigned a profile, and a couple of actions.  
+        CertificateProfile withApprovals = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+        withApprovals.setApprovals(null);
+        withApprovals.setApprovalProfileID(requireTwoApprovalsId);
+        List<Integer> approvalSettings = new ArrayList<>(Arrays.asList(ApprovalRequestType.ACTIVATECA.getIntegerValue(), ApprovalRequestType.KEYRECOVER.getIntegerValue()));
+        withApprovals.setApprovalSettings(approvalSettings);
+        final String withApprovalsName = "withApprovals";
+        certificateProfileSession.addCertificateProfile(alwaysAllowtoken, withApprovalsName, withApprovals);
+
+        GlobalUpgradeConfiguration guc = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+        guc.setUpgradedFromVersion("6.5.0");
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, guc);
+        try {
+            upgradeSession.upgrade(null, "6.7.0", false);
+            //Verify that the CA without approval set merely returns an empty map
+            CertificateProfile upgradedNoApprovals = certificateProfileSession.getCertificateProfile(noApprovalsName);
+            assertTrue("Certificate Profile without approvals was upgraded to have approvals", upgradedNoApprovals.getApprovals().isEmpty());
+
+            CertificateProfile upgradedWithApprovals = certificateProfileSession.getCertificateProfile(withApprovalsName);
+            Map<ApprovalRequestType, Integer> approvals = upgradedWithApprovals.getApprovals();
+            assertEquals("Certificate Profile  with approvals for two actions did not get any approvals set.", 2, approvals.size());
+            assertEquals("Approval profile was not set for action during upgrade.", Integer.valueOf(requireTwoApprovalsId), approvals.get(ApprovalRequestType.ACTIVATECA));
+            assertEquals("Approval profile was not set for action during upgrade.", Integer.valueOf(requireTwoApprovalsId), approvals.get(ApprovalRequestType.KEYRECOVER));
+        } finally {
+            certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, noApprovalsName);
+            certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, withApprovalsName);
+            approvalProfileSession.removeApprovalProfile(alwaysAllowtoken, requireTwoApprovalsId);
+        }
+    }
+    
     
     private void deleteRole(final String nameSpace, final String roleName) {
         try {

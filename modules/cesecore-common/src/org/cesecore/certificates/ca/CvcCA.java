@@ -188,7 +188,6 @@ public abstract class CvcCA extends CA implements Serializable {
                 setEncodedValidity(getEncodedValidity());
             }
             
-			data.put(VERSION, new Float(LATEST_VERSION));
 		}  
 	}
 

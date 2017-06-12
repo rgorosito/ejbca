@@ -1148,11 +1148,11 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
             Map<ApprovalRequestType, Integer> approvals = certificateProfile.getApprovals();
             for (ApprovalRequestType approvalRequestType : ApprovalRequestType.values()) {
                 int approvalProfileId;
-                if (approvals.containsKey(Integer.valueOf(approvalRequestType.getIntegerValue()))) {
-                    approvalProfileId = approvals.get(Integer.valueOf(approvalRequestType.getIntegerValue()));
-                } else {
-                    approvalProfileId = -1;
-                }
+                if (approvals.containsKey(approvalRequestType)) { 
+                    approvalProfileId = approvals.get(approvalRequestType); 
+                } else { 
+                    approvalProfileId = -1; 
+                } 
                 approvalRequestItems.add(new ApprovalRequestItem(approvalRequestType, approvalProfileId));
             }
         }
@@ -1199,6 +1199,12 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         for (final Integer publisherId : authorizedPublisherIds) {
             ret.add(new SelectItem(publisherId, publisherIdToNameMap.get(publisherId)));
         }
+        Collections.sort(ret, new Comparator<SelectItem>() {
+            @Override
+            public int compare(SelectItem first, SelectItem second) {
+                return first.getLabel().compareToIgnoreCase(second.getLabel());
+            }
+        });
         return ret;
     }
     public int getPublisherListAvailableSize() { return Math.max(1, Math.min(5, getPublisherListAvailable().size())); };
