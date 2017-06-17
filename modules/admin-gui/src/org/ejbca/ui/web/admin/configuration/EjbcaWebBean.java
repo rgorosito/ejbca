@@ -29,12 +29,15 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -664,8 +667,12 @@ public class EjbcaWebBean implements Serializable {
     /**
      * Convert a the format "yyyy-MM-dd HH:mm" with implied TimeZone UTC to a more user friendly "yyyy-MM-dd HH:mm:ssZZ". If it is a relative date we
      * return it as it was. If we fail to parse the stored date we return an error-string followed by the stored value.
+     * If the passed in value is empty, we return an empty string
      */
     public String getISO8601FromImpliedUTCOrRelative(final String dateString) {
+        if (StringUtils.isEmpty(dateString)) {
+            return "";
+        }
         if (!isRelativeDateTime(dateString)) {
             try {
                 return getISO8601FromImpliedUTC(dateString);
@@ -731,6 +738,12 @@ public class EjbcaWebBean implements Serializable {
         return this.informationmemory.getAuthorizedCAIds();
     }
 
+    /** @return authorized CA Ids sorted by CA name alphabetically*/
+    public Collection<Integer> getAuthorizedCAIdsByName() {
+        return this.informationmemory.getAuthorizedCAIdsByName();
+    }
+
+    
     public boolean isAuthorizedToAllCAs() {
         return caSession.getAllCaIds().size() == getAuthorizedCAIds().size();
     }
