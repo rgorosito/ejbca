@@ -18,13 +18,13 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -45,6 +45,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileDoesNotExi
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.util.SecureXMLDecoder;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.model.ca.publisher.BasePublisher;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
@@ -187,19 +188,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
     }
 
     public boolean isAuthorizedToEdit() {
-        Integer selectedProfileId = getSelectedCertProfileId();
-        if (selectedProfileId != null) {
-            CertificateProfileSessionLocal certificateProfileSession = getEjbcaWebBean().getEjb().getCertificateProfileSession();
-            CertificateProfile certificateProfile = certificateProfileSession.getCertificateProfile(selectedProfileId);
-            if (certificateProfile != null) {
-                return certificateProfileSession.authorizedToProfileWithResource(getAdmin(), certificateProfile, false, StandardRules.CERTIFICATEPROFILEEDIT.resource());
-            } else {
-                //Can happen if cache wasn't updated. 
-                return true;
-            }
-        } else {
-            return true;
-        }
+        return isAuthorizedTo(StandardRules.CERTIFICATEPROFILEEDIT.resource());
     }
 
     public boolean isAuthorizedToOnlyView() {
@@ -208,14 +197,22 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public String actionEdit() {
         selectCurrentRowData();
-        viewOnly = false;
-        return "edit"; // Outcome is defined in faces-config.xml
+        if (selectedProfileExists()) {
+            viewOnly = false;
+            return "edit"; // Outcome is defined in faces-config.xml
+        } else {
+            return "";
+        }
     }
 
     public String actionView() {
         selectCurrentRowData();
-        viewOnly = true;
-        return "view"; // Outcome is defined in faces-config.xml
+        if (selectedProfileExists()) {
+            viewOnly = true;
+            return "view"; // Outcome is defined in faces-config.xml
+        } else {
+            return "";
+        }
     }
     
     public boolean getViewOnly() {
@@ -257,7 +254,9 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public void actionAddFromTemplate() {
         selectCurrentRowData();
-        addFromTemplateInProgress = true;
+        if (selectedProfileExists()) {
+            addFromTemplateInProgress = true;
+        }
     }
 
     public void actionAddFromTemplateConfirm() {
@@ -296,7 +295,9 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public void actionDelete() {
         selectCurrentRowData();
-        deleteInProgress = true;
+        if (selectedProfileExists()) {
+            deleteInProgress = true;
+        }
     }
 
     public void actionDeleteConfirm() {
@@ -320,7 +321,9 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public void actionRename() {
         selectCurrentRowData();
-        renameInProgress = true;
+        if (selectedProfileExists()) {
+            renameInProgress = true;
+        }
     }
 
     public void actionRenameConfirm() {
@@ -349,6 +352,11 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         certificateProfileItems = null;
         selectedCertProfileId = null;
         certProfileName = null;
+    }
+    
+    /** @return true if there exists a certificate profile with the selected id */
+    private boolean selectedProfileExists() {
+        return getEjbcaWebBean().getEjb().getCertificateProfileSession().getCertificateProfile(selectedCertProfileId) != null;
     }
 
     /*
@@ -438,16 +446,11 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public void setCertProfileName(String certProfileName) {
         certProfileName = certProfileName.trim();
-        if (checkFieldForLegalChars(certProfileName)) {
+        if (StringTools.checkFieldForLegalChars(certProfileName)) {
             addErrorMessage("ONLYCHARACTERS");
         } else {
             this.certProfileName = certProfileName;
         }
-    }
-
-    private boolean checkFieldForLegalChars(final String fieldValue) {
-        final String blackList = "/[^\\u0041-\\u005a\\u0061-\\u007a\\u00a1-\\ud7ff\\ue000-\\uffff_ 0-9@\\.\\*\\,\\-:\\/\\?\\'\\=\\(\\)\\|.]/g";
-        return Pattern.matches(blackList, fieldValue);
     }
 
     //----------------------------------------------
@@ -498,9 +501,14 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(filebuffer));
         ZipEntry ze = zis.getNextEntry();
         if (ze == null) {
-            String msg = uploadFile.getName() + " is not a zip file.";
-            log.info(msg);
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, msg, null));
+            // Print import message if the file header corresponds to an empty zip archive
+            if (Arrays.equals(Arrays.copyOfRange(filebuffer, 0, 4), new byte[] { 80, 75, 5, 6 })) {
+                printImportMessage(nrOfFiles, importedFiles, ignoredFiles);
+            } else {
+                String msg = uploadFile.getName() + " is not a zip file.";
+                log.info(msg);
+                FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, msg, null));
+            }
             return;
         }
 
@@ -574,7 +582,19 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         } while ((ze = zis.getNextEntry()) != null);
         zis.closeEntry();
         zis.close();
+        
+        printImportMessage(nrOfFiles, importedFiles, ignoredFiles);
+    }
 
+    /**
+     * Logs and creates FacesMessage with information about number of files, imported files
+     * and ignored files when importing Certificate Profiles.
+     * 
+     * @param nrOfFiles the number of files the uploaded archive contained
+     * @param importedFiles the files in the archive that were imported
+     * @param ignoredFiles the files in the archive that were ignored
+     */
+    private void printImportMessage(int nrOfFiles, String importedFiles, String ignoredFiles) {
         String msg = uploadFile.getName() + " contained " + nrOfFiles + " files. ";
         log.info(msg);
         FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, msg, null));

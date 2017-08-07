@@ -4027,40 +4027,22 @@ public abstract class CertTools {
 
     /**
      * Method ordering a list of X509 certificate into a certificate path with the root CA, or topmost Sub CA at the end. Does not check validity or verification of any kind,
-     * just ordering by issuerdn/keyId.
+     * just ordering by issuerdn/keyId. This is mostly a wrapper around CertPath.generateCertPath, but we do regression test this ordering.
      * 
      * @param certlist list of certificates to order can be collection of Certificate or byte[] (der encoded certs).
-     * @return List with certificatechain with leaf certificate first, and root CA, or last sub CA, in the end, does not have to contain a Root CA is input does not.
+     * @return List with certificate chain with leaf certificate first, and root CA, or last sub CA, in the end, does not have to contain a Root CA is input does not.
      */
     @SuppressWarnings("unchecked")
-    public static List<X509Certificate> orderX509CertificateChain(Collection<X509Certificate> certlist) throws CertPathValidatorException {
-        ArrayList<Certificate> pathlist = new ArrayList<Certificate>();
-        for(Object possibleCertificate : certlist) {
-            Certificate cert = null;
-            try {
-                cert = (Certificate) possibleCertificate;
-            } catch (ClassCastException e) {
-                // This was not a certificate, is it byte encoded?
-                byte[] certBytes = (byte[]) possibleCertificate;
-                try {
-                    cert = CertTools.getCertfromByteArray(certBytes);
-                } catch (CertificateParsingException e1) {
-                    throw new CertPathValidatorException(e1);
-                }
-            }
-            if (cert != null) {
-                pathlist.add(cert);
-            }
-        }
+    public static List<X509Certificate> orderX509CertificateChain(List<X509Certificate> certlist) throws CertPathValidatorException {
         CertPath cp;
         try {
-            cp = CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME).generateCertPath(pathlist);
+            cp = CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME).generateCertPath(certlist);
         } catch (CertificateException e) {
             // Wasn't a certificate after all?
             throw new CertPathValidatorException(e);
         } catch (NoSuchProviderException e) {
             // This is really bad
-            throw new RuntimeException(e);
+            throw new IllegalStateException("BouncyCastle was not found as a provider.", e);
         }
         return (List<X509Certificate>)cp.getCertificates();
     } // orderX509CertificateChain
@@ -4168,16 +4150,17 @@ public abstract class CertTools {
      *      DERSet attributes = new DERSet(v);
      *      }
      * 
-     * @param signatureAlgorithm
-     * @param subject   The request's subjectDN
-     * @param publickey the public key for the certificate requesting signing
-     * @param attributes    A set of attributes, for example, extensions, challenge password, etc.
-     * @param privateKey the private key used to generate the certificate
-     * @param provider
+     * @param signatureAlgorithm the signature algorithm to sign the CSR.
+     * @param subject the request's subject DN.
+     * @param publickey the public key of the CSR.
+     * @param attributes a set of attributes, for example, extensions, challenge password, etc.
+     * @param privateKey the private key used to sign the CSR.
+     * @param provider the JCA/JCE provider to use.
      * @return a PKCS10CertificateRequest based on the input parameters.
      * 
      * @throws OperatorCreationException if an error occurred while creating the signing key
      */
+    // Should sign with. other private as well!
     public static PKCS10CertificationRequest genPKCS10CertificationRequest(String signatureAlgorithm, X500Name subject, PublicKey publickey,
             ASN1Set attributes, PrivateKey privateKey, String provider) throws OperatorCreationException {
 
@@ -4404,5 +4387,27 @@ public abstract class CertTools {
             }
         }
     }
-
+    
+    /**
+     * Creates a public key fingerprint with the given digest algorithm. 
+     * 
+     * @param publicKey the public key.
+     * @param algorithm the digest algorithm (i.e. MD-5, SHA-1, SHA-256, etc.)
+     * @return the public key fingerprint or null.
+     */
+    public static final String createPublicKeyFingerprint(final PublicKey publicKey, final String algorithm) {
+        try {
+            final MessageDigest digest = MessageDigest.getInstance(algorithm);
+            digest.reset();
+            digest.update(publicKey.getEncoded());
+            final String result = Hex.toHexString(digest.digest());
+            if (log.isDebugEnabled()) {
+                log.debug("Fingerprint " + result + " created for public key \n" + Base64.encode(publicKey.getEncoded()));
+            }
+            return result;
+        } catch (NoSuchAlgorithmException e) {
+            log.warn("Could not create fingerprint for public key ", e);
+            return null;
+        }
+    }
 }

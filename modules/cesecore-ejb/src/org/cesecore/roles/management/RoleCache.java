@@ -31,7 +31,7 @@ import org.cesecore.roles.Role;
 public enum RoleCache implements CommonCache<Role> {
     INSTANCE;
 
-    final private CommonCacheBase<Role> cache = new CommonCacheBase<Role>() {
+    private final CommonCacheBase<Role> cache = new CommonCacheBase<Role>() {
         @Override
         protected long getCacheTime() {
             return CesecoreConfiguration.getCacheAuthorizationTime();
@@ -42,6 +42,14 @@ public enum RoleCache implements CommonCache<Role> {
             return 0;
         };
     };
+
+    @Override
+    public Role getEntry(final Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return cache.getEntry(id);
+    }
 
     @Override
     public Role getEntry(final int id) {

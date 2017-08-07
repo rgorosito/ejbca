@@ -77,6 +77,20 @@
     	</managed-property>
   </managed-bean>
   <managed-bean>
+    	<managed-bean-name>validatorsBean</managed-bean-name>
+    	<managed-bean-class>org.ejbca.ui.web.admin.keys.validation.ValidatorsBean</managed-bean-class>
+    	<managed-bean-scope>session</managed-bean-scope>
+  </managed-bean>
+  <managed-bean>
+    	<managed-bean-name>validatorBean</managed-bean-name>
+    	<managed-bean-class>org.ejbca.ui.web.admin.keys.validation.ValidatorBean</managed-bean-class>
+    	<managed-bean-scope>session</managed-bean-scope>
+    	<managed-property>
+    	    <property-name>validatorsBean</property-name>
+    	    <value>#{validatorsBean}</value>
+    	</managed-property>
+  </managed-bean>
+  <managed-bean>
     	<managed-bean-name>internalKeyBindingMBean</managed-bean-name>
     	<managed-bean-class>org.ejbca.ui.web.admin.keybind.InternalKeyBindingMBean</managed-bean-class>
     	<managed-bean-scope>session</managed-bean-scope>
@@ -199,6 +213,40 @@
     <navigation-case>
       <from-outcome>done</from-outcome>
       <to-view-id>/ca/editcertificateprofiles/editcertificateprofiles.jsp</to-view-id>
+    </navigation-case>
+  </navigation-rule>
+  
+  <navigation-rule>
+    <from-view-id>/ca/editvalidators/editvalidators.xhtml</from-view-id>
+    <navigation-case>
+      <from-action>#{validatorsBean.actionEdit}</from-action>
+      <from-outcome>edit</from-outcome>
+      <to-view-id>/ca/editvalidators/editvalidator.xhtml</to-view-id>
+      <redirect include-view-params="true"></redirect>
+    </navigation-case>
+    <navigation-case>
+      <from-outcome>view</from-outcome>
+      <to-view-id>/ca/editvalidators/editvalidator.xhtml</to-view-id>
+      <redirect include-view-params="true"></redirect>
+    </navigation-case>
+    <navigation-case>
+      <from-action>#{validatorsBean.#{validatorsBean.actionRenameConfirm}}</from-action>
+      <to-view-id>/ca/editvalidators/editvalidators.xhtml</to-view-id>
+    </navigation-case>
+    <navigation-case>
+      <from-action>#{validatorsBean.#{validatorsBean.actionDeleteConfirm}}</from-action>
+      <to-view-id>/ca/editvalidators/editvalidators.xhtml</to-view-id>
+    </navigation-case>
+    <navigation-case>
+      <from-action>#{validatorsBean.#{validatorsBean.actionAddFromTemplateConfirm}}</from-action>
+      <to-view-id>/ca/editvalidators/editvalidators.xhtml</to-view-id>
+    </navigation-case>
+  </navigation-rule>
+  <navigation-rule>
+    <from-view-id>/ca/editvalidators/editvalidator.xhtml</from-view-id>
+    <navigation-case>
+      <from-outcome>done</from-outcome>
+      <to-view-id>/ca/editvalidators/editvalidators.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   

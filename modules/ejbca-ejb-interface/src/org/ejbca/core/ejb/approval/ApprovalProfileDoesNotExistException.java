@@ -41,4 +41,9 @@ public class ApprovalProfileDoesNotExistException extends CesecoreException {
     public ApprovalProfileDoesNotExistException(String msg) {
         super(msg);
     }
+
+
+    public ApprovalProfileDoesNotExistException(Exception exception) {
+        super(exception);
+    }
 }

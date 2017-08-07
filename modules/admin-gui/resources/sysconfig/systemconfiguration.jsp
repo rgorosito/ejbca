@@ -139,15 +139,42 @@ org.cesecore.authorization.AuthorizationDeniedException
 			</h:panelGroup>
 		
 			<h:panelGroup>
-				<h:outputLabel for="enablekeyrecovery" value="#{web.text.ENABLEKEYRECOVERY}" styleClass="titles"/>
+				<h:outputLabel for="toggleEnableKeyRecovery" value="#{web.text.ENABLEKEYRECOVERY}" styleClass="titles"/>
 				<%= ejbcawebbean.getHelpReference("/adminguide.html#Key%20Recovery") %>
 			</h:panelGroup>
 			<h:panelGroup>
-				<h:selectBooleanCheckbox id="enablekeyrecovery" value="#{systemConfigMBean.currentConfig.enableKeyRecovery}"
-					disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
-				<h:outputLabel for="enablekeyrecovery" value="#{web.text.ACTIVATE}" />
+				<h:panelGroup layout="block" styleClass="">
+					<h:selectBooleanCheckbox styleClass="checkBoxOverlay" value="#{systemConfigMBean.currentConfig.enableKeyRecovery}" 
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+					<h:commandButton id="toggleEnableKeyRecovery" styleClass="checkBoxOverlay" action="#{systemConfigMBean.toggleEnableKeyRecovery}"
+						value="#{systemConfigMBean.currentConfig.enableKeyRecovery?web.text.BOOL_TRUE:web.text.BOOL_FALSE}"
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+					<h:outputLabel for="toggleEnableKeyRecovery" value="#{web.text.ACTIVATE}" styleClass="checkBoxOverlay"/>
+				</h:panelGroup>
+				<h:panelGroup layout="block" styleClass="">
+				    <h:selectBooleanCheckbox styleClass="checkBoxOverlay" value="#{systemConfigMBean.currentConfig.localKeyRecovery}" 
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration || !systemConfigMBean.currentConfig.enableKeyRecovery}"/>
+					<h:commandButton id="toggleLocalKeyRecovery" styleClass="checkBoxOverlay" action="#{systemConfigMBean.toggleLocalKeyRecovery}"
+						value="#{systemConfigMBean.currentConfig.localKeyRecovery?web.text.BOOL_TRUE:web.text.BOOL_FALSE}"
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration || !systemConfigMBean.currentConfig.enableKeyRecovery}"/>
+					<h:outputLabel for="toggleLocalKeyRecovery" value="#{web.text.FORCELOCALKEYRECOVERY}" styleClass="checkBoxOverlay"/>
+					
+					<h:selectOneMenu value="#{systemConfigMBean.currentConfig.localKeyRecoveryCryptoTokenId}"
+							disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration || !systemConfigMBean.currentConfig.enableKeyRecovery || !systemConfigMBean.currentConfig.localKeyRecovery}"
+							onchange="document.getElementById('systemconfiguration:selectLocalKeyRecoveryCryptoToken').click();">
+						<f:selectItems value="#{systemConfigMBean.availableCryptoTokens}"/>
+					</h:selectOneMenu>
+					<h:commandButton id="selectLocalKeyRecoveryCryptoToken" action="#{systemConfigMBean.selectLocalKeyRecoveryCryptoToken}" value="Update"
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration || !systemConfigMBean.currentConfig.enableKeyRecovery || !systemConfigMBean.currentConfig.localKeyRecovery}"/>
+					<script>document.getElementById('systemconfiguration:selectLocalKeyRecoveryCryptoToken').style.display = 'none';</script>
+
+					<h:selectOneMenu value="#{systemConfigMBean.currentConfig.localKeyRecoveryKeyAlias}"
+						disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration || !systemConfigMBean.currentConfig.enableKeyRecovery || !systemConfigMBean.currentConfig.localKeyRecovery || !systemConfigMBean.hasSelectedCryptoToken}">
+						<f:selectItems value="#{systemConfigMBean.availableKeyAliases}"/>
+					</h:selectOneMenu>
+				</h:panelGroup>
 			</h:panelGroup>
-		
+
 			<h:panelGroup>
 				<h:outputLabel for="issuehwtokens" value="#{web.text.ISSUEHARDWARETOKENS}" styleClass="titles"/>
 				<br/>

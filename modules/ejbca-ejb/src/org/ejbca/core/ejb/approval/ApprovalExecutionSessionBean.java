@@ -128,7 +128,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
             }
             approvalsPerformed.add(approval);
             if (approvalData.hasRequestOrApprovalExpired()) {
-                approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, false);
+                approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalData, false);
                 throw new ApprovalRequestExpiredException();
             }
             final boolean readyToCheckExecution = approvalProfile.canApprovalExecute(approvalsPerformed);
@@ -171,7 +171,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
                 }
             }
             // Notify all administrators affected by the work flow update
-            approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, false);
+            approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalData, false);
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", intres.getLocalizedMessage("approval.approved", approvalData.getId()));
             List<ApprovalDataText> texts = approvalData.getApprovalRequest().getNewRequestDataAsText(admin);
@@ -228,7 +228,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
             }
             approvalsPerformed.add(approval);
             if (approvalData.hasRequestOrApprovalExpired()) {
-                approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, true);
+                approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalData, true);
                 throw new ApprovalRequestExpiredException();
             }
             if (approvalData.getStatus() != ApprovalDataVO.STATUS_WAITINGFORAPPROVAL) {
@@ -236,7 +236,6 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
             }
             approvalSession.setApprovals(approvalData, approvalsPerformed);
             //Retrieve the approval profile just to make sure that the state is still valid
-            approvalProfile.canApprovalExecute(approvalsPerformed);
             //Kept for legacy reasons
             approvalData.setRemainingapprovals(0);
             if (approvalData.getApprovalRequest().isExecutable()) {
@@ -246,7 +245,7 @@ public class ApprovalExecutionSessionBean implements ApprovalExecutionSessionLoc
                 approvalData.setStatus(ApprovalDataVO.STATUS_REJECTED);
                 approvalData.setExpiredate((new Date()).getTime() + approvalData.getApprovalRequest().getApprovalValidity());
             }
-            approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalsPerformed, false);
+            approvalSession.sendApprovalNotifications(approvalData.getApprovalRequest(), approvalProfile, approvalData, false);
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", intres.getLocalizedMessage("approval.rejected", approvalData.getId()));
             List<ApprovalDataText> texts = approvalData.getApprovalRequest().getNewRequestDataAsText(admin);

@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import javax.ejb.EJB;
 import javax.faces.bean.ManagedBean;
@@ -35,12 +34,12 @@ import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.ejb.approval.ApprovalProfileDoesNotExistException;
 import org.ejbca.core.ejb.approval.ApprovalProfileExistsException;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.model.approval.profile.AccumulativeApprovalProfile;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
-import org.ejbca.core.model.approval.profile.ApprovalProfileBase;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
 /**
@@ -110,31 +109,32 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
     }
     
     public void selectCurrentRowData() {
-        final ApprovalProfileGuiInfo approvalProfileItem = getApprovalProfiles().getRowData();
+        ListDataModel<ApprovalProfileGuiInfo> approvalProfiles = approvalProfilesList;
+        if (approvalProfiles == null) {
+            approvalProfiles = getApprovalProfiles();
+        }
+        final ApprovalProfileGuiInfo approvalProfileItem = approvalProfiles.getRowData();
         selectedApprovalProfileId = approvalProfileItem.getId();
     }
 
-
     public ListDataModel<ApprovalProfileGuiInfo> getApprovalProfiles() {
-        if (approvalProfilesList == null) {
-            final List<ApprovalProfileGuiInfo> items = new ArrayList<ApprovalProfileGuiInfo>();
-            final List<Integer> authorizedProfileIds = new ArrayList<Integer>();
+        final List<ApprovalProfileGuiInfo> items = new ArrayList<ApprovalProfileGuiInfo>();
+        final List<Integer> authorizedProfileIds = new ArrayList<Integer>();
 
-            authorizedProfileIds.addAll(approvalProfileSession.getAuthorizedApprovalProfileIds(getAdmin()));
-            final Map<Integer, String> idToNameMap = approvalProfileSession.getApprovalProfileIdToNameMap();
-            for(Integer profileId : authorizedProfileIds) {
-                final String name = idToNameMap.get(profileId);
-                items.add(new ApprovalProfileGuiInfo(profileId, name));
-            }
-            // Sort list by name
-            Collections.sort(items, new Comparator<ApprovalProfileGuiInfo>() {
-                @Override
-                public int compare(final ApprovalProfileGuiInfo a, final ApprovalProfileGuiInfo b) {
-                    return a.getName().compareToIgnoreCase(b.getName());
-                }
-            });
-            approvalProfilesList = new ListDataModel<ApprovalProfileGuiInfo>(items);
+        authorizedProfileIds.addAll(approvalProfileSession.getAuthorizedApprovalProfileIds(getAdmin()));
+        final Map<Integer, String> idToNameMap = approvalProfileSession.getApprovalProfileIdToNameMap();
+        for (Integer profileId : authorizedProfileIds) {
+            final String name = idToNameMap.get(profileId);
+            items.add(new ApprovalProfileGuiInfo(profileId, name));
         }
+        // Sort list by name
+        Collections.sort(items, new Comparator<ApprovalProfileGuiInfo>() {
+            @Override
+            public int compare(final ApprovalProfileGuiInfo a, final ApprovalProfileGuiInfo b) {
+                return a.getName().compareToIgnoreCase(b.getName());
+            }
+        });
+        approvalProfilesList = new ListDataModel<ApprovalProfileGuiInfo>(items);
         return approvalProfilesList;
     }
     
@@ -148,28 +148,31 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
     
     public void setApprovalProfileName(String approvalProfileName) {
         approvalProfileName = approvalProfileName.trim();
-        if (checkFieldForLegalChars(approvalProfileName)) {
+        if (StringTools.checkFieldForLegalChars(approvalProfileName)) {
             addErrorMessage("ONLYCHARACTERS");
         } else {
             this.approvalProfileName = approvalProfileName;
         }
     }
     
-    private boolean checkFieldForLegalChars(final String fieldValue) {
-        final String blackList = "/[^\\u0041-\\u005a\\u0061-\\u007a\\u00a1-\\ud7ff\\ue000-\\uffff_ 0-9@\\.\\*\\,\\-:\\/\\?\\'\\=\\(\\)\\|.]/g";
-        return Pattern.matches(blackList, fieldValue);
-    }
-    
     public String actionView() {
         selectCurrentRowData();
-        viewOnly = true;
-        return "view"; // Outcome is defined in faces-config.xml
+        if (selectedProfileExists()) {
+            viewOnly = true;
+            return "view"; // Outcome is defined in faces-config.xml
+        } else {
+            return "";
+        }
     }
     
     public String actionEdit() {
         selectCurrentRowData();
-        viewOnly = false;
-        return "edit"; 
+        if (selectedProfileExists()) {
+            viewOnly = false;
+            return "edit"; 
+        } else {
+            return "";
+        }
     }
     
     public boolean getViewOnly() {
@@ -190,7 +193,9 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
     
     public void actionDelete() {
         selectCurrentRowData();
-        deleteInProgress = true;
+        if (selectedProfileExists()) {
+            deleteInProgress = true;
+        }
     }
     public void actionDeleteConfirm() {
         if (canDeleteApprovalProfile()) {
@@ -270,7 +275,9 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
     
     public void actionRename() {
         selectCurrentRowData();
-        renameInProgress = true;
+        if (selectedProfileExists()) {
+            renameInProgress = true;
+        }
     }
 
     public void actionRenameConfirm() {
@@ -291,7 +298,9 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
     
     public void actionAddFromTemplate() {
         selectCurrentRowData();
-        addFromTemplateInProgress = true;
+        if (selectedProfileExists()) {
+            addFromTemplateInProgress = true;
+        }
     }
     
     public void actionAddFromTemplateConfirm() {
@@ -309,12 +318,17 @@ public class ApprovalProfilesMBean extends BaseManagedBean implements Serializab
         actionCancel();
     }
     
+    /** @return true if there exists an approval profile with the selected id */
+    private boolean selectedProfileExists() {
+        return getEjbcaWebBean().getEjb().getApprovalProfileSession().getApprovalProfile(selectedApprovalProfileId) != null;
+    }
+    
     public void actionAdd() {
         
         final String approvalProfileName = getApprovalProfileName();
         if (StringUtils.isNotEmpty(approvalProfileName)) {
            try {
-                if(!approvalProfileSession.findByNameAndType(approvalProfileName, ApprovalProfileBase.TYPE_NAME).isEmpty()) {
+                if(!approvalProfileSession.findByApprovalProfileName(approvalProfileName).isEmpty()) {
                     //Handle this below
                     throw new ApprovalProfileExistsException("Approval profile of name " + approvalProfileName + " already exists");
                 }

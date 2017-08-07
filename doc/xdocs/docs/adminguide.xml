@@ -790,6 +790,17 @@ In RA mode, EJBCA supports several CAs and profiles based on the use of configur
 <a href="https://www.primekey.com/">PrimeKey</a> has created a detailed CMP configuration guide, with details how to 
 configure EJBCA for 3GPP/4G/LTE networks using CMP. The guide is available together with a support subscription from PrimeKey. 
 </p>
+<p>An example cmpforopenssl command to test Vendor CA authentication with a three level Vendor CA PKI is:</p>
+<source>
+./cmpclient --server 127.0.0.1 --port 8080 --path ejbca/publicweb/cmp/vendor --srvcert 3GPPCA.cacert.pem --ir --subject "C=SE,O=Test,CN=Network Element 32" --clcert nevcert.pem --newclcert nev-op-crt.der --newkey nev-op-key.pem --key nevkey.pem --extracert casubnevcert.pem
+</source>
+<p>CMP Alias Configuration</p>
+<ul>
+<li>CMP Operational Mode: Client mode</li>
+<li>CMP Authentication Module: 	EndEntityCertificate</li>
+<li>Extract Username Component: CN</li>
+<li>Use Vendor Certificate Mode: Use and add CANevRoot as Vendor CA</li>
+</ul>
 </subsection>
 
 <subsection name="Configuration">
@@ -2429,6 +2440,22 @@ The same can be accomplished using a browser:
 <li>Public Web - Create Keystore - Enter username and password - Fetch the keystore.</li>
 </ul>
 </p>
+<subsection name="Local Key Generation">
+<p>
+In systems with distributed RA's, using key recovery, it might be desired to store the key pairs used for recovery in a database belonging to another instance than the CA. With local key generation, the keys are stored in the RA's database and are encrypted with a crypto token (e.g. from a HSM) in the RA, so the key material is inaccessible to the operators of the CA (provided that they are restricted from logging in to the RA). The certificates and end-entities, however, remain stored in the CA and can be managed (e.g. revoked) from there.
+</p>
+<p>
+In order to activate local key generation, the steps below are to be followed (this is performed on the RA which should keep the key recovery data):
+<ul>
+    <li>Under system configuration, set 'Enable Key Recovery' and 'Force Local Key Generation'</li>
+    <li>Select the crypto token to be used for encryption of the key pairs (key recovery data).</li>
+    <li>Select the desired key for encryption</li>
+</ul>
+</p>
+<p>
+Recovery data entries belonging to certificates enrolled before local key generation was enabled will remain in their initial database. Enabling local key generation doesn't change the way key recovery is performed by an administrator, nor the work flow of approvals, or access rules required. Keep in mind that the role handling the peer connector requires (at least) access to the same set of rules as the administrator of the external RA (e.g. to perform a key recovery).
+</p>
+</subsection>
 <subsection name="Technical details">
 <p>
 What the operation "bin/ejbca.sh ra keyrecovernewest", or "recover key" in the Admin GUI, or keyRecoverNewest in the WS API actually does is 
@@ -3525,20 +3552,6 @@ attributes(*,CKO_PRIVATE_KEY,*) = {
 </p>
 </subsubsection>
 
-<subsubsection name="SUN or IAIK PKCS#11 Provider">
-<p>
-The IAIK PKCS#11 provider have support for more algorithms than the SUN provider, and therefore you can choose which provider to use.
-EJBCA first tries to load the IAIK provider, and if that is not available it uses the SUN provider. The SUN provider is always available in 
-JDK 5 and later. To enable the IAIK provider you must do the following:
-<ul>
-<li>Purchase server licenses for the IAIK PKCS#11 provider and obtain the files. Visit their website for more information.</li>
-<li>Copy three jar files to the application servers class path, for JBoss this is usually APPSRV_HOME/server/default/lib. The jar files needed are:
-iaikPkcs11Provider.jar, iaikPkcs11Wrapper.jar and iaik_jce.jar.</li>
-<li>Copy the PKCS#11 provider shared library to the library search path for your platform. On linux this might be done by copying libpkcs11wrapper.so to /usr/lib.</li>
-<li>Start JBoss, EJBCA should now use the IAIK PKCS#11 provider instead of the SUN provider.</li>
-</ul>
-</p>
-</subsubsection>
 </subsection>
 
 <subsection name="Utimaco CryptoServer">
@@ -4968,17 +4981,54 @@ Modify the matching role and ensure that "Accept long hanging connections (Exter
 </subsection>
 </section>
 
-<section name="Key Validation">
-<p>ECA-4219 Write documentation and put into right place.</p>
-<p>
-...
-</p>
+<section name="Validators">
+<p>Validators are code that runs to validate certain conditions either before a certifciate is issued, or just after. 
+Validators are selected to be used by enabling them for selected CAs, but validation is only done for certificate profiles selected in the validator. 
+This gives total control over where validators are used. 
+To add a Validator, go to 'Validators, and add a new validator, then edit the validator selecting the desired properties and selecting the certificate profiles it should apply to.
+To add a validator to a CA, go to 'Edit CA' and select the desired validator to the CA. Now the validator will be called when a certificate is issued by the CA, using one of the certificate profiles selected in the Validator.</p>
 <subsection name="Key Validators">
-<p>...:</p>
+<p>
+With defining key validators the key quality of RSA and ECC public keys can be validated or keys can be blacklisted for certificate issuance.
+</p>
+<p>
+The key validators listed below are available in the system by default. If you define a key validator for keys with other algorithm (i.e. RSA key validator for ECC keys) key validation will fail.
+</p>
 <ul>
-<li>...</li>
-<li>...</li>
+<li>RSA Key Validator
+<p>Performs inspection of RSA key parameters and validates key quality beyond key length and size: With this key validator the CA/B-Forum requirements can be enforced on the public keys certified or other restrictions on the RSA exponent and modulus can be defined.</p>
+<ul>
+<li>the value of the public exponent is an odd number equal to 3 or more</li>
+<li>the public exponent is in the range between 2^16+1 and 2^256‐1</li>
+<li>The modulus is an odd number, not the power of a prime, and have no factors smaller than 752</li>
 </ul>
+</li>
+<li>ECC Key Validator
+<p>Performs inspection of ECC key parameters and validates key quality beyond key length and size: With this key validator partial or full public key validation (of NIST SP 56A) routine on ECC keys can be performed.</p>
+</li>
+<li>Blacklist Key Validator
+<p>Compares public keys agains a blacklist of known bad public keys, by algorithm and key generation source.</p>
+</li>
+</ul>
+<subsection name="General Validator Settings">
+<p>
+To control the behaviour while certificate issuance, for every validator the following base restrictions can be applied:
+</p>
+<ul>
+<li>Description - a general decription of the Validator, not used for any validation purposes.</li>
+<li>Certificate validity not before - Only perform validation if certificate validaty NotBefore matches the condition, i.e. is less than or greater than the given date. If no date is set, this condition is not used. Date is on the form 2017-02-28 to for exampe validate only certificates that are valid from the 28th or february 2017.</li>
+<li>Certificate validity not after - Only perform validation if certificate validaty NotAfter matches the condition.</li>
+<li>Apply for Certificate Profiles - Validate keys for these certificate profiles only. If nothing is selected in this list, no validation will be performed.</li>
+<li>Apply for all Certificate Profiles - Validate keys for all certificate profiles, the list above will be ignored.</li>
+<li>Failed Action - Define behaviour if key validation fails (i.e. abort issuance, log error message to trigger monitoring systems, etc.). All failed issuance also adds a record in the security audit log.</li>
+</ul>
+</subsection>
+</subsection>
+<subsection name="Custom Key Validators">
+<p>
+You may implement a custom key validator.<br></br>
+Your class must be placed in the EJBCA code tree before re-building and re-deploying EJBCA. Otherwise it will not be recognized by EJBCA.
+</p>
 </subsection>
 </section>
 
@@ -6436,67 +6486,22 @@ Configuration of the System log depends on what application server you are using
 The recommended place to configure logging is in the application server, i.e. JBoss. You can configure logging very advanced.
 </p>
 <p>
-In JBoss 7/EAP6/WildFly10. If you configure the logging section of standalone.xml like the following:</p>
-<source>
-&lt;subsystem xmlns="urn:jboss:domain:logging:3.0"&gt;
-    &lt;console-handler name="CONSOLE"&gt;
-        &lt;level name="INFO"/&gt;
-        &lt;formatter&gt;
-            &lt;named-formatter name="COLOR-PATTERN"/&gt;
-        &lt;/formatter&gt;
-    &lt;/console-handler&gt;
-    &lt;periodic-rotating-file-handler name="FILE" autoflush="true"&gt;
-        &lt;formatter&gt;
-            &lt;named-formatter name="PATTERN"/&gt;
-        &lt;/formatter&gt;
-        &lt;file relative-to="jboss.server.log.dir" path="server.log"/&gt;
-        &lt;suffix value=".yyyy-MM-dd"/&gt;
-        &lt;append value="true"/&gt;
-    &lt;/periodic-rotating-file-handler&gt;
-    &lt;logger category="com.arjuna"&gt;
-        &lt;level name="WARN"/&gt;
-    &lt;/logger&gt;
-    &lt;logger category="org.jboss.as.config"&gt;
-        &lt;level name="DEBUG"/&gt;
-    &lt;/logger&gt;
-    &lt;logger category="sun.rmi"&gt;
-        &lt;level name="WARN"/&gt;
-    &lt;/logger&gt;
-    &lt;logger category="org.ejbca"&gt;
-        &lt;level name="DEBUG"/&gt;
-    &lt;/logger&gt;
-    &lt;logger category="org.cesecore"&gt;
-        &lt;level name="DEBUG"/&gt;
-    &lt;/logger&gt;
-    &lt;root-logger&gt;
-        &lt;level name="INFO"/&gt;
-        &lt;handlers&gt;
-            &lt;handler name="CONSOLE"/&gt;
-            &lt;handler name="FILE"/&gt;
-        &lt;/handlers&gt;
-    &lt;/root-logger&gt;
-    &lt;formatter name="PATTERN"&gt;
-        &lt;pattern-formatter pattern="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/&gt;
-    &lt;/formatter&gt;
-    &lt;formatter name="COLOR-PATTERN"&gt;
-        &lt;pattern-formatter pattern="%K{level}%d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/&gt;
-    &lt;/formatter&gt;
-&lt;/subsystem>
-</source>
-<p>
-This will log EJBCA (and CESeCore) events of DEBUG level to the server.log file.
-You can, in run-time, change between DEBUG and INFO logging with the simple jboss-cli commands:
+In JBoss you can easily enable and disable DEBUG logging, and switch back to INFO logging at runtime. The first time you want to configure DEBUG log level you can run the following JBoss CLI commands:
 </p>
 <source>
+/subsystem=logging/logger=org.ejbca:add
+/subsystem=logging/logger=org.cesecore:add
 /subsystem=logging/logger=org.ejbca:write-attribute(name=level, value=DEBUG)
 /subsystem=logging/logger=org.cesecore:write-attribute(name=level, value=DEBUG)
 </source>
-<p>and</p>
+<p>You can later switch between DEBUG and INFO logging in runtime, for example to set back INFO logging (normal production level):</p>
 <source>
 /subsystem=logging/logger=org.ejbca:write-attribute(name=level, value=INFO)
 /subsystem=logging/logger=org.cesecore:write-attribute(name=level, value=INFO) 
 </source>
-<p>You can make a more advanced logger, logging EJBCA events to a separate ejbca.log log file that rotates by size every 32MB, and keep maximum 31 rotated log files</p>
+<p>
+In JBoss 7/EAP6/WildFly10, if you configure the logging section of standalone.xml.</p>
+<p>For example, you can make a more advanced logger, logging EJBCA events to a separate ejbca.log log file that rotates by size every 32MB, and keep maximum 31 rotated log files</p>
 <source>
 &lt;subsystem xmlns="urn:jboss:domain:logging:3.0"&gt;
     &lt;console-handler name="CONSOLE"&gt;

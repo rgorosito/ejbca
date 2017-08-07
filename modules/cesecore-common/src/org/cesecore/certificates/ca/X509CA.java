@@ -167,7 +167,7 @@ public class X509CA extends CA implements Serializable {
     private static final InternalResources intres = InternalResources.getInstance();
 
     /** Version of this class, if this is increased the upgrade() method will be called automatically */
-    public static final float LATEST_VERSION = 22;
+    public static final float LATEST_VERSION = 23;
 
     // protected fields for properties specific to this type of CA.
     protected static final String POLICIES = "policies";
@@ -255,7 +255,7 @@ public class X509CA extends CA implements Serializable {
         final CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getEncodedValidity(),
                 getExpireTime(), getCAType(), getSignedBy(), getCertificateChain(), getCAToken(), getDescription(),
                 getRevocationReason(), getRevocationDate(), getPolicies(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(),
-                getDeltaCRLPeriod(), getCRLPublishers(), getUseAuthorityKeyIdentifier(), getAuthorityKeyIdentifierCritical(), getUseCRLNumber(),
+                getDeltaCRLPeriod(), getCRLPublishers(), getValidators(), getUseAuthorityKeyIdentifier(), getAuthorityKeyIdentifierCritical(), getUseCRLNumber(),
                 getCRLNumberCritical(), getDefaultCRLDistPoint(), getDefaultCRLIssuer(), getDefaultOCSPServiceLocator(), 
                 getAuthorityInformationAccess(), 
                 getCertificateAiaDefaultCaIssuerUri(),
@@ -764,7 +764,7 @@ public class X509CA extends CA implements Serializable {
             } catch (CryptoTokenOfflineException e) {
                 throw e;
             } catch (Exception e) {
-                throw new IllegalStateException("Error with creating or removing link certificate.", e);
+                throw new IllegalStateException("Error withing creating or removing link certificate.", e);
             }
         }
         updateLatestLinkCertificate(ret);
@@ -879,8 +879,9 @@ public class X509CA extends CA implements Serializable {
             log.debug("Public key is provided " + debugPublicKeySource);
             log.debug("Request is provided " + debugRequestMessageSource);
         }
+        
         certProfile.verifyKey(publicKey);
-
+        
         final String sigAlg;
         if (certProfile.getSignatureAlgorithm() == null) {
             sigAlg = getCAToken().getSignatureAlgorithm();
@@ -1824,6 +1825,10 @@ public class X509CA extends CA implements Serializable {
             if (null == data.get(ENCODED_VALIDITY)  && null != data.get(VALIDITY)) {
                 setEncodedValidity(getEncodedValidity());
             }            
+            // v23 'keyValidators' new empty list.
+            if (null == data.get(VALIDATORS)) {
+                setValidators(new ArrayList<Integer>());
+            }            
         }
     }
 
@@ -1861,48 +1866,75 @@ public class X509CA extends CA implements Serializable {
         }
         return retval;
     }
-
-    @Override
-    public byte[] encryptKeys(CryptoToken cryptoToken, String alias, KeyPair keypair) throws IOException, CMSException, CryptoTokenOfflineException, NoSuchAlgorithmException, NoSuchProviderException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream os = new ObjectOutputStream(baos);
-        os.writeObject(keypair);
-        CMSEnvelopedDataGenerator edGen = new CMSEnvelopedDataGenerator();
-        CMSEnvelopedData ed;
-        // Creating the KeyId may just throw an exception, we will log this but store the cert and ignore the error
-        final PublicKey pk = cryptoToken.getPublicKey(alias);
-        byte[] keyId = KeyTools.createSubjectKeyId(pk).getKeyIdentifier();
-        edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(keyId, pk));
-        JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
-        ed = edGen.generate(new CMSProcessableByteArray(baos.toByteArray()), jceCMSContentEncryptorBuilder.build());
-        log.info("Encrypted keys using key alias '"+alias+"' from Crypto Token "+cryptoToken.getId());
-        return ed.getEncoded();
+    
+    /**
+     * Encryption method used to encrypt a key pair using a CA
+     * 
+     * @param cryptoToken the crypto token where the encryption key is
+     * @param alias the alias of the key on the crypto token to use for encryption
+     * @param keypair the data to encrypt
+     * @return encrypted data
+     * @throws CryptoTokenOfflineException If crypto token is off-line so encryption key can not be used.
+     */
+    public static byte[] encryptKeys(final CryptoToken cryptoToken, final String alias, final KeyPair keypair) throws CryptoTokenOfflineException {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream os = new ObjectOutputStream(baos);
+            os.writeObject(keypair);
+            CMSEnvelopedDataGenerator edGen = new CMSEnvelopedDataGenerator();
+            CMSEnvelopedData ed;
+            // Creating the KeyId may just throw an exception, we will log this but store the cert and ignore the error
+            final PublicKey pk = cryptoToken.getPublicKey(alias);
+            byte[] keyId = KeyTools.createSubjectKeyId(pk).getKeyIdentifier();
+            edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(keyId, pk));
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            ed = edGen.generate(new CMSProcessableByteArray(baos.toByteArray()), jceCMSContentEncryptorBuilder.build());
+            log.info("Encrypted keys using key alias '"+alias+"' from Crypto Token "+cryptoToken.getId());
+            return ed.getEncoded();
+        } catch (IOException | CMSException e) {
+            throw new IllegalStateException("Failed to encrypt keys: " + e.getMessage(), e);
+        }
     }
-
-    @Override
-    public KeyPair decryptKeys(CryptoToken cryptoToken, String alias, byte[] data) throws IOException, CMSException, CryptoTokenOfflineException, ClassNotFoundException {
-        CMSEnvelopedData ed = new CMSEnvelopedData(data);
-        RecipientInformationStore recipients = ed.getRecipientInfos();
-        RecipientInformation recipient = (RecipientInformation) recipients.getRecipients().iterator().next();
-        ObjectInputStream ois = null;
-        JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(cryptoToken.getPrivateKey(alias));
-        rec.setProvider(cryptoToken.getEncProviderName());
-        rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
-        // Option we must set to prevent Java PKCS#11 provider to try to make the symmetric decryption in the HSM, 
-        // even though we set content provider to BC. Symm decryption in HSM varies between different HSMs and at least for this case is known 
-        // to not work in SafeNet Luna (JDK behavior changed in JDK 7_75 where they introduced imho a buggy behavior)
-        rec.setMustProduceEncodableUnwrappedKey(true);            
-        byte[] recdata = recipient.getContent(rec);
-        ois = new ObjectInputStream(new ByteArrayInputStream(recdata));
-        log.info("Decrypted keys using key alias '"+alias+"' from Crypto Token "+cryptoToken.getId());
-        return (KeyPair) ois.readObject();
+    
+    /**
+     * Decryption method used to decrypt a key pair using a CA
+     * 
+     * @param cryptoToken the crypto token where the decryption key is
+     * @param alias the alias of the key on the crypto token to use for decryption
+     * @param data the data to decrypt
+     * @return a KeyPair
+     * @throws CryptoTokenOfflineException If crypto token is off-line so decryption key can not be used.
+     * @throws IOException In case reading/writing data streams failed during decryption, or parsing decrypted data into KeyPair.
+     */
+    public static KeyPair decryptKeys(final CryptoToken cryptoToken, final String alias, final byte[] data) throws IOException, CryptoTokenOfflineException {
+        try {
+            CMSEnvelopedData ed = new CMSEnvelopedData(data);
+            RecipientInformationStore recipients = ed.getRecipientInfos();
+            RecipientInformation recipient = recipients.getRecipients().iterator().next();
+            ObjectInputStream ois = null;
+            JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(cryptoToken.getPrivateKey(alias));
+            rec.setProvider(cryptoToken.getEncProviderName());
+            rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
+            // Option we must set to prevent Java PKCS#11 provider to try to make the symmetric decryption in the HSM, 
+            // even though we set content provider to BC. Symm decryption in HSM varies between different HSMs and at least for this case is known 
+            // to not work in SafeNet Luna (JDK behavior changed in JDK 7_75 where they introduced imho a buggy behavior)
+            rec.setMustProduceEncodableUnwrappedKey(true);            
+            byte[] recdata = recipient.getContent(rec);
+            ois = new ObjectInputStream(new ByteArrayInputStream(recdata));
+            log.info("Decrypted keys using key alias '"+alias+"' from Crypto Token "+cryptoToken.getId());
+            return (KeyPair) ois.readObject();
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Could not deserialize key pair after decrypting it due to missing class: " + e.getMessage(), e);
+        } catch (CMSException e) {
+            throw new IOException("Could not parse encrypted data: " + e.getMessage(), e);
+        }
     }
 
     @Override
     public byte[] decryptData(CryptoToken cryptoToken, byte[] data, int cAKeyPurpose) throws CMSException, CryptoTokenOfflineException {
         CMSEnvelopedData ed = new CMSEnvelopedData(data);
         RecipientInformationStore recipients = ed.getRecipientInfos();
-        RecipientInformation recipient = (RecipientInformation) recipients.getRecipients().iterator().next();
+        RecipientInformation recipient = recipients.getRecipients().iterator().next();
         final String keyAlias = getCAToken().getAliasFromPurpose(cAKeyPurpose);
         JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(cryptoToken.getPrivateKey(keyAlias));
         rec.setProvider(cryptoToken.getSignProviderName());

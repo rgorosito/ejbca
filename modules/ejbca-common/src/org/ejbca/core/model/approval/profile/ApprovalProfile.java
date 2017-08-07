@@ -20,10 +20,10 @@ import java.util.Set;
 
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.profiles.Profile;
 import org.cesecore.util.ui.DynamicUiProperty;
 import org.ejbca.core.model.approval.Approval;
 import org.ejbca.core.model.approval.ApprovalException;
-import org.ejbca.core.model.profiles.Profile;
 
 /**
  * An interface for approval profiles types. 
@@ -102,7 +102,7 @@ public interface ApprovalProfile extends Profile, Serializable, Cloneable {
     /**
      * 
      * @param approvalsPerformed the approvals performed against this profile
-     * @return the number of remaining approvals 
+     * @return the number of remaining approvals, or ApprovalDataVO.STATUS_REJECTED (-1) if any approval is denied
      */
     int getRemainingApprovals(final Collection<Approval> approvalsPerformed);
         
@@ -336,7 +336,8 @@ public interface ApprovalProfile extends Profile, Serializable, Cloneable {
      * @param approvalsPerformed a collection of performed approvals 
      * @param stepIdentifier the ID of the step to check in
      * @param partitionIdentifier the ID of the partition to check in 
-     * @return the number of required approvals of the specified partition that has not yet been approved
+     * @return the number of required approvals of the specified partition that has not yet been approved, or 
+     *  ApprovalDataVO.STATUS_EXECUTIONDENIED (-7) if partition has been denied.
      */
     int getRemainingApprovalsInPartition(Collection<Approval> approvalsPerformed, int stepIdentifier, int partitionIdentifier);
     

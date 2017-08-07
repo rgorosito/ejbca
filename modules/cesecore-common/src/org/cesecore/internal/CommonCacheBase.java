@@ -57,17 +57,19 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     protected abstract long getMaxCacheLifeTime();
 
     @Override
-    public T getEntry(final int id) {
-        final CacheEntry cacheEntry = getCacheEntry(Integer.valueOf(id));
+    public T getEntry(final Integer id) {
+        final CacheEntry cacheEntry = getCacheEntry(id);
         if (cacheEntry == null) {
             return null;
         }
-        if (log.isDebugEnabled()) {
-            log.debug("Returning cached " + cacheEntry.object.getClass().getSimpleName() + " object. Digest was " + cacheEntry.digest);
-        }
         return cacheEntry.object;
     }
-    
+
+    @Override
+    public T getEntry(final int id) {
+        return getEntry(Integer.valueOf(id));
+    }
+
     public Set<T> getAllEntries() {
         Set<T> result = new HashSet<T>();
         for(CacheEntry cacheEntry : cache.values()) {

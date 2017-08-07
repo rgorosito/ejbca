@@ -58,6 +58,9 @@ import org.cesecore.certificates.certificatetransparency.CertificateTransparency
 import org.cesecore.config.AvailableExtendedKeyUsagesConfiguration;
 import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.config.InvalidConfigurationException;
+import org.cesecore.keys.token.CryptoTokenInfo;
+import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
+import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.FileTools;
 import org.cesecore.util.StreamSizeLimitExceededException;
@@ -91,6 +94,9 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         private String footBanner;
         private boolean enableEndEntityProfileLimitations;
         private boolean enableKeyRecovery;
+        private boolean localKeyRecovery;
+        private int localKeyRecoveryCryptoTokenId;
+        private String localKeyRecoveryKeyAlias;
         private boolean enableIcaoCANameChange;
         private boolean issueHardwareToken;
         private int hardTokenDataEncryptCA;
@@ -129,6 +135,9 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 this.footBanner = globalConfig.getFootBanner();
                 this.enableEndEntityProfileLimitations = globalConfig.getEnableEndEntityProfileLimitations();
                 this.enableKeyRecovery = globalConfig.getEnableKeyRecovery();
+                this.localKeyRecovery = globalConfig.getLocalKeyRecovery();
+                this.localKeyRecoveryCryptoTokenId = globalConfig.getLocalKeyRecoveryCryptoTokenId() != null ? globalConfig.getLocalKeyRecoveryCryptoTokenId() : 0;
+                this.localKeyRecoveryKeyAlias = globalConfig.getLocalKeyRecoveryKeyAlias();
                 this.issueHardwareToken = globalConfig.getIssueHardwareTokens();
                 this.hardTokenDataEncryptCA = globalConfig.getHardTokenEncryptCA();
                 this.useAutoEnrollment = globalConfig.getAutoEnrollUse();
@@ -174,6 +183,12 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         public void setEnableEndEntityProfileLimitations(boolean enableLimitations) { this.enableEndEntityProfileLimitations=enableLimitations; }
         public boolean getEnableKeyRecovery() { return this.enableKeyRecovery; }
         public void setEnableKeyRecovery(boolean enableKeyRecovery) { this.enableKeyRecovery=enableKeyRecovery; }
+        public boolean getLocalKeyRecovery() { return this.localKeyRecovery; }
+        public void setLocalKeyRecovery(boolean localKeyRecovery) { this.localKeyRecovery=localKeyRecovery; }
+        public int getLocalKeyRecoveryCryptoTokenId() { return this.localKeyRecoveryCryptoTokenId; }
+        public void setLocalKeyRecoveryCryptoTokenId(int localKeyRecoveryCryptoTokenId) { this.localKeyRecoveryCryptoTokenId=localKeyRecoveryCryptoTokenId; }
+        public String getLocalKeyRecoveryKeyAlias() { return this.localKeyRecoveryKeyAlias; }
+        public void setLocalKeyRecoveryKeyAlias(String localKeyRecoveryKeyAlias) { this.localKeyRecoveryKeyAlias=localKeyRecoveryKeyAlias; }
         public boolean getIssueHardwareToken() { return this.issueHardwareToken; }
         public void setIssueHardwareToken(boolean issueHWtoken) { this.issueHardwareToken=issueHWtoken; }
         public int getHardTokenDataEncryptCA() { return hardTokenDataEncryptCA; }
@@ -266,6 +281,8 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     private GlobalCesecoreConfiguration globalCesecoreConfiguration = null;
     private AdminPreference adminPreference = null;
     private GuiInfo currentConfig = null;
+    private List<SelectItem> availableCryptoTokens;
+    private List<SelectItem> availableKeyAliases;
     private ListDataModel<String> nodesInCluster = null;
     private String currentNode = null;
     private ListDataModel<CTLogInfo> ctLogs = null;
@@ -284,6 +301,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     
     private final CaSessionLocal caSession = getEjbcaWebBean().getEjb().getCaSession();
     private final CertificateProfileSessionLocal certificateProfileSession = getEjbcaWebBean().getEjb().getCertificateProfileSession();
+    private final CryptoTokenManagementSessionLocal cryptoTokenManagementSession = getEjbcaWebBean().getEjb().getCryptoTokenManagementSession();
     private final AuthorizationSessionLocal authorizationSession = getEjbcaWebBean().getEjb().getAuthorizationSession();
     /** Session bean for importing statedump. Will be null if statedump isn't available */
     private final StatedumpSessionLocal statedumpSession = new EjbLocalHelper().getStatedumpSession();
@@ -604,21 +622,51 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         try {
             getEjbcaWebBean().clearClusterCache(true); // exclude crypto tokens
         } catch (Exception e) {
-            String msg = "Statedump was successfull, but the cached could not be cleared automatically. Please manually restart your browser or JBoss. "+ e.getLocalizedMessage();
+            String msg = "Statedump was successful, but the cache could not be cleared automatically. Please manually restart your browser or JBoss. " + e.getLocalizedMessage();
             log.info(msg);
             super.addNonTranslatedErrorMessage(msg);
         }
     }
     
+    public boolean validateCurrentConfig() {
+        if (!currentConfig.getEnableKeyRecovery()) {
+            currentConfig.setLocalKeyRecovery(false);
+        }
+        if (currentConfig.getLocalKeyRecovery()) {
+            if (currentConfig.getLocalKeyRecoveryCryptoTokenId() == 0) {
+                String msg = "Please select a crypto token for local key recovery";
+                log.info(msg);
+                super.addNonTranslatedErrorMessage(msg);
+                return false;
+            } else if (StringUtils.isEmpty(currentConfig.getLocalKeyRecoveryKeyAlias())) {
+                String msg = "Please select a key alias for local key recovery";
+                log.info(msg);
+                super.addNonTranslatedErrorMessage(msg);
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    private Integer zeroToNull(int value) {
+        return value == 0 ? null : value;
+    }
+    
     /** Invoked when admin saves the configurations */
     public void saveCurrentConfig() {
         if(currentConfig != null) {
+            if (!validateCurrentConfig()) {
+                return;
+            }
             try {
                 globalConfig.setEjbcaTitle(currentConfig.getTitle());
                 globalConfig.setHeadBanner(currentConfig.getHeadBanner());
                 globalConfig.setFootBanner(currentConfig.getFootBanner());
                 globalConfig.setEnableEndEntityProfileLimitations(currentConfig.getEnableEndEntityProfileLimitations());
                 globalConfig.setEnableKeyRecovery(currentConfig.getEnableKeyRecovery());
+                globalConfig.setLocalKeyRecovery(currentConfig.getLocalKeyRecovery());
+                globalConfig.setLocalKeyRecoveryCryptoTokenId(zeroToNull(currentConfig.getLocalKeyRecoveryCryptoTokenId()));
+                globalConfig.setLocalKeyRecoveryKeyAlias(currentConfig.getLocalKeyRecoveryKeyAlias());
                 globalConfig.setIssueHardwareTokens(currentConfig.getIssueHardwareToken());
                 globalConfig.setHardTokenEncryptCA(currentConfig.getHardTokenDataEncryptCA());
                 globalConfig.setAutoEnrollUse(currentConfig.getUseAutoEnrollment());
@@ -701,8 +749,58 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         selectedCustomCertExtensionID = 0;
     }
     
-    public void toggleUseAutoEnrollment() {
-        currentConfig.setUseAutoEnrollment(!currentConfig.getUseAutoEnrollment());
+    public void toggleUseAutoEnrollment() { currentConfig.setUseAutoEnrollment(!currentConfig.getUseAutoEnrollment()); }
+    public void toggleEnableKeyRecovery() { currentConfig.setEnableKeyRecovery(!currentConfig.getEnableKeyRecovery()); }
+    public void toggleLocalKeyRecovery() { currentConfig.setLocalKeyRecovery(!currentConfig.getLocalKeyRecovery()); }
+    
+    public List<SelectItem> getAvailableCryptoTokens() {
+        if (availableCryptoTokens == null) {
+            availableCryptoTokens = new ArrayList<>();
+            for (final CryptoTokenInfo cryptoTokenInfo : cryptoTokenManagementSession.getCryptoTokenInfos(getEjbcaWebBean().getAdminObject())) {
+                availableCryptoTokens.add(new SelectItem(cryptoTokenInfo.getCryptoTokenId(), cryptoTokenInfo.getName()));
+            }
+            Collections.sort(availableCryptoTokens, new Comparator<SelectItem>() {
+                @Override
+                public int compare(final SelectItem o1, final SelectItem o2) {
+                    return o1.getLabel().compareToIgnoreCase(o1.getLabel());
+                }
+            });
+            availableCryptoTokens.add(0, new SelectItem(null, getEjbcaWebBean().getText("PLEASE_SELECT_ENCRYPTION_CRYPTOTOKEN")));
+        }
+        return availableCryptoTokens;
+    }
+    
+    public void selectLocalKeyRecoveryCryptoToken() {
+        availableKeyAliases = null; // force reload
+        currentConfig.setLocalKeyRecoveryKeyAlias(null);
+        getAvailableKeyAliases();
+    }
+    
+    public boolean getHasSelectedCryptoToken() {
+        return currentConfig.getLocalKeyRecoveryCryptoTokenId() != 0;
+    }
+    
+    public List<SelectItem> getAvailableKeyAliases() {
+        if (availableKeyAliases == null) {
+            availableKeyAliases = new ArrayList<>();
+            if (currentConfig.getLocalKeyRecoveryCryptoTokenId() != 0) {
+                try {
+                    final List<String> aliases = new ArrayList<>(cryptoTokenManagementSession.getKeyPairAliases(getEjbcaWebBean().getAdminObject(), currentConfig.getLocalKeyRecoveryCryptoTokenId()));
+                    Collections.sort(aliases);
+                    for (final String keyAlias : aliases) {
+                        if (currentConfig.getLocalKeyRecoveryKeyAlias() == null && keyAlias != null && 
+                                (keyAlias.startsWith("default") || keyAlias.startsWith("privatedec"))) {
+                            currentConfig.setLocalKeyRecoveryKeyAlias(keyAlias);
+                        }
+                        availableKeyAliases.add(new SelectItem(keyAlias));
+                    }
+                    availableKeyAliases.add(0, new SelectItem(null, getEjbcaWebBean().getText("PLEASE_SELECT_KEY")));
+                } catch (CryptoTokenOfflineException | AuthorizationDeniedException e) {
+                    log.debug("Crypto Token is not usable. Can't list key aliases", e);
+                }
+            }
+        }
+        return availableKeyAliases;
     }
     
     /** @return a list of all currently connected nodes in a cluster */

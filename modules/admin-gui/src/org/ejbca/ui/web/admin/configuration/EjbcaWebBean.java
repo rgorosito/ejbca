@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -928,8 +927,8 @@ public class EjbcaWebBean implements Serializable {
         // Invalidate local GUI cache
         initialized = false;
         if (failedHosts.length() > 0) {
-            throw new CacheClearException("Failed to clear cache on hosts (" + failedHosts.toString().substring(1) + "), but succeeded on (" + succeededHost.toString().substring(1)
-                    + ").");
+            // The below will print hosts starting with a blank (space), but it's worth it to not have to consider error handling if toString is empty
+            throw new CacheClearException("Failed to clear cache on hosts (" + failedHosts.toString() + "), but succeeded on (" + succeededHost.toString() + ").");
         }
         if (log.isTraceEnabled()) {
             log.trace("<clearClusterCache");
@@ -1177,11 +1176,11 @@ public class EjbcaWebBean implements Serializable {
         
         EndEntityProfile endEntityProfile = endEntityProfileSession.getEndEntityProfile(endEntityProfileId);
         if (endEntityProfile == null) {
-            return new HashSet<String>();
+            return new HashSet<>();
         }
 
         Collection<String> caids = endEntityProfile.getAvailableCAs();
-        Set<String> cas = new HashSet<String>();
+        List<String> cas = new ArrayList<>();
 
         for(String caid : caids) {
             if (caid.equals("1")) {
@@ -1190,21 +1189,23 @@ public class EjbcaWebBean implements Serializable {
             CA ca = caSession.getCA(administrator, Integer.parseInt(caid));
             cas.add(ca.getName());
         }
-        return cas;
+        Collections.sort(cas);
+        return new LinkedHashSet<>(cas);
     }
 
     public Collection<String> getAvailableCertProfilessOfEEProfile(int endEntityProfileId) {
         EndEntityProfile profile = endEntityProfileSession.getEndEntityProfile(endEntityProfileId);
         if (profile == null) {
-            return new HashSet<String>();
+            return new HashSet<>();
         }
         Collection<String> cpids =  profile.getAvailableCertificateProfileIds();
-        Set<String> cps = new HashSet<String>();
+        List<String> cps = new ArrayList<>();
         for(String cpid : cpids) {
             String cpname = certificateProfileSession.getCertificateProfileName(Integer.parseInt(cpid));
             cps.add(cpname);
         }
-        return cps;
+        Collections.sort(cps);
+        return new LinkedHashSet<>(cps);
     }
     
     public TreeMap<String, Integer> getVendorCAOptions() {

@@ -65,6 +65,7 @@ import org.cesecore.CaTestUtils;
 import org.cesecore.ErrorCode;
 import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationTokenMetaData;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.authorization.user.AccessMatchType;
@@ -103,6 +104,12 @@ import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.keys.token.KeyPairInfo;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.keys.util.PublicKeyWrapper;
+import org.cesecore.keys.validation.KeyValidationFailedActions;
+import org.cesecore.keys.validation.KeyValidatorProxySessionRemote;
+import org.cesecore.keys.validation.KeyValidatorSessionTest;
+import org.cesecore.keys.validation.KeyValidatorSettingsTemplate;
+import org.cesecore.keys.validation.RsaKeyValidator;
 import org.cesecore.mock.authentication.SimpleAuthenticationProviderSessionRemote;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.management.RoleSessionRemote;
@@ -118,17 +125,25 @@ import org.cesecore.util.ValidityDate;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.EnterpriseEditionEjbBridgeProxySessionRemote;
+import org.ejbca.core.ejb.approval.ApprovalExecutionSessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
+import org.ejbca.core.ejb.approval.ApprovalSessionProxyRemote;
+import org.ejbca.core.ejb.approval.ApprovalSessionRemote;
 import org.ejbca.core.ejb.ca.CaTestCase;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionRemote;
+import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.ejb.hardtoken.HardTokenSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
+import org.ejbca.core.ejb.ra.EndEntityExistsException;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.core.ejb.ws.EjbcaWSHelperSessionRemote;
 import org.ejbca.core.model.SecConst;
+import org.ejbca.core.model.approval.Approval;
 import org.ejbca.core.model.approval.ApprovalDataVO;
+import org.ejbca.core.model.approval.ApprovalRequest;
+import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.RevocationApprovalTest;
 import org.ejbca.core.model.approval.profile.AccumulativeApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
@@ -156,6 +171,7 @@ import org.ejbca.core.protocol.ws.common.CertificateHelper;
 import org.ejbca.core.protocol.ws.common.KeyStoreHelper;
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
@@ -176,8 +192,10 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public final static String WS_TEST_ROLENAME = "WsTestRoleMgmt";
     private final static String WS_TEST_CERTIFICATE_PROFILE_NAME = "WSTESTPROFILE"; 
     private static final String KEY_RECOVERY_EEP = "KEYRECOVERY";
-    
+  
+    private final ApprovalExecutionSessionRemote approvalExecutionSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ApprovalExecutionSessionRemote.class);
     private final ApprovalProfileSessionRemote approvalProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ApprovalProfileSessionRemote.class);
+    private final ApprovalSessionRemote approvalSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ApprovalSessionRemote.class);
     private final CAAdminSessionRemote caAdminSessionRemote = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
     private final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
     private final CertificateCreateSessionRemote certificateCreateSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateCreateSessionRemote.class);
@@ -193,9 +211,11 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     private final GlobalConfigurationSessionRemote globalConfigurationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
     private final HardTokenSessionRemote hardTokenSessionRemote = EjbRemoteHelper.INSTANCE.getRemoteSession(HardTokenSessionRemote.class);
     private final InternalCertificateStoreSessionRemote internalCertificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(InternalCertificateStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-    private final SimpleAuthenticationProviderSessionRemote simpleAuthenticationProvider = EjbRemoteHelper.INSTANCE.getRemoteSession(SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+    private final KeyValidatorProxySessionRemote keyValidatorSession = EjbRemoteHelper.INSTANCE.getRemoteSession(KeyValidatorProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
     private final RoleMemberSessionRemote roleMemberSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberSessionRemote.class);
+    private final SimpleAuthenticationProviderSessionRemote simpleAuthenticationProvider = EjbRemoteHelper.INSTANCE.getRemoteSession(SimpleAuthenticationProviderSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+    private final SignSessionRemote signSession = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class);
     private final EnterpriseEditionEjbBridgeProxySessionRemote enterpriseEjbBridgeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EnterpriseEditionEjbBridgeProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     
     private static String originalForbiddenChars;
@@ -375,8 +395,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
 
     @Test
-    public void test03_1GeneratePkcs10() throws Exception {
-        generatePkcs10();
+    public void test03_1GeneratePkcs10WithBlacklistedKey() throws Exception {
+        generatePkcs10(true);
     }
 
     @Test
@@ -417,7 +437,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
 
     @Test
-    public void test03_6EnforcementOfUniqueSubjectDN() throws Exception {
+    public void test03_6EnforcementOfUniqueSubjectDN() throws Exception {   
         enforcementOfUniqueSubjectDN();
     }
 
@@ -471,7 +491,61 @@ public class EjbcaWSTest extends CommonEjbcaWS {
 
     @Test
     public void test04GeneratePkcs12() throws Exception {
+        // A: Generate P12 before key validation. 
         generatePkcs12();
+        // B: add RSA key validator with min. key size of 2048 bits -> P12 generation should fail.
+        generatePkcs12WithFailedKeyValidation();
+    }
+    
+    private void generatePkcs12WithFailedKeyValidation() throws Exception {
+        final UserMatch usermatch = new UserMatch();
+        usermatch.setMatchwith(UserMatch.MATCH_WITH_USERNAME);
+        usermatch.setMatchtype(UserMatch.MATCH_TYPE_EQUALS);
+        usermatch.setMatchvalue(CA1_WSTESTUSER1);
+        List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
+        assertNotNull(userdatas);
+        assertEquals(1, userdatas.size());
+        final String oldTokenType = userdatas.get(0).getTokenType();
+        final String oldSubjectDn = userdatas.get(0).getSubjectDN();
+        final String oldPassword = userdatas.get(0).getPassword();
+        userdatas.get(0).setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
+        userdatas.get(0).setStatus(EndEntityConstants.STATUS_NEW);
+        userdatas.get(0).setSubjectDN(getDN(CA1_WSTESTUSER1));
+        userdatas.get(0).setPassword(PASSWORD);
+        ejbcaraws.editUser(userdatas.get(0));
+
+        final Integer certificateProfileId = certificateProfileSession.getCertificateProfileId(userdatas.get(0).getCertificateProfileName());
+        final String keyValidatorName = "WSPKCS12-RsaKeyValidatorTest";
+        final RsaKeyValidator keyValidator = (RsaKeyValidator) KeyValidatorSessionTest.createKeyValidator(RsaKeyValidator.class,
+                keyValidatorName, keyValidatorName, null, -1, null, -1, KeyValidationFailedActions.ABORT_CERTIFICATE_ISSUANCE.getIndex(),
+                certificateProfileId);
+        keyValidator.setSettingsTemplate(KeyValidatorSettingsTemplate.USE_CUSTOM_SETTINGS.getOption());
+        keyValidator.setBitLengths(RsaKeyValidator.getAvailableBitLengths(2048));
+        int keyValidatorId = keyValidatorSession.addKeyValidator(intAdmin, keyValidator);
+        
+        // Add key validator to CA.
+        final CAInfo caInfo = caSession.getCAInfo(intAdmin, CA1);
+        final Collection<Integer> keyValidatorIds = new ArrayList<Integer>();
+        keyValidatorIds.add(keyValidatorId);
+        caInfo.setValidators(keyValidatorIds);
+        caSession.editCA(intAdmin, caInfo);
+        
+        try {
+            ejbcaraws.pkcs12Req(CA1_WSTESTUSER1, userdatas.get(0).getPassword(), null, "1024", AlgorithmConstants.KEYALGORITHM_RSA); // generatePkcs12();
+            fail("With a RSA key validator and a minimum key size of 2048 bits, the generation of P12 file with a 1024 bit RSA key should fail with an EjbcaException_Exception wrapping a KeyValidationException");
+        } catch(Exception e) {
+            Assert.assertTrue( "EjbcaException_Exception expected: " + e.getClass().getName(), e instanceof EjbcaException_Exception);
+            Assert.assertTrue( "EjbcaException_Exception with failed key validation must have message: " + e.getMessage(), (e.getMessage().startsWith("org.cesecore.keys.validation.KeyValidationException: Key validator WSPKCS12-RsaKeyValidatorTest could not validate sufficient key quality")));            
+        }
+        
+        // Clean up.
+        caInfo.setValidators(new ArrayList<Integer>());
+        caSession.editCA(intAdmin, caInfo);
+        userdatas.get(0).setTokenType(oldTokenType);
+        userdatas.get(0).setSubjectDN(oldSubjectDn);
+        userdatas.get(0).setPassword(oldPassword);
+        ejbcaraws.editUser(userdatas.get(0));
+        keyValidatorSession.removeKeyValidator(intAdmin, keyValidatorId);
     }
 
     @Test
@@ -558,13 +632,9 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         final String TOKENUSERNAME = "WSTESTTOKENUSER3";
         final String ERRORNOTSENTFORAPPROVAL = "The request was never sent for approval.";
         final String ERRORNOTSUPPORTEDSUCCEEDED = "Reactivation of users is not supported, but succeeded anyway.";
-
-        final String approvalProfileName = this.getClass().getName() + "-NrOfApprovalsProfile";
-        
-        // Generate random username and CA name
-        String randomPostfix = Integer.toString(secureRandom.nextInt(999999));
-        String caname = "wsRevocationCA" + randomPostfix;
-        String username = "wsRevocationUser" + randomPostfix;
+        final String approvalProfileName = this.getClass().getName() + "-AccumulativeApprovalProfile";  
+        String caname = "wsRevocationCA";
+        String username = "wsRevocationUser";
         int cryptoTokenId = 0;
         int caID = -1;
         AccumulativeApprovalProfile approvalProfile = new AccumulativeApprovalProfile(approvalProfileName);
@@ -572,9 +642,6 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         approvalProfile.setNumberOfApprovalsRequired(1);
         final int approvalProfileId = approvalProfileSession.addApprovalProfile(intAdmin, approvalProfile);
         try {
-            
-         
-            
             cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(intAdmin, caname, "1024");
             final CAToken catoken = CaTestUtils.createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
             caID = RevocationApprovalTest.createApprovalCA(intAdmin, caname, ApprovalRequestType.REVOCATION, approvalProfileId, caAdminSessionRemote, caSession, catoken);
@@ -591,12 +658,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 // revoke via WS and verify response
                 try {
                     ejbcaraws.revokeCert(issuerdn, serno, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (WaitingForApprovalException_Exception e1) {
                 }
                 try {
                     ejbcaraws.revokeCert(issuerdn, serno, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (ApprovalException_Exception e1) {
                 }                
                 
@@ -609,12 +676,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 // Try to unrevoke certificate
                 try {
                     ejbcaraws.revokeCert(issuerdn, serno, RevokedCertInfo.NOT_REVOKED);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (WaitingForApprovalException_Exception e) {
                 }
                 try {
                     ejbcaraws.revokeCert(issuerdn, serno, RevokedCertInfo.NOT_REVOKED);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (ApprovalException_Exception e) {
                 }
                 // Approve revocation and verify success
@@ -628,7 +695,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 }
                 try {
                     ejbcaraws.revokeUser(username, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD, false);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (ApprovalException_Exception e) {
                 }
                 // Approve revocation and verify success
@@ -637,7 +704,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 // Try to reactivate user
                 try {
                     ejbcaraws.revokeUser(username, RevokedCertInfo.NOT_REVOKED, false);
-                    assertTrue(ERRORNOTSUPPORTEDSUCCEEDED, false);
+                    fail(ERRORNOTSUPPORTEDSUCCEEDED);
                 } catch (AlreadyRevokedException_Exception e) {
                 }
             } finally {
@@ -650,12 +717,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 // Revoke token
                 try {
                     ejbcaraws.revokeToken(TOKENSERIALNUMBER, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (WaitingForApprovalException_Exception e) {
                 }
                 try {
                     ejbcaraws.revokeToken(TOKENSERIALNUMBER, RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD);
-                    assertTrue(ERRORNOTSENTFORAPPROVAL, false);
+                    fail(ERRORNOTSENTFORAPPROVAL);
                 } catch (ApprovalException_Exception e) {
                 }
                 // Approve actions and verify success
@@ -676,6 +743,93 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             }
         }
         log.trace("<test19RevocationApprovals");
+    }
+    
+    private AuthenticationSubject makeAuthenticationSubject(X509Certificate certificate) {
+        Set<Principal> principals = new HashSet<Principal>();
+        principals.add(certificate.getSubjectX500Principal());
+        Set<X509Certificate> credentials = new HashSet<X509Certificate>();
+        credentials.add(certificate);
+        return new AuthenticationSubject(principals, credentials);
+    }
+    
+    @Test
+    public void testGetNumberOfApprovals() throws Exception {
+        log.trace(">testGetNumberOfApprovals");
+        final String adminUsername = "testGetNumberOfApprovalsApprovalAdmin";
+        final String approvalProfileName = this.getClass().getName() + "-AccumulativeApprovalProfile";
+        String caname = "testGetNumberOfApprovalsCa";
+        String username = "testGetNumberOfApprovals";
+        int cryptoTokenId = 0;
+        AccumulativeApprovalProfile approvalProfile = new AccumulativeApprovalProfile(approvalProfileName);
+        approvalProfile.setNumberOfApprovalsRequired(2);
+        int partitionId = approvalProfile.getStep(AccumulativeApprovalProfile.FIXED_STEP_ID).getPartitions().values().iterator().next().getPartitionIdentifier();
+        final int approvalProfileId = approvalProfileSession.addApprovalProfile(intAdmin, approvalProfile);
+        X509Certificate adminCert = null;
+        cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(intAdmin, caname, "1024");
+        createTestCA();
+        EndEntityInformation approvingAdmin = new EndEntityInformation(adminUsername, "CN=" + adminUsername, getTestCAId(), null, null, new EndEntityType(
+                EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_P12, 0, null);
+        approvingAdmin.setPassword("foo123");
+        try {
+            endEntityManagementSession.addUser(intAdmin, approvingAdmin, true);
+        } catch(EndEntityExistsException e) {}
+        final Role role = roleSession.persistRole(intAdmin,
+                new Role(null, getRoleName(),
+                        Arrays.asList(AccessRulesConstants.REGULAR_APPROVEENDENTITY, AccessRulesConstants.REGULAR_REVOKEENDENTITY,
+                                AccessRulesConstants.REGULAR_DELETEENDENTITY, AccessRulesConstants.ENDENTITYPROFILEBASE,
+                                StandardRules.CAACCESSBASE.resource()),
+                        null));
+        roleMemberSession.persist(intAdmin,
+                new RoleMember(X509CertificateAuthenticationTokenMetaData.TOKEN_TYPE, getTestCAId(),
+                        X500PrincipalAccessMatchValue.WITH_COMMONNAME.getNumericValue(), AccessMatchType.TYPE_EQUALCASE.getNumericValue(),
+                        adminUsername, role.getRoleId(), null));
+        int roleId = role.getRoleId();
+        final CAToken catoken = CaTestUtils.createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA1_WITH_RSA,
+                AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
+        int caId = RevocationApprovalTest.createApprovalCA(intAdmin, caname, ApprovalRequestType.ADDEDITENDENTITY, approvalProfileId,
+                caAdminSessionRemote, caSession, catoken);
+        try {
+            KeyPair keys = KeyTools.genKeys("1024", "RSA");
+            X509Certificate admincert = (X509Certificate) this.signSession.createCertificate(intAdmin, adminUsername, "foo123", new PublicKeyWrapper(keys.getPublic()));
+            AuthenticationToken approvingAdminToken = simpleAuthenticationProvider.authenticate(makeAuthenticationSubject(admincert));
+            EndEntityInformation endEntityInformation = new EndEntityInformation(username, "CN=" + username, caId, "", "",
+                    new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                    SecConst.TOKEN_SOFT_P12, 0, null);
+            ApprovalRequest approvalRequest = new AddEndEntityApprovalRequest(endEntityInformation, false, intAdmin, null, caId,
+                    SecConst.EMPTY_ENDENTITYPROFILE, approvalProfileSession.getApprovalProfile(approvalProfileId));
+            int approvalId = approvalSession.addApprovalRequest(intAdmin, approvalRequest);
+            try {
+                assertEquals("There should be two approvals remaining.", 2,
+                        ejbcaraws.getRemainingNumberOfApprovals(approvalId));
+                Approval rejection = new Approval("", AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
+                rejection.setApprovalAdmin(false, approvingAdminToken);
+                approvalExecutionSession.reject(approvingAdminToken, approvalRequest.generateApprovalId(), rejection);
+                assertEquals("Approval status should be ApprovalDataVO.STATUS_REJECTED (-1)", ApprovalDataVO.STATUS_EXECUTIONDENIED,
+                        ejbcaraws.getRemainingNumberOfApprovals(approvalId));
+            } finally {
+                try {
+                    endEntityManagementSession.deleteUser(intAdmin, username);
+                } catch (NoSuchEndEntityException e) {
+                }
+                internalCertificateStoreSession.removeCertificate(username);
+                approvalSession.removeApprovalRequest(intAdmin, approvalId);
+            }
+        } finally {
+            try {
+                endEntityManagementSession.deleteUser(intAdmin, adminUsername);
+            } catch (NoSuchEndEntityException e) {
+            }
+            internalCertificateStoreSession.removeCertificate(adminUsername);
+            approvalProfileSession.removeApprovalProfile(intAdmin, approvalProfileId);
+            caSession.removeCA(intAdmin, caId);
+            CryptoTokenTestUtils.removeCryptoToken(intAdmin, cryptoTokenId);
+            internalCertificateStoreSession.removeCertificate(adminCert);
+            roleSession.deleteRoleIdempotent(intAdmin, roleId);
+            removeTestCA();
+        }
+        log.trace("<testGetNumberOfApprovals");
     }
 
     @Test
@@ -737,7 +891,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         user1.setCaName(getAdminCAName());
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
         user1.setEndEntityProfileName(KEY_RECOVERY_EEP);
         user1.setCertificateProfileName("ENDUSER");
@@ -764,9 +918,11 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         usermatch.setMatchtype(UserMatch.MATCH_TYPE_EQUALS);
         usermatch.setMatchvalue("WSTESTUSERKEYREC1");
         List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
-        assertTrue(userdatas != null);
-        assertTrue(userdatas.size() == 1);
+        assertTrue("UserData for WSTESTUSERKEYREC1 not found", userdatas != null);
+        assertTrue("Unexpected amount of UserData entries for WSTESTUSERKEYREC1", userdatas.size() == 1);
         userdatas.get(0).setStatus(EndEntityConstants.STATUS_KEYRECOVERY);
+        // Setting new password (which was cleared on last enrollment)
+        userdatas.get(0).setPassword("foo456");
         ejbcaraws.editUser(userdatas.get(0));
         // A new PK12 request now should return the same key and certificate
         KeyStore ksenv2 = ejbcaraws.pkcs12Req("WSTESTUSERKEYREC1", "foo456", null, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
@@ -814,7 +970,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             user1.setCaName(getAdminCAName());
             user1.setEmail(null);
             user1.setSubjectAltName(null);
-            user1.setStatus(UserDataVOWS.STATUS_NEW);
+            user1.setStatus(EndEntityConstants.STATUS_NEW);
             user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
             user1.setEndEntityProfileName(KEY_RECOVERY_EEP);
             user1.setCertificateProfileName("ENDUSER");
@@ -842,7 +998,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 user1.setCaName(getAdminCAName());
                 user1.setEmail(null);
                 user1.setSubjectAltName(null);
-                user1.setStatus(UserDataVOWS.STATUS_NEW);
+                user1.setStatus(EndEntityConstants.STATUS_NEW);
                 user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
                 user1.setEndEntityProfileName(KEY_RECOVERY_EEP);
                 user1.setCertificateProfileName("ENDUSER");
@@ -903,6 +1059,17 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                         AccessRulesConstants.ENDENTITYPROFILEPREFIX + eepId + AccessRulesConstants.KEYRECOVERY_RIGHTS,
                         AccessRulesConstants.REGULAR_KEYRECOVERY
                         ), null);
+                // Password is cleared on each enrollment. Setting new one.
+                UserMatch usermatch2 = new UserMatch();
+                usermatch2.setMatchwith(UserMatch.MATCH_WITH_USERNAME);
+                usermatch2.setMatchtype(UserMatch.MATCH_TYPE_EQUALS);
+                usermatch2.setMatchvalue("WSTESTUSERKEYREC2");
+                List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch2);
+                assertTrue("UserData for WSTESTUSERKEYREC2 not found", userdatas != null);
+                assertTrue("Unexpected amount of UserData entries for WSTESTUSERKEYREC2", userdatas.size() == 1);
+                userdatas.get(0).setStatus(EndEntityConstants.STATUS_KEYRECOVERY);
+                userdatas.get(0).setPassword("foo456");
+                ejbcaraws.editUser(userdatas.get(0));
                 KeyStore ksenv = ejbcaraws.pkcs12Req("WSTESTUSERKEYREC2", "foo456", null, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
                 java.security.KeyStore ks2 = KeyStoreHelper.getKeyStore(ksenv.getKeystoreData(), "PKCS12", "foo456");
                 assertNotNull(ks2);
@@ -1283,7 +1450,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         userData.setCaName(getAdminCAName());
         userData.setEmail(null);
         userData.setSubjectAltName(null);
-        userData.setStatus(UserDataVOWS.STATUS_NEW);
+        userData.setStatus(EndEntityConstants.STATUS_NEW);
         userData.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
         userData.setEndEntityProfileName("EMPTY");
         userData.setCertificateProfileName("ENDUSER");
@@ -1503,6 +1670,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
 
     @Test
     public void test72CreateCA() throws Exception {
+        // ECA-4219 Test: WS call create CA with key validator.
         log.trace(">test72CreateCA()");
         log.debug("Enterprise Edition: " + enterpriseEjbBridgeSession.isRunningEnterprise());
         assumeTrue("Enterprise Edition only. Skipping the test", enterpriseEjbBridgeSession.isRunningEnterprise());
@@ -1616,7 +1784,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 adminUser.setCAId(cainfo.getCAId());
                 adminUser.setEmail(null);
                 adminUser.setSubjectAltName(null);
-                adminUser.setStatus(UserDataVOWS.STATUS_NEW);
+                adminUser.setStatus(EndEntityConstants.STATUS_NEW);
                 adminUser.setTokenType(SecConst.TOKEN_SOFT_JKS);
                 adminUser.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
                 adminUser.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
@@ -1624,7 +1792,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 log.info("Adding new user: "+adminUser.getUsername());
                 endEntityManagementSession.addUser(intAdmin, adminUser, true);
             } else {
-                adminUser.setStatus(UserDataVOWS.STATUS_NEW);
+                adminUser.setStatus(EndEntityConstants.STATUS_NEW);
                 adminUser.setPassword("foo123");
                 log.info("Changing user: "+adminUser.getUsername());
                 endEntityManagementSession.changeUser(intAdmin, adminUser, true);
@@ -1729,7 +1897,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             userDataVOWS.setCaName(getAdminCAName());
             userDataVOWS.setEmail(null);
             userDataVOWS.setSubjectAltName(SUBJECT_AN);
-            userDataVOWS.setStatus(UserDataVOWS.STATUS_NEW);
+            userDataVOWS.setStatus(EndEntityConstants.STATUS_NEW);
             userDataVOWS.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
             userDataVOWS.setEndEntityProfileName(eepName);
             userDataVOWS.setCertificateProfileName("ENDUSER");
@@ -1989,7 +2157,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             userData.setCaName(getAdminCAName());
             userData.setEmail(null);
             userData.setSubjectAltName(null);
-            userData.setStatus(UserDataVOWS.STATUS_NEW);
+            userData.setStatus(EndEntityConstants.STATUS_NEW);
             userData.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
             userData.setEndEntityProfileName("EMPTY");
             userData.setCertificateProfileName(WS_TEST_CERTIFICATE_PROFILE_NAME);
@@ -2041,7 +2209,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         userData.setCaName(getAdminCAName());
         userData.setEmail(null);
         userData.setSubjectAltName(null);
-        userData.setStatus(UserDataVOWS.STATUS_NEW);
+        userData.setStatus(EndEntityConstants.STATUS_NEW);
         userData.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
         userData.setEndEntityProfileName("EMPTY");
         userData.setCertificateProfileName("ENDUSER");
@@ -2089,7 +2257,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             tokenUser1.setCaName(caName);
             tokenUser1.setEmail(null);
             tokenUser1.setSubjectAltName(null);
-            tokenUser1.setStatus(UserDataVOWS.STATUS_NEW);
+            tokenUser1.setStatus(EndEntityConstants.STATUS_NEW);
             tokenUser1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
             tokenUser1.setEndEntityProfileName("EMPTY");
             tokenUser1.setCertificateProfileName("ENDUSER");

@@ -67,6 +67,7 @@ import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.roles.Role;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EJBTools;
 import org.cesecore.util.FileTools;
 import org.cesecore.util.SecureXMLDecoder;
 import org.cesecore.util.StringTools;
@@ -328,7 +329,7 @@ public class RAInterfaceBean implements Serializable {
      * @throws NoSuchEndEntityException if the end entity could not be found. 
      * @throws CustomFieldException if the end entity was not validated by a locally defined field validator
      */
-    public void changeUserData(UserView userdata) throws CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileValidationException,
+    public void changeUserData(UserView userdata, String newUsername) throws CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileValidationException,
             WaitingForApprovalException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
         log.trace(">changeUserData()");
         addedusermemory.changeUser(userdata);
@@ -341,7 +342,11 @@ public class RAInterfaceBean implements Serializable {
         uservo.setPassword(userdata.getPassword());
         uservo.setExtendedinformation(userdata.getExtendedInformation());
         uservo.setCardNumber(userdata.getCardNumber());
-        endEntityManagementSession.changeUser(administrator, uservo, userdata.getClearTextPassword());
+        if (userdata.getUsername().equals(newUsername)) {
+            endEntityManagementSession.changeUser(administrator, uservo, userdata.getClearTextPassword());
+        } else {
+            endEntityManagementSession.changeUser(administrator, uservo, userdata.getClearTextPassword(), newUsername);
+        }
         log.trace("<changeUserData()");
     }
 
@@ -833,7 +838,7 @@ public class RAInterfaceBean implements Serializable {
     			returnval = false;
     		}
     	}
-    	return returnval && keyrecoverysession.existsKeys(cert) && !keyrecoverysession.isUserMarked(username);
+    	return returnval && keyrecoverysession.existsKeys(EJBTools.wrap(cert)) && !keyrecoverysession.isUserMarked(username);
     }
 
     public void markForRecovery(String username, Certificate cert) throws AuthorizationDeniedException, ApprovalException, 
@@ -1016,10 +1021,16 @@ public class RAInterfaceBean implements Serializable {
         int nrOfFiles = 0;
         try {
             ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(filebuffer));
-            ZipEntry ze=zis.getNextEntry();
+            ZipEntry ze = zis.getNextEntry();
             if(ze == null) {
-                retmsg = "Error: Expected a zip file. '" + importedProfileName + "' is not a  zip file.";
-                log.error(retmsg);
+                // Print import message if the file header corresponds to an empty zip archive
+                if (Arrays.equals(Arrays.copyOfRange(filebuffer, 0, 4), new byte[] { 80, 75, 5, 6 })) {
+                    retmsg = getSuccessImportMessage(importedProfileName, nrOfFiles, importedFiles, ignoredFiles);
+                    log.info(retmsg);
+                } else {
+                    retmsg = "Error: Expected a zip file. '" + importedProfileName + "' is not a  zip file.";
+                    log.error(retmsg);
+                }
                 return retmsg;
             }
         
@@ -1112,14 +1123,18 @@ public class RAInterfaceBean implements Serializable {
             faultXMLmsg = faultXMLmsg.substring(0, faultXMLmsg.length()-2);
             retmsg = "Faulty XML files: " + faultXMLmsg + ". " + importedFiles + " profiles were imported.";
         } else {
-            retmsg = importedProfileName + " contained " + nrOfFiles + " files. " +
-                            importedFiles + " EndEntity Profiles were imported and " + ignoredFiles + " files  were ignored.";
+            retmsg = getSuccessImportMessage(importedProfileName, nrOfFiles, importedFiles, ignoredFiles);
         }
         log.info(retmsg);
         
         return retmsg;
     }
     
+    private String getSuccessImportMessage(String fileName, int nrOfFiles, int importedFiles, int ignoredFiles) {
+        return importedProfileName + " contained " + nrOfFiles + " files. " +
+                        importedFiles + " EndEntity Profiles were imported and " + ignoredFiles + " files  were ignored.";
+    }
+
     public String getAvailableHardTokenIssuers(final String defaulthardtokenissuer, final String[] values) {
         String availablehardtokenissuers = defaulthardtokenissuer;
         if (values!= null) {

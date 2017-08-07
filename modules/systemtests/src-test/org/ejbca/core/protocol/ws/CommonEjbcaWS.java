@@ -144,6 +144,7 @@ import org.cesecore.keys.token.CryptoTokenAuthenticationFailedException;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.keys.util.PublicKeyWrapper;
+import org.cesecore.keys.validation.KeyGeneratorSources;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
@@ -166,6 +167,7 @@ import org.ejbca.core.ejb.ca.publisher.PublisherProxySessionRemote;
 import org.ejbca.core.ejb.ca.publisher.PublisherQueueProxySessionRemote;
 import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.ejb.ca.store.CertReqHistoryProxySessionRemote;
+import org.ejbca.core.ejb.ca.validation.PublicKeyBlacklistSessionRemote;
 import org.ejbca.core.ejb.config.ConfigurationSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityExistsException;
@@ -182,6 +184,7 @@ import org.ejbca.core.model.hardtoken.HardTokenConstants;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileExistsException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
+import org.ejbca.core.model.validation.PublicKeyBlacklistEntry;
 import org.ejbca.core.protocol.ws.client.gen.AlreadyRevokedException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.ApprovalException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.AuthorizationDeniedException_Exception;
@@ -277,6 +280,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
 
     private static final String WSTESTPROFILE = "WSTESTPROFILE";
 
+    private final PublicKeyBlacklistSessionRemote publicKeyBlacklistSession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublicKeyBlacklistSessionRemote.class);
     private final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
     private final CAAdminSessionRemote caAdminSessionRemote = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
     private final CertificateProfileSessionRemote certificateProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class);
@@ -356,7 +360,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         endEntityInformation1.setCAId(caInfo.getCAId());
         endEntityInformation1.setEmail(null);
         endEntityInformation1.setSubjectAltName(null);
-        endEntityInformation1.setStatus(UserDataVOWS.STATUS_NEW);
+        endEntityInformation1.setStatus(EndEntityConstants.STATUS_NEW);
         endEntityInformation1.setTokenType(SecConst.TOKEN_SOFT_JKS);
         endEntityInformation1.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
         endEntityInformation1.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
@@ -375,7 +379,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         endEntityInformation2.setCAId(caInfo.getCAId());
         endEntityInformation2.setEmail(null);
         endEntityInformation2.setSubjectAltName(null);
-        endEntityInformation2.setStatus(UserDataVOWS.STATUS_NEW);
+        endEntityInformation2.setStatus(EndEntityConstants.STATUS_NEW);
         endEntityInformation2.setTokenType(SecConst.TOKEN_SOFT_JKS);
         endEntityInformation2.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
         endEntityInformation2.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
@@ -472,7 +476,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         }
     }
 
-    private String getDN(String userName) {
+    protected String getDN(String userName) {
         return "CN=" + userName + ",O=" + userName.charAt(userName.length() - 1) + "Test";
     }
 
@@ -537,7 +541,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user.setCaName(caName);
         user.setEmail(null);
         user.setSubjectAltName(null);
-        user.setStatus(UserDataVOWS.STATUS_NEW);
+        user.setStatus(EndEntityConstants.STATUS_NEW);
         user.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user.setEndEntityProfileName(WS_EEPROF_EI);
         user.setCertificateProfileName(WS_CERTPROF_EI);
@@ -570,7 +574,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         assertTrue(userdata.getCertificateProfileName().equals(WS_CERTPROF_EI));
         assertTrue(userdata.getEndEntityProfileName().equals(WS_EEPROF_EI));
         assertTrue(userdata.getTokenType().equals(UserDataVOWS.TOKEN_TYPE_USERGENERATED));
-        assertTrue(userdata.getStatus() == UserDataVOWS.STATUS_NEW);
+        assertTrue(userdata.getStatus() == EndEntityConstants.STATUS_NEW);
 
         List<ExtendedInformationWS> userei = userdata.getExtendedInformation();
         assertNotNull(userei);
@@ -750,7 +754,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         }
     }
 
-    protected void generatePkcs10() throws Exception {
+    protected void generatePkcs10(final boolean blacklistKey) throws Exception {
 
         UserDataVOWS user1 = new UserDataVOWS();
         user1.setUsername(CA1_WSTESTUSER1);
@@ -758,7 +762,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setClearPwd(true);
         user1.setSubjectDN(getDN(CA1_WSTESTUSER1));
         user1.setCaName(CA1);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName(WS_EEPROF_EI);
         user1.setCertificateProfileName(WS_CERTPROF_EI);
@@ -766,44 +770,74 @@ public abstract class CommonEjbcaWS extends CaTestCase {
 
         final AuthenticationToken admin = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("SYSTEMTEST"));
 
-        PKCS10CertificationRequest pkcs10 = getP10Request();
+        final KeyPair keyPair = KeyTools.genKeys("2048", AlgorithmConstants.KEYALGORITHM_RSA);
+        final PublicKey publicKey = keyPair.getPublic();
+        final String publicKeyFingerprint = CertTools.createPublicKeyFingerprint(publicKey, PublicKeyBlacklistEntry.DIGEST_ALGORITHM);
+        PKCS10CertificationRequest pkcs10 = getP10Request(keyPair);
+        
+        // Blacklist public key.
+        if (blacklistKey) {
+            final PublicKeyBlacklistEntry entry = new PublicKeyBlacklistEntry();
+            entry.setKeyspec("RSA2048");
+            entry.setSource(KeyGeneratorSources.UNKNOWN.getSource());
+            // ECA-4219 Fix. BouncyCastle RSA keys cause java.io.StreamCorruptedException: Unexpected byte found when reading an object: 0
+//            entry.setPublicKey(publicKey);
+            entry.setFingerprint(publicKeyFingerprint);
+            try {
+                publicKeyBlacklistSession.removePublicKeyBlacklistEntry(intAdmin, publicKeyFingerprint);
+            } catch(Exception e) {
+                // NOOP
+            }
+            publicKeyBlacklistSession.addPublicKeyBlacklistEntry(intAdmin, entry);
+        }
+        
         // Submit the request
         CertificateResponse certenv = ejbcaraws.pkcs10Request(CA1_WSTESTUSER1, PASSWORD, new String(Base64.encode(pkcs10.getEncoded())), null,
                 CertificateHelper.RESPONSETYPE_CERTIFICATE);
         assertNotNull(certenv);
         X509Certificate cert = (X509Certificate) CertificateHelper.getCertificate(certenv.getData());
-        assertNotNull(cert);
-        assertEquals(getDN(CA1_WSTESTUSER1), cert.getSubjectDN().toString());
-        byte[] ext = cert.getExtensionValue("1.2.3.4");
-        // Certificate profile did not allow extension override
-        assertNull("no extension should exist", ext);
-        // Allow extension override
-        CertificateProfile profile = certificateProfileSession.getCertificateProfile(WS_CERTPROF_EI);
-        profile.setAllowExtensionOverride(true);
-        certificateProfileSession.changeCertificateProfile(admin, WS_CERTPROF_EI, profile);
-        // Now our extension should be possible to get in there
-        try {
-            ejbcaraws.editUser(user1);
-            pkcs10 = getP10Request();
-            certenv = ejbcaraws.pkcs10Request(CA1_WSTESTUSER1, PASSWORD, new String(Base64.encode(pkcs10.getEncoded())), null,
-                    CertificateHelper.RESPONSETYPE_CERTIFICATE);
-            assertNotNull(certenv);
-            cert = (X509Certificate) CertificateHelper.getCertificate(certenv.getData());
+        
+        if (!blacklistKey) {
             assertNotNull(cert);
             assertEquals(getDN(CA1_WSTESTUSER1), cert.getSubjectDN().toString());
-            ext = cert.getExtensionValue("1.2.3.4");
-            assertNotNull("there should be an extension", ext);
-            ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(ext));
+            byte[] ext = cert.getExtensionValue("1.2.3.4");
+            // Certificate profile did not allow extension override
+            assertNull("no extension should exist", ext);
+            // Allow extension override
+            CertificateProfile profile = certificateProfileSession.getCertificateProfile(WS_CERTPROF_EI);
+            profile.setAllowExtensionOverride(true);
+            certificateProfileSession.changeCertificateProfile(admin, WS_CERTPROF_EI, profile);
+            // Now our extension should be possible to get in there
             try {
-                DEROctetString oct = (DEROctetString) (asn1InputStream.readObject());
-                assertEquals("Extension did not have the correct value", "foo123", (new String(oct.getOctets())).trim());
+                ejbcaraws.editUser(user1);
+                pkcs10 = getP10Request(null);
+                certenv = ejbcaraws.pkcs10Request(CA1_WSTESTUSER1, PASSWORD, new String(Base64.encode(pkcs10.getEncoded())), null,
+                        CertificateHelper.RESPONSETYPE_CERTIFICATE);
+                assertNotNull(certenv);
+                cert = (X509Certificate) CertificateHelper.getCertificate(certenv.getData());
+                assertNotNull(cert);
+                assertEquals(getDN(CA1_WSTESTUSER1), cert.getSubjectDN().toString());
+                ext = cert.getExtensionValue("1.2.3.4");
+                assertNotNull("there should be an extension", ext);
+                ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(ext));
+                try {
+                    DEROctetString oct = (DEROctetString) (asn1InputStream.readObject());
+                    assertEquals("Extension did not have the correct value", "foo123", (new String(oct.getOctets())).trim());
+                } finally {
+                    asn1InputStream.close();
+                }
             } finally {
-                asn1InputStream.close();
+                // restore
+                profile.setAllowExtensionOverride(false);
+                certificateProfileSession.changeCertificateProfile(admin, WS_CERTPROF_EI, profile);            
             }
-        } finally {
-            // restore
-            profile.setAllowExtensionOverride(false);
-            certificateProfileSession.changeCertificateProfile(admin, WS_CERTPROF_EI, profile);            
+        } else { // public key is blacklisted.
+            
+        }
+        
+        // Remove blacklisted public key.
+        if (blacklistKey) {
+            publicKeyBlacklistSession.removePublicKeyBlacklistEntry(intAdmin, publicKeyFingerprint);
         }
     }
 
@@ -865,11 +899,13 @@ public abstract class CommonEjbcaWS extends CaTestCase {
      * Generate a new key pair and return a B64 encoded PKCS#10 encoded certificate request for the keypair.
      */
     private String getP10() throws Exception {
-        return new String(Base64.encode(getP10Request().getEncoded()));
-
+        return new String(Base64.encode(getP10Request(null).getEncoded()));
     }
-    private PKCS10CertificationRequest getP10Request() throws Exception {
-        final KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
+    
+    private PKCS10CertificationRequest getP10Request(KeyPair keys) throws Exception {
+        if (null == keys) {
+            keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
+        }
         // Make a PKCS10 request with extensions
         ASN1EncodableVector attributes = new ASN1EncodableVector();
         // Add a custom extension (dummy)
@@ -905,7 +941,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         // Test with custom extensions
         final AuthenticationToken admin = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("SYSTEMTEST"));
 
-        userData1.setStatus(UserDataVOWS.STATUS_NEW);
+        userData1.setStatus(EndEntityConstants.STATUS_NEW);
         userData1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         userData1.setEndEntityProfileName(WS_EEPROF_EI);
         userData1.setCertificateProfileName(WS_CERTPROF_EI);
@@ -1111,7 +1147,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             userDataVOWS.setCaName(caInfo.getName());
             userDataVOWS.setEmail(null);
             userDataVOWS.setSubjectAltName(null);
-            userDataVOWS.setStatus(UserDataVOWS.STATUS_NEW);
+            userDataVOWS.setStatus(EndEntityConstants.STATUS_NEW);
             userDataVOWS.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
             userDataVOWS.setEndEntityProfileName(WS_EEPROF_EI);
             userDataVOWS.setCertificateProfileName(WS_CERTPROF_EI);
@@ -1182,7 +1218,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             userDataVOWS.setCaName(CA1);
             userDataVOWS.setEmail(null);
             userDataVOWS.setSubjectAltName(null);
-            userDataVOWS.setStatus(UserDataVOWS.STATUS_NEW);
+            userDataVOWS.setStatus(EndEntityConstants.STATUS_NEW);
             userDataVOWS.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
             userDataVOWS.setEndEntityProfileName(WS_EEPROF_EI);
             userDataVOWS.setCertificateProfileName(WS_CERTPROF_EI);
@@ -1250,7 +1286,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setClearPwd(true);
         user1.setSubjectDN(getDN(CA1_WSTESTUSER1));
         user1.setCaName(CA1);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName(WS_EEPROF_EI);
         user1.setCertificateProfileName(WS_CERTPROF_EI);
@@ -1406,7 +1442,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setClearPwd(true);
         user1.setSubjectDN(getDN(CA1_WSTESTUSER1));
         user1.setCaName(CA1);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");
@@ -1454,7 +1490,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         assertTrue(exceptionThrown); // Should fail
 
         // Change password to foo456 and status to NEW
-        userdatas.get(0).setStatus(UserDataVOWS.STATUS_NEW);
+        userdatas.get(0).setStatus(EndEntityConstants.STATUS_NEW);
         userdatas.get(0).setPassword("foo456");
         userdatas.get(0).setClearPwd(true);
         ejbcaraws.editUser(userdatas.get(0));
@@ -1488,7 +1524,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         userdatas = ejbcaraws.findUser(usermatch);
         assertTrue(userdatas != null);
         assertTrue(userdatas.size() == 1);
-        userdatas.get(0).setStatus(UserDataVOWS.STATUS_NEW);
+        userdatas.get(0).setStatus(EndEntityConstants.STATUS_NEW);
         userdatas.get(0).setPassword("foo456");
         userdatas.get(0).setClearPwd(true);
         ejbcaraws.editUser(userdatas.get(0));
@@ -1692,13 +1728,13 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             this.userdatas.get(0).setCertificateProfileName(WS_CERTPROF_EI);
         }
         public X509Certificate getCertificate(String hardTokenSN) throws Exception {
-            this.userdatas.get(0).setStatus(UserDataVOWS.STATUS_NEW);
+            this.userdatas.get(0).setStatus(EndEntityConstants.STATUS_NEW);
             this.userdatas.get(0).setPassword(PASSWORD);
             this.userdatas.get(0).setClearPwd(true);
             CommonEjbcaWS.this.ejbcaraws.editUser(userdatas.get(0));
             final KeyStore ksenv;
             try {
-                ksenv = CommonEjbcaWS.this.ejbcaraws.pkcs12Req(CA1_WSTESTUSER1, PASSWORD, hardTokenSN, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
+                ksenv = CommonEjbcaWS.this.ejbcaraws.pkcs12Req(CA1_WSTESTUSER1, PASSWORD, hardTokenSN, "2048", AlgorithmConstants.KEYALGORITHM_RSA);
             } catch (EjbcaException_Exception e) {
                 assertTrue(e.getMessage(), false);
                 return null;
@@ -1750,7 +1786,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setCaName(getAdminCAName());
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");
@@ -1812,7 +1848,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             tokenUser1.setCaName(getAdminCAName());
             tokenUser1.setEmail(null);
             tokenUser1.setSubjectAltName(null);
-            tokenUser1.setStatus(UserDataVOWS.STATUS_NEW);
+            tokenUser1.setStatus(EndEntityConstants.STATUS_NEW);
             tokenUser1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
             tokenUser1.setEndEntityProfileName("EMPTY");
             tokenUser1.setCertificateProfileName("ENDUSER");
@@ -2014,7 +2050,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         assertTrue(userdatas != null);
         assertTrue(userdatas.size() == 1);
         userdatas.get(0).setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
-        userdatas.get(0).setStatus(UserDataVOWS.STATUS_NEW);
+        userdatas.get(0).setStatus(EndEntityConstants.STATUS_NEW);
         userdatas.get(0).setPassword(PASSWORD);
         userdatas.get(0).setClearPwd(true);
         ejbcaraws.editUser(userdatas.get(0));
@@ -2231,7 +2267,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
     protected void ejbcaVersion() throws Exception {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 6.8";
+        final String expectedSubString = "EJBCA 6.9";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString)); 
     }
 
@@ -2327,7 +2363,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
                 adminUser.setCAId(cainfo.getCAId());
                 adminUser.setEmail(null);
                 adminUser.setSubjectAltName(null);
-                adminUser.setStatus(UserDataVOWS.STATUS_NEW);
+                adminUser.setStatus(EndEntityConstants.STATUS_NEW);
                 adminUser.setTokenType(SecConst.TOKEN_SOFT_JKS);
                 adminUser.setEndEntityProfileId(endEntityProfileSession.getEndEntityProfileId(WS_EEPROF_EI));
                 adminUser.setCertificateProfileId(cpid);
@@ -2335,7 +2371,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
                 log.info("Adding new user: "+adminUser.getUsername());
                 endEntityManagementSession.addUser(intAdmin, adminUser, true);
             } else {
-                adminUser.setStatus(UserDataVOWS.STATUS_NEW);
+                adminUser.setStatus(EndEntityConstants.STATUS_NEW);
                 adminUser.setPassword("foo123");
                 log.info("Changing user: "+adminUser.getUsername());
                 endEntityManagementSession.changeUser(intAdmin, adminUser, true);
@@ -2379,7 +2415,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             assertTrue("Failed to create test CA: " + testCaName, caSession.existsCa(testCaName));
             cainfo = caSession.getCAInfo(intAdmin, testCaName);
             adminUser.setCAId(cainfo.getCAId());
-            adminUser.setStatus(UserDataVOWS.STATUS_NEW);
+            adminUser.setStatus(EndEntityConstants.STATUS_NEW);
             adminUser.setPassword("foo123");
             log.info("Changing user: "+adminUser.getUsername());
             endEntityManagementSession.changeUser(intAdmin, adminUser, true);
@@ -2470,7 +2506,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setSubjectDN("CN=WSTESTUSER29");
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");
@@ -2543,7 +2579,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setSubjectDN("CN=WSTESTUSER30");
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");
@@ -2605,7 +2641,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setSubjectDN("CN=WSTESTUSER31");
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");
@@ -2663,7 +2699,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         user1.setSubjectDN("CN=WSTESTUSER32");
         user1.setEmail(null);
         user1.setSubjectAltName(null);
-        user1.setStatus(UserDataVOWS.STATUS_NEW);
+        user1.setStatus(EndEntityConstants.STATUS_NEW);
         user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
         user1.setEndEntityProfileName("EMPTY");
         user1.setCertificateProfileName("ENDUSER");

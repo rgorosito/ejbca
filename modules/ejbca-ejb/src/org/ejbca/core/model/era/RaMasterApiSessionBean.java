@@ -57,13 +57,16 @@ import org.apache.log4j.Logger;
 import org.cesecore.CesecoreException;
 import org.cesecore.ErrorCode;
 import org.cesecore.authentication.AuthenticationFailedException;
+import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.PublicAccessAuthenticationTokenMetaData;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.authorization.control.AuditLogRules;
+import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
 import org.cesecore.certificates.ca.ApprovalRequestType;
@@ -237,18 +240,16 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
 
     @Override
     public boolean isBackendAvailable() {
-        boolean available = false;
         for (int caId : caSession.getAllCaIds()) {
             try {
                 if (caSession.getCAInfoInternal(caId).getStatus() == CAConstants.CA_ACTIVE) {
-                    available = true;
-                    break;
+                    return true;
                 }
             } catch (CADoesntExistsException e) {
                 log.debug("Fail to get existing CA's info. " + e.getMessage());
             }
         }
-        return available;
+        return false;
     }
     
     @Override
@@ -834,20 +835,33 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         return returnval;
     }
 
-    @Override
-    public CertificateDataWrapper searchForCertificate(final AuthenticationToken authenticationToken, final String fingerprint) {
-        final CertificateDataWrapper cdw = certificateStoreSession.getCertificateData(fingerprint);
-        if (cdw==null) {
-            return null;
-        }
+    private boolean authorizedToCert(final AuthenticationToken authenticationToken, final CertificateDataWrapper cdw) {
         if (!caSession.authorizedToCANoLogging(authenticationToken, cdw.getCertificateData().getIssuerDN().hashCode())) {
-            return null;
+            return false;
         }
         // Check EEP authorization (allow an highly privileged admin, e.g. superadmin, that can access all profiles to ignore this check
         // so certificates can still be accessed by this admin even after a EEP has been removed.
         final Collection<Integer> authorizedEepIds = new ArrayList<>(endEntityProfileSession.getAuthorizedEndEntityProfileIds(authenticationToken, AccessRulesConstants.VIEW_END_ENTITY));
         final boolean accessAnyEepAvailable = authorizedEepIds.containsAll(endEntityProfileSession.getEndEntityProfileIdToNameMap().keySet());
         if (!accessAnyEepAvailable && !authorizedEepIds.contains(Integer.valueOf(cdw.getCertificateData().getEndEntityProfileIdOrZero()))) {
+            return false;
+        }
+        return true;
+    }
+    
+    @Override
+    public CertificateDataWrapper searchForCertificate(final AuthenticationToken authenticationToken, final String fingerprint) {
+        final CertificateDataWrapper cdw = certificateStoreSession.getCertificateData(fingerprint);
+        if (cdw==null || !authorizedToCert(authenticationToken, cdw)) {
+            return null;
+        }
+        return cdw;
+    }
+    
+    @Override
+    public CertificateDataWrapper searchForCertificateByIssuerAndSerial(final AuthenticationToken authenticationToken, final String issuerDN, final String serno) {
+        final CertificateDataWrapper cdw = certificateStoreSession.getCertificateDataByIssuerAndSerno(issuerDN, new BigInteger(serno, 16));
+        if (cdw==null || !authorizedToCert(authenticationToken, cdw)) {
             return null;
         }
         return cdw;
@@ -1507,12 +1521,50 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
     
     @Override
-    public byte[] generateKeyStore(final AuthenticationToken admin, final EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException{
+    public void finishUserAfterLocalKeyRecovery(final AuthenticationToken authenticationToken, final String username, final String password) throws AuthorizationDeniedException, EjbcaException {
+        EndEntityInformation userdata = endEntityAccessSession.findUser(username);
+        if (userdata == null) {
+            throw new EjbcaException(ErrorCode.USER_NOT_FOUND, "User '"+username+"' does not exist");
+        }
+        if (userdata.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY) {
+            throw new EjbcaException(ErrorCode.USER_WRONG_STATUS, "User '"+username+"' is not in KEYRECOVERY status");
+        }
+        try {
+            endEntityManagementSessionLocal.verifyPassword(authenticationToken, username, password); // FIXME this checks for edit access! should check for keyrecovery access
+            endEntityAuthenticationSessionLocal.authenticateUser(authenticationToken, username, password); // This actually checks if the password matches (which endEntityManagementSessionLocal.verifyPassword doesn't)
+            final boolean shouldFinishUser = caSession.getCAInfo(authenticationToken, userdata.getCAId()).getFinishUser();
+            if (shouldFinishUser) {
+                    endEntityAuthenticationSessionLocal.finishUser(userdata);
+            }
+        
+            userdata = endEntityAccessSession.findUser(username);
+            if (userdata.getStatus() == EndEntityConstants.STATUS_GENERATED) {
+                // We require keyrecovery access. The operation below should not require edit access, so we use an AlwaysAllowLocalAuthenticationToken
+                endEntityManagementSessionLocal.setClearTextPassword(new AlwaysAllowLocalAuthenticationToken(
+                        new UsernamePrincipal("Implicit authorization from key recovery operation to reset password.")), username, null);
+            }
+        } catch (NoSuchEndEntityException | CADoesntExistsException | EndEntityProfileValidationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+    
+    @Override
+    public byte[] generateKeyStore(final AuthenticationToken admin, final EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException {
         KeyStore keyStore;
         try {
+            final EndEntityProfile endEntityProfile = endEntityProfileSession.getEndEntityProfile(endEntity.getEndEntityProfileId());
+            boolean usekeyrecovery = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableKeyRecovery();
+            EndEntityInformation data = endEntityAccessSession.findUser(endEntity.getUsername());
+            if (data == null) {
+                throw new EjbcaException(ErrorCode.USER_NOT_FOUND, "User '"+endEntity.getUsername()+"' does not exist");
+            }
+            boolean savekeys = data.getKeyRecoverable() && usekeyrecovery && (data.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY);
+            boolean loadkeys = (data.getStatus() == EndEntityConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
+            boolean reusecertificate = endEntityProfile.getReUseKeyRecoveredCertificate();
+            
             keyStore = keyStoreCreateSessionLocal.generateOrKeyRecoverToken(admin, endEntity.getUsername(), endEntity.getPassword(), endEntity.getCAId(),
                     endEntity.getExtendedinformation().getKeyStoreAlgorithmSubType(), endEntity.getExtendedinformation().getKeyStoreAlgorithmType(),
-                    endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, false, false, false, endEntity.getEndEntityProfileId());
+                    endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, loadkeys, savekeys, reusecertificate, endEntity.getEndEntityProfileId());
         } catch (KeyStoreException | InvalidAlgorithmParameterException | CADoesntExistsException | IllegalKeyException
                 | CertificateCreateException | IllegalNameException | CertificateRevokeException | CertificateSerialNumberException
                 | CryptoTokenOfflineException | IllegalValidityException | CAOfflineException | InvalidAlgorithmException
@@ -1683,6 +1735,119 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
         return retval;
     }
+    
+    @Override
+    public boolean markForRecovery(AuthenticationToken authenticationToken, String username, String newPassword, CertificateWrapper cert, boolean localKeyGeneration) throws AuthorizationDeniedException, ApprovalException, 
+                                    CADoesntExistsException, WaitingForApprovalException, NoSuchEndEntityException, EndEntityProfileValidationException {
+        boolean keyRecoverySuccessful;
+        boolean authorized = true;
+        // If called from the wrong instance, return to proxybean and try next implementation
+        if (endEntityAccessSession.findUser(authenticationToken, username) == null) {
+            return false;
+        }
+        int endEntityProfileId = endEntityAccessSession.findUser(authenticationToken, username).getEndEntityProfileId();
+        if (((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableEndEntityProfileLimitations()) {
+            authorized = authorizationSession.isAuthorized(authenticationToken, AccessRulesConstants.ENDENTITYPROFILEPREFIX + Integer.toString(endEntityProfileId) + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                                                            AccessRulesConstants.REGULAR_RAFUNCTIONALITY + AccessRulesConstants.KEYRECOVERY_RIGHTS);
+        }
+        if (authorized) {
+            try {
+                if (!localKeyGeneration) {
+                    keyRecoverySuccessful = endEntityManagementSessionLocal.prepareForKeyRecovery(authenticationToken, username, endEntityProfileId, cert.getCertificate());
+                } else {
+                    keyRecoverySuccessful = endEntityManagementSessionLocal.prepareForKeyRecoveryInternal(authenticationToken, username, endEntityProfileId, cert.getCertificate());
+                }
+                if (keyRecoverySuccessful && newPassword != null) {
+                    // No approval required, continue by setting a new enrollment code
+                    endEntityManagementSessionLocal.setPassword(authenticationToken, username, newPassword);
+                }    
+            } catch (WaitingForApprovalException e) {
+                // Set new EE password anyway
+                if (newPassword != null) { // Password may null if there is a call from EjbcaWS
+                    endEntityManagementSessionLocal.setPassword(authenticationToken, username, newPassword);
+                }
+                throw e;
+            }
+            return keyRecoverySuccessful;
+        }
+        return false;
+    }
+    
+    @Override
+    public boolean keyRecoveryPossible(final AuthenticationToken authenticationToken, Certificate cert, String username) {
+        boolean returnval = true;
+        returnval = isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_KEYRECOVERY);
+        if (((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableEndEntityProfileLimitations()) {
+            try {
+                EndEntityInformation data = endEntityAccessSession.findUser(authenticationToken, username);
+                if (data != null) {         
+                    int profileid = data.getEndEntityProfileId();
+                    returnval = endEntityAuthorization(authenticationToken, profileid, AccessRulesConstants.KEYRECOVERY_RIGHTS, false);         
+                } else {
+                    returnval = false;
+                }
+            } catch (AuthorizationDeniedException e) {
+                log.debug("Administrator: " + authenticationToken + " was not authorized to perform key recovery for end entity: " + username);
+                return false;
+            }
+        }
+        return returnval && keyRecoverySessionLocal.existsKeys(EJBTools.wrap(cert)) && !keyRecoverySessionLocal.isUserMarked(username);
+    }
+    
+    @Override
+    public void keyRecoverWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN) throws EjbcaException, AuthorizationDeniedException, 
+                WaitingForApprovalException, CADoesntExistsException {
+        try {
+            final boolean usekeyrecovery = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableKeyRecovery();  
+            if(!usekeyrecovery){
+                throw new EjbcaException(ErrorCode.KEY_RECOVERY_NOT_AVAILABLE, "Keyrecovery must be enabled in the system configuration in order to execute this command.");
+
+            }   
+            final EndEntityInformation userdata = endEntityAccessSession.findUser(authenticationToken, username);
+            if(userdata == null){
+                log.info(intres.getLocalizedMessage("ra.errorentitynotexist", username));
+                final String msg = intres.getLocalizedMessage("ra.errorentitynotexist", username);                
+                throw new NotFoundException(msg);
+            }
+            if (keyRecoverySessionLocal.isUserMarked(username)) {
+                // User is already marked for recovery.
+                return;                     
+            }
+            // check CAID
+            final int caid = userdata.getCAId();
+            caSession.verifyExistenceOfCA(caid);
+            if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAACCESS.resource() + caid)) {
+                final String msg = intres.getLocalizedMessage("authorization.notuathorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
+                throw new AuthorizationDeniedException(msg);
+            }
+            
+            // find certificate to recover
+            final Certificate cert = certificateStoreSession.findCertificateByIssuerAndSerno(issuerDN, new BigInteger(certSNinHex,16));
+            if (cert == null) {
+                final String msg = intres.getLocalizedMessage("ra.errorfindentitycert", issuerDN, certSNinHex);
+                throw new NotFoundException(msg);
+            }
+    
+            // Do the work, mark user for key recovery
+            endEntityManagementSessionLocal.prepareForKeyRecovery(authenticationToken, userdata.getUsername(), userdata.getEndEntityProfileId(), cert);
+        } catch (NotFoundException e) {
+            log.debug("EJBCA WebService error", e);
+            throw e; // extends EjbcaException
+        }
+    }
+    
+    /** Help function used to check end entity profile authorization. */
+    private boolean endEntityAuthorization(AuthenticationToken admin, int profileid, String rights, boolean log) {
+        boolean returnval = false;
+        if (log) {
+            returnval = authorizationSession.isAuthorized(admin, AccessRulesConstants.ENDENTITYPROFILEPREFIX + Integer.toString(profileid) + rights,
+                    AccessRulesConstants.REGULAR_RAFUNCTIONALITY + rights);
+        } else {
+            returnval = isAuthorizedNoLogging(admin, AccessRulesConstants.ENDENTITYPROFILEPREFIX + Integer.toString(profileid)
+                    + rights, AccessRulesConstants.REGULAR_RAFUNCTIONALITY + rights);
+        }
+        return returnval;
+    }    
 
     @Override
     public boolean changeCertificateStatus(final AuthenticationToken authenticationToken, final String fingerprint, final int newStatus, final int newRevocationReason)

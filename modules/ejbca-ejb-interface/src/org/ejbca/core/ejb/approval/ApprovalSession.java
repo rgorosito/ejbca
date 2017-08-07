@@ -33,10 +33,9 @@ public interface ApprovalSession {
      * for one administrator doing one type of action, requesting the same
      * action twice should result in the same approvalId
      * 
-     * If the approvalId already exists, with a non expired approval, a new approval
-     * request is added to the database. An approvalException is thrown otherwise
+     * If the approvalId already exists, with a non expired approval, a new approval request is added to the database. An approvalException is thrown otherwise
      * 
-     * @return the request ID of the created request
+     * @return the database identifier of the created request
      * 
      * @throws ApprovalException
      *             if an approval already exists for this request.
@@ -86,16 +85,25 @@ public interface ApprovalSession {
      * But If the request is multiple steps and user have already performed that step, the exception will always be thrown.
      */
     int isApproved(int approvalId) throws ApprovalException, ApprovalRequestExpiredException;
-    
+
+    /**
+     * Returns the current status of a given approval request.
+     * 
+     * @param approvalId the ID of the request
+     * @return the current status of the request
+     * @throws ApprovalException thrown if there's no request with the given status
+     */
+    int getStatus(int approvalId) throws ApprovalException;
     
     /**
      * Gives the remaining number of approvals for a given approval request
      * 
      * @param requestId the request ID of the approval
-     * @return the remaining number of approvals for this request
+     * @return the remaining number of approvals for this request, or ApprovalDataVO.STATUS_REJECTED (-1) if the request has been denied
      * @throws ApprovalException if an approval request with the given ID was not found. 
+     * @throws ApprovalRequestExpiredException if approval request was expired
      */
-    int getRemainingNumberOfApprovals(int requestId) throws ApprovalException;
+    int getRemainingNumberOfApprovals(int requestId) throws ApprovalException, ApprovalRequestExpiredException;
 
     /**
      * Method that marks a certain step of a a non-executable approval as done.

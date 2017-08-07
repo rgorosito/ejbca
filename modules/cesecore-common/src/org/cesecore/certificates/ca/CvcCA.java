@@ -13,7 +13,6 @@
 package org.cesecore.certificates.ca;
 
 import java.io.Serializable;
-import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -111,7 +110,7 @@ public abstract class CvcCA extends CA implements Serializable {
 		final CVCCAInfo info = new CVCCAInfo(subjectDN, name, status, updateTime, getCertificateProfileId(),  
 		        getEncodedValidity(), getExpireTime(), getCAType(), getSignedBy(), getCertificateChain(),
 				getCAToken(), getDescription(), getRevocationReason(), getRevocationDate(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(), getDeltaCRLPeriod(), 
-				getCRLPublishers(), getFinishUser(), externalcaserviceinfos, 
+				getCRLPublishers(), getValidators(), getFinishUser(), externalcaserviceinfos, 
 				getApprovals(),
 				getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(), isDoEnforceUniqueDistinguishedName(), isDoEnforceUniqueSubjectDNSerialnumber(),
 				isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage());
@@ -209,16 +208,6 @@ public abstract class CvcCA extends CA implements Serializable {
         }
 		return retval;
 	}
-
-    @Override
-    public byte[] encryptKeys(CryptoToken cryptoToken, String alias, KeyPair keypair) {
-        throw new IllegalArgumentException("encryptKeys not implemented for CVC CA");
-    }
-
-    @Override
-    public KeyPair decryptKeys(CryptoToken cryptoToken, String alias, byte[] data) {
-        throw new IllegalArgumentException("decryptKeys not implemented for CVC CA");
-    }
 
 	@Override
 	public byte[] decryptData(CryptoToken cryptoToken, byte[] data, int cAKeyPurpose) {

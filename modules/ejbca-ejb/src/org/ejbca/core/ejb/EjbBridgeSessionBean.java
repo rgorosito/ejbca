@@ -31,6 +31,8 @@ import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keybind.InternalKeyBindingDataSessionLocal;
 import org.cesecore.keybind.InternalKeyBindingMgmtSessionLocal;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
+import org.cesecore.keys.token.CryptoTokenSessionLocal;
+import org.cesecore.keys.validation.KeyValidatorSessionLocal;
 import org.cesecore.roles.management.RoleDataSessionLocal;
 import org.cesecore.roles.management.RoleSessionLocal;
 import org.cesecore.roles.member.RoleMemberDataSessionLocal;
@@ -48,6 +50,7 @@ import org.ejbca.core.ejb.ca.publisher.PublisherSessionLocal;
 import org.ejbca.core.ejb.ca.revoke.RevocationSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.ejb.ca.store.CertReqHistorySessionLocal;
+import org.ejbca.core.ejb.ca.validation.PublicKeyBlacklistSessionLocal;
 import org.ejbca.core.ejb.crl.ImportCrlSessionLocal;
 import org.ejbca.core.ejb.crl.PublishingCrlSessionLocal;
 import org.ejbca.core.ejb.hardtoken.HardTokenBatchJobSessionLocal;
@@ -104,6 +107,8 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
     @EJB InternalKeyBindingDataSessionLocal internalKeyBindingDataSession;
     @EJB InternalKeyBindingMgmtSessionLocal internalKeyBindingMgmtSession;
 	@EJB KeyRecoverySessionLocal keyRecoverySession;
+	@EJB KeyValidatorSessionLocal keyValidatorSession;
+	@EJB PublicKeyBlacklistSessionLocal publicKeyBlacklistSession;
 	@EJB PublisherQueueSessionLocal publisherQueueSession;
 	@EJB PublisherSessionLocal publisherSession;
 	@EJB AdminPreferenceSessionLocal raSession;
@@ -123,6 +128,7 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@EJB WebAuthenticationProviderSessionLocal webAuthenticationProviderSession;
 	@EJB EndEntityAuthenticationSessionLocal endEntityAuthenticationSession;
 	@EJB CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
+	@EJB CryptoTokenSessionLocal cryptoTokenSession;
 	@EJB PublishingCrlSessionLocal publishingCrlSessionLocal;
 	@EJB ImportCrlSessionLocal importCrlSessionLocal;
 	@EJB RaMasterApiSessionLocal raMasterApiSessionLocal;
@@ -150,6 +156,8 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
     @Override public InternalKeyBindingDataSessionLocal getInternalKeyBindingDataSession() { return internalKeyBindingDataSession; }
     @Override public InternalKeyBindingMgmtSessionLocal getInternalKeyBindingMgmtSession() { return internalKeyBindingMgmtSession; }
 	@Override public KeyRecoverySessionLocal getKeyRecoverySession() { return keyRecoverySession; }
+	@Override public PublicKeyBlacklistSessionLocal getPublicKeyBlacklistSession() { return publicKeyBlacklistSession; }
+	@Override public KeyValidatorSessionLocal getKeyValidatorSession() { return keyValidatorSession; }
 	@Override public PublisherQueueSessionLocal getPublisherQueueSession() { return publisherQueueSession; }
 	@Override public PublisherSessionLocal getPublisherSession() { return publisherSession; }
 	@Override public AdminPreferenceSessionLocal getRaAdminSession() { return raSession; }
@@ -170,6 +178,7 @@ public class EjbBridgeSessionBean implements EjbBridgeSessionLocal {
 	@Override public EndEntityAuthenticationSessionLocal getEndEntityAuthenticationSession() { return endEntityAuthenticationSession; }
 	@Override public EndEntityAccessSessionLocal getEndEntityAccessSession() { return endEntityAccessSession; }
     @Override public CryptoTokenManagementSessionLocal getCryptoTokenManagementSession() { return cryptoTokenManagementSession; }
+    @Override public CryptoTokenSessionLocal getCryptoTokenSession() { return cryptoTokenSession; }
     @Override public PublishingCrlSessionLocal getPublishingCrlSession() { return publishingCrlSessionLocal; }
     @Override public ImportCrlSessionLocal getImportCrlSession() { return importCrlSessionLocal; }
     @Override public RaMasterApiSessionLocal getRaMasterApiSession() { return raMasterApiSessionLocal; }

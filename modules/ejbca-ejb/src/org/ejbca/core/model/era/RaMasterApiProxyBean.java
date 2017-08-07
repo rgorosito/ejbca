@@ -13,6 +13,18 @@
  *************************************************************************/
 package org.ejbca.core.model.era;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,22 +47,35 @@ import javax.ejb.TransactionManagement;
 import javax.ejb.TransactionManagementType;
 
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.cesecore.ErrorCode;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.util.AlgorithmTools;
+import org.cesecore.configuration.GlobalConfigurationSessionLocal;
+import org.cesecore.keys.util.KeyTools;
 import org.cesecore.roles.AccessRulesHelper;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.member.RoleMember;
+import org.cesecore.util.CertTools;
+import org.cesecore.util.EJBTools;
+import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.EjbcaException;
+import org.ejbca.core.ejb.keyrecovery.KeyRecoverySessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -59,8 +84,11 @@ import org.ejbca.core.model.approval.ApprovalRequestExpiredException;
 import org.ejbca.core.model.approval.SelfApprovalException;
 import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
+import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
+import org.ejbca.core.model.keyrecovery.KeyRecoveryInformation;
+import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.NoSuchAliasException;
@@ -84,6 +112,13 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
 
     @EJB
     private RaMasterApiSessionLocal raMasterApiSession;
+    
+    /** Note: Configuration stored <b>locally</b> on this peer. Should only be used for peer configuration, etc. */
+    @EJB
+    private GlobalConfigurationSessionLocal localNodeGlobalConfigurationSession;
+    /** Used to store key recovery data <b>locally</b> on this peer. Should only be used for this purpose. */
+    @EJB
+    private KeyRecoverySessionLocal localNodeKeyRecoverySession;
 
     private RaMasterApi[] raMasterApis = null;
     private RaMasterApi[] raMasterApisLocalFirst = null;
@@ -93,11 +128,17 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
 
     /** Constructor for use from JUnit tests */
-    public RaMasterApiProxyBean(final RaMasterApi... raMasterApis) {
+    public RaMasterApiProxyBean(final RaMasterApiSessionLocal raMasterApiSession, 
+            final GlobalConfigurationSessionLocal globalConfigurationSession,
+            final KeyRecoverySessionLocal keyRecoverySession,
+            final RaMasterApi... raMasterApis) {
         this.raMasterApis = raMasterApis;
         final List<RaMasterApi> implementations = new ArrayList<>(Arrays.asList(raMasterApis));
         Collections.reverse(implementations);
         this.raMasterApisLocalFirst = implementations.toArray(new RaMasterApi[implementations.size()]);
+        this.raMasterApiSession = raMasterApiSession;
+        this.localNodeGlobalConfigurationSession = globalConfigurationSession;
+        this.localNodeKeyRecoverySession = keyRecoverySession;
     }
 
     @PostConstruct
@@ -576,6 +617,24 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         }
         return searchResponse;
     }
+    
+    @Override
+    public CertificateDataWrapper searchForCertificateByIssuerAndSerial(final AuthenticationToken authenticationToken, final String issuerDN, final String serno) {
+        CertificateDataWrapper searchResponse = null;
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    searchResponse = raMasterApi.searchForCertificateByIssuerAndSerial(authenticationToken, issuerDN, serno);
+                    if (searchResponse != null) {
+                        break;
+                    }
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        return searchResponse;
+    }
 
     @Override
     public RaCertificateSearchResponse searchForCertificates(AuthenticationToken authenticationToken,
@@ -850,21 +909,180 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     @Override
     public void checkUserStatus(AuthenticationToken authenticationToken, String username, String password)
             throws NoSuchEndEntityException, AuthStatusException, AuthLoginException {
+        NoSuchEndEntityException noSuchEndEntityException = null;
         for (final RaMasterApi raMasterApi : raMasterApis) {
             if (raMasterApi.isBackendAvailable()) {
                 try {
                     raMasterApi.checkUserStatus(authenticationToken, username, password);
+                    return;
+                } catch (NoSuchEndEntityException e) {
+                    if (noSuchEndEntityException != null) {
+                        noSuchEndEntityException = e;
+                    }
                 } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
                     // Just try next implementation
                 }
             }
         }
+        if (noSuchEndEntityException != null) {
+            throw noSuchEndEntityException;
+        }
+    }
+    
+    @Override
+    public void finishUserAfterLocalKeyRecovery(final AuthenticationToken authenticationToken, final String username, final String password) throws AuthorizationDeniedException, EjbcaException {
+        AuthorizationDeniedException authorizationDeniedException = null;
+        EjbcaException userNotFoundException = null;
+        
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    raMasterApi.finishUserAfterLocalKeyRecovery(authenticationToken, username, password);
+                    return;
+                } catch (AuthorizationDeniedException e) {
+                    if (authorizationDeniedException == null) {
+                        authorizationDeniedException = e;
+                    }
+                    // Just try next implementation
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                } catch (EjbcaException e) {
+                    // If the user is not found (e.g. during key recovery), try next implementation
+                    if (!ErrorCode.USER_NOT_FOUND.equals(e.getErrorCode())) {
+                        throw e;
+                    }
+                    if (userNotFoundException != null) {
+                        userNotFoundException = e;
+                    }
+                }
+            }
+        }
+        if (authorizationDeniedException != null) {
+            throw authorizationDeniedException;
+        }
+        if (userNotFoundException != null) {
+            throw userNotFoundException;
+        }
+    }
+    
+    private X509Certificate requestCertForEndEntity(final AuthenticationToken authenticationToken, final EndEntityInformation endEntity, final String password, final KeyPair kp)
+            throws AuthorizationDeniedException, EjbcaException {
+        try {
+            final X500Name x509dn = CertTools.stringToBcX500Name(endEntity.getDN());
+            final String sigAlg = AlgorithmTools.getSignatureAlgorithms(kp.getPublic()).get(0);
+            final PKCS10CertificationRequest pkcs10req = CertTools.genPKCS10CertificationRequest(sigAlg, x509dn, kp.getPublic(), null, kp.getPrivate(), BouncyCastleProvider.PROVIDER_NAME);
+            final byte[] csr = pkcs10req.getEncoded();
+            endEntity.getExtendedinformation().setCertificateRequest(csr); // not persisted, only sent over peer connection
+            endEntity.setPassword(password); // not persisted
+            // Request certificate
+            final byte[] certBytes = createCertificate(authenticationToken, endEntity);
+            return CertTools.getCertfromByteArray(certBytes, X509Certificate.class);
+        } catch (IOException | OperatorCreationException | CertificateParsingException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
+    // This method is somewhat special, because it should not be sent/forwarded upstream depending on a configuration setting
     @Override
     public byte[] generateKeyStore(AuthenticationToken authenticationToken, EndEntityInformation endEntity)
             throws AuthorizationDeniedException, EjbcaException {
         AuthorizationDeniedException authorizationDeniedException = null;
+        EjbcaException userNotFoundException = null;
+        
+        final String username = endEntity.getUsername();
+        final EndEntityInformation storedEndEntity = searchUser(authenticationToken, username);
+        if (storedEndEntity == null) {
+            throw new EjbcaException(ErrorCode.USER_NOT_FOUND, "User does not exist: " + username);
+        }
+        GlobalConfiguration globalConfig = (GlobalConfiguration) localNodeGlobalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        if (storedEndEntity.getKeyRecoverable() && globalConfig.getEnableKeyRecovery() && globalConfig.getLocalKeyRecovery()) {
+            // "Force local key recovery" enabled. The certificate is issued on the CA, but the key pair is generated and stored locally.
+            final IdNameHashMap<CAInfo> caInfos = getAuthorizedCAInfos(authenticationToken);
+            final CAInfo caInfo = caInfos.getValue(storedEndEntity.getCAId());
+            if (caInfo == null) {
+                throw new AuthorizationDeniedException("Not authorized to CA with ID " + storedEndEntity.getCAId() + ", or it does not exist.");
+            }
+            final Certificate[] cachain = caInfo.getCertificateChain().toArray(new Certificate[0]);
+            if (!isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_KEYRECOVERY)) {
+                throw new AuthorizationDeniedException("Not authorized to recover keys");
+            }
+            final EndEntityProfile endEntityProfile = getAuthorizedEndEntityProfiles(authenticationToken, AccessRulesConstants.REGULAR_KEYRECOVERY).getValue(storedEndEntity.getEndEntityProfileId());
+            if (endEntityProfile == null) {
+                throw new AuthorizationDeniedException("Not authorized to End Entity Profile with ID " + storedEndEntity.getEndEntityProfileId() + ", or it does not exist.");
+            }
+            
+            final Integer cryptoTokenId = globalConfig.getLocalKeyRecoveryCryptoTokenId();
+            final String keyAlias = globalConfig.getLocalKeyRecoveryKeyAlias();
+            final X509Certificate cert;
+            final KeyPair kp;
+            try {
+                if (storedEndEntity.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Creating locally stored key pair for end entity '" + username + "'");
+                    }
+                    // Create new key pair and CSR
+                    final String keyalg = storedEndEntity.getExtendedinformation().getKeyStoreAlgorithmType();
+                    final String keyspec = storedEndEntity.getExtendedinformation().getKeyStoreAlgorithmSubType();
+                    kp = KeyTools.genKeys(keyspec, keyalg);
+                    // requestCertForEndEntity verifies the password and performs the finishUser operation
+                    cert = requestCertForEndEntity(authenticationToken, storedEndEntity, endEntity.getPassword(), kp);
+                    // Store key pair
+                    if (cryptoTokenId == null || keyAlias == null) {
+                        log.warn("No key has been configured for local key recovery. Please select a crypto token and key alias in System Configuration!");
+                        throw new EjbcaException(ErrorCode.INTERNAL_ERROR);
+                    }
+                    if (!localNodeKeyRecoverySession.addKeyRecoveryDataInternal(authenticationToken, EJBTools.wrap(cert), username, EJBTools.wrap(kp), cryptoTokenId, keyAlias)) {
+                        // Should never happen. An exception stack trace is error-logged in addKeyRecoveryData
+                        throw new EjbcaException(ErrorCode.INTERNAL_ERROR);
+                    }
+                } else {
+                    // Recover existing key pair
+                    if (log.isDebugEnabled()) {
+                        log.debug("Recovering locally stored key pair for end entity '" + username + "'");
+                    }
+                    final KeyRecoveryInformation kri = localNodeKeyRecoverySession.recoverKeysInternal(authenticationToken, username, cryptoTokenId, keyAlias);
+                    kp = kri.getKeyPair();
+                    if (endEntityProfile.getReUseKeyRecoveredCertificate()) {
+                        final CertificateDataWrapper cdw = searchForCertificateByIssuerAndSerial(authenticationToken, kri.getIssuerDN(), kri.getCertificateSN().toString(16));
+                        if (cdw == null) {
+                            final String msg = "Key recovery data exists for user '" + username + "', but certificate does not: " + kri.getCertificateSN().toString(16);
+                            log.info(msg);
+                            throw new EjbcaException(ErrorCode.INTERNAL_ERROR, msg);
+                        }
+                        cert = (X509Certificate) cdw.getCertificate();
+                        // Verify password and finish user
+                        finishUserAfterLocalKeyRecovery(authenticationToken, username, endEntity.getPassword());
+                    } else {
+                        // requestCertForEndEntity verifies the password and performs the finishUser operation
+                        cert = requestCertForEndEntity(authenticationToken, storedEndEntity, endEntity.getPassword(), kp);
+                    }
+                    localNodeKeyRecoverySession.unmarkUser(authenticationToken, username);
+                }
+                // Build keystore
+                final KeyStore ks;
+                String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
+                if (alias == null) {
+                    alias = username;
+                }
+                if (storedEndEntity.getTokenType() == EndEntityConstants.TOKEN_SOFT_JKS) {
+                    ks = KeyTools.createJKS(alias, kp.getPrivate(), endEntity.getPassword(), cert, cachain);
+                } else {
+                    ks = KeyTools.createP12(alias, kp.getPrivate(), cert, cachain);
+                }
+                try (final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    ks.store(baos, endEntity.getPassword().toCharArray());
+                    return baos.toByteArray();
+                }
+            } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | InvalidKeySpecException |
+                    InvalidAlgorithmParameterException | IOException e) {
+                throw new IllegalStateException(e);
+            }
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug("Requesting key store for end entity '" + username + "'. Remote peer systems will be queried first");
+            }
+        }
+        
         for (final RaMasterApi raMasterApi : raMasterApis) {
             if (raMasterApi.isBackendAvailable()) {
                 try {
@@ -876,11 +1094,22 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                     // Just try next implementation
                 } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
                     // Just try next implementation
+                } catch (EjbcaException e) {
+                    // If the user is not found (e.g. during key recovery), try next implementation
+                    if (!ErrorCode.USER_NOT_FOUND.equals(e.getErrorCode())) {
+                        throw e;
+                    }
+                    if (userNotFoundException != null) {
+                        userNotFoundException = e;
+                    }
                 }
             }
         }
         if (authorizationDeniedException != null) {
             throw authorizationDeniedException;
+        }
+        if (userNotFoundException != null) {
+            throw userNotFoundException;
         }
         return null;
     }
@@ -948,6 +1177,41 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
     
     @Override
+    public void keyRecoverWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN) throws EjbcaException, AuthorizationDeniedException, 
+                                WaitingForApprovalException, CADoesntExistsException {
+        // Handle local key recovery
+        GlobalConfiguration globalConfig = (GlobalConfiguration) localNodeGlobalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        if (globalConfig.getEnableKeyRecovery() && globalConfig.getLocalKeyRecovery()) {
+            CertificateDataWrapper cdw = searchForCertificateByIssuerAndSerial(authenticationToken, issuerDN, certSNinHex);
+            final boolean localRecoveryPossible = keyRecoveryPossible(authenticationToken, cdw.getCertificate(), username);
+            if (!localRecoveryPossible) {
+                throw new EjbcaException(ErrorCode.KEY_RECOVERY_NOT_AVAILABLE);
+            }
+            try {
+                markForRecovery(authenticationToken, username, null, cdw, true);
+            } catch (NoSuchEndEntityException e) {
+                // To not mess with the WS API
+                throw new NotFoundException(e.getMessage());
+            } catch (EndEntityProfileValidationException e) {
+                // To not mess with the WS API
+                throw new EjbcaException(ErrorCode.USER_DOESNT_FULFILL_END_ENTITY_PROFILE);
+            }
+            return;
+        }
+        
+        // Default case
+        for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    raMasterApi.keyRecoverWS(authenticationToken, username, certSNinHex, issuerDN);
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+    }
+    
+    @Override
     public List<CertificateWrapper> getLastCertChain(final AuthenticationToken authenticationToken, final String username) throws AuthorizationDeniedException, EjbcaException {
         AuthorizationDeniedException authorizationDeniedException = null;
         for (final RaMasterApi raMasterApi : raMasterApisLocalFirst) {
@@ -993,22 +1257,97 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         }
         return ret;
     }
-    
-
-
+        
     @Override
-    public ApprovalProfile getApprovalProfileForAction(final AuthenticationToken authenticationToken, final ApprovalRequestType action, final int caId, final int certificateProfileId) throws AuthorizationDeniedException {
+    public boolean markForRecovery(AuthenticationToken authenticationToken, String username, String newPassword, CertificateWrapper cert, boolean localKeyGeneration) throws ApprovalException, CADoesntExistsException, 
+                                    AuthorizationDeniedException, WaitingForApprovalException, NoSuchEndEntityException, EndEntityProfileValidationException {
+        boolean ret = false;
+        final GlobalConfiguration globalConfig = (GlobalConfiguration) localNodeGlobalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        final boolean localKeyRecoveryThisNode = globalConfig.getEnableKeyRecovery() && globalConfig.getLocalKeyRecovery();
+        if (localKeyRecoveryThisNode) {
+            localKeyGeneration = true;
+        }
+        
         for (final RaMasterApi raMasterApi : raMasterApis) {
             if (raMasterApi.isBackendAvailable()) {
                 try {
-                    final ApprovalProfile result = raMasterApi.getApprovalProfileForAction(authenticationToken, action, caId, certificateProfileId);
-                    if (result != null) {
-                        return result;
+                    ret = raMasterApi.markForRecovery(authenticationToken, username, newPassword, cert, localKeyGeneration);
+                    if (ret) {
+                        break;
+                    }
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                } catch (WaitingForApprovalException e) {
+                    // If approval is required, the approving instance won't be able to set the flag in this database, so we set it anyway
+                    // Enrollment won't be possible until UserData status is set to KeyRecovery by the requesting instance (at approval).
+                    if (localKeyRecoveryThisNode) {
+                        localNodeKeyRecoverySession.markAsRecoverableInternal(authenticationToken, cert, username);
+                    }
+                    throw e;
+                }
+            }
+        }
+        
+        // If local key generation is enabled, we have to do this locally
+        if (ret && localKeyRecoveryThisNode) {
+            localNodeKeyRecoverySession.unmarkUser(authenticationToken, username);
+            ret = localNodeKeyRecoverySession.markAsRecoverableInternal(authenticationToken, cert, username);
+        }
+        return ret;
+    }
+    
+    @Override
+    public boolean keyRecoveryPossible(AuthenticationToken authenticationToken, Certificate cert, String username) {
+        // Special case where local key generation is enabled
+        GlobalConfiguration globalConfig = (GlobalConfiguration) localNodeGlobalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        if (globalConfig.getEnableKeyRecovery() && globalConfig.getLocalKeyRecovery()) {
+            EndEntityInformation storedEndEntity = searchUser(authenticationToken, username);
+            if (storedEndEntity != null) {
+                boolean authorized = false;
+                authorized = isAuthorizedNoLogging(authenticationToken, AccessRulesConstants.REGULAR_KEYRECOVERY,
+                        AccessRulesConstants.ENDENTITYPROFILEPREFIX + Integer.toString(storedEndEntity.getEndEntityProfileId()) + AccessRulesConstants.KEYRECOVERY_RIGHTS,
+                        AccessRulesConstants.REGULAR_RAFUNCTIONALITY + AccessRulesConstants.KEYRECOVERY_RIGHTS);
+                return authorized && storedEndEntity.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY && localNodeKeyRecoverySession.existsKeys(EJBTools.wrap(cert));
+            }
+            return false;
+        }
+        
+        // Default case (everything we need should be available in one instance database)
+        boolean ret = false;
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    ret = raMasterApi.keyRecoveryPossible(authenticationToken, cert, username);
+                    if (ret) {
+                        break;
                     }
                 } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
                     // Just try next implementation
                 }
             }
+        }
+        return ret;
+    }
+
+    @Override
+    public ApprovalProfile getApprovalProfileForAction(final AuthenticationToken authenticationToken, final ApprovalRequestType action, final int caId, final int certificateProfileId) throws AuthorizationDeniedException {
+        AuthorizationDeniedException authorizationDeniedException = null;
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    return raMasterApi.getApprovalProfileForAction(authenticationToken, action, caId, certificateProfileId);
+                } catch (AuthorizationDeniedException e) {
+                    if (authorizationDeniedException == null) {
+                        authorizationDeniedException = e;
+                    }
+                    // Just try next implementation
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        if (authorizationDeniedException != null) {
+            throw authorizationDeniedException;
         }
         return null;
     }

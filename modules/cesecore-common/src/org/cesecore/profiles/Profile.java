@@ -10,7 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.model.profiles;
+package org.cesecore.profiles;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
@@ -27,7 +27,7 @@ public interface Profile extends Serializable{
     /**
      * Designator for the base type, in this case a Class which extends ProfileBase
      */
-    final String PROFILE_TYPE      = "profile.type";
+    final String PROFILE_TYPE = "profile.type";
     
     /**
      * 
@@ -82,6 +82,8 @@ public interface Profile extends Serializable{
      * @return Map object with difference as described above
      */
     Map<Object, Object> diff(Profile newobj);
+    
+    
     
 }
 

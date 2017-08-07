@@ -10,7 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.model.profiles;
+package org.cesecore.profiles;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
@@ -29,7 +29,7 @@ public abstract class ProfileBase extends UpgradeableDataHashMap implements Prof
     
     private static final long serialVersionUID = 1L;
     
-    public static final float LATEST_VERSION = 1;
+    public static final float LATEST_VERSION = 1f;
     
     private static final String PROFILE_NAME_KEY = "profile.name";
     private static final String PROFILE_ID_KEY = "profile.id";
@@ -77,7 +77,7 @@ public abstract class ProfileBase extends UpgradeableDataHashMap implements Prof
     
     @Override
     public void setDataMap(LinkedHashMap<Object, Object> dataMap) {
-        this.data = dataMap;
+        loadData(dataMap);
         loadTransientObjects();
     }
         

@@ -226,6 +226,35 @@ public interface EndEntityManagementSession {
             WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
 
     /**
+     * Change user information.
+     * 
+     * @param admin the administrator performing the action
+     * @param userdata a EndEntityInformation object, timecreated and timemodified will
+     *             not be used.
+     * @param clearpwd true if the password will be stored in clear form in the
+     *             db, otherwise it is hashed.
+     * @param newUsername the new username of the end entity
+     * @throws AuthorizationDeniedException
+     *             if administrator isn't authorized to add user
+     * @throws EndEntityProfileValidationException
+     *             if data doesn't fullfil requirements of end entity profile
+     * @throws ApprovalException
+     *             if an approval already is waiting for specified action
+     * @throws WaitingForApprovalException
+     *             if approval is required and the action have been added in the
+     *             approval queue.
+     * @throws CADoesntExistsException
+     *             if the caid of the user does not exist
+     * @throws IllegalNameException if the Subject DN failed constraints
+     * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
+     * @throws NoSuchEndEntityException if the end entity was not found
+     * @throws CustomFieldException if the end entity was not validated by a locally defined field validator
+     */
+    void changeUser(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, String newUsername)
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
+    
+    /**
      * Change user information after an EditEndEntityApprovalRequest has been approved
      * 
      * @param admin the administrator performing the action
@@ -253,6 +282,38 @@ public interface EndEntityManagementSession {
      */
     void changeUserAfterApproval(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, 
             int approvalRequestId, AuthenticationToken lastApprovingAdmin)
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
+    
+    /**
+     * Change user information after an EditEndEntityApprovalRequest has been approved
+     * 
+     * @param admin the administrator performing the action
+     * @param userdata a EndEntityInformation object, timecreated and timemodified will
+     *             not be used.
+     * @param clearpwd true if the password will be stored in clear form in the
+     *             db, otherwise it is hashed.
+     * @param approvalRequestId the unique ID of the approval request (not the hash)
+     * @param lastApprovingAdmin the last administrator to have approved the request
+     * @param oldUsername the username the end entity has prior to the name change
+     * @throws AuthorizationDeniedException
+     *             if administrator isn't authorized to add user
+     * @throws EndEntityProfileValidationException
+     *             if data doesn't fulfill requirements of end entity profile
+     * @throws ApprovalException
+     *             if an approval already is waiting for specified action
+     * @throws WaitingForApprovalException
+     *             if approval is required and the action have been added in the
+     *             approval queue.
+     * @throws CADoesntExistsException
+     *             if the caid of the user does not exist
+     * @throws IllegalNameException if the Subject DN failed constraints
+     * @throws CertificateSerialNumberException if SubjectDN serial number already exists.
+     * @throws NoSuchEndEntityException NoSuchEndEntityException if the user does not exist
+     * @throws CustomFieldException if the end entity was not validated by a locally defined field validator
+     */
+    void changeUserAfterApproval(AuthenticationToken admin, EndEntityInformation userdata, boolean clearpwd, 
+            int approvalRequestId, AuthenticationToken lastApprovingAdmin, String oldUsername)
             throws AuthorizationDeniedException, EndEntityProfileValidationException,
             WaitingForApprovalException, CADoesntExistsException, ApprovalException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
     
@@ -527,6 +588,23 @@ public interface EndEntityManagementSession {
      */
     boolean prepareForKeyRecovery(AuthenticationToken admin, String username, int endEntityProfileId, Certificate certificate)
     		throws AuthorizationDeniedException, ApprovalException, WaitingForApprovalException, CADoesntExistsException;
+    
+    /**
+     * Marks a user for key recovery and performs authorization checks. This method will not mark the certificate for key recover.  
+     * Method is intended to be used when KeyRecoveryData is not present in the instance database (eg. when local key generation is enabled). 
+     * 
+     * @param admin used to authorize this action
+     * @param username is the user to key recover a certificate for
+     * @param endEntityProfileId of the end entity related to certificate
+     * @param certificate used to check if approval is required to recover this certificate
+     * @return true if operation was completed successfully
+     * @throws AuthorizationDeniedException if requesting administrator isn't authorized to perform key recovery
+     * @throws ApprovalException if an approval already exists to edit user status
+     * @throws CADoesntExistsException if CA holding the user does not exist
+     * @throws WaitingForApprovalException if the request requires approval. Expected to be thorws if approval is required to edit end entity
+     */
+    public boolean prepareForKeyRecoveryInternal(AuthenticationToken admin, String username, int endEntityProfileId, Certificate certificate) 
+            throws AuthorizationDeniedException, ApprovalException, CADoesntExistsException, WaitingForApprovalException;
     
     /**
      * Selects a list of specific list of EndEntityInformation entities, as filtered by

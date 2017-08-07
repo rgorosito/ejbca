@@ -1,0 +1,60 @@
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:component="http://java.sun.com/jsf/composite/component"
+	xmlns:c="http://java.sun.com/jsp/jstl/core"
+	xmlns:fn="http://java.sun.com/jsp/jstl/functions"
+	xmlns:t="http://myfaces.apache.org/tomahawk">
+<ui:remove>
+    <!--
+    /*************************************************************************
+     *                                                                       *
+     *  EJBCA: The OpenSource Certificate Authority                          *
+     *                                                                       *
+     *  This software is free software; you can redistribute it and/or       *
+     *  modify it under the terms of the GNU Lesser General Public           *
+     *  License as published by the Free Software Foundation; either         *
+     *  version 2.1 of the License, or any later version.                    *
+     *                                                                       *
+     *  See terms of license at gnu.org.                                     *
+     *                                                                       *
+     *************************************************************************/
+     
+     version: $Id: editRsaKeyValidator.xhtml 25334 2017-03-01 16:22:09Z anjakobs $
+     -->
+</ui:remove>
+<h:outputLabel for="keyvalidator_settings" value="#{web.text.RSAKEYVALIDATORSETTINGS}" style="font-weight: bold;" />
+<h:panelGroup id="keyvalidator_settings">
+</h:panelGroup>
+<h:outputLabel for="settingsTemplate" value="#{web.text.VALIDATORSETTINGSTEMPLATE}"/>
+<h:selectOneMenu id="settingsTemplate" value="#{validatorBean.keyValidator.settingsTemplate}" disabled="#{validatorsBean.viewOnly}">
+	<f:ajax listener="#{validatorBean.keyValidatorTemplateChanged}" render="@form"/>	
+	<f:selectItems value="#{validatorBean.availableKeyValidatorSettingsTemplates}" />
+</h:selectOneMenu>
+<h:outputLabel for="keyValidatorBitLengths" value="#{web.text.RSAKEYVALILDATORAVAILABLEBITLENGTHS}" />
+<h:selectManyListbox id="keyValidatorBitLengths" value="#{validatorBean.keyValidator.bitLengths}" disabled="#{validatorsBean.viewOnly or !validatorBean.customBaseSettingsEnabled}">
+	<f:selectItems value="#{validatorBean.keyValidator.availableBitLengths}" />
+</h:selectManyListbox>
+<h:outputLabel for="rsaPublicKeyExponentOnlyAllowOdd" value="#{web.text.RSAKEYVALIDATORPUBLICEXPONENTONLYALLOWODD}" styleClass="subItem"/>
+<h:selectBooleanCheckbox id="rsaPublicKeyExponentOnlyAllowOdd" value="#{validatorBean.keyValidator.publicKeyExponentOnlyAllowOdd}" disabled="#{validatorsBean.viewOnly}" />
+<h:outputLabel for="rsaPublicKeyExponentMin" value="#{web.text.RSAKEYVALIDATORPUBLICEXPONENTMIN}" styleClass="subItem"/>
+<h:inputText id="rsaPublicKeyExponentMin" value="#{validatorBean.keyValidator.publicKeyExponentMin}" converter="javax.faces.BigInteger" required="false" disabled="#{validatorsBean.viewOnly}" >
+</h:inputText>
+<h:outputLabel for="rsaPublicKeyExponentMax" value="#{web.text.RSAKEYVALIDATORPUBLICEXPONENTMAX}" styleClass="subItem"/>
+<h:inputText id="rsaPublicKeyExponentMax" value="#{validatorBean.keyValidator.publicKeyExponentMax}" converter="javax.faces.BigInteger" required="false" disabled="#{validatorsBean.viewOnly}" >
+</h:inputText>
+<h:outputLabel for="rsaPublicKeyModulusOnlyAllowOdd" value="#{web.text.RSAKEYVALIDATORPUBLICMODULUSONLYALLOWODD}" styleClass="subItem"/>
+<h:selectBooleanCheckbox id="rsaPublicKeyModulusOnlyAllowOdd" value="#{validatorBean.keyValidator.publicKeyModulusOnlyAllowOdd}" disabled="#{validatorsBean.viewOnly}" />
+<h:outputLabel for="rsaPublicKeyModulusDontAllowPowerOfPrime" value="#{web.text.RSAKEYVALIDATORPUBLICMODULUSDONTALLOWPOWEROFPRIME}" styleClass="subItem"/>
+<h:selectBooleanCheckbox id="rsaPublicKeyModulusDontAllowPowerOfPrime" value="#{validatorBean.keyValidator.publicKeyModulusDontAllowPowerOfPrime}" disabled="#{validatorsBean.viewOnly}" />
+<h:outputLabel for="rsaPublicKeyModulusMinFactor" value="#{web.text.RSAKEYVALIDATORPUBLICMODULUSMINFACTOR}" styleClass="subItem"/>
+<h:inputText id="rsaPublicKeyModulusMinFactor" value="#{validatorBean.keyValidator.publicKeyModulusMinFactor}" required="false" maxlength="10" disabled="#{validatorsBean.viewOnly}" >
+</h:inputText>
+<h:outputLabel for="rsaPublicKeyModulusMin" value="#{web.text.RSAKEYVALIDATORPUBLICMODULUSMIN}" styleClass="subItem"/>
+<h:inputText id="rsaPublicKeyModulusMin" value="#{validatorBean.keyValidator.publicKeyModulusMin}" converter="javax.faces.BigInteger" required="false" disabled="#{validatorsBean.viewOnly}" >
+</h:inputText>
+<h:outputLabel for="rsaPublicKeyModulusMax" value="#{web.text.RSAKEYVALIDATORPUBLICMODULUSMAX}" styleClass="subItem"/>
+<h:inputText id="rsaPublicKeyModulusMax" value="#{validatorBean.keyValidator.publicKeyModulusMax}" converter="javax.faces.BigInteger" required="false" disabled="#{validatorsBean.viewOnly}" >
+</h:inputText>
+</ui:composition>

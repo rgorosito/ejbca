@@ -21,20 +21,21 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.AuthenticationFailedException;
 import org.cesecore.authorization.user.AccessUserAspectData;
+import org.cesecore.profiles.ProfileBase;
 import org.cesecore.roles.RoleInformation;
 import org.cesecore.util.ProfileID;
 import org.cesecore.util.ui.DynamicUiProperty;
 import org.cesecore.util.ui.MultiLineString;
 import org.ejbca.config.EjbcaConfiguration;
 import org.ejbca.core.model.approval.Approval;
-import org.ejbca.core.model.profiles.ProfileBase;
+import org.ejbca.core.model.approval.ApprovalDataVO;
 
 /**
  * 
@@ -515,6 +516,9 @@ public abstract class ApprovalProfileBase extends ProfileBase implements Approva
         int partitionApprovalsRequired = getNumberOfApprovalsRequired(stepIdentifier, partitionIdentifier);
         int partitionApprovalsPerformed = 0;
         for (Approval approval : approvalsPerformed) {
+            if(!approval.isApproved()) {
+                return ApprovalDataVO.STATUS_EXECUTIONDENIED;
+            }
             if (approval.getStepId()==stepIdentifier && approval.getPartitionId()==partitionIdentifier) {
                 partitionApprovalsPerformed++;
             }
