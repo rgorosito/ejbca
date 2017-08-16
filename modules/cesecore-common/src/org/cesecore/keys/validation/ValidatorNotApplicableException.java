@@ -13,28 +13,26 @@
 
 package org.cesecore.keys.validation;
 
+import javax.ejb.ApplicationException;
+
+import org.cesecore.CesecoreException;
+
 /**
- * An exception thrown when it was not possible to remove from datastore the public key blacklist entry fore some reason. 
- * The object is not referenced by other objects.
+ * An exception thrown when someone tries validate with input that is not applicable for a specific validator.
+ * For example a wrong key algorithm (i.e. try to validate an ECC key with an RSA key validator).
  *
  * @version $Id$
  */
-public class CouldNotRemovePublicKeyBlacklistException extends Exception {
+@ApplicationException(rollback=true)
+public class ValidatorNotApplicableException extends CesecoreException {
 
-    private static final long serialVersionUID = 4523675695735398955L;
-
-    /**
-     * Creates a new instance.
-     */
-    public CouldNotRemovePublicKeyBlacklistException() {
-        super();
-    }
+    private static final long serialVersionUID = 3339929462315318612L;
 
     /**
      * Creates a new instance with a detail message.
      * @param message the detail message.
      */
-    public CouldNotRemovePublicKeyBlacklistException(String message) {
+    public ValidatorNotApplicableException(final String message) {
         super(message);
     }
 }

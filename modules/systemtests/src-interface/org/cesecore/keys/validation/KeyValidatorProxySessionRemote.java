@@ -71,6 +71,12 @@ public interface KeyValidatorProxySessionRemote {
     Map<Integer, String> getKeyValidatorIdToNameMap();
 
     /**
+     * Retrieves a Map of key validator ids. 
+     * @return mapping of key validators names and ids. 
+     */
+    Map<String, Integer> getKeyValidatorNameToIdMap();
+
+    /**
      * Adds a key validator to the database. Used for importing and exporting
      * profiles from xml-files.
      *
@@ -79,7 +85,7 @@ public interface KeyValidatorProxySessionRemote {
      * @param name the name of the key validator to add.
      * @param validator the key validator to add.
      *
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorExistsException if key validator already exists.
      */
     void addKeyValidator(AuthenticationToken admin, int id, String name, Validator validator)
@@ -92,7 +98,7 @@ public interface KeyValidatorProxySessionRemote {
      * @param validator the key validator to add
      * @return the key validator ID as added
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorExistsException if key validator already exists.
      */
     int addKeyValidator(AuthenticationToken admin, Validator validator)
@@ -104,7 +110,7 @@ public interface KeyValidatorProxySessionRemote {
      * @param admin AuthenticationToken of administrator.
      * @param validator the key validator to be modified.
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if there's no key validator with the given name.
      * 
      * */
@@ -114,7 +120,7 @@ public interface KeyValidatorProxySessionRemote {
     /**
      * Adds a key validator with the same content as the original.
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
@@ -124,24 +130,23 @@ public interface KeyValidatorProxySessionRemote {
     /**
      * Renames a key validator or throws an exception.
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
     void renameKeyValidator(AuthenticationToken admin, Validator validator, String newname)
             throws AuthorizationDeniedException, KeyValidatorDoesntExistsException, KeyValidatorExistsException;
 
-    /** Removes the key validator data equal if its referenced by a CA or not.
+    /** Removes the key validator data if it is not referenced by a CA. Does not throw any errors if the validator does not exist
      * 
      * @param admin AuthenticationToken of admin.
      * @param validatorId the ID of the key validator to remove.
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidators
-     * @throws KeyValidatorDoesntExistsException if the key validator does not exist.
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validators
      * @throws CouldNotRemoveKeyValidatorException if the key validator is referenced by other objects.
      */
     void removeKeyValidator(AuthenticationToken admin, final int validatorId)
-            throws AuthorizationDeniedException, KeyValidatorDoesntExistsException, CouldNotRemoveKeyValidatorException;
+            throws AuthorizationDeniedException, CouldNotRemoveKeyValidatorException;
 
     /** Retrieves a Collection of id:s (Integer) to authorized key validators. 
      * @param admin the administrator for whom to get the profile ids he/she has access to
@@ -167,11 +172,11 @@ public interface KeyValidatorProxySessionRemote {
      * @param notAfter the certificates notAfter validity
      * @param publicKey the public key of the certificate
      * @return true if all matching key validators could validate the public key successfully. If false #getMessage().size() is greater than 0.
-     * @throws KeyValidationException if the validation failed and failed action type is set to abort certificate issuance {@link KeyValidationFailedActions#ABORT_CERTIFICATE_ISSUANCE}.
+     * @throws ValidationException if the validation failed and failed action type is set to abort certificate issuance {@link KeyValidationFailedActions#ABORT_CERTIFICATE_ISSUANCE}.
      * @throws IllegalValidityException if the certificate validity could not be determined.
      */
     boolean validatePublicKey(AuthenticationToken admin, final CA ca, EndEntityInformation endEntityInformation, CertificateProfile certificateProfile, Date notBefore,
-            Date notAfter, PublicKey publicKey) throws KeyValidationException, IllegalValidityException;
+            Date notAfter, PublicKey publicKey) throws ValidationException, IllegalValidityException;
     
     /**
      * Imports a list of key validators, stored in separate XML files in the ZIP container.
@@ -185,4 +190,9 @@ public interface KeyValidatorProxySessionRemote {
      */
     ValidatorImportResult importKeyValidatorsFromZip(final AuthenticationToken authenticationToken, final byte[] filebuffer)
             throws AuthorizationDeniedException, ZipException;
+    
+    /** Change a Validator without affecting the cache */
+    void internalChangeValidatorNoFlushCache(Validator validator)
+            throws AuthorizationDeniedException, KeyValidatorDoesntExistsException;
+
 }

@@ -127,7 +127,6 @@ import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.EnterpriseEditionEjbBridgeProxySessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
-import org.ejbca.core.ejb.approval.ApprovalSessionProxyRemote;
 import org.ejbca.core.ejb.approval.ApprovalSessionRemote;
 import org.ejbca.core.ejb.ca.CaTestCase;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionRemote;
@@ -395,8 +394,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
 
     @Test
-    public void test03_1GeneratePkcs10WithBlacklistedKey() throws Exception {
-        generatePkcs10(true);
+    public void test03_1GeneratePkcs10() throws Exception {
+        generatePkcs10();
     }
 
     @Test
@@ -535,7 +534,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             fail("With a RSA key validator and a minimum key size of 2048 bits, the generation of P12 file with a 1024 bit RSA key should fail with an EjbcaException_Exception wrapping a KeyValidationException");
         } catch(Exception e) {
             Assert.assertTrue( "EjbcaException_Exception expected: " + e.getClass().getName(), e instanceof EjbcaException_Exception);
-            Assert.assertTrue( "EjbcaException_Exception with failed key validation must have message: " + e.getMessage(), (e.getMessage().startsWith("org.cesecore.keys.validation.KeyValidationException: Key validator WSPKCS12-RsaKeyValidatorTest could not validate sufficient key quality")));            
+            Assert.assertTrue( "EjbcaException_Exception with failed key validation must have message: " + e.getMessage(), (e.getMessage().startsWith("org.cesecore.keys.validation.KeyValidationException: Key Validator WSPKCS12-RsaKeyValidatorTest could not validate sufficient key quality")));            
         }
         
         // Clean up.
@@ -806,7 +805,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 Approval rejection = new Approval("", AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
                 rejection.setApprovalAdmin(false, approvingAdminToken);
                 approvalExecutionSession.reject(approvingAdminToken, approvalRequest.generateApprovalId(), rejection);
-                assertEquals("Approval status should be ApprovalDataVO.STATUS_REJECTED (-1)", ApprovalDataVO.STATUS_EXECUTIONDENIED,
+                assertEquals("Approval status should be ApprovalDataVO.STATUS_REJECTED (-1)", ApprovalDataVO.STATUS_REJECTED,
                         ejbcaraws.getRemainingNumberOfApprovals(approvalId));
             } finally {
                 try {
@@ -1670,7 +1669,6 @@ public class EjbcaWSTest extends CommonEjbcaWS {
 
     @Test
     public void test72CreateCA() throws Exception {
-        // ECA-4219 Test: WS call create CA with key validator.
         log.trace(">test72CreateCA()");
         log.debug("Enterprise Edition: " + enterpriseEjbBridgeSession.isRunningEnterprise());
         assumeTrue("Enterprise Edition only. Skipping the test", enterpriseEjbBridgeSession.isRunningEnterprise());

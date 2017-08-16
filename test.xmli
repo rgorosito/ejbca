@@ -47,6 +47,7 @@
     	<ant antfile="build.xml" dir="modules/cli-util" target="test" />
     	<ant antfile="build.xml" dir="modules/buildtools" target="test" />
     	<antcall target="optionaltestct" inheritrefs="true"/>
+    	<antcall target="optionaltestcaa" inheritrefs="true"/>
     	<antcall target="optionaltestcmpproxy" inheritrefs="true"/>
     	<antcall target="createreport"/>
     </target>
@@ -62,6 +63,8 @@
     <target name="optionaltestacme" if="${acme.exists}"><ant antfile="build.xml" dir="modules/acme" target="test"/></target>
     <condition property="cmpproxy.exists"><available file="modules/cmpProxy" /></condition>
     <target name="optionaltestcmpproxy" if="${cmpproxy.exists}"><ant antfile="build-http.xml" dir="modules/cmpProxy" target="test" /></target>
+    <condition property="caa.exists"><available file="modules/caa/build.xml" /></condition>
+    <target name="optionaltestcaa" if="${caa.exists}"><ant antfile="build.xml" dir="modules/caa" target="test" /></target>
 
 
 
@@ -91,6 +94,7 @@
 					<include name="modules/cmpProxy/src-test/**/${test.runone}.java" />
 					<include name="modules/va/publisher/src-test/**/${test.runone}.java" />
 					<include name="modules/acme/src-test/**/${test.runone}.java" />
+					<include name="modules/caa/src-test/**/${test.runone}.java" />
 				</fileset>
     	    </path>
     		<map from="${ejbca.home}/" to=""/>
@@ -147,6 +151,9 @@
     	<condition property="module" value="modules/acme">
     		<matches string="${test-fullname}" pattern="^modules/acme/.*$"/>
     	</condition>
+        <condition property="module" value="modules/caa">
+            <matches string="${test-fullname}" pattern="^modules/caa/.*$"/>
+        </condition>
         <fail message="The requested test '${test.runone}' was not found." unless="module"/>
     	<ant antfile="${test-buildfile}" dir="${module}" target="runone" />
 		<antcall target="createreport"/>

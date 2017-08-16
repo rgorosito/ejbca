@@ -11,33 +11,29 @@
  *                                                                       *
  *************************************************************************/
 
-package org.cesecore.keys.validation;
-
-import org.cesecore.CesecoreException;
+package org.ejbca.core.ejb.ca.validation;
 
 /**
- * An exception thrown when key validation fails for some reason and the certificate issuance has to be aborted.
+ * An exception thrown when someone tries to access a public key blacklist entry that doesn't exits.
  *
  * @version $Id$
  */
-public class KeyValidationException extends CesecoreException {
+public class BlacklistDoesntExistsException extends Exception {
 
-    private static final long serialVersionUID = -3123446231118692L;
+    private static final long serialVersionUID = 412202146316881114L;
 
     /**
-     * Creates a new instance with a detail message.
-     * @param message the message.
+     * Creates a new instance.
      */
-    public KeyValidationException(String message) {
-        super(message, null);
+    public BlacklistDoesntExistsException() {
+        super( "Public key blacklist does not exist in datastore.");
     }
 
     /**
-     * Creates a new instance with a detail message and a root cause, mainly technical errors.
-     * @param message the message.
-     * @param cause the root cause.
+     * Creates a new instance with the specified detail message.
+     * @param message the detail message.
      */
-    public KeyValidationException(String message, Throwable cause) {
-        super(message, cause);
+    public BlacklistDoesntExistsException(final String message) {
+        super(message);
     }
 }

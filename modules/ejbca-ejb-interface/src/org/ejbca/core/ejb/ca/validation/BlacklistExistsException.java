@@ -14,26 +14,26 @@
 package org.ejbca.core.ejb.ca.validation;
 
 /**
- * An exception thrown when someone tries to access a public key blacklist entry that doesn't exits.
+ * An exception thrown when someone tries to store a public key blacklist entry that already exists.
  *
  * @version $Id$
  */
-public class PublicKeyBlacklistDoesntExistsException extends Exception {
+public class BlacklistExistsException extends Exception {
 
-    private static final long serialVersionUID = 412202146316881114L;
+    private static final long serialVersionUID = 215999965395318151L;
 
     /**
      * Creates a new instance.
      */
-    public PublicKeyBlacklistDoesntExistsException() {
-        super( "Public key blacklist does not exist in datastore.");
+    public BlacklistExistsException() {
+        super();
     }
 
     /**
      * Creates a new instance with the specified detail message.
      * @param message the detail message.
      */
-    public PublicKeyBlacklistDoesntExistsException(final String message) {
+    public BlacklistExistsException(final String message) {
         super(message);
     }
 }

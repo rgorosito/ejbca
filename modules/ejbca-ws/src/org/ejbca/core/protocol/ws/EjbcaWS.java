@@ -89,6 +89,7 @@ import org.cesecore.certificates.ca.IllegalNameException;
 import org.cesecore.certificates.ca.SignRequestException;
 import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.CertificateConstants;
+import org.cesecore.certificates.certificate.CertificateCreateException;
 import org.cesecore.certificates.certificate.CertificateStatus;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificate.CertificateWrapper;
@@ -1230,6 +1231,8 @@ public class EjbcaWS implements IEjbcaWS {
             throw getEjbcaException(e.getMessage(), logger, ErrorCode.BAD_REQUEST_SIGNATURE, Level.ERROR);
 		} catch (InvalidKeySpecException e) {
             throw getEjbcaException(e, logger, ErrorCode.INVALID_KEY_SPEC, Level.ERROR);
+        } catch (CertificateCreateException e) {
+            throw getEjbcaException(e, logger, e.getErrorCode(), Level.ERROR);
 		} catch (NoSuchAlgorithmException e) {
             throw getInternalException(e, logger);
 		} catch (NoSuchProviderException e) {
@@ -1492,7 +1495,6 @@ public class EjbcaWS implements IEjbcaWS {
 		log.trace("<keyRecoverNewest");
 	}
 
-    // TODO replace "keyRecover" with this one once it's done
     public void keyRecover(String username, String certSNinHex, String issuerDN) throws CADoesntExistsException, AuthorizationDeniedException, 
             NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException {
         if (log.isTraceEnabled()) {
@@ -1516,7 +1518,6 @@ public class EjbcaWS implements IEjbcaWS {
             logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
             throw e;
         } catch (EjbcaException e) {
-            // TODO perhaps special handle error log level (similar to certificateRequest) if needed
             logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
             throw e;
         } finally {
@@ -1527,64 +1528,6 @@ public class EjbcaWS implements IEjbcaWS {
             log.trace("<keyRecover");
         }
     }
-    
-    
-//	@Override
-//    public void keyRecover(String username, String certSNinHex, String issuerDN) throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException {
-//        if (log.isTraceEnabled()) {
-//            log.trace(">keyRecover");
-//        }
-//        final IPatternLogger logger = TransactionLogger.getPatternLogger();
-//        try{
-//            final AuthenticationToken admin = getAdmin();
-//            logAdminName(admin,logger);
-//
-//            final boolean usekeyrecovery = ((GlobalConfiguration)globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableKeyRecovery();  
-//            if(!usekeyrecovery){
-//                throw getEjbcaException("Keyrecovery have to be enabled in the system configuration in order to use this command.",
-//                                        logger, ErrorCode.KEY_RECOVERY_NOT_AVAILABLE, null);
-//            }   
-//            final EndEntityInformation userdata = endEntityAccessSession.findUser(admin, username);
-//            if(userdata == null){
-//                log.info(intres.getLocalizedMessage("ra.errorentitynotexist", username));
-//                final String msg = intres.getLocalizedMessage("ra.wrongusernameorpassword");                
-//                throw new NotFoundException(msg);
-//            }
-//            if(keyRecoverySession.isUserMarked(username)){
-//                // User is already marked for recovery.
-//                return;                     
-//            }
-//            // check CAID
-//            final int caid = userdata.getCAId();
-//            caSession.verifyExistenceOfCA(caid);
-//            if (!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() + caid)) {
-//                final String msg = intres.getLocalizedMessage("authorization.notuathorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
-//                throw new AuthorizationDeniedException(msg);
-//            }
-//            
-//            // find certificate to recover
-//            final Certificate wsCert = getCertificate(certSNinHex, issuerDN);
-//            if (wsCert == null) {
-//                throw new EjbcaException(ErrorCode.CERT_PATH_INVALID);
-//            }
-//            java.security.cert.Certificate cert = null;
-//            try {
-//                cert = CertificateHelper.getCertificate(wsCert.getCertificateData());
-//            } catch (CertificateException e) {
-//                throw getInternalException(e, logger);
-//            }
-//            // Do the work, mark user for key recovery
-//            endEntityManagementSession.prepareForKeyRecovery(admin, userdata.getUsername(), userdata.getEndEntityProfileId(), cert);
-//        } catch (RuntimeException e) {  // EJBException, ...
-//            throw getInternalException(e, logger);
-//        } finally {
-//            logger.writeln();
-//            logger.flush();
-//        }
-//        if (log.isTraceEnabled()) {
-//            log.trace("<keyRecover");
-//        }
-//    }
 	
     @Override
 	public void revokeToken(String hardTokenSN, int reason)

@@ -15,12 +15,10 @@ package org.ejbca.ui.web.admin.keys.validation;
 
 import java.io.Serializable;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -35,7 +33,6 @@ import javax.faces.model.SelectItem;
 import javax.faces.validator.ValidatorException;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateConstants;
@@ -43,7 +40,6 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.util.AlgorithmTools;
-import org.cesecore.keys.validation.KeyGeneratorSources;
 import org.cesecore.keys.validation.KeyValidationFailedActions;
 import org.cesecore.keys.validation.KeyValidatorBase;
 import org.cesecore.keys.validation.KeyValidatorDateConditions;
@@ -51,6 +47,7 @@ import org.cesecore.keys.validation.KeyValidatorDoesntExistsException;
 import org.cesecore.keys.validation.KeyValidatorSessionLocal;
 import org.cesecore.keys.validation.KeyValidatorSettingsTemplate;
 import org.cesecore.keys.validation.Validator;
+import org.cesecore.keys.validation.ValidatorBase;
 import org.cesecore.keys.validation.ValidatorFactory;
 import org.cesecore.util.StringTools;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
@@ -71,9 +68,6 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     /** Class logger. */
     private static final Logger log = Logger.getLogger(ValidatorBean.class);
 
-    /** List of accepted date formats for notBefore and notAfter filter. */
-    private static final String[] DATE_FORMAT = new String[] { "y-M-d HH:m:sZZ", "y-M-d H:m:s", "y-M-d" };
-
     @EJB
     private CertificateProfileSessionLocal certificateProfileSession;
 
@@ -85,15 +79,15 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     private ValidatorsBean validatorsBean;
 
     /** Selected key validator id.*/
-    private int currentKeyValidatorId = -1;
+    private int currentValidatorId = -1;
     
     /** Selected key validator. */
-    private Validator keyValidator = null;
+    private Validator validator = null;
 
     /** Since this MBean is session scoped we need to reset all the values when needed. */
     private void reset() {
-        currentKeyValidatorId = -1;
-        keyValidator = null;
+        currentValidatorId = -1;
+        validator = null;
     }
 
     /**
@@ -129,21 +123,21 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets the selected key validator.
-     * @return the key validator.
+     * Gets the selected validator.
+     * @return the  validator.
      */
-    public Validator getKeyValidator() {
-        if (currentKeyValidatorId != -1 && keyValidator != null && getSelectedKeyValidatorId().intValue() != currentKeyValidatorId) {
+    public Validator getValidator() {
+        if (currentValidatorId != -1 && validator != null && getSelectedKeyValidatorId().intValue() != currentValidatorId) {
             reset();
         }
-        if (keyValidator == null) {
+        if (validator == null) {
             if (log.isDebugEnabled()) {
-                log.debug("Request key validator with id " + getSelectedKeyValidatorId());
+                log.debug("Request validator with id " + getSelectedKeyValidatorId());
             }
-            currentKeyValidatorId = getSelectedKeyValidatorId().intValue();
-            keyValidator = keyValidatorSession.getValidator(currentKeyValidatorId);
+            currentValidatorId = getSelectedKeyValidatorId().intValue();
+            validator = keyValidatorSession.getValidator(currentValidatorId);
         }
-        return keyValidator;
+        return validator;
     }
 
     /**
@@ -160,15 +154,15 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * 
      * @param e the event.
      */
-    public void keyValidatorTypeChanged(AjaxBehaviorEvent e) {
+    public void validatorTypeChanged(AjaxBehaviorEvent e) {
         if (log.isDebugEnabled()) {
             log.debug("Setting key validator type " + ((HtmlSelectOneMenu) e.getComponent()).getValue());
         }
         final String type = (String) ((HtmlSelectOneMenu) e.getComponent()).getValue();
-        keyValidator = ValidatorFactory.INSTANCE.getArcheType(type);
-        keyValidator.setDataMap(getKeyValidator().getDataMap());
-        keyValidator.setProfileId(getSelectedKeyValidatorId());
-        keyValidator.setProfileName(getSelectedKeyValidatorName());
+        validator = ValidatorFactory.INSTANCE.getArcheType(type);
+        validator.setDataMap(getValidator().getDataMap());
+        validator.setProfileId(getSelectedKeyValidatorId());
+        validator.setProfileName(getSelectedKeyValidatorName());
         FacesContext.getCurrentInstance().renderResponse();
     }
 
@@ -182,7 +176,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
             log.debug("Setting key validator base parameter option " + ((HtmlSelectOneMenu) e.getComponent()).getValue());
         }
         final Integer value = (Integer) ((HtmlSelectOneMenu) e.getComponent()).getValue();
-        final Validator keyValidator = getKeyValidator();
+        final Validator keyValidator = getValidator();
         keyValidator.setSettingsTemplate(value);
         keyValidator.setKeyValidatorSettingsTemplate();
         FacesContext.getCurrentInstance().renderResponse();
@@ -193,7 +187,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return true if customs settings are enabled.
      */
     public boolean isCustomBaseSettingsEnabled() {
-        return KeyValidatorSettingsTemplate.USE_CUSTOM_SETTINGS.getOption() == getKeyValidator().getSettingsTemplate();
+        return KeyValidatorSettingsTemplate.USE_CUSTOM_SETTINGS.getOption() == getValidator().getSettingsTemplate();
     }
 
     /**
@@ -201,7 +195,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * 
      * @return the available key validators as list
      */
-    public List<SelectItem> getAvailableKeyValidators() {
+    public List<SelectItem> getAvailableValidators() {
         final List<SelectItem> ret = new ArrayList<>();
         for (final Validator validator : ValidatorFactory.INSTANCE.getAllImplementations()) {
             ret.add(new SelectItem(validator.getValidatorTypeIdentifier(), validator.getLabel()));
@@ -219,7 +213,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * Gets a list of select items of the available base parameter options.
      * @return the list.
      */
-    public List<SelectItem> getAvailableKeyValidatorSettingsTemplates() {
+    public List<SelectItem> getAvailableValidatorSettingsTemplates() {
         final List<SelectItem> result = new ArrayList<SelectItem>();
         final KeyValidatorSettingsTemplate[] items = KeyValidatorSettingsTemplate.values();
         for (int i = 0, j = items.length; i < j; i++) {
@@ -229,33 +223,33 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets the selected key validator type.
+     * Gets the selected validator type.
      * 
      * @return the selected type.
      */
-    public String getKeyValidatorType() {
-        if(keyValidator != null) {
-            return keyValidator.getValidatorTypeIdentifier();
+    public String getValidatorType() {
+        if(validator != null) {
+            return validator.getValidatorTypeIdentifier();
         } else {
             return null;
         }
     }
     
-    public void setKeyValidatorType(String value) {
+    public void setValidatorType(String value) {
         // this re-creates the whole validator, so only do it if it actually changed type
-        if (!keyValidator.getValidatorTypeIdentifier().equals(value)) {
+        if (!validator.getValidatorTypeIdentifier().equals(value)) {
             if (log.isTraceEnabled()) {
                 log.trace("Changing validator type to "+value);
             }
-            keyValidator = ValidatorFactory.INSTANCE.getArcheType(value);
-            keyValidator.setDataMap(getKeyValidator().getDataMap());
-            keyValidator.setProfileId(getSelectedKeyValidatorId());
-            keyValidator.setProfileName(getSelectedKeyValidatorName());
+            validator = ValidatorFactory.INSTANCE.getArcheType(value);
+            validator.setDataMap(getValidator().getDataMap());
+            validator.setProfileId(getSelectedKeyValidatorId());
+            validator.setProfileName(getSelectedKeyValidatorName());
         }
     }
     
     /**
-     * Validates the BaseKeyValildator description field, see {@link KeyValidatorBase#getDescription()}.
+     * Validates the description field, see {@link ValidatorBase#getDescription()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -273,7 +267,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Validates the BaseKeyValildator notBefore field, see {@link KeyValidatorBase#getNotBefore()}.
+     * Validates the BaseKeyValildator notBefore field, see {@link ValidatorBase#getNotBefore()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -281,14 +275,18 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      */
     public void validateNotBefore(FacesContext context, UIComponent component, Object value) throws ValidatorException {
         final String string = (String) value;
-        if (StringUtils.isNotBlank(string) && null == parseDate((String) value)) {
-            final String message = "Key validator not before must be a valid ISO 8601 date or time " + value;
-            throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
+        try {
+            if (StringUtils.isNotBlank(string) && null == KeyValidatorBase.parseDate(string)) {
+                final String message = "Key validator not before must be a valid ISO 8601 date or time " + value;
+                throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
+            }
+        } catch (ParseException e) {
+            log.debug("Could not parse Date: " + string);
         }
     }
 
     /**
-     * Validates the BaseKeyValildator notBefore condition field, see {@link KeyValidatorBase#getNotBeforeCondition()}.
+     * Validates the BaseKeyValildator notBefore condition field, see {@link ValidatorBase#getNotBeforeCondition()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -303,7 +301,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Validates the BaseKeyValildator notAfter field, see {@link KeyValidatorBase#getNotAfter()}.
+     * Validates the BaseKeyValildator notAfter field, see {@link ValidatorBase#getNotAfter()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -311,14 +309,18 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      */
     public void validateNotAfter(FacesContext context, UIComponent component, Object value) throws ValidatorException {
         final String string = (String) value;
-        if (StringUtils.isNotBlank(string) && null == parseDate((String) value)) {
-            final String message = "Key validator not after must be a valid ISO 8601 date or time " + value;
-            throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
+        try {
+            if (StringUtils.isNotBlank(string) && null == KeyValidatorBase.parseDate((String) value)) {
+                final String message = "Key validator not after must be a valid ISO 8601 date or time " + value;
+                throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
+            }
+        } catch (ParseException e) {
+            log.debug("Could not parse Date: " + string);
         }
     }
 
     /**
-     * Validates the BaseKeyValildator notAfter condition field, see {@link KeyValidatorBase#getNotAfterCondition()}.
+     * Validates the BaseKeyValildator notAfter condition field, see {@link ValidatorBase#getNotAfterCondition()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -333,7 +335,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Validates the BaseKeyValildator failedAction field, see {@link KeyValidatorBase#getFailedAction()}.
+     * Validates the BaseKeyValildator failedAction field, see {@link ValidatorBase#getFailedAction()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -342,13 +344,13 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     public void validateFailedAction(FacesContext context, UIComponent component, Object value) throws ValidatorException {
         final Integer index = (Integer) value;
         if (!KeyValidationFailedActions.index().contains(index)) {
-            final String message = "Key validator failed action must be on of " + KeyValidatorDateConditions.index();
+            final String message = "Key validator action must be on of " + KeyValidatorDateConditions.index();
             throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
         }
     }
 
     /**
-     * Validates the BaseKeyValildator certificateProfileIds field, see {@link KeyValidatorBase#getCertificateProfileIds()}.
+     * Validates the BaseKeyValildator certificateProfileIds field, see {@link ValidatorBase#getCertificateProfileIds()}.
      * @param context the faces context.
      * @param component the events source component
      * @param value the source components value attribute
@@ -367,23 +369,6 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Validates the BlacklistKeyValildator key generation sources index field.
-     * @param context the faces context.
-     * @param component the events source component
-     * @param value the source components value attribute
-     * @throws ValidatorException if the validation fails.
-     */
-    @SuppressWarnings("unchecked")
-    public void validateKeyGenerationSource(FacesContext context, UIComponent component, Object value) throws ValidatorException {
-        final List<String> includesAll = new ArrayList<String>(KeyGeneratorSources.sourcesAsString());
-        includesAll.add("-1");
-        if (!includesAll.containsAll((ArrayList<String>) value)) {
-            final String message = "Key generator source index must be on of " + includesAll;
-            throw new ValidatorException(new FacesMessage(FacesMessage.SEVERITY_ERROR, message, message));
-        }
-    }
-
-    /**
      * Cancel action.
      * @return the navigation outcome defined in faces-config.xml.
      */
@@ -398,7 +383,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      */
     public String save() {
         try {
-            keyValidatorSession.changeKeyValidator(getAdmin(), keyValidator);
+            keyValidatorSession.changeKeyValidator(getAdmin(), validator);
             getEjbcaWebBean().getInformationMemory().keyValidatorsEdited();
             addInfoMessage("VALIDATORSAVED");
             reset();
@@ -440,7 +425,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return the list
      */
     public boolean isAllCertificateProfileIds() {
-        return keyValidator.isAllCertificateProfileIds();
+        return validator.isAllCertificateProfileIds();
     }
 
     /**
@@ -448,7 +433,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @param true or false.
      */
     public void setAllCertificateProfileIds(boolean isAll) {
-        keyValidator.setAllCertificateProfileIds(isAll);
+        validator.setAllCertificateProfileIds(isAll);
     }
 
     /**
@@ -456,7 +441,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return the list
      */
     public List<Integer> getCertificateProfileIds() {
-        return keyValidator.getCertificateProfileIds();
+        return validator.getCertificateProfileIds();
     }
 
     /**
@@ -468,7 +453,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         for (String id : ids) {
             list.add(Integer.parseInt(id));
         }
-        keyValidator.setCertificateProfileIds(list);
+        validator.setCertificateProfileIds(list);
     }
 
     /**
@@ -478,45 +463,13 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     public List<SelectItem> getAvailableNotBeforeConditions() {
         return conditionsToSelectItems();
     }
-
-    /**
-     * Gets the BaseKeyValidator notBefore condition field.
-     * @return the date condition index.
-     */
-    public Integer getNotBeforeCondition() {
-        return keyValidator.getNotBeforeCondition();
-    }
-
-    /**
-     * Sets the BaseKeyValidator notBefore condition field.
-     * @param the date condition index.
-     */
-    public void setNotBeforeCondition(Integer index) {
-        keyValidator.setNotBeforeCondition(index);
-    }
-
+    
     /**
      * Gets a list of select items of the available notAfter conditions.
      * @return the list.
      */
     public List<SelectItem> getAvailableNotAfterConditions() {
         return conditionsToSelectItems();
-    }
-
-    /**
-     * Gets the BaseKeyValidator notAfter condition field.
-     * @return the date condition index.
-     */
-    public Integer getNotAfterCondition() {
-        return keyValidator.getNotAfterCondition();
-    }
-
-    /**
-     * Sets the BaseKeyValidator notAfter condition field.
-     * @param the date condition index.
-     */
-    public void setNotAfterCondition(Integer index) {
-        keyValidator.setNotAfterCondition(index);
     }
 
     /**
@@ -537,7 +490,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return the failed action index.
      */
     public Integer getFailedAction() {
-        return keyValidator.getFailedAction();
+        return validator.getFailedAction();
     }
 
     /**
@@ -545,39 +498,23 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @param index the failed action index.
      */
     public void setFailedAction(Integer index) {
-        keyValidator.setFailedAction(index);
+        validator.setFailedAction(index);
     }
 
     /**
-     * Gets the BaseKeyValidator notBefore field.
-     * @return the formatted date string.
+     * Sets the BaseKeyValidator notApplicableAction field.
+     * @param index the not applicable action index.
      */
-    public String getNotBefore() {
-        return formatDate(keyValidator.getNotBefore());
+    public void setNotApplicableAction(Integer index) {
+        validator.setNotApplicableAction(index);
     }
 
     /**
-     * Sets the BaseKeyValidator notBefore field.
-     * @param formattedDate the formatted date string.
+     * Gets the BaseKeyValidator notApplicableAction field.
+     * @return the notApplicableAction action index.
      */
-    public void setNotBefore(String formattedDate) {
-        keyValidator.setNotBefore(parseDate(formattedDate));
-    }
-
-    /**
-     * Gets the BaseKeyValidator notAfter field.
-     * @return the formatted date string.
-     */
-    public String getNotAfter() {
-        return formatDate(keyValidator.getNotAfter());
-    }
-
-    /**
-     * Sets the BaseKeyValidator notAfter field.
-     * @param formattedDate the formatted date string.
-     */
-    public void setNotAfter(String formattedDate) {
-        keyValidator.setNotAfter(parseDate(formattedDate));
+    public Integer getNotApplicableAction() {
+        return validator.getNotApplicableAction();
     }
 
     /**
@@ -602,60 +539,14 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets a list of available items of public generator sources.
-     * @return the list.
-     */
-    public List<SelectItem> getAvailableKeyGeneratorSources() {
-        final List<SelectItem> result = new ArrayList<SelectItem>();
-        final KeyGeneratorSources[] items = KeyGeneratorSources.values();
-        result.add(new SelectItem(new Integer(-1), getEjbcaWebBean().getText("KEYGENERATORSOURCE_ALL")));
-        for (int i = 0, j = items.length; i < j; i++) {
-            result.add(new SelectItem(items[i].getSource(), getEjbcaWebBean().getText(items[i].getLabel())));
-        }
-        return result;
-    }
-
-    /**
      * Gets the available key algorithms.
      * @return the list
      */
     public List<SelectItem> getAvailableKeyAlgorithms() {
         final List<SelectItem> result = new ArrayList<SelectItem>();
-        result.add(new SelectItem("-1", getEjbcaWebBean().getText("KEYGENERATORSOURCE_ALL")));
+        result.add(new SelectItem("-1", getEjbcaWebBean().getText("ALL")));
         for (final String current : AlgorithmTools.getAvailableKeyAlgorithms()) {
             result.add(new SelectItem(current));
-        }
-        return result;
-    }
-
-    /**
-     * Formats a date.
-     * @param date the date
-     * @return the formatted date string.
-     */
-    private String formatDate(Date date) {
-        String result = StringUtils.EMPTY;
-        if (null != date) {
-            result = new SimpleDateFormat(DATE_FORMAT[0]).format(date);
-        }
-        return result;
-    }
-
-    /**
-     * Parses a date string with the date format list.
-     * @param string the formatted date string.
-     * @return the date or null, if the date could not be parsed.
-     */
-    private Date parseDate(String string) {
-        Date result = null;
-        if (StringUtils.isNotBlank(string)) {
-            final String dateString = string.trim();
-            try {
-                result = DateUtils.parseDate(dateString, DATE_FORMAT);
-                //            result = StringTools.tryParseDate(dateString, DATE_FORMAT);
-            } catch (ParseException e) {
-                log.debug("Could not parse Date: " + string);
-            }
         }
         return result;
     }

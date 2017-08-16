@@ -1755,6 +1755,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 if (!localKeyGeneration) {
                     keyRecoverySuccessful = endEntityManagementSessionLocal.prepareForKeyRecovery(authenticationToken, username, endEntityProfileId, cert.getCertificate());
                 } else {
+                    // In this case, the users status is set to 'Key Recovery' but not the flag in KeyRecoveryData since
+                    // this is stored in another instance database 
                     keyRecoverySuccessful = endEntityManagementSessionLocal.prepareForKeyRecoveryInternal(authenticationToken, username, endEntityProfileId, cert.getCertificate());
                 }
                 if (keyRecoverySuccessful && newPassword != null) {
@@ -1799,12 +1801,12 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 WaitingForApprovalException, CADoesntExistsException {
         try {
             final boolean usekeyrecovery = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableKeyRecovery();  
-            if(!usekeyrecovery){
+            if (!usekeyrecovery) {
                 throw new EjbcaException(ErrorCode.KEY_RECOVERY_NOT_AVAILABLE, "Keyrecovery must be enabled in the system configuration in order to execute this command.");
 
             }   
             final EndEntityInformation userdata = endEntityAccessSession.findUser(authenticationToken, username);
-            if(userdata == null){
+            if (userdata == null) {
                 log.info(intres.getLocalizedMessage("ra.errorentitynotexist", username));
                 final String msg = intres.getLocalizedMessage("ra.errorentitynotexist", username);                
                 throw new NotFoundException(msg);
@@ -1829,10 +1831,16 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             }
     
             // Do the work, mark user for key recovery
-            endEntityManagementSessionLocal.prepareForKeyRecovery(authenticationToken, userdata.getUsername(), userdata.getEndEntityProfileId(), cert);
+            if (!endEntityManagementSessionLocal.prepareForKeyRecovery(authenticationToken, userdata.getUsername(), userdata.getEndEntityProfileId(), cert)) {
+                // Reset user status and throw exception
+                endEntityManagementSessionLocal.setUserStatus(authenticationToken, username, userdata.getStatus());
+                throw new EjbcaException(ErrorCode.KEY_RECOVERY_NOT_AVAILABLE, "Key recovery data not found for user '" + username + "'");
+            }
         } catch (NotFoundException e) {
             log.debug("EJBCA WebService error", e);
             throw e; // extends EjbcaException
+        } catch (NoSuchEndEntityException e) {
+            throw new NotFoundException(intres.getLocalizedMessage("ra.errorentitynotexist", username));
         }
     }
     

@@ -1,39 +1,33 @@
 /*************************************************************************
  *                                                                       *
- *  CESeCore: CE Security Core                                           *
+ *  EJBCA: The OpenSource Certificate Authority                          *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
- *  modify it under the terms of the GNU Lesser General                  *
+ *  modify it under the terms of the GNU Lesser General Public           *
  *  License as published by the Free Software Foundation; either         *
  *  version 2.1 of the License, or any later version.                    *
  *                                                                       *
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+package org.ejbca.core.ejb.approval;
 
-package org.ejbca.core.ejb.ca.validation;
+import java.util.List;
+
+import javax.ejb.Remote;
+
+import org.cesecore.profiles.ProfileData;
 
 /**
- * An exception thrown when someone tries to store a public key blacklist entry that already exists.
- *
  * @version $Id$
+ *
  */
-public class PublicKeyBlacklistExistsException extends Exception {
-
-    private static final long serialVersionUID = 215999965395318151L;
-
-    /**
-     * Creates a new instance.
-     */
-    public PublicKeyBlacklistExistsException() {
-        super();
-    }
+@Remote
+public interface ApprovalProfileProxySessionRemote {
 
     /**
-     * Creates a new instance with the specified detail message.
-     * @param message the detail message.
+     * @return the found entity instance or null if the entity does not exist
      */
-    public PublicKeyBlacklistExistsException(final String message) {
-        super(message);
-    }
+    List<ProfileData> findByApprovalProfileName(String profileName);
+    
 }

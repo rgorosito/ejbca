@@ -11,25 +11,13 @@
  *                                                                       *
  *************************************************************************/
 
-package org.cesecore.keys.validation;
+package org.ejbca.core.ejb.ca.validation;
 
-import javax.ejb.ApplicationException;
+import javax.ejb.Remote;
 
 /**
- * An exception thrown when someone tries validate a key with a wrong key algorithm (i.e. try to validate an ECC key with an RSA key validator).
- *
- * @version $Id$
+ * Remote interface for public key blacklist operations.
  */
-@ApplicationException(rollback=true)
-public class KeyValidationIllegalKeyAlgorithmException extends KeyValidationException {
-
-    private static final long serialVersionUID = 3339929462315318612L;
-
-    /**
-     * Creates a new instance with a detail message.
-     * @param message the detail message.
-     */
-    public KeyValidationIllegalKeyAlgorithmException(final String message) {
-        super(message);
-    }
+@Remote
+public interface BlacklistSessionRemote extends BlacklistSession {
 }

@@ -4999,28 +4999,52 @@ The key validators listed below are available in the system by default. If you d
 <p>Performs inspection of RSA key parameters and validates key quality beyond key length and size: With this key validator the CA/B-Forum requirements can be enforced on the public keys certified or other restrictions on the RSA exponent and modulus can be defined.</p>
 <ul>
 <li>the value of the public exponent is an odd number equal to 3 or more</li>
-<li>the public exponent is in the range between 2^16+1 and 2^256‐1</li>
+<li>the public exponent is in the range between 2^16+1 and 2^256-1</li>
 <li>The modulus is an odd number, not the power of a prime, and have no factors smaller than 752</li>
 </ul>
 </li>
 <li>ECC Key Validator
-<p>Performs inspection of ECC key parameters and validates key quality beyond key length and size: With this key validator partial or full public key validation (of NIST SP 56A) routine on ECC keys can be performed.</p>
+<p>Performs inspection of ECC key parameters and validates key quality beyond key length and size: With this key validator the full public key validation (NIST SP 56A) routine on ECC keys can be performed.</p>
 </li>
 <li>Blacklist Key Validator
-<p>Compares public keys agains a blacklist of known bad public keys, by algorithm and key generation source.</p>
+<p>Compares public keys agains a blacklist of known bad public keys. The list is empty by default and must be filled.</p>
 </li>
 </ul>
+<p>The public key blacklisted entries can be added using the CLI command:</p>
+<source>
+bin/ejbca.sh ca updatepublickeyblacklist --command add --dir &lt;directory of blacklisted public keys&gt;
+</source>
+<p>Where the directory contains public key files in PEM format. If you have a list of PEM formatted private keys, you can create the public key entries, and CSRs to test with using these commands:</p>
+<source>
+openssl req -key blacklisted-privatekey.pem -out blacklisted.csr -new
+openssl rsa -in blacklisted-privatekey.pem -pubout > tmp/blacklisted-publickey.pem
+</source>
+<p><a href="https://www.primekey.com">PrimeKey</a> can provide a blacklist of Debian weak keys as created by the <a href="https://github.com/g0tmi1k/debian-ssh">Metasploit project</a>.</p>
+<p>You can import a blacklist fingerprint file (a files with one blacklist fingerprint per line) with:</p>
+<source>
+bin/ejbca.sh ca updatepublickeyblacklist --command add --mode fingerprint --keyspecs RSA2048 --dir &lt;directory where blacklist fingerprint file resides&gt;
+</source>
+<p>Note that blacklist fingerprints are a bit special. 
+<br/>You can also remove fingerprints using the fingerprint file:</p>
+<source>
+bin/ejbca.sh ca updatepublickeyblacklist --command remove --mode fingerprint --dir &lt;directory where blacklist fingerprint file resides&gt;
+</source>
 <subsection name="General Validator Settings">
 <p>
 To control the behaviour while certificate issuance, for every validator the following base restrictions can be applied:
 </p>
 <ul>
 <li>Description - a general decription of the Validator, not used for any validation purposes.</li>
-<li>Certificate validity not before - Only perform validation if certificate validaty NotBefore matches the condition, i.e. is less than or greater than the given date. If no date is set, this condition is not used. Date is on the form 2017-02-28 to for exampe validate only certificates that are valid from the 28th or february 2017.</li>
-<li>Certificate validity not after - Only perform validation if certificate validaty NotAfter matches the condition.</li>
+<li>Certificate validity not before - Only perform validation if certificate validity NotBefore matches the condition, i.e. is less than or greater 
+than the given date. If no date is set, this condition is not used. Date is on the form 2017-02-28 to for exampe validate only certificates that are 
+valid from the 28th or february 2017.</li>
+<li>Certificate validity not after - Only perform validation if certificate validity NotAfter matches the condition.</li>
 <li>Apply for Certificate Profiles - Validate keys for these certificate profiles only. If nothing is selected in this list, no validation will be performed.</li>
 <li>Apply for all Certificate Profiles - Validate keys for all certificate profiles, the list above will be ignored.</li>
-<li>Failed Action - Define behaviour if key validation fails (i.e. abort issuance, log error message to trigger monitoring systems, etc.). All failed issuance also adds a record in the security audit log.</li>
+<li>If Validation failed - Define behaviour if key validation fails (i.e. abort issuance, log error message to trigger monitoring systems, etc.). 
+All failed issuance also adds a record in the security audit log.</li>
+<li>If Validator was not applicable: - Define behaviour if the input is not applicable for the selected validator (i.e. abort issuance, log error 
+message to trigger monitoring systems, etc.). This handles the case when for example a CSR with ECC keys is passed to an RSA key validator.</li>
 </ul>
 </subsection>
 </subsection>

@@ -38,8 +38,6 @@ public enum ModuleTypes implements ModuleType {
     CRYPTOTOKEN,
     /** <i>Module type is currently not used in EJBCA.</i> */
 	KEY_MANAGEMENT,
-	/** <i>Module type for Public key blacklist.</i> */
-    PUBLIC_KEY_BLACKLIST,
 	/** <i>Module type for Key validator.</i> */
     VALIDATOR,
     /** <i>Module type is currently not used in EJBCA.</i> */

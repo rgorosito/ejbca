@@ -46,3 +46,6 @@ CREATE INDEX userdata_idx10 ON UserData (subjectDN);
 CREATE INDEX userdata_idx11 ON UserData (status);
 
 CREATE INDEX publisherqueue_idx3 ON PublisherQueueData (publisherId, publishStatus, timeCreated);
+
+-- When using a blacklist with many entries
+CREATE INDEX blacklist_idx1 ON BlacklistData (type,value);

@@ -324,6 +324,17 @@ CREATE TABLE PublisherQueueData (
     PRIMARY KEY (pk)
 ) TABLESPACE ejbca_ts STORAGE DISK ENGINE=NDB;
 
+CREATE TABLE PublicKeyBlacklistData (
+    id INT(11) NOT NULL,
+    type VARCHAR(250) BINARY NOT NULL,
+    value VARCHAR(250) BINARY NOT NULL,
+    data VARCHAR(250) BINARY,
+    rowProtection LONGTEXT,
+    rowVersion INT(11) NOT NULL,
+    updateCounter INT(11) NOT NULL,
+    PRIMARY KEY (id)
+);
+
 CREATE TABLE RoleData (
     id INT(11) NOT NULL,
     roleName VARCHAR(250) BINARY NOT NULL,

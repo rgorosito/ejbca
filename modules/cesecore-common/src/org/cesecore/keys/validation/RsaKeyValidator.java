@@ -39,7 +39,7 @@ import org.cesecore.profiles.Profile;
  * 
  * @version $Id$
  */
-public class RsaKeyValidator extends KeyValidatorBase {
+public class RsaKeyValidator extends KeyValidatorBase implements KeyValidator {
 
     private static final long serialVersionUID = -335429118359811926L;
 
@@ -92,11 +92,11 @@ public class RsaKeyValidator extends KeyValidatorBase {
     protected static final String PUBLIC_KEY_MODULUS_MAX = "publicKeyModulusMax";
 
     /**
-     * Gets the prime factors of the BigInteger modulus.
-     * @param modulus the big integer modulus
-     * @return the list of BigInteger prime factors.
+     * Tests if the factors of the BigInteger modulus are prime.
+     * @param modulus the big integer modulus to test
+     * @return true if the modulus is power of a prime, false otherwise.
      */
-    public static boolean isPowerOfPrime(BigInteger modulus) {
+    protected static boolean isPowerOfPrime(BigInteger modulus) {
         // The isPowerOfPrime test is copied from org.bouncycastle.crypto.asymmetric.KeyUtils in the BC-FIPS package.
         // If we move to use the FIPS provider we can use the methods directly instead
         // --- Begin BC code
@@ -109,7 +109,7 @@ public class RsaKeyValidator extends KeyValidatorBase {
         // SP 800-89 requires use of an approved DRBG.
 //        SecureRandom testRandom = FipsDRBG.SHA256.fromEntropySource(new SecureRandom(), false)
 //            .build(Pack.longToBigEndian(System.currentTimeMillis()), false, Strings.toByteArray(Thread.currentThread().toString()));
-        SecureRandom testRandom = new SecureRandom();
+        SecureRandom testRandom = new SecureRandom(); // we cheat a little and use regular SecureRandom, which is good
         Primes.MROutput mr = Primes.enhancedMRProbablePrimeTest(modulus, testRandom, iterations);
         if (!mr.isProvablyComposite())
         {
@@ -173,7 +173,7 @@ public class RsaKeyValidator extends KeyValidatorBase {
      * @param n the number
      * @return the smallest factor or 2 for n=0.
      */
-    public static final boolean hasSmallerFactorThan(BigInteger n, int intFactor) {
+    protected static final boolean hasSmallerFactorThan(BigInteger n, int intFactor) {
         //        BigInteger factor = BigInteger.valueOf(intFactor);
         final BigInteger two = new BigInteger("2");
         if (intFactor < 3) {
@@ -214,9 +214,7 @@ public class RsaKeyValidator extends KeyValidatorBase {
         super(keyValidator);
     }
 
-    /**
-     * Initializes uninitialized data fields.
-     */
+    @Override
     public void init() {
         super.init();
         if (null == data.get(BIT_LENGTHS)) {
@@ -458,7 +456,7 @@ public class RsaKeyValidator extends KeyValidatorBase {
     }
 
     @Override
-    public List<String> validate(final PublicKey publicKey, final CertificateProfile certificateProfile) throws KeyValidationException {
+    public List<String> validate(final PublicKey publicKey, final CertificateProfile certificateProfile) throws ValidatorNotApplicableException, ValidationException {
         List<String> messages = new ArrayList<String>();
         if (log.isDebugEnabled()) {
             log.debug("Validating public key with algorithm " + publicKey.getAlgorithm() + ", format " + publicKey.getFormat() + ", implementation "
@@ -470,7 +468,7 @@ public class RsaKeyValidator extends KeyValidatorBase {
             messages.add(message);
             // Make sure this ends up in the server log
             log.info(message+", "+publicKey.getClass().getName());
-            throw new KeyValidationIllegalKeyAlgorithmException(message);
+            throw new ValidatorNotApplicableException(message);
         }
         final RSAPublicKey rsaPublicKey = (RSAPublicKey) publicKey;
         final BigInteger publicKeyExponent = rsaPublicKey.getPublicExponent();
@@ -547,9 +545,9 @@ public class RsaKeyValidator extends KeyValidatorBase {
             }
         }
 
-        if (log.isTraceEnabled()) {
+        if (log.isDebugEnabled()) {
             for (String message : messages) {
-                log.trace(message);
+                log.debug(message);
             }
         }
         return messages;

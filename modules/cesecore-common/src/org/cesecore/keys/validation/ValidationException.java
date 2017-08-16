@@ -11,13 +11,33 @@
  *                                                                       *
  *************************************************************************/
 
-package org.ejbca.core.ejb.ca.validation;
+package org.cesecore.keys.validation;
 
-import javax.ejb.Remote;
+import org.cesecore.CesecoreException;
 
 /**
- * Remote interface for public key blacklist operations.
+ * An exception thrown when validation fails for some reason and the certificate issuance has to be aborted.
+ *
+ * @version $Id$
  */
-@Remote
-public interface PublicKeyBlacklistSessionRemote extends PublicKeyBlacklistSession {
+public class ValidationException extends CesecoreException {
+
+    private static final long serialVersionUID = -3123446231118692L;
+
+    /**
+     * Creates a new instance with a detail message.
+     * @param message the message.
+     */
+    public ValidationException(String message) {
+        super(message, null);
+    }
+
+    /**
+     * Creates a new instance with a detail message and a root cause, mainly technical errors.
+     * @param message the message.
+     * @param cause the root cause.
+     */
+    public ValidationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

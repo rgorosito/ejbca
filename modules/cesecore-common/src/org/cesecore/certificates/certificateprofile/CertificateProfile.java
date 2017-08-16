@@ -59,7 +59,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     private static final InternalResources intres = InternalResources.getInstance();
 
     // Public Constants
-    public static final float LATEST_VERSION = (float) 45.0;
+    public static final float LATEST_VERSION = (float) 46.0;
 
     public static final String ROOTCAPROFILENAME = "ROOTCA";
     public static final String SUBCAPROFILENAME = "SUBCA";
@@ -505,7 +505,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         setCVCAccessRights(CertificateProfile.CVC_ACCESS_DG3DG4);
 
         setUsedCertificateExtensions(new ArrayList<Integer>());
-        setApprovals(new HashMap<ApprovalRequestType, Integer>());
+        setApprovals(new LinkedHashMap<ApprovalRequestType, Integer>());
         
         // PrivateKeyUsagePeriod extension
         setUsePrivateKeyUsagePeriodNotBefore(false);
@@ -2311,9 +2311,10 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     
     public void setApprovals(Map<ApprovalRequestType, Integer> approvals) {
         if(approvals == null) {
-            approvals = new HashMap<>();
+            approvals = new LinkedHashMap<>();
         }
-        data.put(APPROVALS, approvals);
+        // We must store this as a predictable order map in the database, in order for databaseprotection to work
+        data.put(APPROVALS, new LinkedHashMap<ApprovalRequestType, Integer>(approvals));
     }
     
     /**
@@ -2322,7 +2323,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     @SuppressWarnings("unchecked")
     public Map<ApprovalRequestType, Integer> getApprovals() {
         if (data.get(APPROVALS) == null) {
-            Map<ApprovalRequestType, Integer> approvals = new HashMap<>();
+            Map<ApprovalRequestType, Integer> approvals = new LinkedHashMap<>();
             int approvalProfileId = getApprovalProfileID();
             if(approvalProfileId != -1) {
                 for(int approvalSetting : getApprovalSettings()) {
@@ -2945,7 +2946,9 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
                     data.put(QCETSIPDS, null);
                 }
             }
-            
+            // v46: approvals changed type to LinkedHashMap
+            setApprovals(getApprovals());
+
             data.put(VERSION, new Float(LATEST_VERSION));
         }
         log.trace("<upgrade");

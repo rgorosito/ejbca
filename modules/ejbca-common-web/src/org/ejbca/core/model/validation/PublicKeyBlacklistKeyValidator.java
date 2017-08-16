@@ -17,16 +17,14 @@ import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPublicKey;
 import org.bouncycastle.jcajce.provider.asymmetric.rsa.BCRSAPublicKey;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.keys.validation.KeyValidationException;
 import org.cesecore.keys.validation.KeyValidatorBase;
+import org.cesecore.keys.validation.ValidationException;
 import org.cesecore.profiles.Profile;
-import org.cesecore.util.CertTools;
 import org.ejbca.core.model.util.EjbLocalHelper;
 
 /**
@@ -54,8 +52,6 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
     /** View template in /ca/editvalidators. */
     protected static final String TEMPLATE_FILE = "editBlacklistKeyValidator.xhtml";
 
-    protected static final String KEY_GENERATOR_SOURCES = "keyGeneratorSources";
-
     protected static final String KEY_ALGORITHMS = "keyAlgorithms";
     
     /** field used for JUnit testing, avoiding lookups so we can control the cache */
@@ -82,43 +78,12 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
      */
     public void init() {
         super.init();
-        if (data.get(KEY_GENERATOR_SOURCES) == null) {
-            setKeyGeneratorSources(new ArrayList<String>()); // KeyGeneratorSources.sourcesAsString()
-        }
         if (data.get(KEY_ALGORITHMS) == null) {
-            setKeyAlgorithms(new ArrayList<String>());
+            ArrayList<String> algs = new ArrayList<String>();
+            algs.add("RSA");
+            algs.add("ECDSA");
+            setKeyAlgorithms(algs);
         }
-    }
-
-    /** Gets a list of key generation sources.
-     * @return a list of key generation source indexes.
-     */
-    public List<Integer> getKeyGeneratorSources() {
-        final String value = (String) data.get(KEY_GENERATOR_SOURCES);
-        final List<Integer> result = new ArrayList<Integer>();
-        if (StringUtils.isNotBlank(value)) {
-            final String[] tokens = value.trim().split(LIST_SEPARATOR);
-            for (int i = 0, j = tokens.length; i < j; i++) {
-                result.add(Integer.valueOf(tokens[i]));
-            }
-        }
-        return result;
-    }
-
-    /** Sets key generation source indexes.
-     * 
-     * @param indexes list of key generation source indexes.
-     */
-    public void setKeyGeneratorSources(List<String> indexes) {
-        final StringBuilder builder = new StringBuilder();
-        for (String index : indexes) {
-            if (builder.length() == 0) {
-                builder.append(index);
-            } else {
-                builder.append(LIST_SEPARATOR).append(index);
-            }
-        }
-        data.put(KEY_GENERATOR_SOURCES, builder.toString());
     }
 
     /** Gets a list of key algorithms.
@@ -134,7 +99,7 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
         return result;
     }
 
-    /** Sets the key algorithms.
+    /** Sets the key algorithms, RSA, ECDSA, ....
      * 
      * @param algorithms list of key algorithms.
      */
@@ -174,7 +139,7 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
     }
 
     @Override
-    public List<String> validate(final PublicKey publicKey, final CertificateProfile certificateProfile) throws KeyValidationException {
+    public List<String> validate(final PublicKey publicKey, final CertificateProfile certificateProfile) throws ValidationException {
         List<String> messages = new ArrayList<String>();
         final int keyLength = KeyTools.getKeyLength(publicKey);
         final String keyAlgorithm = publicKey.getAlgorithm(); // AlgorithmTools.getKeyAlgorithm(publicKey);
@@ -182,43 +147,38 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
             log.debug("Validating public key with algorithm " + keyAlgorithm + ", length " + keyLength + ", format " + publicKey.getFormat()
                     + ", implementation " + publicKey.getClass().getName() + " against public key blacklist.");
         }
-        final String fingerprint = CertTools.createPublicKeyFingerprint(publicKey, PublicKeyBlacklistEntry.DIGEST_ALGORITHM);
-        log.info("Matching public key with fingerprint " + fingerprint + " with public key blacklist.");
+        // Use the entry class to create a correct fingerprint
+        final String fingerprint = PublicKeyBlacklistEntry.createFingerprint(publicKey);
+        log.info("Matching public key with blacklist fingerprint " + fingerprint + " with public key blacklist.");
         if (!useOnlyCache) {
             // A bit hackish, make a call to blacklist session to ensure that blacklist cache has this entry loaded
-            // this call is made here, even if the Validator does not use blacklists, but Validator can not call an EJB so easily.
-            // and we don't want to do instanceof, so we take the hit
             // TODO: if the key is not in the cache (which it hopefully is not) this is a database lookup for each key. Huuge performance hit
             // should better be implemented as a full in memory cache with a state so we know if it's loaded or not, with background updates. See ECA-5951
-            new EjbLocalHelper().getPublicKeyBlacklistSession().getPublicKeyBlacklistEntryId(CertTools.createPublicKeyFingerprint(publicKey, PublicKeyBlacklistEntry.DIGEST_ALGORITHM));
+            // We could simply add a call to load the whole map into cache, when the cache needs updating
+            // See BlacklistSessionBean.getBlacklistEntryIdToFingerprintMap (and add cache there)
+            new EjbLocalHelper().getBlacklistSession().getBlacklistEntryId(PublicKeyBlacklistEntry.TYPE, fingerprint);
         }
         Integer idValue = PublicKeyBlacklistEntryCache.INSTANCE.getNameToIdMap().get(fingerprint);
         final PublicKeyBlacklistEntry entry = PublicKeyBlacklistEntryCache.INSTANCE.getEntry(idValue);
-        boolean keyGeneratorSourceMatched = false;
         boolean keySpecMatched = false;
 
         if (null != entry) {
-            // Filter for key generator sources.
-            if (getKeyGeneratorSources().contains(new Integer(-1)) || getKeyGeneratorSources().contains(Integer.valueOf(entry.getSource()))) {
-                keyGeneratorSourceMatched = true;
-            }
             // Filter for key specifications.
             if (getKeyAlgorithms().contains("-1") || getKeyAlgorithms().contains(getKeySpec(publicKey))) {
                 keySpecMatched = true;
             }
         }
-        if (keyGeneratorSourceMatched && keySpecMatched) {
+        if (keySpecMatched) {
             final String message = "Public key with id " + entry.getID() + " and fingerprint " + fingerprint
                     + " found in public key blacklist.";
-            if (log.isDebugEnabled()) {
-                log.debug(message);
-            }
             messages.add("Invalid: " + message);
+        } else {
+            log.trace("publicKeyBlacklist passed");
         }
 
-        if (log.isTraceEnabled()) {
+        if (log.isDebugEnabled()) {
             for (String message : messages) {
-                log.trace(message);
+                log.debug(message);
             }
         }
         return messages;

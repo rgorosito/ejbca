@@ -37,23 +37,6 @@ import org.cesecore.certificates.endentity.EndEntityInformation;
 public interface KeyValidatorSessionLocal extends KeyValidatorSession {
 
     /**
-     * Gets a key validator by cache or database.
-     * 
-     * @param id the identifier of a validator
-     * 
-     * @return a BaseKeyValidator or null if a key validator with the given id does not exist. Uses cache to get the object as quickly as possible.
-     *         
-     */
-    Validator getValidator(int id);
-
-    /**
-     * Gets the name of the key validator with the given id.
-     * 
-     * @return the name of the key validator with the given id or null if none was found.
-     */
-    String getKeyValidatorName(int id);
-
-    /**
      * Retrieves a Map of all key validators.
      * 
      * @return Map of BaseKeyValidator mapped by ID.
@@ -75,13 +58,19 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
     Map<Integer, String> getKeyValidatorIdToNameMap();
 
     /**
+     * Retrieves a Map of key validator ids. 
+     * @return mapping of key validators names and ids. 
+     */
+    Map<String, Integer> getKeyValidatorNameToIdMap();
+
+    /**
      * Adds a key validator to the database. Used for importing and exporting
      * profiles from xml-files.
      *
      * @param admin AuthenticationToken of administrator.
      * @param validator the key validator to add.
      *
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorExistsException if key validator already exists.
      */
     void importValidator(AuthenticationToken admin, Validator validator) throws AuthorizationDeniedException, KeyValidatorExistsException;
@@ -100,38 +89,13 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
             throws AuthorizationDeniedException, ZipException;
    
     /**
-     * Adds a key validator to the database.
-     * 
-     * @param admin AuthenticationToken of admin
-     * @param validator the key validator to add
-     * @return the key validator ID as added
-     * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
-     * @throws KeyValidatorExistsException if key validator already exists.
-     */
-    int addKeyValidator(AuthenticationToken admin, Validator validator) throws AuthorizationDeniedException, KeyValidatorExistsException;
-
-    /** 
-     * Updates the key validator with the given name.
-     *  
-     * @param admin AuthenticationToken of administrator.
-     * @param validator the key validator to be modified.
-     * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
-     * @throws KeyValidatorDoesntExistsException if there's no key validator with the given name.
-     * 
-     * */
-    void changeKeyValidator(AuthenticationToken admin, Validator validator)
-            throws AuthorizationDeniedException, KeyValidatorDoesntExistsException;
-
-    /**
      * Adds a key validator with the same content as the original.
      * 
      * @param admin an authentication token
      * @param the ID of a validator
      * @param newName the name of the clone
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
@@ -141,7 +105,7 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
     /**
      * Adds a key validator with the same content as the original.
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
@@ -155,7 +119,7 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
      * @param validatorId the ID of the validator to modify
      * @param newName the new name of the validator
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
@@ -169,28 +133,16 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
      * @param validator the validator to modify
      * @param newName the new name of the validator
      * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidator
+     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_validator
      * @throws KeyValidatorDoesntExistsException if key validator does not exist
      * @throws KeyValidatorExistsException if key validator already exists.
      */
     void renameKeyValidator(final AuthenticationToken admin, final Validator validator, String newName)
             throws AuthorizationDeniedException, KeyValidatorDoesntExistsException, KeyValidatorExistsException;
 
-    /** Removes the key validator data equal if its referenced by a CA or not.
-     * 
-     * @param admin AuthenticationToken of admin.
-     * @param validatorId the ID of the validator to remove
-     * 
-     * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_keyvalidators
-     * @throws KeyValidatorDoesntExistsException if the key validator does not exist.
-     * @throws CouldNotRemoveKeyValidatorException if the key validator is referenced by other objects.
-     */
-    void removeKeyValidator(final AuthenticationToken admin, final int validatorId)
-            throws AuthorizationDeniedException, KeyValidatorDoesntExistsException, CouldNotRemoveKeyValidatorException;
-
     /** Retrieves a Collection of id:s (Integer) to authorized key validators. 
      * @param admin the administrator for whom to get the profile ids he/she has access to
-     * @param keyValidatorAccessRule an access rule which is required on the key validator in order for it to be returned, for example AccessRulesConstants.CREATE_KEYVALIDATOR to only return profiles for which the admin have create rights
+     * @param keyValidatorAccessRule an additional access rule which is required in order for it to be returned, for example REGULAR_EDITVALIDATOR to only return profiles only if the admin have validator create rights
      * @return Collection of end key validator id:s (Integer)
      */
     Collection<Integer> getAuthorizedKeyValidatorIds(final AuthenticationToken admin, String keyValidatorAccessRule);
@@ -207,11 +159,22 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
      * @param notAfter the certificates notAfter validity
      * @param publicKey the public key of the certificate
      * @return true if all matching key validators could validate the public key successfully. If false #getMessage().size() is greater than 0.
-     * @throws KeyValidationException if the key validation failed. If the key validators failed action is set to abort certificate issuance {@link KeyValidationFailedActions#ABORT_CERTIFICATE_ISSUANCE} and validation fails, or the wrong algorithm type is chosen, message is NOT null. Exception of any technical errors are stored in the cause, and message is null.
+     * @throws ValidationException if the key validation failed. If the key validators failed action is set to abort certificate issuance {@link KeyValidationFailedActions#ABORT_CERTIFICATE_ISSUANCE} and validation fails, or the wrong algorithm type is chosen, message is NOT null. Exception of any technical errors are stored in the cause, and message is null.
      * @throws IllegalValidityException if the certificate validity could not be determined.
      */
     boolean validatePublicKey(AuthenticationToken admin, final CA ca, EndEntityInformation endEntityInformation, CertificateProfile certificateProfile, Date notBefore,
-            Date notAfter, PublicKey publicKey) throws KeyValidationException, IllegalValidityException;
+            Date notAfter, PublicKey publicKey) throws ValidationException, IllegalValidityException;
+    
+    /**
+     * Validates dnsName fields defined in the SubjectAltName field of the end entity against CAA rules.
+     * 
+     * @param authenticationToken the authentication token of the admin performin the action, for logging purposes
+     * @param ca the issuing CA
+     * @param endEntityInformation the end entity object
+     *  
+     * @throws ValidationException if validation failed
+     */
+    void validateDnsNames(final AuthenticationToken authenticationToken,  final CA ca,  final EndEntityInformation endEntityInformation) throws ValidationException;
 
     //  /**
     //     * Checks authorization to key validators. Only key validators that refer to CA's that the authentication token is 

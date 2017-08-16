@@ -40,8 +40,6 @@ public abstract class AccessRulesConstants {
     // Name of end entity profile prefix directory in authorization module.
     public static final String ENDENTITYPROFILEBASE                       = "/endentityprofilesrules";
     public static final String ENDENTITYPROFILEPREFIX                     = "/endentityprofilesrules/";
-    public static final String VALIDATORBASE                           = "/validatorrules";
-    public static final String VALIDATORPREFIX                         = "/validatorrules/";
     
     // Name of end entity profile prefix directory in authorization module.
     public static final String USERDATASOURCEBASE                         = "/userdatasourcesrules";
@@ -63,8 +61,9 @@ public abstract class AccessRulesConstants {
     public static final String REGULAR_CREATECERTIFICATE                  = StandardRules.CREATECERT.resource();
     public static final String REGULAR_EDITPUBLISHER                      = StandardRules.CAFUNCTIONALITY.resource()+"/edit_publisher";   
     public static final String REGULAR_VIEWPUBLISHER                      = StandardRules.CAFUNCTIONALITY.resource()+"/view_publisher";    
-    public static final String REGULAR_EDITVALIDATOR                   = StandardRules.CAFUNCTIONALITY.resource()+"/edit_keyvalidator";
-    public static final String REGULAR_VIEWVALIDATOR                   = StandardRules.CAFUNCTIONALITY.resource()+"/view_keyvalidator";
+    public static final String REGULAR_EDITVALIDATOR                   = StandardRules.VALIDATOREDIT.resource();
+    public static final String REGULAR_VIEWVALIDATOR                   = StandardRules.VALIDATORVIEW.resource();
+    public static final String REGULAR_EDITBLACKLIST                   = StandardRules.BLACKLISTEDIT.resource();
     public static final String REGULAR_RAFUNCTIONALITY                    = "/ra_functionality";
     public static final String REGULAR_EDITENDENTITYPROFILES              = REGULAR_RAFUNCTIONALITY+"/edit_end_entity_profiles";
     public static final String REGULAR_VIEWENDENTITYPROFILES              = REGULAR_RAFUNCTIONALITY+"/view_end_entity_profiles";
@@ -117,6 +116,7 @@ public abstract class AccessRulesConstants {
                                                            REGULAR_VIEWPUBLISHER,
                                                            REGULAR_EDITVALIDATOR,
                                                            REGULAR_VIEWVALIDATOR,
+                                                           REGULAR_EDITBLACKLIST,
                                                            REGULAR_APPROVECAACTION,
                                                            REGULAR_RAFUNCTIONALITY, 
                                                            REGULAR_EDITENDENTITYPROFILES,

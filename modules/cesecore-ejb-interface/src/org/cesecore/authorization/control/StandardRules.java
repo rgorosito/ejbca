@@ -30,11 +30,9 @@ public enum StandardRules {
 	CERTIFICATEPROFILEEDIT(CAFUNCTIONALITY.resource()+"/edit_certificate_profiles"),
 	CERTIFICATEPROFILEVIEW(CAFUNCTIONALITY.resource()+"/view_certificate_profiles"),
 	CREATECRL(CAFUNCTIONALITY.resource()+"/create_crl"),
-	// ECA-4219 Same as CA access rules -> see AdminGUI -> Edit Access Rules -> Validator Access Rules.
 	VALIDATORACCESSBASE("/validator"),
 	VALIDATORACCESS("/validator/"),
-	PUBLICKEYBLACKLISTVIEW(CAFUNCTIONALITY.resource()+"/view_publickeyblacklist"),
-	PUBLICKEYBLACKLISTEDIT(CAFUNCTIONALITY.resource()+"/edit_publickeyblacklist"),
+	BLACKLISTEDIT(CAFUNCTIONALITY.resource()+"/edit_blacklist"),
 	VALIDATORVIEW(CAFUNCTIONALITY.resource()+"/view_validator"),
 	VALIDATOREDIT(CAFUNCTIONALITY.resource()+"/edit_validator"),
 	SYSTEMFUNCTIONALITY("/system_functionality"),

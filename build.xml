@@ -480,10 +480,11 @@
                 <include name="commons-*.jar" />
 				<include name="nimbus-jose-jwt-*.jar"/>
 				<include name="json-smart-*.jar"/>
-				                <include name="httpclient-*.jar" />
+				 <include name="httpclient-*.jar" />
                 <include name="httpcore-*.jar" />
                 <include name="httpmime-*.jar" />
                 <include name="json-simple-*.jar" />
+            	<include name="dns*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/ct" erroronmissingdir="false">
                 <!-- Certificate Transparency -->
@@ -545,6 +546,7 @@
                 <include name="peerconnector-common.jar" />
         		<include name="peerconnector-entity.jar" />
         		<include name="va-publisher.jar" />
+        	    <include name="caa.jar" />
                 <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
 				<include name="${in-test-mode-include}acme-common.jar" />
         	</zipfileset>
@@ -1139,6 +1141,10 @@ SHA-256 checksum: ${cesecorebinSHA256}
 
     <target name="ejbca-db-cli" depends="deprecated:check, ejbca-db-cli:fail" description="Build EJBCA JPA database CLI">
     	<ant dir="modules" target="ejbca-db-cli" />
+    </target>
+	
+    <target name="ejbca-caa-cli" depends="deprecated:check" if="caa.exists" description="Creates a CLI jar for CAA lookups">
+    	<ant dir="modules" target="ejbca-caa-cli" />
     </target>
 
 	<target name="ejbca-ejb-interface">

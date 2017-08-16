@@ -13,17 +13,14 @@
 
 package org.cesecore.keys.validation;
 
-import java.security.PublicKey;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 
-import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.internal.UpgradeableDataHashMap;
 import org.cesecore.profiles.Profile;
 
 /**
- * Base interface for key validators. All key validators must implement this interface.
+ * Base interface for validators. All validators must implement this interface.
  * 
  * @version $Id$
  */
@@ -38,13 +35,14 @@ public interface Validator extends Profile, Cloneable {
     void init();
 
     /**
-     * Populates the sub class specific key validator values with template values based on {@link KeyValidatorBase#getSettingsTemplate()}. 
+     * Populates the sub class specific key validator values with template values based on {@link ValidatorBase#getSettingsTemplate()}. 
      * Sub classes only need to implement this method if they support configuration templates.
      */
     void setKeyValidatorSettingsTemplate();
     
     /**
-     * Gets the failed action index {@link KeyValidationFailedActions}
+     * Gets the failed action index {@link KeyValidationFailedActions}, defining what action should
+     * be taken when validation fails, i.e. #validate returns errors
      * @return the index.
      */
     int getFailedAction();
@@ -52,14 +50,14 @@ public interface Validator extends Profile, Cloneable {
     void setFailedAction(int index);
 
     /**
-     * Method that validates the public key.
-     * 
-     * @param publicKey the public key to validate.
-     * @param certificateProfile the Certificate Profile as input for validation
-     * @return the error messages or an empty list if the public key was validated successfully.
-     * @throws KeyValidationException if the certificate issuance MUST be aborted.
+     * Gets the not_applicable action index {@link KeyValidationFailedActions}, defining what action should
+     * be taken when a Validator is not applicable for the input (for example ECC keys to an RSA key validator),
+     * i.e. #validate throws ValidatorNotApplicableException
+     * @return the index.
      */
-    List<String> validate(PublicKey publicKey, CertificateProfile certificateProfiles) throws KeyValidationException;
+    void setNotApplicableAction(int index);
+
+    int getNotApplicableAction();
 
     /**
      * @return the settings template index.
@@ -112,22 +110,6 @@ public interface Validator extends Profile, Cloneable {
       */
      void setCertificateProfileIds(Collection<Integer> ids);
      
-     void setNotBefore(Date date);
-     
-     Date getNotBefore();
-     
-     void setNotBeforeCondition(int index);
-     
-     int getNotBeforeCondition();
-     
-     void setNotAfter(Date date);
-     
-     Date getNotAfter();
-     
-     int getNotAfterCondition();
-     
-     void setNotAfterCondition(int index);
-     
      /**
       * Clone has to be implemented instead of a copy constructor due to the fact that we'll be referring to implementations by this interface only. 
       * 
@@ -160,4 +142,9 @@ public interface Validator extends Profile, Cloneable {
        * @return the type as a human readable name.
        */
       String getLabel();
+      
+      /**
+       * @return the subtype of this validator
+       */
+      Class<? extends Validator> getValidatorSubType();
 }

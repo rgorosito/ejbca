@@ -91,7 +91,7 @@ import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.keys.validation.KeyValidationException;
+import org.cesecore.keys.validation.ValidationException;
 import org.cesecore.keys.validation.KeyValidatorSessionLocal;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
@@ -232,15 +232,15 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             }
             ret.create();          
         } catch (InvalidKeyException e) {
-            throw new CertificateCreateException(e);
+            throw new CertificateCreateException(ErrorCode.INVALID_KEY, e);
         } catch (NoSuchAlgorithmException e) {
-            throw new CertificateCreateException(e);
+            throw new CertificateCreateException(ErrorCode.BAD_REQUEST_SIGNATURE, e);
         } catch (NoSuchProviderException e) {
-            throw new CertificateCreateException(e);
+            throw new CertificateCreateException(ErrorCode.INTERNAL_ERROR, e);
         } catch(CertificateEncodingException e) {
-            throw new CertificateCreateException(e);
+            throw new CertificateCreateException(ErrorCode.CERT_COULD_NOT_BE_PARSED, e);
         } catch (CRLException e) {
-            throw new CertificateCreateException(e);
+            throw new CertificateCreateException(ErrorCode.CERT_COULD_NOT_BE_PARSED, e);
         } 
 
         if (log.isTraceEnabled()) {
@@ -352,14 +352,19 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             final PublicKey publicKeyToValidate = request != null && request.getRequestPublicKey() != null ? request.getRequestPublicKey() : pk;
             keyValidatorSession.validatePublicKey(admin, ca, endEntityInformation, certProfile, notBefore, notAfter,
                     publicKeyToValidate);
+        } catch(ValidationException e) {
+            throw new CertificateCreateException(ErrorCode.ILLEGAL_KEY, e);
+        } catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeyException e) {
+            final CertificateCreateException t = new CertificateCreateException( "Could not read public key for validation: " + e.getMessage(), e); 
+            t.setErrorCode(ErrorCode.ILLEGAL_KEY);
+            throw t;
         }
-        catch(KeyValidationException e) {
-            throw new CertificateCreateException( e);
+        try {
+            keyValidatorSession.validateDnsNames(admin, ca, endEntityInformation);
+        } catch (ValidationException e) {
+            throw new CertificateCreateException(ErrorCode.NOT_AUTHORIZED, e);
         }
-        catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeyException e) {
-            throw new CertificateCreateException( "Could not read public key for validation: " + e.getMessage(), e); 
-        }
-
+        
         // Set up audit logging of CT pre-certificate
         addCTLoggingCallback(certGenParams, admin.toString());
 
@@ -368,7 +373,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             // If the user is of type USER_INVALID, it cannot have any other type (in the mask)
             if (endEntityInformation.getType().isType(EndEntityTypes.INVALID)) {
                 final String msg = intres.getLocalizedMessage("createcert.usertypeinvalid", endEntityInformation.getUsername());
-                throw new CertificateCreateException(msg);
+                throw new CertificateCreateException(ErrorCode.INTERNAL_ERROR, msg);
             }
             final Certificate cacert = ca.getCACertificate();
             final String caSubjectDN = CertTools.getSubjectDN(cacert);       
@@ -666,7 +671,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
     }
 
     /** When no unique index is present in the database, we still try to enforce X.509 serial number per CA uniqueness. 
-     * @throws CertificateCreateException if serial number already exists in database
+     * @throws CertificateSerialNumberException if serial number already exists in database
      */
     private void assertSerialNumberForIssuerOk(final CA ca, final String issuerDN, final BigInteger serialNumber) throws CertificateSerialNumberException {
         if (ca.getCAType()==CAInfo.CATYPE_X509 && !isUniqueCertificateSerialNumberIndex()) {

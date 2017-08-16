@@ -321,6 +321,17 @@ CREATE TABLE PublisherQueueData (
     PRIMARY KEY (pk)
 );
 
+CREATE TABLE PublicKeyBlacklistData (
+    id NUMBER(10) NOT NULL,
+    type VARCHAR2(255 byte) NOT NULL,
+    value VARCHAR2(255 byte) NOT NULL,
+    data VARCHAR2(255 byte),
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    updateCounter NUMBER(10) NOT NULL,
+    PRIMARY KEY (id)
+);
+
 CREATE TABLE RoleData (
     id NUMBER(10) NOT NULL,
     roleName VARCHAR2(255 byte) NOT NULL,
