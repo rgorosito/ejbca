@@ -17,7 +17,6 @@ import java.security.PublicKey;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
-import java.util.zip.ZipException;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -30,6 +29,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.IllegalValidityException;
+import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.jndi.JndiConstants;
@@ -137,17 +137,17 @@ public class KeyValidatorProxySessionBean implements KeyValidatorProxySessionRem
     }
 
     @Override
-    public ValidatorImportResult importKeyValidatorsFromZip(AuthenticationToken authenticationToken, byte[] filebuffer)
-            throws AuthorizationDeniedException, ZipException {
-        return keyValidatorSession.importKeyValidatorsFromZip(authenticationToken, filebuffer);
-    }
-    
-    @Override
     public void internalChangeValidatorNoFlushCache(Validator validator)
             throws AuthorizationDeniedException, KeyValidatorDoesntExistsException {
         ProfileData data = profileSession.findById(validator.getProfileId());   
         if (data != null) {
             profileSession.changeProfile(validator);
         }
+    }
+
+    @Override
+    public void validateDnsNames(AuthenticationToken authenticationToken, CA ca, EndEntityInformation endEntityInformation,
+            RequestMessage requestMessage) throws ValidationException {
+        keyValidatorSession.validateDnsNames(authenticationToken, ca, endEntityInformation, requestMessage);
     }
 }

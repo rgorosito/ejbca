@@ -28,6 +28,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.cache.AccessTreeUpdateSessionLocal;
 import org.cesecore.config.CesecoreConfiguration;
+import org.cesecore.jndi.JndiConstants;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleData;
 import org.cesecore.roles.member.RoleMemberDataSessionLocal;
@@ -39,9 +40,9 @@ import org.cesecore.util.QueryResultWrapper;
  * 
  * @version $Id$
  */
-@Stateless//(mappedName = JndiConstants.APP_JNDI_PREFIX + "RoleDataSessionRemote")
+@Stateless(mappedName = JndiConstants.APP_JNDI_PREFIX + "RoleDataSessionRemote")
 @TransactionAttribute(TransactionAttributeType.REQUIRED)
-public class RoleDataSessionBean implements RoleDataSessionLocal {
+public class RoleDataSessionBean implements RoleDataSessionLocal, RoleDataSessionRemote {
 
     private static final Logger log = Logger.getLogger(RoleDataSessionBean.class);
 
@@ -113,11 +114,13 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
                 // Ensure that it is removed from cache when the object is no longer present in the database
                 RoleCache.INSTANCE.removeEntry(roleId);
             } else {
-                final Role role = roleData==null ? null : roleData.getRole();
+                final Role role = roleData.getRole();
                 final int digest = role.hashCode();
                 // 3. The cache compares the database data with what is in the cache
                 // 4. If database is different from cache, replace it in the cache
                 RoleCache.INSTANCE.updateWith(roleId, digest, Role.getRoleNameFullAsCacheName(role.getNameSpace(), role.getRoleName()), role);
+                // Return role, working even if the cache is disabled
+                return role;
             }
         }
         // 5. Get object from cache now (or null) and be merry
@@ -189,5 +192,10 @@ public class RoleDataSessionBean implements RoleDataSessionLocal {
     
     private boolean isRoleMembersPresent(final int roleId) {
         return !roleMemberDataSession.findByRoleId(roleId).isEmpty();
+    }
+
+    @Override
+    public void forceCacheExpire() {
+        RoleCache.INSTANCE.flush();
     }
 }

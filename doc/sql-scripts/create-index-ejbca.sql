@@ -33,6 +33,8 @@ CREATE INDEX certificatedata_idx11 ON CertificateData (subjectKeyId);
 -- We need to remove these rows before proceeding or the index creation will fail.
 DELETE FROM CertificateData WHERE fingerprint='caba75f68c833c3c2d33f3f5052b7d5a76e80383';
 DELETE FROM CertificateData WHERE fingerprint='05a219d835622653192c30eeeee8f01f918b30fb';
+DELETE FROM Base64CertData WHERE fingerprint='caba75f68c833c3c2d33f3f5052b7d5a76e80383';
+DELETE FROM Base64CertData WHERE fingerprint='05a219d835622653192c30eeeee8f01f918b30fb';
 CREATE UNIQUE INDEX certificatedata_idx12 ON CertificateData (serialNumber, issuerDN);
 -- If using CVC CA remove the above UNIQUE index, and apply the below NON UNIQUE index instead
 -- Do not apply both of them!
@@ -46,6 +48,9 @@ CREATE INDEX userdata_idx10 ON UserData (subjectDN);
 CREATE INDEX userdata_idx11 ON UserData (status);
 
 CREATE INDEX publisherqueue_idx3 ON PublisherQueueData (publisherId, publishStatus, timeCreated);
+
+-- When using a role members with many entries
+CREATE INDEX rolemember_idx1 ON RoleMemberData (tokenType,roleId);
 
 -- When using a blacklist with many entries
 CREATE INDEX blacklist_idx1 ON BlacklistData (type,value);

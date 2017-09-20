@@ -17,7 +17,6 @@ import java.security.PublicKey;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
-import java.util.zip.ZipException;
 
 import javax.ejb.Local;
 
@@ -25,6 +24,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.IllegalValidityException;
+import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 
@@ -58,8 +58,8 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
     Map<Integer, String> getKeyValidatorIdToNameMap();
 
     /**
-     * Retrieves a Map of key validator ids. 
-     * @return mapping of key validators names and ids. 
+     * Retrieves a Map of key validator ids, sorted on profile name. 
+     * @return sorted mapping of key validator names and ids. 
      */
     Map<String, Integer> getKeyValidatorNameToIdMap();
 
@@ -75,19 +75,6 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
      */
     void importValidator(AuthenticationToken admin, Validator validator) throws AuthorizationDeniedException, KeyValidatorExistsException;
 
-    /**
-     * Imports a list of key validators, stored in separate XML files in the ZIP container.
-     * @param authenticationToken an authentication token
-     * @param filebuffer a byte array containing a zip file
-     * 
-     * @return a container object containing lists of the imported and ignored key validator names
-     * 
-     * @throws AuthorizationDeniedException if not authorized
-     * @throws ZipException if the byte array did not contain a zip file
-     */
-    ValidatorImportResult importKeyValidatorsFromZip(final AuthenticationToken authenticationToken, final byte[] filebuffer)
-            throws AuthorizationDeniedException, ZipException;
-   
     /**
      * Adds a key validator with the same content as the original.
      * 
@@ -171,21 +158,11 @@ public interface KeyValidatorSessionLocal extends KeyValidatorSession {
      * @param authenticationToken the authentication token of the admin performin the action, for logging purposes
      * @param ca the issuing CA
      * @param endEntityInformation the end entity object
+     * @param the incoming request message
      *  
      * @throws ValidationException if validation failed
      */
-    void validateDnsNames(final AuthenticationToken authenticationToken,  final CA ca,  final EndEntityInformation endEntityInformation) throws ValidationException;
+    void validateDnsNames(final AuthenticationToken authenticationToken, final CA ca, final EndEntityInformation endEntityInformation,
+            final RequestMessage requestMessage) throws ValidationException;
 
-    //  /**
-    //     * Checks authorization to key validators. Only key validators that refer to CA's that the authentication token is 
-    //     * authorized to will be OK. Also checks the passed in extra resources. 
-    //     * Does this in a single call to authorizationSession to keep it efficient
-    //     * 
-    //     * @param admin Administrator performing the operation
-    //     * @param profile Certificate Profile that we want to check authorization for
-    //     * @param logging if we should log access or not
-    //     * @param resources, additional resources to check, for example StandardRules.CERTIFICATEPROFILEEDIT.resource()
-    //     * @return true if authorized to the profile and the resources
-    //     */
-    //    boolean authorizedToProfileWithResource(AuthenticationToken admin, CertificateProfile profile, boolean logging, String... resources);
 }

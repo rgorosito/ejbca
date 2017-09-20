@@ -14,6 +14,7 @@ package org.ejbca.core.model.era;
 
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,7 @@ import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.config.RaCssInfo;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.member.RoleMember;
@@ -114,6 +116,21 @@ public interface RaMasterApi {
 
     /** @return a list with information about non-external CAs that the caller is authorized to see. */
     List<CAInfo> getAuthorizedCas(AuthenticationToken authenticationToken);
+    
+    /**
+     * Retrieves a list of all custom CSS archives 
+     * @param authenticationToken of the requesting administrator
+     * @return List of all CSS archives or null if no CSS was found
+     * @throws AuthorizationDeniedException if requesting administrator is unauthorized to CSS archives
+     */
+    LinkedHashMap<Integer, RaCssInfo> getAllCustomRaCss(AuthenticationToken authenticationToken) throws AuthorizationDeniedException;
+    
+    /**
+     * Returns a list of all CSS archives associated to roles which the requesting administrator is member of.
+     * @param authenticationToken of the requesting administrator
+     * @return list of associated CSS archives. Null if administrator is not a member of any role or if role has no custom CSS applied.
+     */
+    List<RaCssInfo> getAvailableCustomRaCss(AuthenticationToken authenticationToken);
     
     /**
      * @return a list with roles that the caller is authorized to see.
@@ -436,10 +453,11 @@ public interface RaMasterApi {
      * @throws AuthorizationDeniedException if administrator isn't authorized to operations carried out during key recovery preparations
      * @throws EjbcaException wrapped exceptions caught in EjbcaWS
      * @throws WaitingForApprovalException if operation required approval (expected to be thrown with approvals enabled)
+     * @throws ApprovalException if an approval is already pending to recover this certificate
      * @throws CADoesntExistsException if CA which enrolled the certificate no longer exists
      */
     void keyRecoverWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN) throws AuthorizationDeniedException, EjbcaException, 
-                        WaitingForApprovalException, CADoesntExistsException;
+                        WaitingForApprovalException, ApprovalException, CADoesntExistsException;
     
     /**
      * Checks if key recovery is possible for the given parameters. Requesting administrator has be authorized to perform key recovery

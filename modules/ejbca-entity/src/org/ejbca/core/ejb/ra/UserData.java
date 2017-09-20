@@ -38,6 +38,7 @@ import org.cesecore.dbprotection.ProtectionStringBuilder;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.QueryResultWrapper;
 import org.cesecore.util.StringTools;
+import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.util.crypto.BCrypt;
 import org.ejbca.util.crypto.CryptoTools;
@@ -58,6 +59,8 @@ public class UserData extends ProtectedData implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(UserData.class);
+    /** Internal localization of logs and errors */
+    private static final InternalEjbcaResources intres = InternalEjbcaResources.getInstance();
 
     private String username;
     private String subjectDN;
@@ -76,6 +79,9 @@ public class UserData extends ProtectedData implements Serializable {
     private int tokenType;
     private int hardTokenIssuerId;
     private String extendedInformationData;
+    /** instantiated object of the above, used to not have to encode/decode the object all the time.
+     * see PrePersist annotated method */
+    private ExtendedInformation extendedInformation;
     private String keyStorePassword;
     private int rowVersion = 0;
     private String rowProtection;
@@ -548,13 +554,35 @@ public class UserData extends ProtectedData implements Serializable {
      */
     @Transient
     public ExtendedInformation getExtendedInformation() {
-        return EndEntityInformation.getExtendedInformation(getExtendedInformationData());
+        if ((extendedInformation == null) && (extendedInformationData != null)) {
+            extendedInformation = getExtendedInformationFromData();    
+        }
+        return extendedInformation;
     }
 
     /**
      * Non-searchable information about a user.
      */
     public void setExtendedInformation(final ExtendedInformation extendedInformation) {
+        this.extendedInformation = extendedInformation;
+        // If we are making it blank, make sure our data is blank as well, otherwise getExtendedInformation 
+        // above will return the old value
+        if (extendedInformation == null) {
+            extendedInformationData = null;
+        }
+    }
+    /**
+     * Non-searchable information about a user.
+     */
+    @Transient
+    private ExtendedInformation getExtendedInformationFromData() {
+        return EndEntityInformation.getExtendedInformationFromStringData(getExtendedInformationData());
+    }
+
+    /**
+     * Non-searchable information about a user.
+     */
+    public void setExtendedInformationPrePersist(final ExtendedInformation extendedInformation) {
         setExtendedInformationData(EndEntityInformation.extendedInformationToStringData(extendedInformation));
     }
 
@@ -569,7 +597,7 @@ public class UserData extends ProtectedData implements Serializable {
         data.setDN(getSubjectDnNeverNull());
         data.setEmail(getSubjectEmail());
         data.setEndEntityProfileId(getEndEntityProfileId());
-        data.setExtendedinformation(getExtendedInformation());
+        data.setExtendedInformation(getExtendedInformation());
         data.setHardTokenIssuerId(getHardTokenIssuerId());
         data.setPassword(getOpenPassword());
         data.setStatus(getStatus());
@@ -580,6 +608,35 @@ public class UserData extends ProtectedData implements Serializable {
         data.setType(new EndEntityType(getType()));
         data.setCardNumber(getCardNumber());
         return data;
+    }
+
+    /**
+     * Assumes authorization has already been checked.. Modifies the ExtendedInformation object to reset the remaining login attempts.
+     * @return true if any change was made, false otherwise
+     */
+    @Transient
+    public static boolean resetRemainingLoginAttemptsInternal(final ExtendedInformation ei, final String username) {
+        if (log.isTraceEnabled()) {
+            log.trace(">resetRemainingLoginAttemptsInternal");
+        }
+        final boolean ret;
+        if (ei != null) {
+            final int resetValue = ei.getMaxLoginAttempts();
+            if (resetValue != -1 || ei.getRemainingLoginAttempts() != -1) {
+                ei.setRemainingLoginAttempts(resetValue);
+                final String msg = intres.getLocalizedMessage("ra.resettedloginattemptscounter", username, resetValue);
+                log.info(msg);
+                ret = true;
+            } else {
+                ret = false;
+            }            
+        } else {
+            ret = false;
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("<resetRamainingLoginAttemptsInternal: "+ret);
+        }
+        return ret;
     }
 
     //
@@ -621,6 +678,12 @@ public class UserData extends ProtectedData implements Serializable {
     @PreUpdate
     @Override
     protected void protectData() {
+        // This is a speed optimization to avoid encoding the extendedInformation into XML data too often
+        // We instead use the cached object in this class, and serialize it out to XML data only when we persist the object
+        // (create or update). This means you can call getExtendedInformation as much as you want, without causing an expensive
+        // XMLEncoder/Decoder
+        setExtendedInformationPrePersist(getExtendedInformation());
+        // After setting the data we want, continue on to the normal database integrity protection
         super.protectData();
     }
 
@@ -653,30 +716,60 @@ public class UserData extends ProtectedData implements Serializable {
     }
 
     /**
+     * Finds the UserDatas with the specified End Entity Profile.
      * 
      * @param entityManager an entity manager
-     * @param subjectDN the subject DN to search for 
+     * @param endEntityProfileId the endEntityProfileId to search for
+     * @return a list of found UserData objects, or an empty list if none found
+     */
+    @SuppressWarnings("unchecked")
+    public static List<UserData> findByEndEntityProfileId(EntityManager entityManager, int endEntityProfileId) {
+        final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.endEntityProfileId=:endEntityProfileId");
+        query.setParameter("endEntityProfileId", endEntityProfileId);
+        return query.getResultList();
+    }
+
+    /**
+     * Finds the UserDatas with the specified CA ID.
+     * 
+     * @param entityManager an entity manager
      * @param caId the CA ID to search for
-     * @return a list if found UserData objects, or an empty list if none found.
+     * @return a list of found UserData objects, or an empty list if none found
+     */
+    @SuppressWarnings("unchecked")
+    public static List<UserData> findByCAId(EntityManager entityManager, int caId) {
+        final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.caId=:caId");
+        query.setParameter("caId", caId);
+        return query.getResultList();
+    }
+
+    /**
+     * Finds the UserDatas with the specified Subject DN.
+     * 
+     * @param entityManager an entity manager
+     * @param subjectDN the subject DN to search for
+     * @return a list of found UserData objects, or an empty list if none found
+     */
+    @SuppressWarnings("unchecked")
+    public static List<UserData> findBySubjectDN(EntityManager entityManager, String subjectDN) {
+        final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.subjectDN=:subjectDN");
+        query.setParameter("subjectDN", subjectDN);
+        return query.getResultList();
+    }
+
+    /**
+     * Finds the UserDatas with the specified Subject DN and CA ID.
+     * 
+     * @param entityManager an entity manager
+     * @param subjectDN the subject DN to search for
+     * @param caId the CA ID to search for
+     * @return a list of found UserData objects, or an empty list if none found
      */
     @SuppressWarnings("unchecked")
     public static List<UserData> findBySubjectDNAndCAId(EntityManager entityManager, String subjectDN, int caId) {
         final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.subjectDN=:subjectDN AND a.caId=:caId");
         query.setParameter("subjectDN", subjectDN);
         query.setParameter("caId", caId);
-        return query.getResultList();
-    }
-
-    /**
-     * 
-     * @param entityManager an entity manager
-     * @param subjectDN the subject DN to check for.
-     * @return a list of all users matching the given subject DN, or  an empty list if none are found.
-     */
-    @SuppressWarnings("unchecked")
-    public static List<UserData> findBySubjectDN(EntityManager entityManager, String subjectDN) {
-        final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.subjectDN=:subjectDN");
-        query.setParameter("subjectDN", subjectDN);
         return query.getResultList();
     }
 
@@ -693,18 +786,6 @@ public class UserData extends ProtectedData implements Serializable {
     public static List<UserData> findByStatus(EntityManager entityManager, int status) {
         final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.status=:status");
         query.setParameter("status", status);
-        return query.getResultList();
-    }
-    
-    /**
-     * @param entityManager an entity manager
-     * @param caId the CA ID to search for
-     * @return return the query results as a List.
-     */
-    @SuppressWarnings("unchecked")
-    public static List<UserData> findByCAId(EntityManager entityManager, int caId) {
-        final Query query = entityManager.createQuery("SELECT a FROM UserData a WHERE a.caId=:caId");
-        query.setParameter("caId", caId);
         return query.getResultList();
     }
 
@@ -752,13 +833,6 @@ public class UserData extends ProtectedData implements Serializable {
         final Query query = entityManager.createQuery("SELECT a.subjectEmail FROM UserData a WHERE a.username=:username");
         query.setParameter("username", username);
         return (String) QueryResultWrapper.getSingleResult(query);
-    }
-
-    /** @return return a count of UserDatas with the specified End Entity Profile. */
-    public static long countByEndEntityProfileId(EntityManager entityManager, int endEntityProfileId) {
-        final Query query = entityManager.createQuery("SELECT COUNT(a) FROM UserData a WHERE a.endEntityProfileId=:endEntityProfileId");
-        query.setParameter("endEntityProfileId", endEntityProfileId);
-        return ((Long) query.getSingleResult()).longValue(); // Always returns a result
     }
 
     /** @return return a count of UserDatas with the specified Certificate Profile. */

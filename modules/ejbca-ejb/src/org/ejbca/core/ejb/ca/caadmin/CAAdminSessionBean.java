@@ -1511,7 +1511,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                         ExtendedInformation extInfo = new ExtendedInformation();
                         PKCS10CertificationRequest pkcs10 = ((PKCS10RequestMessage) requestmessage).getCertificationRequest();
                         extInfo.setCustomData(ExtendedInformationFields.CUSTOM_PKCS10, new String(Base64.encode(pkcs10.getEncoded())));
-                        cadata.setExtendedinformation(extInfo);
+                        cadata.setExtendedInformation(extInfo);
                     }
                     CertificateProfile certprofile = certificateProfileSession.getCertificateProfile(cainfo.getCertificateProfileId());
                     String sequence = null;
@@ -2017,6 +2017,9 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration) globalConfigurationSession
                     .getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
 
+            //Save old CA certificate before renewal, so we can use its expire date when creating link certificate
+            Certificate oldCaCertificate = ca.getCACertificate();
+            
             if (ca.getSignedBy() == CAInfo.SELFSIGNED) {
                 if (subjectDNWillBeChanged) {
                     ca.setSubjectDN(newSubjectDN);
@@ -2079,12 +2082,12 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
             // We need to save all this, audit logging that the CA is changed
             int caidBeforeNameChange = -1;
             if (subjectDNWillBeChanged) {
-                ((X509CA) ca).createOrRemoveLinkCertificateDuringCANameChange(cryptoToken, createLinkCertificate, certprofile, cceConfig);
+                ((X509CA) ca).createOrRemoveLinkCertificateDuringCANameChange(cryptoToken, createLinkCertificate, certprofile, cceConfig, oldCaCertificate);
                 caSession.addCA(authenticationToken, ca); //add new CA into database
                 caidBeforeNameChange = caid;
                 caid = CAData.calculateCAId(newSubjectDN).intValue(); // recalculate the caid to corresponds to new CA
             } else {
-                ca.createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certprofile, cceConfig);
+                ca.createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certprofile, cceConfig, oldCaCertificate);
                 caSession.editCA(authenticationToken, ca, true);
             }
 
@@ -3363,21 +3366,4 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         caSession.flushCACache();
     }
 
-//    @Override
-//    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-//    public boolean existsKeyValidatorInCAs(int keyValidatorId) throws AuthorizationDeniedException {
-//        try {
-//            for (final Integer caId : caSession.getAllCaIds()) {
-//                for (final Integer id : caSession.getCAInfoInternal(caId).getKeyValidators()) {
-//                    if (id.intValue() == keyValidatorId) {
-//                        // We have found a match. No point in looking for more.
-//                        return true;
-//                    }
-//                }
-//            }
-//        } catch (CADoesntExistsException e) {
-//            throw new RuntimeException("Available CA is no longer available!");
-//        }
-//        return false;
-//    }
 }

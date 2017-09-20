@@ -114,6 +114,7 @@ import org.cesecore.certificates.ca.extendedservices.ExtendedCAService;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceTypes;
 import org.cesecore.certificates.ca.internal.CertificateValidity;
+import org.cesecore.certificates.ca.internal.RequestAndPublicKeySelector;
 import org.cesecore.certificates.ca.internal.SernoGeneratorRandom;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateCreateException;
@@ -124,7 +125,6 @@ import org.cesecore.certificates.certificate.certextensions.CertificateExtension
 import org.cesecore.certificates.certificate.certextensions.CertificateExtensionFactory;
 import org.cesecore.certificates.certificate.certextensions.CustomCertificateExtension;
 import org.cesecore.certificates.certificate.request.RequestMessage;
-import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificateprofile.CertificatePolicy;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificatetransparency.CTLogException;
@@ -737,9 +737,10 @@ public class X509CA extends CA implements Serializable {
      *       SubjectDN as CA's SubjectDN/IssuerDN after CA Name Change
      *       IssuerDN as CA's SubjectDN/IssuerDN before CA Name Change
      *       the Name Change Extension
+     * @param oldCaCert to get expire date info from the old CA certificate to put in the link certificate
      */
     private void createOrRemoveLinkCertificate(final CryptoToken cryptoToken, final boolean createLinkCertificate, final CertificateProfile certProfile, 
-            final AvailableCustomCertificateExtensionsConfiguration cceConfig, boolean caNameChange) throws CryptoTokenOfflineException {
+            final AvailableCustomCertificateExtensionsConfiguration cceConfig, boolean caNameChange, final Certificate oldCaCert) throws CryptoTokenOfflineException {
         byte[] ret = null;
         if (createLinkCertificate) {
             try {
@@ -757,7 +758,7 @@ public class X509CA extends CA implements Serializable {
                 final String provider = cryptoToken.getSignProviderName();
                 // The sequence is ignored later, but we fetch the same previous for now to do this the same way as for CVC..
                 final String ignoredKeySequence = catoken.getProperties().getProperty(CATokenConstants.PREVIOUS_SEQUENCE_PROPERTY);
-                final Certificate retcert = generateCertificate(cadata, null, currentCaCert.getPublicKey(), -1, currentCaCert.getNotBefore(), currentCaCert.getNotAfter(),
+                final Certificate retcert = generateCertificate(cadata, null, currentCaCert.getPublicKey(), -1, currentCaCert.getNotBefore(), ((X509Certificate) oldCaCert).getNotAfter(),
                         certProfile, null, ignoredKeySequence, previousCaPublicKey, previousCaPrivateKey, provider, null, cceConfig, /*createLinkCertificate=*/true, caNameChange);
                 log.info(intres.getLocalizedMessage("cvc.info.createlinkcert", cadata.getDN(), ((X509Certificate)retcert).getIssuerDN().getName()));
                 ret = retcert.getEncoded();
@@ -772,14 +773,14 @@ public class X509CA extends CA implements Serializable {
     
     
     public void createOrRemoveLinkCertificateDuringCANameChange(final CryptoToken cryptoToken, final boolean createLinkCertificate, final CertificateProfile certProfile, 
-            final AvailableCustomCertificateExtensionsConfiguration cceConfig) throws CryptoTokenOfflineException {
-        createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certProfile, cceConfig, /*caNameChange*/true);
+            final AvailableCustomCertificateExtensionsConfiguration cceConfig, final Certificate oldCaCert) throws CryptoTokenOfflineException {
+        createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certProfile, cceConfig, /*caNameChange*/true, oldCaCert);
     }
     
     @Override
     public void createOrRemoveLinkCertificate(final CryptoToken cryptoToken, final boolean createLinkCertificate, final CertificateProfile certProfile, 
-            final AvailableCustomCertificateExtensionsConfiguration cceConfig) throws CryptoTokenOfflineException {
-        createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certProfile, cceConfig, /*caNameChange*/false);
+            final AvailableCustomCertificateExtensionsConfiguration cceConfig, final Certificate oldCaCert) throws CryptoTokenOfflineException {
+        createOrRemoveLinkCertificate(cryptoToken, createLinkCertificate, certProfile, cceConfig, /*caNameChange*/false, oldCaCert);
     }
     
     
@@ -834,7 +835,7 @@ public class X509CA extends CA implements Serializable {
             throws CAOfflineException, InvalidAlgorithmException, IllegalValidityException, IllegalNameException, CertificateExtensionException,
              OperatorCreationException, CertificateCreateException, SignatureException, IllegalKeyException {
 
-        // We must only allow signing to take place if the CA itself is on line, even if the token is on-line.
+    	// We must only allow signing to take place if the CA itself is on line, even if the token is on-line.
         // We have to allow expired as well though, so we can renew expired CAs
         if ((getStatus() != CAConstants.CA_ACTIVE) && ((getStatus() != CAConstants.CA_EXPIRED))) {
             final String msg = intres.getLocalizedMessage("error.caoffline", getName(), getStatus());
@@ -843,42 +844,11 @@ public class X509CA extends CA implements Serializable {
             }
             throw new CAOfflineException(msg);
         }
-        
-        RequestMessage request = providedRequestMessage; //The request message was provided outside of endEntityInformation
-        PublicKey publicKey = null;
-        String debugPublicKeySource = null;
-        String debugRequestMessageSource = null;
-        if(providedRequestMessage != null){
-            try {
-                publicKey = providedRequestMessage.getRequestPublicKey();
-                debugPublicKeySource = "from providedRequestMessage";
-                debugRequestMessageSource = "from providedRequestMessage";
-            } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchProviderException e1) {
-                //Fine since public key can be provided with providedPublicKey or endEntityInformation.extendedInformation.certificateRequest
-            }
-        }
-        //ProvidedPublicKey has priority over providedRequestMessage.requestPublicKey
-        if(providedPublicKey != null){
-            publicKey = providedPublicKey;
-            debugPublicKeySource = "separately";
-        }
-        //Request inside endEntityInformation has priority over providedPublicKey and providedRequestMessage
-        if(subject.getExtendedinformation() != null && subject.getExtendedinformation().getCertificateRequest() != null){
-            request = RequestMessageUtils.genPKCS10RequestMessage(subject.getExtendedinformation().getCertificateRequest());
-            try {
-                publicKey = request.getRequestPublicKey();
-                debugPublicKeySource = "from endEntity.extendedInformaion.certificateRequest";
-                debugRequestMessageSource = "from endEntity.extendedInformaion.certificateRequest";
-            } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchProviderException e) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Error occured with extracting public key from endEntityInformation.extendedInformation. Proceeding with one provided separately", e);
-                }
-            }
-        }
-        if (log.isDebugEnabled()) {
-            log.debug("Public key is provided " + debugPublicKeySource);
-            log.debug("Request is provided " + debugRequestMessageSource);
-        }
+        // Which public key and request shall we use?
+        final ExtendedInformation ei = subject.getExtendedInformation();
+        final RequestAndPublicKeySelector pkSelector = new RequestAndPublicKeySelector(providedRequestMessage, providedPublicKey, ei);
+        final PublicKey publicKey = pkSelector.getPublicKey();
+        final RequestMessage request = pkSelector.getRequestMessage();
         
         certProfile.verifyKey(publicKey);
         
@@ -903,13 +873,12 @@ public class X509CA extends CA implements Serializable {
         // Check CA certificate PrivateKeyUsagePeriod if it exists (throws CAOfflineException if it exists and is not within this time)
         CertificateValidity.checkPrivateKeyUsagePeriod(cacert, checkDate);
         // Get certificate validity time notBefore and notAfter
-        final CertificateValidity val = new CertificateValidity(subject, certProfile, notBefore, notAfter, cacert, isRootCA);
+        final CertificateValidity val = new CertificateValidity(subject, certProfile, notBefore, notAfter, cacert, isRootCA, linkCertificate);
 
+        // Serialnumber is either random bits, where random generator is initialized by the serno generator.
+        // Or a custom serial number defined in the end entity object
         final BigInteger serno;
         {
-            // Serialnumber is either random bits, where random generator is initialized by the serno generator.
-            // Or a custom serial number defined in the end entity object
-            final ExtendedInformation ei = subject.getExtendedinformation();
             if (certProfile.getAllowCertSerialNumberOverride()) {
                 if (ei != null && ei.certificateSerialNumber()!=null) {
                     serno = ei.certificateSerialNumber();
@@ -926,11 +895,6 @@ public class X509CA extends CA implements Serializable {
         }
 
         // Make DNs
-        String dn = subject.getCertificateDN();
-        if (certProfile.getUseSubjectDNSubSet()) {
-            dn = certProfile.createSubjectDNSubSet(dn);
-        }
-        
         final X500NameStyle nameStyle;
         if (getUsePrintableStringSubjectDN()) {
             nameStyle = PrintableStringNameStyle.INSTANCE;
@@ -938,6 +902,10 @@ public class X509CA extends CA implements Serializable {
             nameStyle = CeSecoreNameStyle.INSTANCE;
         }
 
+        String dn = subject.getCertificateDN();
+        if (certProfile.getUseSubjectDNSubSet()) {
+            dn = certProfile.createSubjectDNSubSet(dn);
+        }
         if (certProfile.getUseCNPostfix()) {
             dn = CertTools.insertCNPostfix(dn, certProfile.getCNPostfix(), nameStyle);
         }
@@ -967,7 +935,6 @@ public class X509CA extends CA implements Serializable {
                 log.debug("Using X509Name from request instead of user's registered.");
             }
         } else {
-            final ExtendedInformation ei = subject.getExtendedinformation();
             if (certProfile.getAllowDNOverrideByEndEntityInformation() && ei!=null && ei.getRawSubjectDn()!=null) {
                 final String stripped = StringTools.strip(ei.getRawSubjectDn());
                 final String escapedPluses = CertTools.handleUnescapedPlus(stripped);
@@ -1048,8 +1015,7 @@ public class X509CA extends CA implements Serializable {
         }
         
         // If the subject has Name Constraints, then name constraints must be enabled in the certificate profile!
-        if (subject.getExtendedinformation() != null) {
-            final ExtendedInformation ei = subject.getExtendedinformation();
+        if (ei != null) {
             final List<String> permittedNC = ei.getNameConstraintsPermitted();
             final List<String> excludedNC = ei.getNameConstraintsExcluded();
             if ((permittedNC != null && !permittedNC.isEmpty()) ||

@@ -407,7 +407,7 @@ function checkallfields() {
     
     
     
-    <% Integer ceep = -1; %>
+    <% String ceep = null; %>
     <tr  id="Row<%=row++%2%>"> 
       <td width="50%" align="top"> 
         <h3><c:out value="<%= ejbcawebbean.getText(\"CMPRAEEPROFILE\") %>"/>
@@ -416,13 +416,13 @@ function checkallfields() {
       </td>
       <td width="50%"> 
         <select name="<%= LIST_CMPEEPROFILES %>" onchange="reload()" <% if(!authorizedToEdit) { out.write("disabled"); } %>>
-          <% Integer currentEndEntityProfileId = Integer.valueOf(cmpConfigClone.getRAEEProfile(alias)); %>
+          <% String currentEndEntityProfileId = cmpConfigClone.getRAEEProfile(alias); %>
           <% ceep = currentEndEntityProfileId; %>
           <% boolean eepselected = false; %>
           <% 
-          	Map<String, Integer> nameToIdMap = ejbcawebbean.getAuthorizedEEProfileNamesAndIds(AccessRulesConstants.CREATE_END_ENTITY);
+          	Map<String, String> nameToIdMap = ejbcawebbean.getAuthorizedEEProfileNamesAndIds(AccessRulesConstants.CREATE_END_ENTITY);
             for(String endEntityProfileName : nameToIdMap.keySet()) { 
-                Integer endEntityProfileId = nameToIdMap.get(endEntityProfileName);
+                String endEntityProfileId = nameToIdMap.get(endEntityProfileName);
           %>   <option <% if(endEntityProfileId.equals(currentEndEntityProfileId)){ eepselected=true; %> selected <% } %> value='<c:out value="<%=endEntityProfileId %>"/>'>
           			<c:out value="<%= endEntityProfileName %>"/>
           		</option>
@@ -599,6 +599,7 @@ function checkallfields() {
 		<label for="<%=CHECKBOX_CMP_KUR_USEAUTOMATICKEYUPDATE%>"><c:out value="<%= ejbcawebbean.getText(\"ALLOW\") %>" /></label>
       </td>
     </tr> 
+
     
     <tr  id="Row<%=row++%2%>"> 
       <td width="50%" align="top"> 
@@ -615,8 +616,29 @@ function checkallfields() {
       </td>
     </tr> 
     
+	<tr  id="Row<%=row++%2%>" class="section"> 
+      <td width="40%" valign="top" align="left"> 
+        <strong><c:out value="<%= ejbcawebbean.getText(\"CMPSERVERGENKEYS\") %>" /></strong>
+      </td>
+      <td width="50%"> 
+        &nbsp;   
+      </td> 
+    </tr>
     
-    
+    <tr  id="Row<%=row++%2%>"> 
+      <td width="50%" align="top"> 
+        <h3><c:out value="<%= ejbcawebbean.getText(\"CMPALLOWSERVERGENERATEDKEYS\") %>"/>
+        <%= ejbcawebbean.getHelpReference("/adminguide.html#Server%20Generated%20Keys") %>
+        </h3>
+        <p class="help"><c:out value="<%= ejbcawebbean.getText(\"CMPALLOWSERVERGENERATEDKEYS_HELP\") %>"/></p>
+      </td>
+      <td width="50%"> 
+        <input type="checkbox" name="<%=CHECKBOX_CMP_ALLOWSERVERGENERATED_KEYS%>" value="<%=CHECKBOX_VALUE %>" <% if(!authorizedToEdit) { out.write(" disabled "); } %>
+			<% if(cmpConfigClone.getAllowServerGeneratedKeys(alias)) out.write(" CHECKED "); %>
+			id="<%=CHECKBOX_CMP_ALLOWSERVERGENERATED_KEYS%>" />
+		<label for="<%=CHECKBOX_CMP_ALLOWSERVERGENERATED_KEYS%>"><c:out value="<%= ejbcawebbean.getText(\"ALLOW\") %>" /></label>
+      </td>
+    </tr>     
     
     
     <!-- -------------------------- Nested Message Content ------------------------------ -->

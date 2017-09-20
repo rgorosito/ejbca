@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +66,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.util.AlgorithmTools;
+import org.cesecore.config.RaCssInfo;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.roles.AccessRulesHelper;
@@ -303,6 +305,41 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
             }
         }
         return new ArrayList<>(caInfoMap.values());
+    }
+    
+    @Override
+    public LinkedHashMap<Integer, RaCssInfo> getAllCustomRaCss(AuthenticationToken authenticationToken) throws AuthorizationDeniedException {
+        for (RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    LinkedHashMap<Integer, RaCssInfo> raCssInfos = raMasterApi.getAllCustomRaCss(authenticationToken);
+                    if (!raCssInfos.isEmpty()) {
+                        return raCssInfos;
+                    }
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        return null;
+    }
+    
+    @Override
+    public List<RaCssInfo> getAvailableCustomRaCss(AuthenticationToken authenticationToken) {
+        List<RaCssInfo> raCssInfos = new ArrayList<>();
+        for (RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    raCssInfos = raMasterApi.getAvailableCustomRaCss(authenticationToken);
+                    if (!raCssInfos.isEmpty()) {
+                        return raCssInfos;
+                    }
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        return null;
     }
     
     @Override
@@ -972,7 +1009,7 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
             final String sigAlg = AlgorithmTools.getSignatureAlgorithms(kp.getPublic()).get(0);
             final PKCS10CertificationRequest pkcs10req = CertTools.genPKCS10CertificationRequest(sigAlg, x509dn, kp.getPublic(), null, kp.getPrivate(), BouncyCastleProvider.PROVIDER_NAME);
             final byte[] csr = pkcs10req.getEncoded();
-            endEntity.getExtendedinformation().setCertificateRequest(csr); // not persisted, only sent over peer connection
+            endEntity.getExtendedInformation().setCertificateRequest(csr); // not persisted, only sent over peer connection
             endEntity.setPassword(password); // not persisted
             // Request certificate
             final byte[] certBytes = createCertificate(authenticationToken, endEntity);
@@ -1021,8 +1058,8 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                         log.debug("Creating locally stored key pair for end entity '" + username + "'");
                     }
                     // Create new key pair and CSR
-                    final String keyalg = storedEndEntity.getExtendedinformation().getKeyStoreAlgorithmType();
-                    final String keyspec = storedEndEntity.getExtendedinformation().getKeyStoreAlgorithmSubType();
+                    final String keyalg = storedEndEntity.getExtendedInformation().getKeyStoreAlgorithmType();
+                    final String keyspec = storedEndEntity.getExtendedInformation().getKeyStoreAlgorithmSubType();
                     kp = KeyTools.genKeys(keyspec, keyalg);
                     // requestCertForEndEntity verifies the password and performs the finishUser operation
                     cert = requestCertForEndEntity(authenticationToken, storedEndEntity, endEntity.getPassword(), kp);
@@ -1041,6 +1078,12 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                         log.debug("Recovering locally stored key pair for end entity '" + username + "'");
                     }
                     final KeyRecoveryInformation kri = localNodeKeyRecoverySession.recoverKeysInternal(authenticationToken, username, cryptoTokenId, keyAlias);
+                    if (kri == null) {
+                        // This should not happen when the user has its status set to KEYRECOVERY
+                        final String message = "Could not find key recovery data for end entity '" + username + "'";
+                        log.debug(message);
+                        throw new EjbcaException(ErrorCode.INTERNAL_ERROR, message);
+                    }
                     kp = kri.getKeyPair();
                     if (endEntityProfile.getReUseKeyRecoveredCertificate()) {
                         final CertificateDataWrapper cdw = searchForCertificateByIssuerAndSerial(authenticationToken, kri.getIssuerDN(), kri.getCertificateSN().toString(16));
@@ -1178,7 +1221,7 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     
     @Override
     public void keyRecoverWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN) throws EjbcaException, AuthorizationDeniedException, 
-                                WaitingForApprovalException, CADoesntExistsException {
+                                WaitingForApprovalException, ApprovalException, CADoesntExistsException {
         // Handle local key recovery (Key recovery data is stored locally)
         GlobalConfiguration globalConfig = (GlobalConfiguration) localNodeGlobalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         if (globalConfig.getEnableKeyRecovery() && globalConfig.getLocalKeyRecovery()) {

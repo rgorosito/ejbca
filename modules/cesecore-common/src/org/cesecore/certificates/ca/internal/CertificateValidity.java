@@ -106,21 +106,21 @@ public class CertificateValidity {
     private Date firstDate;
    
     public CertificateValidity(final EndEntityInformation subject, final CertificateProfile certProfile, 
-            final Date notBefore, final Date notAfter, final Certificate cacert, final boolean isRootCA) throws IllegalValidityException {
-        this(new Date(), subject, certProfile, notBefore, notAfter, cacert, isRootCA);
+            final Date notBefore, final Date notAfter, final Certificate cacert, final boolean isRootCA, final boolean isLinkCertificate) throws IllegalValidityException {
+        this(new Date(), subject, certProfile, notBefore, notAfter, cacert, isRootCA, isLinkCertificate);
     }
    
     /** Constructor that injects the reference point (now). This constructor mainly is used for unit testing. */
 	public CertificateValidity(Date now, final EndEntityInformation subject, final CertificateProfile certProfile, 
-			final Date notBefore, final Date notAfter, final Certificate cacert, final boolean isRootCA) throws IllegalValidityException {
+			final Date notBefore, final Date notAfter, final Certificate cacert, final boolean isRootCA, final boolean isLinkCertificate) throws IllegalValidityException {
 		if (log.isDebugEnabled()) {
 		    log.debug("Requested notBefore: "+notBefore);
 			log.debug("Requested notAfter: "+notAfter);
-			if (null != subject.getExtendedinformation()) {
-			    log.debug("End entity extended information 'notBefore': "+subject.getExtendedinformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
+			if (null != subject.getExtendedInformation()) {
+			    log.debug("End entity extended information 'notBefore': "+subject.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
 			}
-			if (null != subject.getExtendedinformation()) {
-                log.debug("End entity extended information 'notAfter': "+subject.getExtendedinformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
+			if (null != subject.getExtendedInformation()) {
+                log.debug("End entity extended information 'notAfter': "+subject.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
             }
 			log.debug("Default validty offset: "+DEFAULT_VALIDITY_OFFSET);
 			log.debug("Certificate profile validty: "+certProfile.getEncodedValidity());
@@ -177,6 +177,10 @@ public class CertificateValidity {
             } catch(Exception e) {
                 log.warn("Expiration restriction of certificate profile could not be applied!");
             }
+        }
+        //If it is a link certificate that we create, we use the old ca's expire date, as requested, as link certificate expire date
+        if (isLinkCertificate) {
+            lastDate = notAfter;
         }
         if (lastDate == null) {
         	lastDate = certProfileLastDate;
@@ -294,7 +298,7 @@ public class CertificateValidity {
 	 */
 	private Date getExtendedInformationStartTime(final Date now, final EndEntityInformation subject) {
 	    Date result = null;
-        final ExtendedInformation extendedInformation = subject.getExtendedinformation();
+        final ExtendedInformation extendedInformation = subject.getExtendedInformation();
         if (extendedInformation != null) {
             result = parseExtendedInformationEncodedValidity(now, extendedInformation.getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
         }
@@ -311,7 +315,7 @@ public class CertificateValidity {
      */
 	private Date getExtendedInformationEndTime(final Date now, final EndEntityInformation subject) {
         Date result = null;
-        final ExtendedInformation extendedInformation = subject.getExtendedinformation();
+        final ExtendedInformation extendedInformation = subject.getExtendedInformation();
         if (extendedInformation != null) {
             result = parseExtendedInformationEncodedValidity(now, extendedInformation.getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
         }
@@ -393,15 +397,16 @@ public class CertificateValidity {
      */
     private static final Boolean isRelativeTime(final String encodedValidity) {
         try {
-            ValidityDate.parseAsIso8601(encodedValidity);
-            return Boolean.FALSE;
-        } catch(ParseException e) {
-            // NOOP
-        }
-        try {
+        	// Try the most likely setting first, for fail-fast
             SimpleTime.parseMillies(encodedValidity);
             return Boolean.TRUE;
         } catch(NumberFormatException nfe) {
+            // NOOP
+        }
+        try {
+            ValidityDate.parseAsIso8601(encodedValidity);
+            return Boolean.FALSE;
+        } catch(ParseException e) {
             return null;
         }
     }

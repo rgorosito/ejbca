@@ -27,7 +27,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 public interface KeyValidator extends Validator {
     
     /** List of accepted date formats for notBefore and notAfter filter. */
-    static final String[] DATE_FORMAT = new String[] { "y-M-d HH:m:sZZ", "y-M-d H:m:s", "y-M-d" };
+    static final String[] DATE_FORMAT = new String[] { "yyyy-MM-dd HH:mm:ssZZ", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd" };
     
     /**
      * Method that validates the public key.

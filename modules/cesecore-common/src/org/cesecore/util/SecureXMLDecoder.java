@@ -201,7 +201,12 @@ public class SecureXMLDecoder implements AutoCloseable {
             break;
         case "class":
             try {
-                value = Class.forName(readText());
+                //Only allow classes from our own hierarchy 
+                String className = readText();
+                if(!(className.startsWith("org.ejbca") || className.startsWith("org.cesecore"))) {
+                    throw new IOException("Unauthorized class was decoded from XML: " + className);
+                }
+                value = Class.forName(className);
             } catch (ClassNotFoundException e) {
                 throw new IOException("Unknown class was sent with import.", e);
             }
@@ -266,6 +271,15 @@ public class SecureXMLDecoder implements AutoCloseable {
                 break;
             case "org.cesecore.certificates.certificateprofile.PKIDisclosureStatement":
                 value = parseObject(new PKIDisclosureStatement());
+                break;
+            case "org.ejbca.core.model.ra.raadmin.UserNotification":
+                try {
+                    // EJBCA class, so not available in CESeCore.
+                    // In the long run we should consider whitelisting parts of the org.ejbca and org.cesecore package namespaces (ECA-4916)
+                    value = parseObject(Class.forName(className).newInstance());
+                } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+                    throw new IOException(errorMessage("Deserialization of class '" + className + "' failed: " + e.getMessage()), e);
+                }
                 break;
             case "java.util.Collections":
                 value = parseSpecialCollection(method);

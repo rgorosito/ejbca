@@ -88,7 +88,7 @@ public final class EjbcaConfiguration {
         }
         return value * 1000L;
     }
-
+    
     /**
      * Excluded classes from approval.
      */

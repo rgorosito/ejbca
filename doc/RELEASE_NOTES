@@ -1,7 +1,57 @@
+EJBCA 6.9.0.5
+-----------
+
+Patch release for ECA-6107, which fixed an issue in which CAA lookups weren't properly handled for wildcarded domains with subdomains. 
+
+EJBCA 6.9.0.4
+-----------
+
+Patch release for ECA-6106, which allows a CAA lookup to continue up the domain tree even if the lookup for a subdomain failed. 
+
+EJBCA 6.9.0.3
+-----------
+
+Patch release for ECA-6099, where adding an EE from the Admin Web or WS and then enrolling using the RA would lead to an NPE. 
+
+EJBCA 6.9.0.2
+-----------
+
+Database creation scripts referred to PublicKeyBlacklistData instead of BlacklistData.
+
+
+EJBCA 6.9.0.1
+-----------
+
+In the final stages of testing of 6.9.0 we found ECA-6088, which could potentially lead to caching issues for installations running clusters. Was 
+fixed before EJBCA 6.9.0 was released to the wild. 
+
+EJBCA 6.9.0
+-----------
+
+Greetings to all, and welcome back after a long summer. Just in time for CAA to go live on September 8th, we'd like to present to you all the release 
+of EJBCA 6.9.0. All in all we've fixes about 90 issues during the summer, but we'd like to highlight the four major features of this release: 
+
+	* 	Delegated Keypair Generation - as requested by some customers running EJBCA instances as RAs over Peers, this feature is similar to the key 
+		recovery feature long used in EJBCA in that it stores generated soft keys encrypted in the database, but with the purpose that the soft keys
+		are generated on the RA (instead of on the CA). The purpose of this is security - where the owner of the RA doesn't wish for the keys to ever 
+		be transmitted to the CA but merely be signed. Since this feature requires an EJBCA instance running as RA, it only applies to Enterprise 
+		customers. 
+	*	RSA/ECC Key Validation  - a long requested feature, we've now created an API for running validators during certificate creation. Foremost 
+		we've implemented Key Validators, which can be applied to a CA to reject incoming signing requests based on inadequate key length or poorly
+		chosen exponents. 
+	*	BlackList Validators - we've also developed an API for blacklisting signing requests based on known information. In EJBCA 6.9.0 we've 
+		implemented a Key Blacklist Validator, which will check incoming certificate requests against a user defined blacklist of known bad keys. 
+	*	CAA - last and absolutely not least, EJBCA 6.9.0 can perform CAA checks during or after certificate issuance. This has partly been 
+		implemented as a Validator (which is run during certificate issuance) or as a manual CLI tool which can be used by an RA administrator after
+		issuance. CAA support is an Enterprise only feature. 
+
+
 EJBCA 6.8.0.1
 -----------
 
-This is a patch release containing a performance improvement upon EJBCA 6.8.0
+This is a patch release for ECA-6056, where Certificate Profiles using Approval Profiles would cease working if database protection was activated
+for the CertificateProfileData table.
+
 
 EJBCA 6.8.0
 -----------

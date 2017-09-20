@@ -1,7 +1,7 @@
 <%@page import="org.ejbca.core.model.authorization.AccessRulesConstants"%>
 <% 
-  TreeMap<String,Integer> profiles     = ejbcarabean.getAuthorizedEndEntityProfileNames(AccessRulesConstants.VIEW_END_ENTITY);
-  List<Integer> withMissingCAs = ejbcarabean.getAuthorizedEndEntityProfileIdsWithMissingCAs();
+  TreeMap<String,String> profiles = ejbcarabean.getAuthorizedEndEntityProfileNames(AccessRulesConstants.VIEW_END_ENTITY);
+  List<String> withMissingCAs = ejbcarabean.getAuthorizedEndEntityProfileIdsWithMissingCAs();
   boolean authorizedToEdit = ejbcarabean.authorizedToEditEndEntityProfiles();
 
 %>
@@ -18,43 +18,39 @@
   <input type="hidden" name='<%= ACTION %>' value='<%=ACTION_EDIT_PROFILES %>'>
 
   <table class="list">
-  <% if(triedtoeditemptyprofile){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText((authorizedToEdit ? "YOUCANTEDITEMPTYPROFILE" : "YOUCANTVIEWEMPTYPROFILE")) %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %>
-  <% if(triedtoeditnonexistingprofile){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText("EEPROFILEDOESNOTEXIST") %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %>
-  <% if(triedtodeleteemptyprofile){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText("YOUCANTDELETEEMPTYPROFILE") %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %> 
-  <% if(profileexists){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText("EEPROFILEALREADYEXISTS") %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %>
-  <% if(profiledeletefailed){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText("COULDNTDELETEEEPROFILE") %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %>
-  <% if(cannotcloneempty){ %> 
-    <tr> 
-      <td width="40%" class="alert"><%= ejbcawebbean.getText("YOUCANNOTUSEEMPTYPROFILE") %></td>
-      <td width="60%"></td>
-    </tr>
-  <% } %>
-  <% if(savedprofilesuccess){ %> 
+  <%
+  // Print alert message if corresponding condition is true
+  boolean[] conditions = {
+          triedtoeditemptyprofile,
+          triedtoeditnonexistingprofile,
+          triedtodeleteemptyprofile,
+          profileexists,
+          cannotcloneempty,
+          !profiledeletefailed[0].isEmpty(),
+          !profiledeletefailed[1].isEmpty(),
+          !profiledeletefailed[2].isEmpty(),
+          !profiledeletefailed[0].isEmpty() && profiledeletefailed[1].isEmpty() && profiledeletefailed[2].isEmpty(),
+          };
+  String[] alerts = {
+          ejbcawebbean.getText((authorizedToEdit ? "YOUCANTEDITEMPTYPROFILE" : "YOUCANTVIEWEMPTYPROFILE")),
+          ejbcawebbean.getText("EEPROFILEDOESNOTEXIST"),
+          ejbcawebbean.getText("YOUCANTDELETEEMPTYPROFILE"),
+          ejbcawebbean.getText("EEPROFILEALREADYEXISTS"),
+          ejbcawebbean.getText("YOUCANNOTUSEEMPTYPROFILE"),
+          ejbcawebbean.getText("COULDNTDELETEEEPROFILE"),
+          ejbcawebbean.getText("EESUSINGPROFILE") + profiledeletefailed[1],
+          ejbcawebbean.getText("ADMINROLESUSINGPROFILE") + profiledeletefailed[2],
+          ejbcawebbean.getText("UNAUTHTOEESANDAUTHRULES")
+          };
+  for (int i = 0; i < conditions.length; i++) {
+      if (conditions[i]) { %>
+      <tr>
+        <td width="40%" class="alert"><%= alerts[i] %></td>
+        <td width="60%"></td>
+      </tr>
+      <% }
+  }
+  if(savedprofilesuccess){ %> 
     <tr> 
       <td width="40%"><%= ejbcawebbean.getText("ENDENTITYPROFILESAVED") %></td>
       <td width="60%"></td>
@@ -67,9 +63,9 @@
     <tr> 
       <td width="40%">
         <select name="<%=SELECT_PROFILE%>" style="width: 50em" size="15"  >
-          <% for (Entry<String,Integer> entry : profiles.entrySet()) {
+          <% for (Entry<String, String> entry : profiles.entrySet()) {
                String profilename = entry.getKey();
-               int profileid = entry.getValue();
+               String profileid = entry.getValue();
                String displayname = profilename + (withMissingCAs.contains(profileid) ? " "+ejbcawebbean.getText("MISSINGCAIDS") : "");
                %>
             <option value="<c:out value="<%= profilename %>"/>"> 
