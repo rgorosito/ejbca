@@ -22,14 +22,17 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
+import javax.ejb.EJB;
 import javax.faces.application.Application;
 import javax.faces.application.FacesMessage;
 import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ManagedProperty;
 import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
 
 import org.apache.log4j.Logger;
 import org.cesecore.ErrorCode;
+import org.ejbca.core.ejb.ra.raadmin.AdminPreferenceSessionLocal;
 
 /**
  * JSF Managed Bean for handling localization of clients.
@@ -49,22 +52,41 @@ public class RaLocaleBean implements Serializable {
     private Locale locale = null;
     private boolean directionLeftToRight = true;
 
+    @EJB
+    private AdminPreferenceSessionLocal adminPreferenceSession;
+    
+    @ManagedProperty(value="#{raAuthenticationBean}")
+    private RaAuthenticationBean raAuthenticationBean;
+    
+    public void setRaAuthenticationBean(RaAuthenticationBean raAuthenticationBean) {
+        this.raAuthenticationBean = raAuthenticationBean;
+    }
+    
     /** @return this sessions Locale */
     public Locale getLocale() {
-        if (locale==null) {
-            final FacesContext facesContext = FacesContext.getCurrentInstance();
-            final Locale requestLocale = facesContext.getExternalContext().getRequestLocale();
-            if (getSupportedLocales().contains(requestLocale)) {
-                locale = requestLocale;
-            } else {
-                locale = facesContext.getApplication().getDefaultLocale();
-            }
+
+        Locale localeFromDB = adminPreferenceSession.getCurrentRaLocale(raAuthenticationBean.getAuthenticationToken());
+
+        if (localeFromDB != null) {
+            locale = localeFromDB;
             directionLeftToRight = isDirectionLeftToRight(locale);
+        } else {
+            if (locale == null) {
+                final FacesContext facesContext = FacesContext.getCurrentInstance();
+                final Locale requestLocale = facesContext.getExternalContext().getRequestLocale();
+                if (getSupportedLocales().contains(requestLocale)) {
+                    locale = requestLocale;
+                } else {
+                    locale = facesContext.getApplication().getDefaultLocale();
+                }
+                directionLeftToRight = isDirectionLeftToRight(locale);
+            }
         }
         return locale;
     }
     /** Set this sessions Locale */
     public void setLocale(final Locale locale) {
+
         this.locale = locale;
         directionLeftToRight = isDirectionLeftToRight(locale);
     }

@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.ejb.EJB;
 import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
 import javax.faces.model.ListDataModel;
@@ -61,6 +62,7 @@ import org.cesecore.certificates.ca.InvalidAlgorithmException;
 import org.cesecore.certificates.certificate.CertificateInfo;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.ocsp.OcspResponseGeneratorSessionLocal;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.config.GlobalOcspConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
@@ -91,6 +93,9 @@ import org.ejbca.util.passgen.PasswordGeneratorFactory;
  * @version $Id$
  */
 public class InternalKeyBindingMBean extends BaseManagedBean implements Serializable {
+    
+    @EJB(description = "Used to reload ocsp signing cache when user disables the internal ocsp key binding.")
+    private OcspResponseGeneratorSessionLocal ocspResponseGeneratorSession;
 
     public class GuiInfo {
         public static final String TEXTKEY_PREFIX = "INTERNALKEYBINDING_STATUS_";
@@ -648,6 +653,7 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
     public void commandDisable() {
         changeStatus(((GuiInfo) internalKeyBindingGuiList.getRowData()).getInternalKeyBindingId(), InternalKeyBindingStatus.DISABLED);
         flushListCaches();
+        ocspResponseGeneratorSession.reloadOcspSigningCache(); // Force a reload of OcspSigningCache to make disable take effect immediately. 
     }
 
     /** Invoked when the user wants to enable an InternalKeyBinding */
@@ -767,7 +773,7 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
     private void flushCurrentCache() {
         if ("0".equals(currentInternalKeyBindingId)) {
             // Show defaults for a new object
-            currentName = "New " + getSelectedInternalKeyBindingType();
+            currentName = "";
             getAvailableCryptoTokens();
             getAvailableKeyPairAliases();
             getAvailableSignatureAlgorithms();
@@ -886,7 +892,7 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
         try {
             internalKeyBindingInfo = internalKeyBindingSession.getInternalKeyBindingInfoNoLog(authenticationToken, internalKeyBindingId);
         } catch (AuthorizationDeniedException e) {
-            // Silently ignore that the admin has tried to access a token that he/she was npt authorized to..
+            // Silently ignore that the admin has tried to access a token that he/she was not authorized to.
             return;
         }
         if (internalKeyBindingInfo.getCertificateId() != null && !internalKeyBindingInfo.getCertificateId().equals(boundCertificateId)) {
@@ -1220,7 +1226,7 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
                         selectedInternalKeyBindingType, getCurrentName(), InternalKeyBindingStatus.DISABLED, null, currentCryptoToken.intValue(),
                         currentKeyPairAlias, currentSignatureAlgorithm, dataMap, (List<InternalKeyBindingTrustEntry>) trustedCertificates.getWrappedData()));
                 FacesContext.getCurrentInstance().addMessage(null,
-                        new FacesMessage(getCurrentName() + " created with id " + currentInternalKeyBindingId));
+                        new FacesMessage(getCurrentName() + " created with ID " + currentInternalKeyBindingId));
                 inEditMode = false;
             } catch (AuthorizationDeniedException e) {
                 FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, e.getMessage(), null));

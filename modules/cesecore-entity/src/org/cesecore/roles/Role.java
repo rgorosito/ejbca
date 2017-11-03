@@ -17,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
 import org.cesecore.internal.UpgradeableDataHashMap;
 
 /**
@@ -38,7 +37,6 @@ import org.cesecore.internal.UpgradeableDataHashMap;
 public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
     
     private static final long serialVersionUID = 1L;
-    private static final Logger log = Logger.getLogger(Role.class);
 
     public static final float LATEST_VERSION = 1;
     public static final int ROLE_ID_UNASSIGNED = 0;
@@ -151,6 +149,7 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
         result = prime * result + ((roleName == null) ? 0 : roleName.hashCode());
         final LinkedHashMap<String, Boolean> accessRules = getAccessRules();
         result = prime * result + ((accessRules == null) ? 0 : accessRules.hashCode());
+        result = prime * result + getStyleId();
         return result;
     }
 
@@ -185,6 +184,9 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
         if (roleId != other.roleId) {
             return false;
         }
+        if (getStyleId() != other.getStyleId()) {
+            return false;
+        }
         if (roleName == null) {
             if (other.roleName != null) {
                 return false;
@@ -195,17 +197,17 @@ public class Role extends UpgradeableDataHashMap implements Comparable<Role> {
         return true;
     }
     
-    public void setCssId(int Id) {
-        data.put(KEY_ASSOCIATED_CSS, (Integer)Id);
+    public void setStyleId(int Id) {
+        data.put(KEY_ASSOCIATED_CSS, Id);
     }
     
-    public int getCssId() {
+    public int getStyleId() {
         Integer ret =  (Integer) data.get(KEY_ASSOCIATED_CSS);
         if (ret == null) {
             ret = 0;
             data.put(KEY_ASSOCIATED_CSS, ret);
         }
-        return (int)ret;
+        return ret;
     }
 
     /**

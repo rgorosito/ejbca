@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.ejb.EJB;
 import javax.faces.bean.ManagedBean;
@@ -157,16 +158,31 @@ public class RaManageRequestsBean implements Serializable {
             searchRequest.setSearchingHistorical(true);
             break;
         }
+        
+        Map<Integer, String> raInfoMap = raMasterApiProxyBean
+                .getAuthorizedEndEntityProfileIdsToNameMap(raAuthenticationBean.getAuthenticationToken());
+        
         lastExecutedResponse = raMasterApiProxyBean.searchForApprovalRequests(raAuthenticationBean.getAuthenticationToken(), searchRequest);
+
         final List<RaApprovalRequestInfo> reqInfos = lastExecutedResponse.getApprovalRequests();
         final List<ApprovalRequestGUIInfo> guiInfos = new ArrayList<>();
+        
+        /** Based on the tabs in the GUI we have different criteria to show requests: 
+         *  TO_APPROVE tab: Check if user is authorized to approve and also if she has proper EEP.
+         *  PENDING FOR APROVAL: Only those request issued by me should be shown!
+         *  PROCESSED & CUSTOM_SEARCH: Basically all the request minus those which the user doesn't have power to approve.
+        **/
         for (final RaApprovalRequestInfo reqInfo : reqInfos) {
             final ApprovalRequestGUIInfo approvalRequestGuiInfo = new ApprovalRequestGUIInfo(reqInfo, raLocaleBean, raAccessBean);
-            if (isCustomSearchingWaiting() && !approvalRequestGuiInfo.isCanApprove()) {
-                continue;
+            if (searchRequest.isSearchingWaitingForMe() && approvalRequestGuiInfo.isCanApprove() && !raInfoMap.isEmpty()) {
+                guiInfos.add(approvalRequestGuiInfo);
+            } else if (searchRequest.isSearchingPending() && approvalRequestGuiInfo.isRequestedByMe()) {
+                guiInfos.add(approvalRequestGuiInfo);
+            } else if (searchRequest.isSearchingHistorical() && !approvalRequestGuiInfo.isCanApprove()) {
+                guiInfos.add(approvalRequestGuiInfo);                
             }
-            guiInfos.add(approvalRequestGuiInfo);
         }
+
         resultsFiltered = guiInfos;
         sort();
     }

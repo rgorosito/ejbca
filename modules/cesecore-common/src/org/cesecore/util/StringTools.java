@@ -661,7 +661,6 @@ public final class StringTools {
             log.warn("Decryption not possible due to weak crypto policy.");
             return in;
         }
-        String version = getEncryptionVersion();
         final byte[] salt;
         String data = in;
         int count;
@@ -672,7 +671,6 @@ public final class StringTools {
                 log.warn("Input contains : but is not an encryption string from EJBCA (with 4 fields).");
                 return in;                
             }
-            version = strs[0];
             salt = Hex.decode(strs[1].getBytes(StandardCharsets.UTF_8));
             count = Integer.valueOf(strs[2]);
             data = strs[3];
@@ -988,4 +986,18 @@ public final class StringTools {
         final String blackList = "/[^\\u0041-\\u005a\\u0061-\\u007a\\u00a1-\\ud7ff\\ue000-\\uffff_ 0-9@\\.\\*\\,\\-:\\/\\?\\'\\=\\(\\)\\|.]/g";
         return Pattern.matches(blackList, value);
     }
+    
+    /** @return false of if the string contains any characters that are neither a letter (unicode) or an asciiPrintable character */ 
+    public static boolean isAlphaOrAsciiPrintable(String str) {
+        if (str == null) {
+            return false;
+        }
+        int sz = str.length();
+        for (int i = 0; i < sz; i++) {
+            if ( !Character.isLetter(str.charAt(i)) && !CharUtils.isAsciiPrintable(str.charAt(i)) ) {
+                return false;
+            }
+        }
+        return true;
+    } 
 }

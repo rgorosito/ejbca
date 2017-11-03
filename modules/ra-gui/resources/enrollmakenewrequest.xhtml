@@ -28,7 +28,7 @@
 </ui:remove>
 <ui:composition template="/WEB-INF/include/template.xhtml">
 	<ui:define name="content">
-		<h:panelGroup layout="block" class="header" id="title">
+		<h:panelGroup layout="block" styleClass="header" id="title">
 			<h1>
 				<h:outputText value="#{msg.make_requests_page_title}" />
 			</h1>
@@ -145,7 +145,7 @@
 						<h:inputTextarea id="certificateRequest" styleClass="fineprintMono jsAutoFocusLast" style="line-height: 100%;"
 							value="#{enrollMakeNewRequestBean.certificateRequest}" cols="80" rows="20"
                             validator="#{enrollMakeNewRequestBean.validateCsr}"/>
-						<h:message for="certificateRequest" id="certificateRequestMessage" styleClass="showErrorMessage"/>
+						<h:message for="certificateRequest" id="certificateRequestMessage" styleClass="errorMessage"/>
                         <br/>
                         <h:commandButton id="uploadCsrButton" value="#{msg.enroll_upload_csr}" styleClass="pure-button ra-button"
                             action="#{enrollMakeNewRequestBean.uploadCsr}">
@@ -258,13 +258,7 @@
 									<h:outputLabel for="subjectAltNameField"
 										value="#{msg['subject_alternative_name_'.concat(instance.name)]} *"
 										rendered="#{instance.required}" />
-                                    <h:panelGroup rendered="#{instance.rfcUseEmail}">
-                                        <h:selectBooleanCheckbox value="#{enrollMakeNewRequestBean.subjectAlternativeName.fieldInstances[loop.index].rfcEmailUsed}">
-                                            <f:ajax event="click" listener="#{enrollMakeNewRequestBean.updateOtherEmailFields}"
-                                                execute="this" render=":requestInfoForm:requestPreviewOuterPanel" />
-                                        </h:selectBooleanCheckbox>
-                                    </h:panelGroup>
-                                    <h:panelGroup rendered="#{!instance.unModifiableUpnRfcAltName and !instance.rfcUseEmail}">
+                                    <h:panelGroup rendered="#{!instance.unModifiableUpnRfc and !instance.rfcUseEmail}">
                                         <h:inputText id="subjectAltNameField" value="#{enrollMakeNewRequestBean.subjectAlternativeName.fieldInstances[loop.index].value}" styleClass="jsDelayKeyUp jsAutoFocusFirst #{component.valid?'':'jsAutoFocusError'}"
                                             rendered="#{!instance.selectable}" disabled="#{!instance.modifiable}">
                                             <f:validator validatorId="extendedRegexValidator" />
@@ -286,38 +280,25 @@
                                         </h:selectOneMenu>
                                         <h:message for="subjectAltNameField" id="subjectAltNameFieldMessage" styleClass="showErrorMessage"/>
                                     </h:panelGroup>
-                                    <h:panelGroup rendered="#{instance.unModifiableUpnRfcAltName and !instance.rfcUseEmail}">
-                                        <h:panelGroup rendered="#{!instance.selectable}">
-	                                        <h:inputText id="upnRfcEmailText">
-	                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfcText}"
-	                                                execute="@this upnRfcDomainText" render=":requestInfoForm:requestPreviewOuterPanel upnRfcEmailTextMessage" />
-	                                        </h:inputText>
-	                                        <h:outputText value=" @ " />
-	                                        <h:inputText id="upnRfcDomainText">
-	                                            <f:validator validatorId="extendedRegexValidator" />
-	                                            <f:attribute name="pattern" value="#{instance.regexPatternRequired ? instance.regexPattern : ''}"/>
-	                                            <f:validator validatorId="extendedRequiredValidator"/>
-	                                            <f:attribute name="_required" value="#{instance.required}"/>
-	                                            <f:attribute name="_label" value="#{instance.name}"/>
-	                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfcText}"
-	                                                execute="@this upnRfcEmailText" render=":requestInfoForm:requestPreviewOuterPanel upnRfcEmailTextMessage" />
-	                                        </h:inputText>
-                                            <h:message for="upnRfcEmailText" id="upnRfcEmailTextMessage" styleClass="showErrorMessage"/>
-                                        </h:panelGroup>
-                                        <h:panelGroup rendered="#{instance.selectable}">
-	                                        <h:inputText id="upnRfcEmailMenu">
-	                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfcMenu}"
-	                                                execute="@this upnRfcDomainMenu" render=":requestInfoForm:requestPreviewOuterPanel subjectAltNameFieldMessage" />
-	                                        </h:inputText>
-	                                        <h:outputText value=" @ " />
-	                                        <h:selectOneMenu id="upnRfcDomainMenu" rendered="#{instance.selectable}" styleClass="jsAutoFocusFirst">
-	                                            <f:selectItems value="#{instance.selectableValues}" />
-	                                            <f:attribute name="_label" value="#{instance.name}"/>
-	                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfcMenu}"
-	                                                execute="@this upnRfcEmailMenu" render=":requestInfoForm:requestPreviewOuterPanel subjectAltNameFieldMessage" />
-	                                        </h:selectOneMenu>
-                                            <h:message for="upnRfcEmailMenu" id="upnRfcEmailMenuMessage" styleClass="showErrorMessage"/>
-                                        </h:panelGroup>
+                                    <h:panelGroup rendered="#{instance.rfcUseEmail}">
+                                        <h:selectBooleanCheckbox value="#{enrollMakeNewRequestBean.subjectAlternativeName.fieldInstances[loop.index].rfcEmailUsed}">
+                                            <f:ajax event="click" listener="#{enrollMakeNewRequestBean.updateOtherEmailFields}"
+                                                execute="@this" render=":requestInfoForm:requestPreviewOuterPanel" />
+                                        </h:selectBooleanCheckbox>
+                                    </h:panelGroup>
+                                    <h:panelGroup rendered="#{instance.unModifiableUpnRfc and !instance.rfcUseEmail}">
+                                        <h:inputText id="upnRfcEmail">
+                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfc}"
+                                                execute="@this upnRfcDomain" render=":requestInfoForm:requestPreviewOuterPanel subjectAltNameFieldMessage" />
+                                        </h:inputText>
+                                        <h:outputText value=" @ " />
+                                        <h:selectOneMenu id="upnRfcDomain" styleClass="jsAutoFocusFirst">
+                                            <f:selectItems value="#{instance.selectableValuesUpnRfc}" />
+                                            <f:attribute name="_label" value="#{instance.name}"/>
+                                            <f:ajax event="change" listener="#{enrollMakeNewRequestBean.upnRfc}"
+                                                execute="@this upnRfcEmail" render=":requestInfoForm:requestPreviewOuterPanel subjectAltNameFieldMessage" />
+                                        </h:selectOneMenu>
+                                        <h:message for="upnRfcEmail" id="upnRfcEmailMessage" styleClass="showErrorMessage"/>
                                     </h:panelGroup>
 								</h:panelGroup>
 							</ui:repeat>

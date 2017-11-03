@@ -50,7 +50,7 @@ public final class ConfigurationHolder {
 
     private static volatile CompositeConfiguration defaultValues;
 
-    private static CompositeConfiguration config = null;
+    private static volatile CompositeConfiguration config = null;
     private static CompositeConfiguration configBackup = null;
 
     /** cesecore.properties must be first in this file, because CONFIGALLOWEXTERNAL is defined in there.
@@ -144,6 +144,21 @@ public final class ConfigurationHolder {
         }
         return config;
     }
+    
+    private static synchronized void addConfiguration(final PropertiesConfiguration pc) {
+        // The try/catch is needed with commons-configuration 1.10 (but not with 1.06)
+//        try {
+            final CompositeConfiguration cfgClone = (CompositeConfiguration) config.clone();
+            cfgClone.addConfiguration(pc);
+            config = cfgClone; // atomic replacement, since we don't want to require all the get*() methods to be synchronized
+//        } catch (ConfigurationRuntimeException e) {
+//            // Appears to happen due to some bug in MapConfiguration (on certain systems only)
+//            if (log.isDebugEnabled()) {
+//                log.debug("Configuration class " + config.getClass().getName() + " is not cloneable. Falling back to not fully thread safe code.", e);
+//            }
+//            config.addConfiguration(pc);
+//        }
+    }
 
     /**
      * Method used primarily for JUnit testing, where we can add a new properties file (in tmp directory) to the configuration.
@@ -158,7 +173,7 @@ public final class ConfigurationHolder {
             f = new File(filename);
             final PropertiesConfiguration pc = new PropertiesConfiguration(f);
             pc.setReloadingStrategy(new FileChangedReloadingStrategy());
-            config.addConfiguration(pc);
+            addConfiguration(pc);
             log.info("Added file to configuration source: " + f.getAbsolutePath());
         } catch (ConfigurationException e) {
             log.error("Failed to load configuration from file " + f.getAbsolutePath());
@@ -178,7 +193,7 @@ public final class ConfigurationHolder {
             final URL url = ConfigurationHolder.class.getResource(resourcename);
             if (url != null) {
                 final PropertiesConfiguration pc = new PropertiesConfiguration(url);
-                config.addConfiguration(pc);
+                addConfiguration(pc);
                 if (log.isDebugEnabled()) {
                     log.debug("Added url to configuration source: " + url);
                 }

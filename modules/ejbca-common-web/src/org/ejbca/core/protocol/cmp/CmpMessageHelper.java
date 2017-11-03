@@ -29,6 +29,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -90,6 +91,7 @@ import org.cesecore.certificates.certificate.request.FailInfo;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.util.Base64;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.model.InternalEjbcaResources;
 
 /**
@@ -257,8 +259,11 @@ public class CmpMessageHelper {
         }
         // Create the PasswordBased protection of the message
         PKIHeaderBuilder head = getHeaderBuilder(msg.getHeader());
-        byte[] keyIdBytes = keyId.getBytes(StandardCharsets.UTF_8);
-        head.setSenderKID(new DEROctetString(keyIdBytes));
+        if (keyId != null) {
+            // Only add senderKeyId of the client used it, it's not needed to create the actual protection
+            byte[] keyIdBytes = keyId.getBytes(StandardCharsets.UTF_8);
+            head.setSenderKID(new DEROctetString(keyIdBytes));
+        }
         // SHA1
         AlgorithmIdentifier owfAlg = new AlgorithmIdentifier(new ASN1ObjectIdentifier(digestAlgId));
         // iterations, usually something like 1024
@@ -423,7 +428,7 @@ public class CmpMessageHelper {
             final String pbeMacAlg = verifyer.getMacOid();
             final int pbeIterationCount = verifyer.getIterationCount();
             final String raAuthSecret = verifyer.getLastUsedRaSecret();
-            if (StringUtils.equals(responseProt, "pbe") && (pbeDigestAlg != null) && (pbeMacAlg != null) && (keyId != null) && (raAuthSecret != null)) {
+            if (StringUtils.equals(responseProt, "pbe") && (pbeDigestAlg != null) && (pbeMacAlg != null) && (raAuthSecret != null)) {
                 cresp.setPbeParameters(keyId, raAuthSecret, pbeDigestAlg, pbeMacAlg, pbeIterationCount);
             }
         }
@@ -621,15 +626,21 @@ public class CmpMessageHelper {
     public static String getStringFromOctets(final ASN1OctetString octets) {
         String str = null;
         if (octets != null) {
-            str = new String(octets.getOctets(), StandardCharsets.UTF_8);
-            if (StringUtils.isAsciiPrintable(str)) {
+            byte[] bytes = octets.getOctets();
+            if (bytes.length > 128) { // arbitrary limitation on octet string size
+                LOG.info("Truncating octet string longer than 128 bytes");
+                byte[] newbytes = Arrays.copyOf(bytes, 128);
+                bytes = newbytes;
+            }
+            str = new String(bytes, StandardCharsets.UTF_8);
+            if (StringTools.isAlphaOrAsciiPrintable(str)) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Found string: " + str);
                 }
             } else {
                 str = new String(Hex.encode(octets.getOctets()));
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("DEROCtetString content is not asciiPrintable, converting to hex: " + str);
+                    LOG.debug("DEROCtetString content is not alphaNumeric (including space), converting to hex: " + str);
                 }
             }
         }

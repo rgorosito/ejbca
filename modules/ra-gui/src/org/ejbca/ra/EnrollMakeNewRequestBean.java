@@ -908,14 +908,16 @@ public class EnrollMakeNewRequestBean implements Serializable {
 
     private void updateRfcAltName() {
         EndEntityProfile.FieldInstance rfc822Name = subjectAlternativeName.getFieldInstancesMap().get(DnComponents.RFC822NAME).get(0);
-        if (rfc822Name != null && rfc822Name.getRfcEmailUsed()) {
-            String email = getEndEntityInformation().getEmail();
-            if (email != null) {
-                rfc822Name.setValue(email);
-                return;
+        if (rfc822Name != null) {
+            if (rfc822Name.getRfcEmailUsed()) {
+                String email = getEndEntityInformation().getEmail();
+                if (email != null) {
+                    rfc822Name.setValue(email);
+                    return;
+                }
             }
+            rfc822Name.setValue("");
         }
-        rfc822Name.setValue("");
     }
 
     //-----------------------------------------------------------------------------------------------
@@ -986,10 +988,12 @@ public class EnrollMakeNewRequestBean implements Serializable {
         final String valueStr = value.toString();
         if (valueStr != null && valueStr.length() > EnrollMakeNewRequestBean.MAX_CSR_LENGTH) {
             log.info("CSR uploaded was too large: "+valueStr.length());
+            raLocaleBean.addMessageError("enroll_invalid_certificate_request");
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
         }
         PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(valueStr);
         if (pkcs10CertificateRequest == null) {
+            raLocaleBean.addMessageError("enroll_invalid_certificate_request");
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
         }
 
@@ -999,16 +1003,15 @@ public class EnrollMakeNewRequestBean implements Serializable {
             final String keySpecification = AlgorithmTools.getKeySpecification(jcaPKCS10CertificationRequest.getPublicKey());
             final String keyAlgorithm = AlgorithmTools.getKeyAlgorithm(jcaPKCS10CertificationRequest.getPublicKey());
             final CertificateProfile certificateProfile = getCertificateProfile();
-            final List<String> availableKeyAlgorithms = certificateProfile.getAvailableKeyAlgorithmsAsList();
-            final List<Integer> availableBitLengths = certificateProfile.getAvailableBitLengthsAsList();
-            if(!availableKeyAlgorithms.contains(keyAlgorithm) ||
-                    !availableBitLengths.contains(Integer.parseInt(keySpecification))){
+            if (!certificateProfile.isKeyTypeAllowed(keyAlgorithm, keySpecification)) {
+                raLocaleBean.addMessageError("enroll_key_algorithm_is_not_available", keyAlgorithm + "_" + keySpecification);
                 throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_key_algorithm_is_not_available", keyAlgorithm + "_" + keySpecification)));
             }
             algorithmFromCsr = keyAlgorithm + " " + keySpecification;// Save for later use
             // For yet unknown reasons, the setter is never when invoked during AJAX request
             certificateRequest = value.toString();
         } catch (InvalidKeyException | NoSuchAlgorithmException e) {
+            raLocaleBean.addMessageError("enroll_unknown_key_algorithm");            
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_unknown_key_algorithm")));
         }
     }
@@ -1652,18 +1655,16 @@ public class EnrollMakeNewRequestBean implements Serializable {
         this.validityInputComponent = validityInputComponent;
     }
     
-    public void upnRfcText(AjaxBehaviorEvent event) {
-        upnRfc(event, "upnRfcEmailText", "upnRfcDomainText");
-    }
-
-    public void upnRfcMenu(AjaxBehaviorEvent event) {
-        upnRfc(event, "upnRfcEmailMenu", "upnRfcDomainMenu");
-    }
-
-    private void upnRfc(AjaxBehaviorEvent event, String emailComponent, String domainComponent) {
+    /**
+     * Finds the UPN/RFC822 email and domain in an Ajax event, concatenates them and
+     * sets the value of the appropriate FieldInstance.
+     * 
+     * @param event the Ajax event
+     */
+    public void upnRfc(AjaxBehaviorEvent event) {
         UIComponent components = event.getComponent();
-        UIInput emailInput = (UIInput) components.findComponent(emailComponent);
-        UIInput domainInput = (UIInput) components.findComponent(domainComponent);
+        UIInput emailInput = (UIInput) components.findComponent("upnRfcEmail");
+        UIInput domainInput = (UIInput) components.findComponent("upnRfcDomain");
         int index = -1;
         String email = "";
         if (emailInput != null) {

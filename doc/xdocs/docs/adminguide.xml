@@ -1211,7 +1211,7 @@ pbuilder.setSenderNonce(senderNonce);
 // TransactionId
 pbuilder.setTransactionID(transactionId);
 // Key Id used (required) by the recipient to do a lot of stuff
-pbuilder.setSenderKID("P ocnfigurat
+pbuilder.setSenderKID("KeyID".getBytes());
 pbuilder.setBody(pkibody);
 JcePKMACValuesCalculator jcePkmacCalc = new JcePKMACValuesCalculator();
 final AlgorithmIdentifier digAlg = new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.14.3.2.26")); // SHA1
@@ -2378,18 +2378,29 @@ The following parameters have to be configured in a log:</p>
 <li>Timeout : Connection timeout in milliseconds. Five seconds is the default. Note that certificate
 issuing and/or OCSP response generation must wait for the log server to respond, so do not set it too high.
 Note that zero is not a valid value for the timeout.</li>
+<li>Mandatory : Mark the log as 'Mandatory', see below.</li>
 </ul>
 
 <p>The log server needs to accept certificates issued by your CAs. For local testing you can install your own instance of the sample log server from the <a href="https://code.google.com/p/certificate-transparency/">CT open source project</a>, and add your root CA to the list of trusted CAs. For a production system (or testing of one) you must contact the log operator to have your root CA added.</p>
 
 <p>For redundancy, it's recommended to add more logs than the minimum required in the certificate profile. That way certificate issuance will not fail if a single log is down.
 It is also a good idea to specify a short timeout value and/or enable the "ct.fastfail.enabled" option in conf/cesecore.properties, so a failing log does not slow down all requests.</p>
-<p>Regarding performance, EJBCA will connect to the logs in the order they have been added and in parallel, with the number of concurrent connections controlled by the "Maximum SCTs" value.
-It will also keep fetching SCTs until this number is reached (the "Minimum SCTs" value is currently only a limit for when EJBCA will consider the request failed).
-If you have more logs than the "Maximum SCTs" value, it's recommended to put slow (e.g. geographically distant) or unreliable logs at the end of the list, so they are only contacted as a last resort.</p>
+<p>Regarding performance, EJBCA will connect to the logs in the order they have been added and in parallel, with the number of concurrent connections controlled by the 'Maximum number of mandatory SCTs' 
+and 'Maximum number of non-mandatory SCTs' value. It will also keep fetching SCTs until this number is reached (the 'Minimum number of mandatory SCTs', 'Minimum number of non-mandatory SCTs' and 
+'Minimum number of SCTs in total' value is currently only a limit for when EJBCA will consider the request failed). If you have more logs than the 'Maximum number of mandatory SCTs' or 'Maximum number of 
+non-mandatory SCTs' value, it's recommended to put slow (e.g. geographically distant) or unreliable logs at the end of the list, so they are only contacted as a last resort.</p>
 
-<p>You may change the order the logs are contacted by moving them up or down in the configuration page. The changed log ordering will not take effect until you edit and save your Certificate Profiles that use the moved CT logs.</p>
+<p>You may change the order the logs are contacted by moving them up or down in the configuration page. The changed log ordering will not take effect until you edit and save your Certificate Profiles that use 
+the moved CT logs.</p>
+
 </subsection>
+<subsubsection name="Mandatory CT logs">
+<p>It may be a requirement to publish to certain logs and a certain number of logs before issuing a certificate. For example, Google Chrome requires that all EV certificates issued after 1st of 
+January 2015 must be published to at least one CT log operated by Google, at least one log not operated by Google, and to a certain number of logs in total, where the total amount of logs depends on the lifetime
+of the certificate. This is achieved by marking on or more Google logs as 'Mandatory' in the 'System Configuration' page and adjusting the 'Minimum number of mandatory SCTs', 'Minimum number of non-mandatory SCTs' 
+and 'Minimum number of SCTs in total' for the approprite certificate profile.</p>
+
+</subsubsection>
 <subsection name="EJBCA audit logging">
 <p>The submission of pre-certificates is logged to the EJBCA audit log. When a pre-certificate
 has been submitted to the required number of CT log servers, then a SUCCESS is audit logged.
@@ -2549,6 +2560,66 @@ Similarly the column serialNumber column of the table KeyRecoveryData matches th
 </subsection>
 </section>
 
+<section name="Custom RA Styles">
+    <p>
+    Custom RA Styles allows CA administrators to upload and apply their own logos and style sheets (CSS) for the RA web. In practice this introduces a way to change the appearance of the menus, buttons, background etc. for the RA Web. An uploaded style may be bound to one or many administrator roles. Members of this role will automatically receive applied styles when logging in to the RA Web on any EJBCA instance connected to the CA. 
+    </p>
+    <subsection name="Uploading Modified CSS And Logo">
+        <p>
+        RA Style content is uploaded from the 'System Configuration' menu in the Admin GUI. Go to 'System Configuration -&gt; 'Custom RA Styles'. The page will display a list of previously uploaded styles or an empty list if no content has been added yet.
+        </p>
+        <p>
+        To upload RA logo: Browse for a single .png or .jpg file to replace the RA logo with.
+        </p>
+        <p>
+        To upload CSS files: Browse for either a single .css file or a .zip containing multiple .css files. The uploaded files must have the same name as the file they're replacing. Most of the RA appearance can be modified in w_e_styles.css, however, any CSS can be replaced. Below is a list of currently replaceable CSS files:
+        </p>
+        <source>
+            base-context.css
+            base.css
+            base-min.css
+            buttons-core.css
+            buttons.css
+            forms.css
+            forms-nr.css
+            grids-core.css
+            grids.css
+            grids-responsive.css
+            grids-responsive-old-ie.css
+            grids-units.css
+            menus-core.css
+            menus.css
+            menus-dropdown.css
+            menus-horizontal.css
+            menus-scrollable.css
+            menus-skin.css
+            pure.css
+            pure-nr.css
+            tables.css
+            pure.css
+            ra.css
+            w_e_style.css
+        </source>
+        <p>
+        It is not necessary to upload both logo and CSS. Only upload what you intend to replace. Finally, give the uploaded styles a name and click 'Import'.
+        </p>
+        <p>
+        In order to upload custom RA Syles, the following access rules are required:
+        </p>
+        <ul>
+            <li>/administrator/</li>
+            <li>/system_functionality/edit_systemconfiguration/</li>
+        </ul>
+    </subsection>
+    <subsection name="Applying Styles To Administrator Roles">
+        <p>
+        Once styles are uploaded, it has to be bound to a role to take effect. This is done from the Admin GUI in 'Administrator Roles'. In order to apply a custom style to a role, go to 'Administrator Roles' and select the desired style from the drop down menu under the label 'RA Styles'. The next time members of this role login to the RA Web, their new style will be applied. Keep in mind that images and CSS files are browser cached, hence the changes might not appear until the browser cache is invalidated or cleared manually.
+        </p>
+        <p>
+        If an administrator belongs to multiple roles with RA Styles applied, the desired style can be changed from the 'Preferences' menu in the RA Web.
+        </p>
+    </subsection>
+</section>
 
 <section name="ePassport PKI">
 
@@ -4498,10 +4569,31 @@ to protect your RSA and ECC keys.
 </ul>
 </subsection>
 <subsection name="SoftHSM">
-<p>SoftHSM2 works very well with EJBCA, and after initializing a slot you can use it nicely by creating a new Crypto Token in the Admin GUI.</p>
+<p>SoftHSM2 works very well with EJBCA, and after initializing a slot you can use it nicely by creating a new Crypto Token in the Admin GUI. 
+The 'user PIN' is what you will use to activate the token in EJBCA.</p>
 <source>
 sudo apt-get install softhsm2
-softhsm2-util  --init-token --slot 1 --label slot1 --pin foo123 --so-pin foo123
+</source>
+<p>In order to use it as a normal user you have to make /var/lib/softhsm/tokens available to your normal user (for writing in order to create keys), and /etc/softhsm/* readable by the user.
+After setting privileges, you can use softhsm as normal user.</p>
+<source>
+softhsm2-util --init-token --free --label myslot
+</source>
+<p>It turns out that the Ubuntu package for SoftHSM2 is not always initializing properly (depending on Ubuntu verion you are running on) so you may have to create missing directories etc. 
+If you get an "ERROR: Could not initialize the library" when running the above there is a directory missing, and a token not initialized.</p>
+<source>
+sudo mkdir /var/lib/softhsm/tokens
+sudo chmod a+rwx /var/lib/softhsm
+sudo chmod a+rwx /var/lib/softhsm/tokens
+sudo chmod a+rx /etc/softhsm
+sudo chmod a+r /etc/softhsm/*
+softhsm2-util --init-token --free --label myslot
+</source>
+<note>The above commands give write privileges to all users in the system, you may wish to tune that to your security policy. Of course, for real security a real Hardware Security Module should be used anyhow.</note>
+<p>Now you can go on and initialize other slots as well. Note that if you provide the --slot parameter to SoftHSM2 it will most likely not actually become the slotnumber you specify.
+You can list the slots with:</p>
+<source>
+softhsm2-util --show-slots
 </source>
 </subsection>
 <subsection name="PKCS11 Spy">
@@ -5162,11 +5254,13 @@ example.com. 243	IN	CAA	0 issue "ca.org"
 					<li>DNS Resolver</li>
 						<p>Non-mandatory field where you may specify a DNS Resolver (such as 8.8.8.8 or 8.8.4.4). Should be an IP adress. If left 
 						blank, the system default responder will be used</p>
+					<li>Lookup DNAMEs</li>
+					    <p>Check this box if you want to lookup and follow any DNAME records found during CAA processing. To comply with RFC 6844, it is recommended
+					    to keep this option enabled.</p>
 					<li>Validate DNSSEC</li>
 						<p>
-							Check this box if you want DNSSEC to be validated. If this box is checked and your DNS either has faulty DNSSEC records or 
-							lacks DNSSEC records altogether (suggesting a possible MitM attack), CAA validation will fail. It is recommended
-							to run DNSSEC, albeit be aware that some issuance may fail due to resolvers not working with DNSSEC as expected, so thread carefully.
+							Check this box if you want DNSSEC to be validated. If this box is checked, your DNS is signed with DNSSEC and your DNS presents a faulty set of records 
+							(suggesting a possible MitM attack), CAA validation will fail. It is strongly recommended to enable DNSSEC checks to ensure the authenticity of DNS responses.
 						</p>
                     <li>Trust Anchor</li>
                         <p>
@@ -6556,11 +6650,12 @@ it.</p>
 
 <section name="Logging">
 <subsection name="Security Audit log vs System log">
-<p>A PKI system have two different type of log:
+<p>A PKI system have three different type of log:
 </p>
 <ul>
 <li>Security Audit Log  - Use for PKI auditors to audit important security PKI events that the system performed.</li>
 <li>System Log - Used to monitor daily operations in the system, debug and track down errors etc.</li>
+<li>Transaction Log - Used for accounting of specific functions, mainly validation (OCSP).</li>
 </ul>
 <p>
 The Security Audit Log is specified in detail what it does log, and it does not log other things. 
@@ -6578,6 +6673,9 @@ but is not so interested in what the system did not do.
 </p>
 <p>
 The Security Audit Log is stored in the database and the System Log is stored in log files. By default the System Log also contains the Security Audit Log, but this can be configured.
+</p>
+<p>
+The OCSP Transaction Log is described in the <a href="installation-ocsp.html#Audit%20and%20Account%20Logging">OCSP install guide</a>. The WS Transaction Log is described in <a href="#WS%20transaction%20logging">Web Service chapter</a>.
 </p>
 </subsection>
 <subsection name="Security Audit Log">
@@ -6798,7 +6896,7 @@ All installations have their specific requirements how audit logs should be hand
 <subsection name="Log Monitoring">
 <p>
 When monitoring logs from EJBCA the common trigger to monitor for are ERROR events in the System Log.
-Example where there is a error to initialize an (this is a specific exampe and not applicable to all HSMs) HSM during startup:
+Example where there is a error to initialize an (this is a specific example and not applicable to all HSMs) HSM during startup:
 </p>
 <source>
 10:46:53,099 ERROR [org.cesecore.keys.token.p11.Pkcs11Wrapper] (default task-9) Wrong arguments were passed to sun.security.pkcs11.wrapper.PKCS11.CK_C_INITIALIZE_ARGS.getInstance threw an exception

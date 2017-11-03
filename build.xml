@@ -441,6 +441,13 @@
 				replacement-web-uri="acme.war"
 				replacement-context-root="/ejbca/acme"
 		/>
+		<war-replacement-in-module
+						replacement-tag="!--@est.war@-->"
+						replacement-file="${eardd.src}/META-INF/application.xml"
+						replacement-enabled="${mod.est.exists}"
+						replacement-web-uri="est.war"
+						replacement-context-root="/.well-known"
+				/>
 		<antcall target="va_replacings_in_application.xml">
 			<param name="application.xml" value="${eardd.src}/META-INF/application.xml"/>
 		</antcall>
@@ -503,6 +510,9 @@
                 <include name="cmp.war" />
                 <include name="publicweb.war" />
                 <include name="scep.war" />
+                <!-- Only include EST in non-production mode builds for now. TODO: Change this when production ready. -->
+                <include name="${in-test-mode-include}est.war" />
+            	<include name="${in-test-mode-include}est-ejb.jar" />
                 <include name="healthcheck.war" />
                 <include name="clearcache.war" />
                 <include name="webdist.war" />
@@ -547,6 +557,9 @@
         		<include name="peerconnector-entity.jar" />
         		<include name="va-publisher.jar" />
         	    <include name="caa.jar" />
+                <!-- Only include EST in non-production mode builds for now. TODO: Change this when production ready. -->
+				<include name="${in-test-mode-include}est-ejb.jar" />
+				<include name="${in-test-mode-include}est-interface.jar" />
                 <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
 				<include name="${in-test-mode-include}acme-common.jar" />
         	</zipfileset>
@@ -827,8 +840,10 @@
 		    	<exclude name="**/hs_err*" />
 		    	<exclude name="doc/xdocs/site/**" />
 		    	<exclude name="modules/statedump/**" />
-		    	<!-- Exclude ACME for 6.8.0 -->
+		    	<!-- Exclude ACME until 6.11 -->
 		    	<exclude name="modules/acme/**" />
+		    	<!-- Exclude EST for 6.11.0 -->
+		    	<exclude name="modules/est/**" />
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="700" dirmode="700"> 
 		    	<include name="**/*.sh" />
@@ -1190,6 +1205,10 @@ SHA-256 checksum: ${cesecorebinSHA256}
 
     <target name="scep.war">
     	<ant dir="modules" target="scep-war" />
+    </target>
+
+    <target name="est.war">
+    	<ant dir="modules" target="est-war" />
     </target>
 
     <target name="status.war">

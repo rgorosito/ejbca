@@ -99,6 +99,7 @@
 		<antcall target="peerconnectorclean"/>
 		<antcall target="acmeclean"/>
 		<antcall target="caaclean"/>
+		<antcall target="estclean"/>
 		<delete failonerror="false" dir="${modules.basedir}/dist" />
 	</target>
 	
@@ -148,18 +149,16 @@
 		<echo message="Cleaning validationtool"/>
 		<ant antfile="${mod.validationtool.path}/build.xml" target="clean" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
 	</target>
-	<condition property="mod.ct.exists">
-		<available file="${mod.ct.path}/build.xml" />
-    </condition>
+
     <target name="ctclean" if="${mod.ct.exists}">
         <ant antfile="${mod.ct.path}/build.xml" target="clean" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
     </target>	
-	<condition property="mod.caa.exists">
-		<available file="${mod.caa.path}/build.xml" />
-    </condition>
     <target name="caaclean" if="${mod.caa.exists}">
         <ant antfile="${mod.caa.path}/build.xml" target="clean" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
     </target>	
+    <target name="estclean" if="${mod.est.exists}">
+		<ant antfile="${mod.est-war.path}/build.xml" target="clean" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
+	</target>	
 	<condition property="mod.certsafe.exists">
 		<available file="${mod.certsafe.path}/build.xml" />
 	</condition>
@@ -495,7 +494,7 @@
 	<target name="ejbca.clients" depends="ejbca-ejb-cli, ejbca-ws-cli, ejbca-db-cli"/>
 	<target name="ejbca.ear.module-dependencies" depends="cesecore-ejb, publicweb-gui, renew-war, scep-war, webdist-war, cmp-war, healthcheck-ejbca-war, clearcache-ejbca-war, 
 					ejbca-ejb, ejbca-properties, edition-specific-interface, peerconnector, eedition-ejb, admin-gui, ra-gui, ejbca-ws, externalra-service, ejbca-cmp-tcp, ejbca.clients, 
-					systemtests.build.libs, ct, certsafe, va-ejbca-war, certstore-war, crlstore-war, acme, caa"/>
+					systemtests.build.libs, ct, certsafe, va-ejbca-war, certstore-war, crlstore-war, acme, caa, est-war"/>
 
 	<target name="ct" depends="ejbca-ejb-interface" if="mod.ct.exists">
 		<ant antfile="${mod.ct.path}/build.xml" target="jar" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
@@ -547,6 +546,12 @@
 		<ant antfile="${mod.cmpclient.path}/build.xml" target="build" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
 	</target>
 	
+	<target name="est-war" depends="ejbca-common-web" description="Build the EST WAR" if="${mod.est.exists}">
+		<ant antfile="${mod.est-war.path}/build.xml" target="build" inheritall="false">
+				<property name="runoncesetup.hasrun" value="true"/>
+				<property name="external-deps-satfisfied" value="isset"/>
+		</ant>
+	</target>
     
 	
 	<!-- Helper to execute the EJBCA EJB CLI -->

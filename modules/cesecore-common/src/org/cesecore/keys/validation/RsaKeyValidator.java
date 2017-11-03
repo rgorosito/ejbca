@@ -85,12 +85,14 @@ public class RsaKeyValidator extends KeyValidatorBase implements KeyValidator {
 
     protected static final String PUBLIC_KEY_MODULUS_DONT_ALLOW_POWER_OF_PRIME = "publicKeyModulusDontAllowPowerOfPrime";
 
+    protected static final String PUBLIC_KEY_MODULUS_DONT_ALLOW_ROCA_WEAK_KEYS = "publicKeyModulusDontAllowRocaWeakKeys";
+
     protected static final String PUBLIC_KEY_MODULUS_MIN_FACTOR = "publicKeyModulusMinFactor";
 
     protected static final String PUBLIC_KEY_MODULUS_MIN = "publicKeyModulusMin";
 
     protected static final String PUBLIC_KEY_MODULUS_MAX = "publicKeyModulusMax";
-
+    
     /**
      * Tests if the factors of the BigInteger modulus are prime.
      * @param modulus the big integer modulus to test
@@ -228,6 +230,9 @@ public class RsaKeyValidator extends KeyValidatorBase implements KeyValidator {
         }
         if (null == data.get(PUBLIC_KEY_MODULUS_DONT_ALLOW_POWER_OF_PRIME)) {
             setPublicKeyModulusDontAllowPowerOfPrime(false);
+        }
+        if (null == data.get(PUBLIC_KEY_MODULUS_DONT_ALLOW_ROCA_WEAK_KEYS)) {
+            setPublicKeyModulusDontAllowRocaWeakKeys(false);
         }
     }
 
@@ -375,8 +380,17 @@ public class RsaKeyValidator extends KeyValidatorBase implements KeyValidator {
         return ((Boolean) data.get(PUBLIC_KEY_MODULUS_DONT_ALLOW_POWER_OF_PRIME)).booleanValue();
     }
 
+    public boolean isPublicKeyModulusDontAllowRocaWeakKeys() {
+        Boolean ret = (Boolean) data.get(PUBLIC_KEY_MODULUS_DONT_ALLOW_ROCA_WEAK_KEYS);
+        return ret != null ? ret.booleanValue() : false; // upgraded value, we must be null safe, default false
+    }
+    
     public void setPublicKeyModulusDontAllowPowerOfPrime(boolean allowed) {
         data.put(PUBLIC_KEY_MODULUS_DONT_ALLOW_POWER_OF_PRIME, Boolean.valueOf(allowed));
+    }
+
+    public void setPublicKeyModulusDontAllowRocaWeakKeys(boolean allowed) {
+        data.put(PUBLIC_KEY_MODULUS_DONT_ALLOW_ROCA_WEAK_KEYS, Boolean.valueOf(allowed));
     }
 
     public Integer getPublicKeyModulusMinFactor() {
@@ -524,6 +538,13 @@ public class RsaKeyValidator extends KeyValidatorBase implements KeyValidator {
                 messages.add("Invalid: RSA public key modulus is not allowed to be the power of a prime.");
             } else {
                 log.trace("isPublicKeyModulusDontAllowPowerOfPrime passed");
+            }
+        }
+        if (isPublicKeyModulusDontAllowRocaWeakKeys()) {
+            if (RocaBrokenKey.isAffected(publicKeyModulus)) {
+                messages.add("Invalid: RSA public key modulus is a weak key according to CVE-2017-15361.");
+            } else {
+                log.trace("isPublicKeyModulusDontAllowRocaWeakKeys passed");
             }
         }
         if (null != getPublicKeyModulusMinFactor()) {

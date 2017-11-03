@@ -159,8 +159,10 @@
 	<property name="mod.caa.lib" location="${mod.dist.path}/caa.jar" />
 	<property name="mod.dist.caa-cli.dir" location="${ejbca.dist.path}/caa-cli"/>
 	<property name="mod.caa-cli.lib" location="${mod.dist.caa-cli.dir}/caa-cli.jar" />
-
-
+    <property name="mod.est-war.path" location="${mod.path}/est" />
+    <property name="mod.est.war" location="${mod.dist.path}/est.war" />
+	<property name="mod.est.lib" location="${mod.dist.path}/est-ejb.jar" />
+	<property name="mod.est-interface.lib" location="${mod.dist.path}/est-interface.jar" />
 
 	
     <!-- Variables of global interest -->
@@ -390,6 +392,10 @@
     <condition property="mod.statedump.exists">
         <available file="${mod.statedump.path}/build.xml" />
     </condition>
+	
+    <condition property="mod.est.exists">
+        <available file="${mod.est-war.path}/build.xml" />
+    </condition>
 
     <condition property="mod.acme.exists">
         <and>
@@ -397,6 +403,14 @@
             <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
 	    	<equals arg1="${ejbca.productionmode}" arg2="false" casesensitive="false"/>
         </and>
+    </condition>
+	
+	<condition property="mod.caa.exists">
+		<available file="${mod.caa.path}/build.xml" />
+    </condition>
+	
+	<condition property="mod.ct.exists">
+		<available file="${mod.ct.path}/build.xml" />
     </condition>
 
 </project>

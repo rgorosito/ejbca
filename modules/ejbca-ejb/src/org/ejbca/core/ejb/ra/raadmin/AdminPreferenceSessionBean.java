@@ -14,6 +14,8 @@
 package org.ejbca.core.ejb.ra.raadmin;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.ejb.EJB;
@@ -32,6 +34,7 @@ import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
+import org.cesecore.config.RaStyleInfo;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
@@ -62,6 +65,8 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
     private AuthorizationSessionLocal authorizationSession;
     @EJB
     private SecurityEventsLoggerSessionLocal auditSession;
+    @EJB
+    private RaStyleCacheBean raStyleCacheBean;
 
     @Override
     public AdminPreference getAdminPreference(final String certificatefingerprint) {
@@ -137,6 +142,40 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
         return ret;
     }
 
+    @Override
+    public RaStyleInfo getPreferedRaStyleInfo(AuthenticationToken admin) {
+        List<RaStyleInfo> availableRaStyles = getAvailableRaStyleInfos(admin);
+        Integer preferedStyleId = getCurrentRaStyleId(admin);
+        // Administrator hasn't set a preferred style. Use first available
+        if (preferedStyleId == null && !availableRaStyles.isEmpty()) {
+            return availableRaStyles.get(0);
+        }
+        // Default style will be used
+        if (availableRaStyles.isEmpty() || preferedStyleId == 0) {
+            return null;
+        }
+        
+        // Return the style preferred by administrator
+        for (RaStyleInfo rastyle : availableRaStyles) {
+            if (preferedStyleId == rastyle.getArchiveId()) {
+                return rastyle;
+            }
+        }
+        
+        // Previously set preference is no longer available, return first available.
+        return availableRaStyles.get(0);
+    }
+    
+    @Override
+    public List<RaStyleInfo> getAvailableRaStyleInfos(AuthenticationToken admin) {
+        return raStyleCacheBean.getAvailableRaStyles(admin);
+    }
+
+    @Override
+    public void invalidateRaStyleCache() {
+        raStyleCacheBean.invalidateCache();
+    }
+    
     @Override
     public AdminPreference getDefaultAdminPreference() {
         if (log.isTraceEnabled()) {
@@ -255,4 +294,67 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
         }
         return ret;
     }
+
+    @Override
+    public Integer getCurrentRaStyleId(AuthenticationToken admin) {
+
+        String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
+
+        AdminPreference adminPreference = getAdminPreference(certificatefingerprint);
+
+        if (adminPreference == null) {
+            return null;
+        }
+
+        Integer currentStyleId = adminPreference.getPreferedRaStyleId();
+
+        if (currentStyleId != null)
+            return currentStyleId;
+        return null;
+
+    }
+
+    @Override
+    public void setCurrentRaStyleId(int currentStyleId, AuthenticationToken admin) {
+        
+        String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
+
+        AdminPreference adminPreference = getAdminPreference(certificatefingerprint);
+        
+        adminPreference.setPreferedRaStyleId(currentStyleId);
+        updateAdminPreference((X509CertificateAuthenticationToken) admin, adminPreference, false);
+        
+    }
+
+    @Override
+    public Locale getCurrentRaLocale(AuthenticationToken admin) {
+
+        String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
+
+        AdminPreference adminPreference = getAdminPreference(certificatefingerprint);
+
+        if (adminPreference == null) {
+            return getDefaultAdminPreference().getPreferedRaLanguage();
+        }
+
+        Locale currentLocale = adminPreference.getPreferedRaLanguage();
+
+        if (currentLocale != null)
+            return currentLocale;
+
+        return getDefaultAdminPreference().getPreferedRaLanguage();
+    }
+
+    @Override
+    public void setCurrentRaLocale(Locale locale, AuthenticationToken admin) {
+        
+        String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
+        
+        AdminPreference adminPreference = getAdminPreference(certificatefingerprint);
+        
+        adminPreference.setPreferedRaLanguage(locale);
+        updateAdminPreference((X509CertificateAuthenticationToken) admin, adminPreference, false);
+        
+    }
+
 }

@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:component="http://java.sun.com/jsf/composite/component"
+	xmlns:c="http://java.sun.com/jsp/jstl/core"
+	xmlns:fn="http://java.sun.com/jsp/jstl/functions"
+	xmlns:t="http://myfaces.apache.org/tomahawk">
+<ui:debug />
+<ui:remove>
+	<!--
+    /*************************************************************************
+     *                                                                       *
+     *  EJBCA: The OpenSource Certificate Authority                          *
+     *                                                                       *
+     *  This software is free software; you can redistribute it and/or       *
+     *  modify it under the terms of the GNU Lesser General Public           *
+     *  License as published by the Free Software Foundation; either         *
+     *  version 2.1 of the License, or any later version.                    *
+     *                                                                       *
+     *  See terms of license at gnu.org.                                     *
+     *                                                                       *
+     *************************************************************************/
+
+     version: $Id$
+     -->
+</ui:remove>
+
+<ui:composition template="/WEB-INF/include/template.xhtml">
+	<ui:define name="content">
+		<h:panelGroup layout="block" class="header" id="title">
+			<h1>
+				<h:outputText value="#{msg.preferences_page_title}" />
+			</h1>
+		</h:panelGroup>
+
+		<h:form id="preferencesForm" styleClass="pure-form pure-form-aligned">
+			<h:panelGroup layout="block" id="preferenceContentBody"
+				styleClass="content-body">
+
+				<h:panelGroup layout="block" styleClass="internal-frame">
+					<h:panelGroup layout="block" styleClass="pure-control-group">
+
+						<h:outputLabel for="selectPreferedLanguage"
+							value="#{msg.preferences_page_language_select}" />
+						<h:selectOneMenu id="selectPreferedLanguage"
+							styleClass="jsAutoFocusLast" var="currentLocale"
+							value="#{raPreferencesBean.currentLocale}"
+							disabled="#{raPreferencesBean.locales.size()==1}">
+							<f:ajax event="valueChange"
+								listener="#{raPreferencesBean.localeChanged(raPreferencesBean.currentLocale)}"
+								render="applyButton" />
+							<f:selectItems value="#{raPreferencesBean.locales}"
+								var="supportedLocale"
+								itemLabel="#{supportedLocale.getDisplayLanguage(supportedLocale)}" />
+							<f:converter converterId="localeConverter" />
+						</h:selectOneMenu>
+						<h:commandButton
+							value="#{raPreferencesBean.initShowHideButtonLocale(msg.preferences_details_show, msg.preferences_details_hide)}"
+							type="button" styleClass="toggleMoreButton">
+							<f:ajax event="click"
+								listener="#{raPreferencesBean.toggleShowLocaleInfo(msg.preferences_details_show, msg.preferences_details_hide)}"
+								render="@this expandRequestLangDetails" />
+						</h:commandButton>
+					</h:panelGroup>
+					<h:panelGroup id="expandRequestLangDetails" layout="block"
+						style="display: block" styleClass="pure-control-group">
+						<h:outputText value="#{msg.preferences_page_language_info}"
+							rendered="#{raPreferencesBean.showLocaleInfo}" />
+					</h:panelGroup>
+				</h:panelGroup>
+
+
+				<h:panelGroup layout="block" styleClass="internal-frame">
+					<h:panelGroup layout="block" styleClass="pure-control-group">
+						<h:outputLabel for="selectPreferedTheme"
+							value="#{msg.preferences_page_theme_select}" />
+
+						<h:selectOneMenu id="selectPreferedTheme"
+							styleClass="jsAutoFocusLast"
+							value="#{raPreferencesBean.currentStyle}"
+							disabled="#{raPreferencesBean.styles.size()==1}">
+							<f:ajax event="valueChange" render="applyButton" />
+
+							<f:selectItems value="#{raPreferencesBean.styles}" var="theme"
+								itemLabel="#{theme.getArchiveName()}" />
+							<f:converter binding="#{raPreferencesBean}" />
+						</h:selectOneMenu>
+						<h:commandButton
+							value="#{raPreferencesBean.initShowHideButtonStyle(msg.preferences_details_show, msg.preferences_details_hide)}"
+							type="button" styleClass="toggleMoreButton">
+							<f:ajax event="click"
+								listener="#{raPreferencesBean.toggleShowStyleInfo(msg.preferences_details_show, msg.preferences_details_hide)}"
+								render="@this expandRequestThemeDetails" />
+						</h:commandButton>
+					</h:panelGroup>
+					<h:panelGroup id="expandRequestThemeDetails" layout="block"
+						style="display: block" styleClass="pure-control-group">
+						<h:outputText value="#{msg.preferences_page_theme_info}"
+							rendered="#{raPreferencesBean.showStyleInfo}" />
+					</h:panelGroup>
+				</h:panelGroup>
+
+				<h:panelGroup layout="block" id="navigationButtonGroup"
+					styleClass="navigation-button-group">
+
+					<h:commandButton id="resetButton" value="#{msg.generic_reset}"
+						styleClass="pure-button ra-button" immediate="true"
+						action="#{raPreferencesBean.reset}" partialSubmit="true">
+					</h:commandButton>
+
+					<h:commandButton id="applyButton" value="#{msg.generic_apply}"
+						styleClass="pure-button ra-button"
+						action="#{raPreferencesBean.updatePreferences()}"
+						disabled="#{raPreferencesBean.applyDisabled}">
+						<f:ajax execute="@form" render="@all" />
+					</h:commandButton>
+				</h:panelGroup>
+			</h:panelGroup>
+		</h:form>
+	</ui:define>
+</ui:composition>
+</html>
+
