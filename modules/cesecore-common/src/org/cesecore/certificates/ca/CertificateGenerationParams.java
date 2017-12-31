@@ -13,10 +13,11 @@
 package org.cesecore.certificates.ca;
 
 import java.io.Serializable;
-import java.util.LinkedHashMap;
 
+import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.certificates.certificatetransparency.CTAuditLogCallback;
-import org.cesecore.certificates.certificatetransparency.CTLogInfo;
+import org.cesecore.certificates.certificatetransparency.CTSubmissionConfigParams;
+import org.cesecore.keys.validation.CertificateValidationDomainService;
 
 /**
  * Contains parameters and callbacks which is needed during certificate
@@ -41,14 +42,17 @@ public final class CertificateGenerationParams implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private LinkedHashMap<Integer, CTLogInfo> configuredCTLogs;
+    private CTSubmissionConfigParams ctSubmissionConfigParams;
     private CTAuditLogCallback ctAuditLogCallback;
     
+    private AuthenticationToken authenticationToken;
+    private CertificateValidationDomainService certificateValidationDomainService;
+    
     /**
-     * Set the CT logs from the system configuration.
+     * Sets CT parameters that are not specific to the certificate profile, for example list of available CT logs.
      */
-    public void setConfiguredCTLogs(LinkedHashMap<Integer, CTLogInfo> configuredCTLogs) {
-        this.configuredCTLogs = configuredCTLogs;
+    public void setCTSubmissionConfigParams(final CTSubmissionConfigParams ctSubmissionConfigParams) {
+        this.ctSubmissionConfigParams = ctSubmissionConfigParams;
     }
 
     /**
@@ -61,12 +65,43 @@ public final class CertificateGenerationParams implements Serializable {
 
     /* Package internal methods are called from X509CA */
 
-    LinkedHashMap<Integer, CTLogInfo> getConfiguredCTLogs() {
-        return configuredCTLogs;
+    CTSubmissionConfigParams getCTSubmissionConfigParams() {
+        return ctSubmissionConfigParams;
     }
 
     CTAuditLogCallback getCTAuditLogCallback() {
         return ctAuditLogCallback;
     }
 
+    /**
+     * Gets the validation domain service reference.
+     * @return the domain service reference.
+     */
+    public CertificateValidationDomainService getCertificateValidationDomainService() {
+        return certificateValidationDomainService;
+    }
+
+    /**
+     * Sets the validation domain service reference.
+     * @param certificateValidationDomainService the domain service reference.
+     */
+    public void setCertificateValidationDomainService(CertificateValidationDomainService certificateValidationDomainService) {
+        this.certificateValidationDomainService = certificateValidationDomainService;
+    }
+
+    /**
+     * Gets the authentication token.
+     * @return the token.
+     */
+    public AuthenticationToken getAuthenticationToken() {
+        return authenticationToken;
+    }
+
+    /**
+     * Sets the authentication token.
+     * @param authenticationToken the token.
+     */
+    public void setAuthenticationToken(AuthenticationToken authenticationToken) {
+        this.authenticationToken = authenticationToken;
+    }
 }

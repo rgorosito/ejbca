@@ -163,33 +163,36 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
                 success = false;
             }
             if (isCtEnabled()) {
-                final int numEnabledLogs = prof.getEnabledCTLogs().size();
-                final int numMandatoryLogs = countNumberOfMandatoryLogsAvailable(prof.getEnabledCTLogs());
-                final int numNonMandatoryLogs = numEnabledLogs - numMandatoryLogs;
-                if (numEnabledLogs == 0) {
-                    addErrorMessage("NOCTLOGSSELECTED");
+                final int numEnabledLabels = prof.getEnabledCtLabels().size();
+                final boolean isNumOfSctsCustom = prof.isNumberOfSctByCustom();
+                final boolean isMaxNumOfSctsCustom = prof.isMaxNumberOfSctByCustom();
+                if (numEnabledLabels == 0) {
+                    addErrorMessage("NOCTLABELSSELECTED");
                     success = false;
-                } else if (prof.getCtMinTotalScts() < 0 || prof.getCtMinTotalSctsOcsp() < 0 ||
-                        prof.getCtMinMandatoryScts() < 0 || prof.getCtMinMandatorySctsOcsp() < 0 ||
-                        prof.getCtMinNonMandatoryScts() < 0 || prof.getCtMinNonMandatorySctsOcsp() < 0 ||
-                        prof.getCtMinTotalScts() > numEnabledLogs || prof.getCtMinTotalSctsOcsp() > numEnabledLogs ||
-                        prof.getCtMaxMandatoryScts() + prof.getCtMaxNonMandatoryScts() < 1 ||
-                        prof.getCtMaxMandatorySctsOcsp() + prof.getCtMaxNonMandatorySctsOcsp() < 1 ||
-                        prof.getCtMaxMandatoryScts() + prof.getCtMaxNonMandatoryScts() > numEnabledLogs ||
-                        prof.getCtMaxMandatorySctsOcsp() + prof.getCtMaxNonMandatorySctsOcsp() > numEnabledLogs) {
-                    addErrorMessage("INCORRECTMINMAXSCTS");
+                } else if (((prof.getCtMinScts() < 0 && prof.isUseCertificateTransparencyInCerts()) || 
+                            (prof.getCtMinSctsOcsp() < 0 && prof.isUseCertificateTransparencyInOCSP())) 
+                            && isNumOfSctsCustom) {
+                    addErrorMessage("INCORRECTMINSCTS");
                     success = false;
-                } else if (countNumberOfMandatoryLogsAvailable(prof.getEnabledCTLogs()) < prof.getCtMaxMandatoryScts()
-                        || countNumberOfMandatoryLogsAvailable(prof.getEnabledCTLogs()) < prof.getCtMaxMandatorySctsOcsp()) {
-                    addErrorMessage("INCORRECTNUMBEROFMANDATORYSCTS");
+                } else if((prof.getCtMaxScts() < 0 && prof.isUseCertificateTransparencyInCerts()) || 
+                          (prof.getCtMaxSctsOcsp() < 0 && prof.isUseCertificateTransparencyInOCSP())) {
+                    addErrorMessage("INCORRECTMAXSCTS");
                     success = false;
-                } else if (numNonMandatoryLogs < prof.getCtMaxNonMandatoryScts()
-                        || numNonMandatoryLogs < prof.getCtMaxNonMandatorySctsOcsp()) {
-                    addErrorMessage("INCORRECTNUMBEROFNONMANDATORYSCTS");
+                    
+                } else if (((prof.getCtMaxScts() < prof.getCtMinScts() && prof.isUseCertificateTransparencyInCerts()) ||
+                            (prof.getCtMaxSctsOcsp() < prof.getCtMinSctsOcsp() && prof.isUseCertificateTransparencyInOCSP()))
+                            && (isNumOfSctsCustom && isMaxNumOfSctsCustom)) {
+                    addErrorMessage("INCORRECTMAXLESSTHANMIN");
                     success = false;
-                } else if (prof.getCtMinMandatoryScts() > prof.getCtMaxMandatoryScts() || prof.getCtMinMandatorySctsOcsp() > prof.getCtMaxMandatorySctsOcsp() ||
-                        prof.getCtMinNonMandatoryScts() > prof.getCtMaxNonMandatoryScts() || prof.getCtMinNonMandatorySctsOcsp() > prof.getCtMaxNonMandatorySctsOcsp()) {
-                    addErrorMessage("INCORRECTMINMAXMANDATORYSCTS");
+                } else if (((prof.getCtMinScts() < numEnabledLabels && prof.getCtMinScts() != 0 && prof.isUseCertificateTransparencyInCerts()) ||
+                            (prof.getCtMinSctsOcsp() < numEnabledLabels && prof.getCtMinSctsOcsp() != 0 && prof.isUseCertificateTransparencyInOCSP()))
+                            && isNumOfSctsCustom) {
+                    addErrorMessage("INCORRECTNUMBEROFLABELS");
+                    success = false;
+                } else if (((prof.getCtMaxScts() < numEnabledLabels && prof.isUseCertificateTransparencyInCerts()) ||
+                           (prof.getCtMaxSctsOcsp() < numEnabledLabels && prof.isUseCertificateTransparencyInOCSP()))
+                            && isMaxNumOfSctsCustom) {
+                    addErrorMessage("INCORRECTNUMBEROFLABELSMAX");
                     success = false;
                 }
             }
@@ -269,17 +272,6 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
             addNonTranslatedErrorMessage("Not authorized to edit certificate profile.");
         }
         return "";
-    }
-
-    private int countNumberOfMandatoryLogsAvailable(Set<Integer> ctLogIds) {
-        int numberOfMandatoryLogsAvailable = 0;
-        for (final Integer ctLogId : ctLogIds) {
-            CTLogInfo ctLogInfo = getEjbcaWebBean().getGlobalConfiguration().getCTLogs().get(ctLogId);
-            if (ctLogInfo.isMandatory()) {
-                numberOfMandatoryLogsAvailable++;
-            }
-        }
-        return numberOfMandatoryLogsAvailable;
     }
 
     private final void applyExpirationRestrictionForValidityWithFixedDate(final CertificateProfile profile) {
@@ -895,7 +887,19 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         getCertificateProfile().setUseCertificateTransparencyInPublishers(!getCertificateProfile().isUseCertificateTransparencyInPublishers());
         redirectToComponent("header_certificatetransparency");
     }
-
+    
+    public void toggleNumberOfSctBy() throws AuthorizationDeniedException, IOException {
+        getCertificateProfile().setNumberOfSctByCustom(!getCertificateProfile().isNumberOfSctByCustom());
+        getCertificateProfile().setNumberOfSctByValidity(!getCertificateProfile().isNumberOfSctByValidity());
+        redirectToComponent("header_certificatetransparency");
+    }
+        
+    public void toggleMaxNumberOfSctBy() throws AuthorizationDeniedException, IOException {
+        getCertificateProfile().setMaxNumberOfSctByCustom(!getCertificateProfile().isMaxNumberOfSctByCustom());
+        getCertificateProfile().setMaxNumberOfSctByValidity(!getCertificateProfile().isMaxNumberOfSctByValidity());
+        redirectToComponent("header_certificatetransparency");
+    }
+    
     public boolean isCtAvailable() { return CertificateTransparencyFactory.isCTAvailable(); }
     public boolean isCtEnabled() throws AuthorizationDeniedException {
         return getCertificateProfile().isUseCertificateTransparencyInCerts() ||
@@ -912,31 +916,53 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         return getCertificateProfile().isUseCertificateTransparencyInOCSP() ||
             getCertificateProfile().isUseCertificateTransparencyInPublishers();
     }
+    
+    public boolean isNumberOfSctsByValidity() {
+        return getCertificateProfile().isNumberOfSctByValidity();
+    }
 
-    public List<SelectItem/*<String,String*/> getEnabledCTLogsAvailable() {
+    public boolean isNumberOfSctsByCustom() {
+        return getCertificateProfile().isNumberOfSctByCustom();
+    }
+    
+    public boolean isMaxNumberOfSctsByValidity() {
+        return getCertificateProfile().isMaxNumberOfSctByValidity();
+    }
+    
+    public boolean isMaxNumberOfSctsByCustom() {
+        return getCertificateProfile().isMaxNumberOfSctByCustom();
+    }
+    
+    public List<SelectItem> getDistinctCtLabelsAvailable() {
+        // Since labels are members of CTlogs (and not the other way around due to legacy design) we select distinct labels this way
         final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final Map<String, String> distinctLables = new HashMap<>();
         for (final CTLogInfo current : getEjbcaWebBean().getGlobalConfiguration().getCTLogs().values()) {
-            ret.add(new SelectItem(String.valueOf(current.getLogId()), current.getUrl()));
+            if (!distinctLables.containsKey(current.getLabel())) {
+                ret.add(new SelectItem(current.getLabel()));
+                distinctLables.put(current.getLabel(), current.getLabel());
+            }
         }
+        Collections.sort(ret, new Comparator<SelectItem>() {
+            @Override
+            public int compare(SelectItem label1, SelectItem label2) {
+                return label1.getLabel().compareToIgnoreCase(label2.getLabel());
+            }
+        });
         return ret;
     }
-    /** @returns the size of the select box */
-    public int getEnabledCTLogsAvailableSize() { return Math.max(3, Math.min(6, getEnabledCTLogsAvailable().size())); }
-    public List<String> getEnabledCTLogs() throws AuthorizationDeniedException {
-        final List<String> ret = new ArrayList<String>();
-        for (Integer current : getCertificateProfile().getEnabledCTLogs()) {
-            ret.add(current.toString());
-        }
-        return ret;
-    }
-    public void setEnabledCTLogs(final List<String> in) throws AuthorizationDeniedException {
-        final LinkedHashSet<Integer> out = new LinkedHashSet<>();
-        for (String current : in) {
-            out.add(Integer.parseInt(current));
-        }
-        getCertificateProfile().setEnabledCTLogs(out);
-    }
+    
+    /** @returns the size of the select box */ 
+    public int getDistinctCTLabelsAvailableSize() { return Math.max(3, Math.min(6, getDistinctCtLabelsAvailable().size())); }
 
+    public List<String> getEnabledCtLabels() throws AuthorizationDeniedException {
+        return new ArrayList<String>(getCertificateProfile().getEnabledCtLabels());
+    }
+    
+    public void setEnabledCtLabels(final List<String> selectedLabels) throws AuthorizationDeniedException {
+        getCertificateProfile().setEnabledCTLabels(new LinkedHashSet<String>(selectedLabels));
+    }
+    
     public void toggleUseMicrosoftTemplate() throws AuthorizationDeniedException, IOException {
         getCertificateProfile().setUseMicrosoftTemplate(!getCertificateProfile().getUseMicrosoftTemplate());
         redirectToComponent("otherextensions");
@@ -1092,26 +1118,31 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         return ret;
     }
 
-    public void toggleUseCustomDnOrder() throws AuthorizationDeniedException, IOException {
+    public void toggleUseCustomDnOrder() throws IOException {
         getCertificateProfile().setUseCustomDnOrder(!getCertificateProfile().getUseCustomDnOrder());
         redirectToComponent("otherdata");
     }
 
-    public void toggleUseCNPostfix() throws AuthorizationDeniedException, IOException {
+    public void toggleUseCustomDnOrderLdap() throws IOException {
+        getCertificateProfile().setUseCustomDnOrderWithLdap(!getCertificateProfile().getUseCustomDnOrderWithLdap());
+        redirectToComponent("otherdata");
+    }
+
+    public void toggleUseCNPostfix() throws IOException {
         getCertificateProfile().setUseCNPostfix(!getCertificateProfile().getUseCNPostfix());
         redirectToComponent("otherdata");
     }
 
-    public void toggleUseSubjectDNSubSet() throws AuthorizationDeniedException, IOException {
+    public void toggleUseSubjectDNSubSet() throws IOException {
         getCertificateProfile().setUseSubjectDNSubSet(!getCertificateProfile().getUseSubjectDNSubSet());
         redirectToComponent("otherdata");
     }
 
     public List<SelectItem/*<Integer,String*/> getSubjectDNSubSetAvailable() {
         final List<SelectItem> ret = new ArrayList<SelectItem>();
-        final Integer[] useSubjectDNFields = DNFieldExtractor.getUseFields(DNFieldExtractor.TYPE_SUBJECTDN);
-        for (int i=0; i<useSubjectDNFields.length; i++) {
-            ret.add(new SelectItem(useSubjectDNFields[i], getEjbcaWebBean().getText(DnComponents.getDnLanguageTexts().get(i))));
+        final List<Integer> useSubjectDNFields = DNFieldExtractor.getUseFields(DNFieldExtractor.TYPE_SUBJECTDN);
+        for (int i=0; i<useSubjectDNFields.size(); i++) {
+            ret.add(new SelectItem(useSubjectDNFields.get(i), getEjbcaWebBean().getText(DnComponents.getDnLanguageTexts().get(i))));
         }
         return ret;
     }
@@ -1123,9 +1154,9 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
 
     public List<SelectItem/*<Integer,String*/> getSubjectAltNameSubSetAvailable() {
         final List<SelectItem> ret = new ArrayList<SelectItem>();
-        final Integer[] useSubjectANFields = DNFieldExtractor.getUseFields(DNFieldExtractor.TYPE_SUBJECTALTNAME);
-        for (int i=0; i<useSubjectANFields.length; i++) {
-            ret.add(new SelectItem(useSubjectANFields[i], getEjbcaWebBean().getText(DnComponents.getAltNameLanguageTexts().get(i))));
+        final List<Integer> useSubjectANFields = DNFieldExtractor.getUseFields(DNFieldExtractor.TYPE_SUBJECTALTNAME);
+        for (int i=0; i<useSubjectANFields.size(); i++) {
+            ret.add(new SelectItem(useSubjectANFields.get(i), getEjbcaWebBean().getText(DnComponents.getAltNameLanguageTexts().get(i))));
         }
         return ret;
     }

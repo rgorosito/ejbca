@@ -92,8 +92,9 @@ import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.keys.validation.ValidationException;
 import org.cesecore.keys.validation.KeyValidatorSessionLocal;
+import org.cesecore.keys.validation.ValidationException;
+import org.cesecore.keys.validation.IssuancePhase;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
@@ -349,6 +350,8 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         // Retrieve the certificate profile this user should have, checking for authorization to the profile
         final int certProfileId = endEntityInformation.getCertificateProfileId();
         final CertificateProfile certProfile = getCertificateProfile(certProfileId, ca.getCAId());
+        
+        // Validate ValidatorPhase.DATA_VALIDATION
         try {
             // Which public key to validate follows the criteria established in RequestAndPublicKeySelector, which is the same as used in the CA.
             final ExtendedInformation ei = endEntityInformation.getExtendedInformation();
@@ -361,7 +364,8 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         try {
             keyValidatorSession.validateDnsNames(admin, ca, endEntityInformation, request);
         } catch (ValidationException e) {
-            throw new CertificateCreateException(ErrorCode.NOT_AUTHORIZED, e);
+            // Re-factor: ErrorCode could be specified more precisely.
+            throw new CertificateCreateException(ErrorCode.NOT_AUTHORIZED, e.getLocalizedMessage());
         }
         
         // Set up audit logging of CT pre-certificate
@@ -374,8 +378,6 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                 final String msg = intres.getLocalizedMessage("createcert.usertypeinvalid", endEntityInformation.getUsername());
                 throw new CertificateCreateException(ErrorCode.INTERNAL_ERROR, msg);
             }
-            final Certificate cacert = ca.getCACertificate();
-            final String caSubjectDN = CertTools.getSubjectDN(cacert);       
             
             assertSubjectEnforcements(ca.getCAInfo(), endEntityInformation);
             assertSubjectKeyIdEnforcements(ca.getCAInfo(), endEntityInformation, pk);
@@ -386,7 +388,6 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             // If using only 4 byte serial numbers this do happen once in a while
             Certificate cert = null;
             String cafingerprint = null;
-            String serialNo = "unknown";
             final boolean useCustomSN;
             {
                 final ExtendedInformation ei = endEntityInformation.getExtendedInformation();
@@ -433,6 +434,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             }
             
             CertificateSerialNumberException storeEx = null; // this will not be null if stored == false after the below passage
+            String serialNo = "unknown";
             for (int retrycounter = 0; retrycounter < maxRetrys; retrycounter++) {
                 final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(ca.getCAToken().getCryptoTokenId());
                 if (cryptoToken==null) {
@@ -444,9 +446,25 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                 }
                 final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration) 
                         globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
+                certGenParams.setAuthenticationToken(admin);
+                certGenParams.setCertificateValidationDomainService(keyValidatorSession);
+
+                // Validate ValidatorPhase.PRE_CERTIFICATE_VALIDATION (X.509 CA only)
                 cert = ca.generateCertificate(cryptoToken, endEntityInformation, request, pk, keyusage, notBefore, notAfter, certProfile, extensions, sequence, certGenParams, cceConfig);
+                // Set null required here?
+                certGenParams.setCertificateValidationDomainService(null);
+                
+                // Validate ValidatorPhase.CERTIFICATE_VALIDATION (X.509 CA only)
+                if (CAInfo.CATYPE_X509 == ca.getCAType()) {
+                    try {
+                        keyValidatorSession.validateCertificate(admin, IssuancePhase.CERTIFICATE_VALIDATION, ca, endEntityInformation, (X509Certificate) cert);
+                    } catch (ValidationException e) {
+                        throw new CertificateCreateException(ErrorCode.INVALID_CERTIFICATE, e);
+                    }
+                }
+                
+                cafingerprint = CertTools.getFingerprintAsString(ca.getCACertificate());
                 serialNo = CertTools.getSerialNumberAsString(cert);
-                cafingerprint = CertTools.getFingerprintAsString(cacert);
                 // Store certificate in the database, if this CA is configured to do so.
                 if (!ca.isUseCertificateStorage() || !certProfile.getUseCertificateStorage()) {
                     result = new CertificateDataWrapper(cert, null, null);
@@ -454,7 +472,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                 }
                 try {
                     // Remember for CVC serialNo can be alphanumeric, so we can't just try to decode that using normal Java means (BigInteger.valueOf)...
-                    assertSerialNumberForIssuerOk(ca, caSubjectDN, CertTools.getSerialNumber(cert));
+                    assertSerialNumberForIssuerOk(ca, CertTools.getSerialNumber(cert));
                     // Tag is reserved for future use, currently only null
                     final String tag = null;
                     // Authorization was already checked by since this is a private method, the CA parameter should
@@ -569,7 +587,6 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
             throw e;
         }
-        
     }
 
     private void addCTLoggingCallback(CertificateGenerationParams certGenParams, final String authTokenName) {
@@ -672,9 +689,10 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
     /** When no unique index is present in the database, we still try to enforce X.509 serial number per CA uniqueness. 
      * @throws CertificateSerialNumberException if serial number already exists in database
      */
-    private void assertSerialNumberForIssuerOk(final CA ca, final String issuerDN, final BigInteger serialNumber) throws CertificateSerialNumberException {
+    private void assertSerialNumberForIssuerOk(final CA ca, final BigInteger serialNumber) throws CertificateSerialNumberException {
         if (ca.getCAType()==CAInfo.CATYPE_X509 && !isUniqueCertificateSerialNumberIndex()) {
-            if (certificateStoreSession.existsByIssuerAndSerno(issuerDN, serialNumber)) {
+            final String caSubjectDN = CertTools.getSubjectDN(ca.getCACertificate());       
+            if (certificateStoreSession.existsByIssuerAndSerno(caSubjectDN, serialNumber)) {
                 final String msg = intres.getLocalizedMessage("createcert.cert_serial_number_already_in_database", serialNumber.toString());
                 log.info(msg);
                 throw new CertificateSerialNumberException(msg);

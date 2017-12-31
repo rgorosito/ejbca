@@ -48,7 +48,7 @@
 						<h:selectOneMenu id="selectPreferedLanguage"
 							styleClass="jsAutoFocusLast" var="currentLocale"
 							value="#{raPreferencesBean.currentLocale}"
-							disabled="#{raPreferencesBean.locales.size()==1}">
+							disabled="#{fn:length(raPreferencesBean.locales) == 1}">
 							<f:ajax event="valueChange"
 								listener="#{raPreferencesBean.localeChanged(raPreferencesBean.currentLocale)}"
 								render="applyButton" />
@@ -58,10 +58,10 @@
 							<f:converter converterId="localeConverter" />
 						</h:selectOneMenu>
 						<h:commandButton
-							value="#{raPreferencesBean.initShowHideButtonLocale(msg.preferences_details_show, msg.preferences_details_hide)}"
+							value="#{raPreferencesBean.showLocaleInfo ? msg.preferences_details_hide : msg.preferences_details_show}"
 							type="button" styleClass="toggleMoreButton">
 							<f:ajax event="click"
-								listener="#{raPreferencesBean.toggleShowLocaleInfo(msg.preferences_details_show, msg.preferences_details_hide)}"
+								listener="#{raPreferencesBean.toggleShowLocaleInfo()}"
 								render="@this expandRequestLangDetails" />
 						</h:commandButton>
 					</h:panelGroup>
@@ -81,7 +81,7 @@
 						<h:selectOneMenu id="selectPreferedTheme"
 							styleClass="jsAutoFocusLast"
 							value="#{raPreferencesBean.currentStyle}"
-							disabled="#{raPreferencesBean.styles.size()==1}">
+							disabled="#{fn:length(raPreferencesBean.styles) == 1}">
 							<f:ajax event="valueChange" render="applyButton" />
 
 							<f:selectItems value="#{raPreferencesBean.styles}" var="theme"
@@ -89,10 +89,10 @@
 							<f:converter binding="#{raPreferencesBean}" />
 						</h:selectOneMenu>
 						<h:commandButton
-							value="#{raPreferencesBean.initShowHideButtonStyle(msg.preferences_details_show, msg.preferences_details_hide)}"
+							value="#{raPreferencesBean.showStyleInfo ? msg.preferences_details_hide : msg.preferences_details_show}"
 							type="button" styleClass="toggleMoreButton">
 							<f:ajax event="click"
-								listener="#{raPreferencesBean.toggleShowStyleInfo(msg.preferences_details_show, msg.preferences_details_hide)}"
+								listener="#{raPreferencesBean.toggleShowStyleInfo()}"
 								render="@this expandRequestThemeDetails" />
 						</h:commandButton>
 					</h:panelGroup>

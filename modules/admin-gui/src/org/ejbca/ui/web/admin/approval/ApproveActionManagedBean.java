@@ -48,6 +48,7 @@ import org.cesecore.roles.management.RoleSessionLocal;
 import org.cesecore.roles.member.RoleMember;
 import org.cesecore.roles.member.RoleMemberSessionLocal;
 import org.cesecore.util.ui.DynamicUiProperty;
+import org.cesecore.util.ui.PropertyValidationException;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
@@ -63,6 +64,7 @@ import org.ejbca.core.model.approval.SelfApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalPartition;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.approval.profile.ApprovalStep;
+import org.ejbca.core.model.approval.profile.PartitionedApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.RAAuthorization;
 import org.ejbca.ui.web.admin.BaseManagedBean;
@@ -75,13 +77,13 @@ import org.ejbca.util.query.Query;
 
 /**
  * Session scoped bean for displaying information about an approval request.
- * 
+ *
  * @version $Id$
  */
 @ViewScoped
 @ManagedBean(name="approvalActionManagedBean")
 public class ApproveActionManagedBean extends BaseManagedBean {
-    
+
     private static final long serialVersionUID = 1940920496104779323L;
     private static final Logger log = Logger.getLogger(ApproveActionManagedBean.class);
     private static final InternalResources intres = InternalResources.getInstance();
@@ -92,36 +94,36 @@ public class ApproveActionManagedBean extends BaseManagedBean {
 
        private static List<SelectItem> selectItems;
        private final String label;
-       
+
        static {
            selectItems = new ArrayList<>();
            for(Action action : Action.values()) {
                selectItems.add(new SelectItem(action, action.getLabel()));
            }
        }
-       
+
        private Action(final String label) {
            this.label = label;
-           
+
        }
-       
+
        public String getLabel() {
            return label;
        }
-       
+
        public static List<SelectItem> asSelectItems() {
            return selectItems;
        }
-        
+
     }
-    
+
     @EJB
     private ApprovalExecutionSessionLocal approvalExecutionSession;
     @EJB
     private RoleSessionLocal roleSession;
     @EJB
     private RoleMemberSessionLocal roleMemberSession;
-    
+
     @EJB
     private AuthorizationSessionLocal authorizationSession;
     @EJB
@@ -135,12 +137,12 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
     
-    
+
 	private String comment = "";
-	private ApprovalDataVOView approvalDataVOView = new ApprovalDataVOView();      
+	private ApprovalDataVOView approvalDataVOView = new ApprovalDataVOView();
 	private HashMap<Integer, String> statustext = null;
 	private Map<Integer, Action> partitionActions;
-	
+
 	ListDataModel<ApprovalPartitionProfileGuiObject> partitionsAuthorizedToView = null;
 	Set<Integer> partitionsAuthorizedToApprove = null;
 	ListDataModel<ApprovalPartitionProfileGuiObject> previousPartitions = null;
@@ -165,7 +167,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
 		return approvalDataVOView;
 	}
 
-	public boolean isApprovalRequestComparable() {		
+	public boolean isApprovalRequestComparable() {
 		return approvalDataVOView.getApproveActionDataVO().getApprovalRequest().getApprovalRequestType() == ApprovalRequest.REQUESTTYPE_COMPARING;
 	}
 
@@ -173,23 +175,23 @@ public class ApproveActionManagedBean extends BaseManagedBean {
 		if(isApprovalRequestComparable()){
 			return "1000";
 		}
-		return "600";	
+		return "600";
 	}
 
     public List<ApprovalView> getApprovalViews() {
-        List<ApprovalView> approvalViews = new ArrayList<ApprovalView>();
+        List<ApprovalView> approvalViews = new ArrayList<>();
         if (approvalDataVOView != null && approvalDataVOView.getApproveActionDataVO().getApprovals() != null) {
-            for(Approval approval : approvalDataVOView.getApproveActionDataVO().getApprovals()) {
+            for (Approval approval : approvalDataVOView.getApproveActionDataVO().getApprovals()) {
                 approvalViews.add(new ApprovalView(approval));
             }
         }
         return approvalViews;
     }
- 
+
     public boolean isExistsApprovals(){
     	return approvalDataVOView.getApproveActionDataVO().getApprovals().size() >0;
     }
-       
+
     public boolean isApprovable(){
     	return approvalDataVOView.getApproveActionDataVO().getStatus() == ApprovalDataVO.STATUS_WAITINGFORAPPROVAL;
     }
@@ -197,7 +199,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     public List<SelectItem> getActionsAvailable() {
         return Action.asSelectItems();
     }
-    
+
     public Action getActionForPartition() {
         Action result = getPartitionActions().get(partitionsAuthorizedToView.getRowData().getPartitionId());
         if(result != null) {
@@ -206,7 +208,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
             return Action.NO_ACTION;
         }
     }
-    
+
     private Map<Integer, Action> getPartitionActions() {
         if (partitionActions == null) {
             partitionActions = new HashMap<>();
@@ -222,11 +224,11 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         }
         return partitionActions;
     }
-    
+
     public void setActionForPartition(final Action action) {
         getPartitionActions().put(partitionsAuthorizedToView.getRowData().getPartitionId(), action);
     }
-    
+
     public String saveState(ActionEvent event) {
         boolean closeWindow = true;
         ApprovalDataVO approvalDataVO = approvalSession.findNonExpiredApprovalRequest(approvalDataVOView.getApprovalId());
@@ -248,7 +250,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                             updatedProperties.add(propertyIterator.next());
                         }
                         storedApprovalProfile.addPropertiesToPartition(currentStep.getStepIdentifier(), partitionId, updatedProperties);
-                        //Update any set meta data. 
+                        //Update any set meta data.
                         final Approval approval = new Approval(comment, currentStep.getStepIdentifier(), partitionId);
                         Action action = getPartitionActions().get(partitionId);
                         if(action != null) {
@@ -317,20 +319,20 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         }
         return "approveaction";
     }
-    
+
     private void closeWindow() {
         //Hack for closing the window after saving
-        FacesContext facesContext = FacesContext.getCurrentInstance(); 
-        //Add the Javascript to the rendered page's header for immediate execution 
-        AddResource addResource = AddResourceFactory.getInstance(facesContext); 
+        FacesContext facesContext = FacesContext.getCurrentInstance();
+        //Add the Javascript to the rendered page's header for immediate execution
+        AddResource addResource = AddResourceFactory.getInstance(facesContext);
         //Think of a better solution and you're free to implement it.
-        addResource.addInlineScriptAtPosition(facesContext, AddResource.HEADER_BEGIN, "window.close();");   
-        //I'm so, so sorry. I have dishonored my dojo. 
+        addResource.addInlineScriptAtPosition(facesContext, AddResource.HEADER_BEGIN, "window.close();");
+        //I'm so, so sorry. I have dishonored my dojo.
     }
-           
+
     public void setUniqueId(int uniqueId) {
     	log.debug("ApproveActionSessionBean.setApprovalId setting uniqueId : " + uniqueId);
-    	updateApprovalRequestData(uniqueId);	
+    	updateApprovalRequestData(uniqueId);
     }
 
     private void updateApprovalRequestData(int id){
@@ -340,7 +342,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     	try {
     		RAAuthorization raAuthorization = new RAAuthorization(EjbcaJSFHelper.getBean().getAdmin(), globalConfigurationSession,
     				authorizationSession, caSession, endEntityProfileSession);
-    		result = approvalSession.query(query, 0, 1, raAuthorization.getCAAuthorizationString(), 
+    		result = approvalSession.query(query, 0, 1, raAuthorization.getCAAuthorizationString(),
     		        raAuthorization.getEndEntityProfileAuthorizationString(AccessRulesConstants.APPROVE_END_ENTITY));
     		if (result.size() > 0) {
     			this.approvalDataVOView = new ApprovalDataVOView(result.get(0));
@@ -349,16 +351,16 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     		addErrorMessage("INVALIDQUERY");
     	} catch (AuthorizationDeniedException e) {
     		addErrorMessage("AUTHORIZATIONDENIED");
-    	}	
+    	}
     }
-
+    
     public String getComment() {
     	return "";
     }
     public void setComment(String comment) {
     	this.comment = comment;
     }
-    
+
     public int getNumberOfPartitionsInStep() {
         ApprovalStep step = getCurrentStep();
         if(step == null) {
@@ -367,7 +369,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         return step.getPartitions().size();
         }
     }
-    
+
     /**
      * @return the ordinal of the step currently being evaluated
      */
@@ -385,9 +387,9 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         }
 
     }
-    
+
     /**
-     * 
+     *
      * @return the step currently being evaluated
      */
     public ApprovalStep getCurrentStep() {
@@ -404,9 +406,9 @@ public class ApproveActionManagedBean extends BaseManagedBean {
             }
         }
     }
-    
+
     /**
-     * 
+     *
      * @return all previous partitions that the current admin has view access to
      */
     public ListDataModel<ApprovalPartitionProfileGuiObject> getPreviousPartitions() {
@@ -440,9 +442,9 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         return previousPartitions;
 
     }
-    
+
     /**
-     * 
+     *
      * @return all partitions that the current admin has view access to
      */
     public ListDataModel<ApprovalPartitionProfileGuiObject> getApprovalPartitions() {
@@ -471,7 +473,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         }
         return partitionsAuthorizedToView;
     }
-    
+
     public boolean canApprovePartition(ApprovalPartitionProfileGuiObject partition) {
         if(partitionsAuthorizedToApprove == null) {
             getActionForPartition();
@@ -486,48 +488,57 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         if(approvalDataVO.getApprovalRequest().isEditedByMe(getAdmin())) {
             return false;
         }
-        
+
         if(approvalDataVO.getApprovalRequest().getRequestAdmin().equals(getAdmin())) {
             return false;
         }
-        
+
         Collection<Approval> approvals = approvalDataVO.getApprovals();
         for(Approval approval : approvals) {
             if(approval.getAdmin().equals(getAdmin())) {
                 return false;
             }
         }
-        
+
         return true;
     }
-    
+
     /**
-     * 
      * @return true if the current admin has access to approve any partitions at all
      */
     public boolean canApproveAnyPartitions() {
         ApprovalDataVO approvalDataVO = approvalSession.findNonExpiredApprovalRequest(approvalDataVOView.getApprovalId());
-        //Check that there are are partitions to approve, and that the request didn't originate from the current admin. 
-        return !partitionsAuthorizedToApprove.isEmpty() && (approvalDataVO != null ? !approvalDataVO.getApprovalRequest().getRequestAdmin().equals(getAdmin()) : true);
+        boolean hasAlreadyApproved = false;
+        for (ApprovalView approvalView : getApprovalViews()) {
+            if (approvalView.getApprovalAdmin().equals(getAdmin().toString())) {
+                hasAlreadyApproved = true;
+                break;
+            }
+        }
+        // Check that there are are partitions to approve, that the request didn't originate from the current admin and that
+        // the current admin hasn't previously approved any part of the request
+        return !partitionsAuthorizedToApprove.isEmpty()
+                && (approvalDataVO != null ? !approvalDataVO.getApprovalRequest().getRequestAdmin().equals(getAdmin()) : true)
+                && !hasAlreadyApproved;
     }
-    
+
     /**
-     * Checks whether a certain property was defined in the approval profile to be read only, i.e. displayed but not changeable. 
-     * 
+     * Checks whether a certain property was defined in the approval profile to be read only, i.e. displayed but not changeable.
+     *
      * @param propertyName the name of the property
-     * @return true if the property was defined as read-only, false otherwise. 
+     * @return true if the property was defined as read-only, false otherwise.
      */
     public boolean isPropertyReadOnly(final String propertyName) {
         return approvalDataVOView.getApprovalProfile().getReadOnlyProperties().contains(propertyName);
     }
-    
+
     /**
      * Extract the partition properties, and fill in all and any placeholders. Also cull any properties set to be hidden.
-     * 
-     * @return a list of dynamic properties 
+     *
+     * @return a list of dynamic properties
      */
     private List<DynamicUiProperty<? extends Serializable>> getPartitionProperties(ApprovalPartition approvalPartition) {
-        Set<String> hiddenPropertyNames = approvalDataVOView.getApprovalProfile().getHiddenProperties();    
+        Set<String> hiddenPropertyNames = approvalDataVOView.getApprovalProfile().getHiddenProperties();
         List<DynamicUiProperty<? extends Serializable>> propertyList = new ArrayList<>();
         for (String propertyName : approvalPartition.getPropertyList().keySet()) {
             if (!hiddenPropertyNames.contains(propertyName)) {
@@ -551,7 +562,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                         }
                     }
                     if (!roleRepresentations.contains(propertyClone.getDefaultValue())) {
-                        //Add the default, because it makes no sense why it wouldn't be there. Also, it may be a placeholder for something else. 
+                        //Add the default, because it makes no sense why it wouldn't be there. Also, it may be a placeholder for something else.
                         roleRepresentations.add(0, (RoleInformation) propertyClone.getDefaultValue());
                     }
                     propertyClone.setPossibleValues(roleRepresentations);
@@ -566,6 +577,152 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         }
         return propertyList;
     }
+
+    /**
+     * Updates approval request based on the changes in approval profile.
+     * Also updates corresponding approval profile in the approval profile session.
+     *
+     * @param uniqueId id of approval request data to be updated.
+     */
+    public void updateApprovalRequest(final int uniqueId) {
+
+        ApprovalDataVO approvalDataVO = approvalSession.findNonExpiredApprovalRequest(approvalDataVOView.getApprovalId());
+        
+        if (approvalDataVO == null) {
+            log.warn("Approval request already expired or invalid!");
+            return;
+        }
+        
+        ApprovalRequest currentApprovalRequest = approvalDataVO.getApprovalRequest();
+        
+        ApprovalProfile approvalProfileFromRequest = currentApprovalRequest.getApprovalProfile();
+        ApprovalProfile approvalProfileFromSession = approvalProfileSession.getApprovalProfile(currentApprovalRequest.getApprovalProfile().getProfileId().intValue());
+        
+        // Set the updated approval profile in current request.
+        currentApprovalRequest.setApprovalProfile(updateApprovalProfile(approvalProfileFromRequest));
+        approvalSession.updateApprovalRequest(approvalDataVO.getId(), currentApprovalRequest);
+        
+        // To update the roles and make authorization possible
+        try {
+            approvalProfileSession.changeApprovalProfile(getAdmin(), updateApprovalProfile(approvalProfileFromSession));
+        } catch (AuthorizationDeniedException e) {
+            log.info("Not authorized to change approval profile!" + e);
+        }
+
+        updateApprovalRequestData(uniqueId);
+    }
     
-     
+    /**
+     * Updates the approval profile based on the role changes in session.
+     * 
+     * @param approvalProfile
+     * @return
+     */
+    private ApprovalProfile updateApprovalProfile(final ApprovalProfile approvalProfile) {
+        
+        for (ApprovalStep approvalStep : approvalProfile.getSteps().values()) {
+            for (ApprovalPartition approvalPartition : approvalStep.getPartitions().values()) {
+                for (DynamicUiProperty<? extends Serializable> property : approvalPartition.getPropertyList().values()) {
+
+                    DynamicUiProperty<? extends Serializable> propertyClone = new DynamicUiProperty<>(property);
+
+                    if (property.getName().equals(PartitionedApprovalProfile.PROPERTY_ROLES_WITH_VIEW_RIGHTS)
+                            || property.getName().equals(PartitionedApprovalProfile.PROPERTY_ROLES_WITH_APPROVAL_RIGHTS)) {
+
+                        List<RoleInformation> updatedRoleInformation = new ArrayList<>();
+
+                        for (final Serializable value : property.getPossibleValues()) {
+                            RoleInformation roleInfo = (RoleInformation) value;
+                            updatedRoleInformation.addAll(updateRoleMembers(roleInfo));
+                        }
+
+                        if (!updatedRoleInformation.contains(propertyClone.getDefaultValue())) {
+                            //Add the default, because it makes no sense why it wouldn't be there. Also, it may be a placeholder for something else.
+                            updatedRoleInformation.add(0, (RoleInformation) propertyClone.getDefaultValue());
+                        }
+
+                        propertyClone.setPossibleValues(updatedRoleInformation);
+                        updateEncodedValues(propertyClone, property);
+                        
+                        approvalPartition.removeProperty(property.getName());
+                        approvalPartition.addProperty(propertyClone);
+
+                        approvalStep.removePropertyFromPartition(approvalPartition.getPartitionIdentifier(), property.getName());
+                        approvalStep.setPropertyToPartition(approvalPartition.getPartitionIdentifier(), propertyClone);
+
+                        approvalProfile.removePropertyFromPartition(approvalStep.getStepIdentifier(), approvalPartition.getPartitionIdentifier(),
+                                property.getName());
+                        approvalProfile.addPropertyToPartition(approvalStep.getStepIdentifier(), approvalPartition.getPartitionIdentifier(),
+                                propertyClone);
+                    }
+                }
+            }
+        }
+        
+        return approvalProfile;
+    }
+    
+     /**
+      * Update role members based on latest from role member session.
+      *
+      * @param roleToUpdate
+      * @return list of updated role infos.
+      */
+     private List<RoleInformation> updateRoleMembers(final RoleInformation roleToUpdate) {
+         final List<Role> allAuthorizedRoles = roleSession.getAuthorizedRoles(getAdmin());
+         final List<RoleInformation> roleRepresentations = new ArrayList<>();
+         for (final Role role : allAuthorizedRoles) {
+             if (role.getRoleId() == roleToUpdate.getIdentifier()
+                     && (AccessRulesHelper.hasAccessToResource(role.getAccessRules(), AccessRulesConstants.REGULAR_APPROVEENDENTITY)
+                             || AccessRulesHelper.hasAccessToResource(role.getAccessRules(), AccessRulesConstants.REGULAR_APPROVECAACTION))) {
+                 try {
+                     final List<RoleMember> roleMembers = roleMemberSession.getRoleMembersByRoleId(getAdmin(), role.getRoleId());
+                     roleRepresentations.add(RoleInformation.fromRoleMembers(role.getRoleId(), role.getNameSpace(), role.getRoleName(), roleMembers));
+                 } catch (AuthorizationDeniedException e) {
+                     if (log.isDebugEnabled()) {
+                         log.debug("Not authorized to members of authorized role '" + role.getRoleNameFull() + "' (?):" + e.getMessage());
+                     }
+                 }
+             }
+         }
+         return roleRepresentations;
+     }
+
+     /**
+      * Updates the encoded values of propertyClone if
+      * there has been a change in the role members of the
+      * any of the roles which were selected in the list box
+      * before the change.
+      * Uses property identifier as a base for comparison.
+      *
+      * @param propertyClone updated property
+      * @param property current property
+      */
+     private void updateEncodedValues(final DynamicUiProperty<? extends Serializable> propertyClone,
+             final DynamicUiProperty<? extends Serializable> property) {
+
+         List<Integer> currentIds = new ArrayList<>();
+
+         for (final String value : property.getEncodedValues()) {
+             RoleInformation roleInfo = (RoleInformation) DynamicUiProperty.getAsObject(value);
+             currentIds.add(roleInfo.getIdentifier());
+         }
+
+         List<String> finalListOfEncodedValues = new ArrayList<>();
+
+         for (final Serializable value : propertyClone.getPossibleValues()) {
+             RoleInformation roleInformation = (RoleInformation) value;
+
+             if (currentIds.contains(roleInformation.getIdentifier())) {
+                 finalListOfEncodedValues.add(property.getAsEncodedValue(property.getType().cast(value)));
+             }
+         }
+
+         // Here we update the propertyClone set of encoded values.
+         try {
+             propertyClone.setEncodedValues(finalListOfEncodedValues);
+         } catch (PropertyValidationException e) {
+             log.error("Invalid propery value while setting the encoded values for property clone!" + e);
+         }
+     }
 }

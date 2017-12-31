@@ -42,36 +42,58 @@ org.cesecore.authorization.control.StandardRules
 </head>
 <body>
     <h1>
-        <h:outputText value="#{web.text.CTLOGCONFIGURATION_EDITLOG}: #{systemConfigMBean.editedCTLogDisplayName}"/>
+        <h:outputText value="#{web.text.CTLOGCONFIGURATION_EDITLOG}: #{systemConfigMBean.ctLogManager.ctLogEditor.ctLogBeingEdited.url}"/>
         <%= ejbcawebbean.getHelpReference("/adminguide.html#Certificate%20Transparency%20(Enterprise%20only)") %>
     </h1>
-    <div class="message"><h:messages layout="table" errorClass="alert" infoClass="info"/></div>
+    <div class="message">
+        <h:messages layout="table" errorClass="alert" infoClass="info"/>
+    </div>
     <h:form id="currentCustomCertExtensionForm" enctype="multipart/form-data">
         <h:panelGrid columns="2">
-            <h:outputLink value="adminweb/sysconfig/systemconfiguration.jsf"><h:outputText value="#{web.text.BACK}"/></h:outputLink>
+            <h:outputLink value="adminweb/sysconfig/systemconfiguration.jsf">
+                <h:outputText value="#{web.text.BACK}"/>
+            </h:outputLink>
             <h:panelGroup id="placeholder1"/>
 
             <h:outputText value="#{web.text.CTLOGCONFIGURATION_URL}"/>
-            <h:inputText value="#{systemConfigMBean.editedCTLogURL}" size="46"/>
+            <h:inputText value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogUrl}" size="46"/>
             
             <h:outputText value="#{web.text.CTLOGCONFIGURATION_CURRENT_PUBLICKEY}"/>
-            <h:outputText value="#{systemConfigMBean.editedCTLogPublicKeyID}" styleClass="monospace"/>
+            <h:outputText value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogBeingEdited.logKeyIdString}" styleClass="monospace"/>
             
             <h:outputText value="#{web.text.CTLOGCONFIGURATION_REPLACE_PUBLICKEY} "/>
-            <t:inputFileUpload id="editedCTLogKeyFile" value="#{systemConfigMBean.editedCTLogPublicKeyFile}" title="#{web.text.CTLOGCONFIGURATION_NEW_PUBLICKEYFILE}"/>
+            <t:inputFileUpload id="editedCTLogKeyFile" 
+                value="#{systemConfigMBean.ctLogManager.ctLogEditor.publicKeyFile}" 
+                title="#{web.text.CTLOGCONFIGURATION_NEW_PUBLICKEYFILE}"/>
             
             <h:outputText value="#{web.text.CTLOGCONFIGURATION_TIMEOUT}"/>
-            <h:inputText id="editedCTLogTimeout" required="true"
-                                    value="#{systemConfigMBean.editedCTLogTimeout}"
-                                    title="#{web.text.FORMAT_MILLISECONDS}"
-                                    size="10"/>
-            <h:outputText value="#{web.text.MANDATORY}" />
-            <h:panelGroup>
-                <h:selectBooleanCheckbox id="isCtLogMandatory" value="#{systemConfigMBean.isEditedCtLogMandatory}" />
-                <h:outputLabel for="isCtLogMandatory" value="#{web.text.YES}" />
-            </h:panelGroup>
+            <h:inputText id="editedCTLogTimeout" 
+                required="true"
+                value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogTimeout}"
+                title="#{web.text.FORMAT_MILLISECONDS}"
+                size="10"/>
+            <h:outputText value="#{web.text.LABEL}"/>
+            <h:inputText id="editedCtLogLabel"
+                required="true"
+                value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogLabel}"
+                size="46"/>
         </h:panelGrid>
-        <h:commandButton action="#{systemConfigMBean.saveEditedCTLog}" value="#{web.text.SAVE}" />
+        
+        <h3><h:outputLabel value="#{web.text.CONSTRAINTS}"/></h3>
+        <div class="block">
+	         <h:selectBooleanCheckbox id="enableExpirationYearAcceptanceRule"
+	             styleClass="checkbox"
+	             value="#{systemConfigMBean.ctLogManager.ctLogEditor.isAcceptingByExpirationYear}" /> 
+	         <h:outputLabel for="enableExpirationYearAcceptanceRule" 
+	             value="#{web.text.ACCEPTING_BASED_ON_YEAR_OF_EXPIRY}" />
+	    </div>
+	    <div class="block">
+	         <h:outputText value="#{web.text.YEAR}"
+	             styleClass="textLabel"/>
+             <h:inputText id="expirationYearRequired"
+                 value="#{systemConfigMBean.ctLogManager.ctLogEditor.expirationYearRequired}" />
+	    </div>
+        <h:commandButton action="#{systemConfigMBean.ctLogManager.saveCtLogBeingEdited}" value="#{web.text.SAVE}" />
     </h:form>
     <%  // Include Footer 
     String footurl = globalconfiguration.getFootBanner(); %>

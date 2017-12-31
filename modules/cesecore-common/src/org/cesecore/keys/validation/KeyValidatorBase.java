@@ -1,20 +1,23 @@
 /*************************************************************************
  *                                                                       *
- *  EJBCA: The OpenSource Certificate Authority                          *
+ *  CESeCore: CE Security Core                                           *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
- *  modify it under the terms of the GNU Lesser General Public           *
+ *  modify it under the terms of the GNU Lesser General                  *
  *  License as published by the Free Software Foundation; either         *
  *  version 2.1 of the License, or any later version.                    *
  *                                                                       *
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.cesecore.keys.validation;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
@@ -29,8 +32,14 @@ public abstract class KeyValidatorBase extends ValidatorBase implements KeyValid
     private static final Logger log = Logger.getLogger(KeyValidatorBase.class);
     
     private static final long serialVersionUID = 1L;
-
-
+    
+    /** List of applicable issuance phases (see {@link IssuancePhase}). */ 
+    protected static List<Integer> APPLICABLE_PHASES;
+    
+    static {
+        APPLICABLE_PHASES = new ArrayList<Integer>();
+        APPLICABLE_PHASES.add(IssuancePhase.DATA_VALIDATION.getIndex());
+    }
     
     /**
      * Public constructor needed for deserialization.
@@ -44,25 +53,25 @@ public abstract class KeyValidatorBase extends ValidatorBase implements KeyValid
      */
     public KeyValidatorBase(final String name) {
         super(name);
-        init();
     }
 
-    /**
-     * Creates a new instance with the same attributes as the given one.
-     */
-    public KeyValidatorBase(final KeyValidatorBase keyValidator) {
-        super();
-    }
-    
     @Override
     public void init() {
         super.init();
+        if (null == data.get(PHASE)) {
+            setPhase(getApplicablePhases().get(0));
+        }
         if (null == data.get(NOT_BEFORE_CONDITION)) {
             setNotBeforeCondition(KeyValidatorDateConditions.LESS_THAN.getIndex());
         }
         if (null == data.get(NOT_AFTER_CONDITION)) {
             setNotAfterCondition(KeyValidatorDateConditions.LESS_THAN.getIndex());
         }
+    }
+
+    @Override
+    public List<Integer> getApplicablePhases() {
+        return APPLICABLE_PHASES;
     }
     
     @Override

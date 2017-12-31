@@ -358,7 +358,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         endEntityInformation1.setSubjectAltName(null);
         endEntityInformation1.setStatus(EndEntityConstants.STATUS_NEW);
         endEntityInformation1.setTokenType(SecConst.TOKEN_SOFT_JKS);
-        endEntityInformation1.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
+        endEntityInformation1.setEndEntityProfileId(EndEntityConstants.EMPTY_END_ENTITY_PROFILE);
         endEntityInformation1.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
         endEntityInformation1.setType(new EndEntityType(EndEntityTypes.ENDUSER, EndEntityTypes.ADMINISTRATOR));
         if (!endEntityManagementSession.existsUser(TEST_ADMIN_USERNAME)) {
@@ -377,7 +377,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         endEntityInformation2.setSubjectAltName(null);
         endEntityInformation2.setStatus(EndEntityConstants.STATUS_NEW);
         endEntityInformation2.setTokenType(SecConst.TOKEN_SOFT_JKS);
-        endEntityInformation2.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
+        endEntityInformation2.setEndEntityProfileId(EndEntityConstants.EMPTY_END_ENTITY_PROFILE);
         endEntityInformation2.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
         endEntityInformation2.setType(EndEntityTypes.ENDUSER.toEndEntityType());
         if (!endEntityManagementSession.existsUser(TEST_NONADMIN_USERNAME)) {
@@ -2232,7 +2232,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
     protected void ejbcaVersion() throws Exception {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 6.10";
+        final String expectedSubString = "EJBCA 6.11";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));
     }
 

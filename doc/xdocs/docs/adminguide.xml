@@ -2316,20 +2316,26 @@ You can accomplish this by adding the following to JAVA_OPTS:
 <section name="Certificate Transparency (Enterprise only)">
 <subsection name="Introduction">
 <p>EJBCA Enterprise Edition implements Certificate Transparency (CT) as specified in <a href="http://tools.ietf.org/html/rfc6962">RFC 6962</a>.
-The purpose of CT is to create public audit logs of all certificates issued by the public SSL/TLS CAs. The presence of audit records is planned to be required for EV certificates in Google Chrome from February 2015 (and other web browsers and non-EV certificates later on as well). Note that CT is only relevant for CAs issuing <em>public SSL/TLS</em> certificates; other types of CAs should not use CT. More information can be found on the <a href="http://www.certificate-transparency.org/">CT website</a>.</p>
+The purpose of CT is to create public audit logs of all certificates issued by the public SSL/TLS CAs. The presence of audit records is planned to be required for EV certificates in Google Chrome from February 2015 
+(and other web browsers and non-EV certificates later on as well). Note that CT is only relevant for CAs issuing <em>public SSL/TLS</em> certificates; other types of CAs should not use CT. More information can be 
+found on the <a href="http://www.certificate-transparency.org/">CT website</a>.</p>
 
-<p>From a CA's point of view, CT works by publishing certificates from the CA to the log servers and retrieving Signed Certificate Timestamps (SCTs) in response (this is a single operation, so requesting an SCT for a certificate publishes it also). The resulting SCTs can then be sent to end-users in a TLS handshake three ways: in a certificate extension, in a stapled OCSP response extension and/or in a TLS extension. 
-EJBCA supports all of those, including combinations. The following sections describe how to configure EJBCA in one or more of these modes.</p>
+<p>From a CA's point of view, CT works by publishing certificates from the CA to the log servers and retrieving Signed Certificate Timestamps (SCTs) in response (this is a single operation, so requesting an SCT for 
+a certificate publishes it also). The resulting SCTs can then be sent to end-users in a TLS handshake in three different ways: in a certificate extension, in a stapled OCSP response and/or in a TLS extension. 
+EJBCA supports all of these, including combinations. The following sections describe how to configure EJBCA in one or more of these modes.</p>
 </subsection>
 
 <subsection name="Prerequisites">
-<p>Your EJBCA installation needs the <code><strong>ct</strong></code> module, which is only present in the enterprise edition (contact <a href="mailto:sales@primekey.com">PrimeKey</a> for details). Depending on the CT modes you need, there are some extra preparations.</p>
+<p>Your EJBCA installation needs the <code><strong>ct</strong></code> module, which is only present in the enterprise edition (contact <a href="mailto:sales@primekey.com">PrimeKey</a> for details). Depending on the 
+CT modes you need, there are some extra preparations.</p>
 
 <subsubsection name="CT in certificates">
 <p>No extra preparations are needed. Just configure the logs and enable CT in the certificate profiles as described in the following sections "Adding CT logs" and "Activating CT".</p>
 </subsubsection>
 <subsubsection name="CT in OCSP responses">
-<p>EJBCA supports CT in OCSP responses, both in live OCSP responders and for pre-production of responses. By default, EJBCA will cache up to approximately <nobr>100 000</nobr> CT response extensions in memory. Excess cached response extensions that haven't been requested for 10 seconds are randomly evicted from the cache. These parameters may be adjusted in <code>conf/cesecore.properties</code>. In order to use CT OCSP you must also enable the corresponding extension class in <code>conf/ocsp.properties</code>:</p>
+<p>EJBCA supports CT in OCSP responses, both in live OCSP responders and for pre-production of responses. By default, EJBCA will cache up to approximately <nobr>100 000</nobr> CT response extensions in memory. Excess 
+cached response extensions that haven't been requested for 10 seconds are randomly evicted from the cache. These parameters may be adjusted in <code>conf/cesecore.properties</code>. In order to use CT OCSP you must 
+also enable the corresponding extension class in <code>conf/ocsp.properties</code>:</p>
 
 <source>
 ocsp.extensionoid=*1.3.6.1.4.1.11129.2.4.5
@@ -2339,9 +2345,8 @@ ocsp.extensionclass=org.ejbca.core.protocol.ocsp.extension.certificatetransparen
 <p>After enabling the extension, please redeploy EJBCA. Then proceed with configuring CT logs and certificate profiles. See the following sections "Adding CT logs" and "Activating CT".</p>
 </subsubsection>
 <subsubsection name="CT in a TLS extension">
-<p>In this mode, the certificate holder requests SCTs himself from the logs and includes them in a TLS extension.
-The CA is not required to do anything, but it is possible to reduce the time it takes until full (merged) audit log
-records are available by publishing certificates to the logs as soon as they are issued. See the following section for configuration details.</p>
+<p>In this mode, the certificate holder requests SCTs himself from the logs and includes them in a TLS extension. The CA is not required to do anything, but it is possible to reduce the time it takes until full 
+(merged) audit log records are available by publishing certificates to the logs as soon as they are issued. See the following section for configuration details.</p>
 </subsubsection>
 <subsubsection name="Publishing to logs without using the SCTs">
 <p>EJBCA can asynchronously publish certificates to one or more CT logs, using a Custom Publisher. This feature is intended to be used mainly when using CT in TLS mode or OCSP mode.
@@ -2369,36 +2374,48 @@ To enable this feature, go to CA Functions, Publishers and add a new publisher w
 
 </subsection>
 <subsection name="Adding CT logs">
-<p>CT log servers are configured under System Configuration. They do not become active until they are enabled per certificate profile.
-The following parameters have to be configured in a log:</p>
+<p>CT log servers are configured under System Configuration. They do not become active until they are enabled per certificate profile. The following parameters have to be configured in a log:</p>
 
 <ul>
 <li>Log URL : The log URL, e.g. <code>http://something/</code>, for example <code>https://ct.googleapis.com/testtube/</code>.</li>
 <li>Public Key : The log's public key, in PEM or DER format. Usually this is an Elliptic Curve key.</li>
-<li>Timeout : Connection timeout in milliseconds. Five seconds is the default. Note that certificate
-issuing and/or OCSP response generation must wait for the log server to respond, so do not set it too high.
+<li>Timeout : Connection timeout in milliseconds. Five seconds is the default. Note that certificate issuance and/or OCSP response generation must wait for the log server to respond, so do not set it too high.
 Note that zero is not a valid value for the timeout.</li>
-<li>Mandatory : Mark the log as 'Mandatory', see below.</li>
+<li>Label: Specify which label to place the log under. See "CT log labels" below.</li>
 </ul>
 
-<p>The log server needs to accept certificates issued by your CAs. For local testing you can install your own instance of the sample log server from the <a href="https://code.google.com/p/certificate-transparency/">CT open source project</a>, and add your root CA to the list of trusted CAs. For a production system (or testing of one) you must contact the log operator to have your root CA added.</p>
+<p>The log server needs to accept certificates issued by your CAs. For local testing you can install your own instance of the sample log server from the <a href="https://code.google.com/p/certificate-transparency/">
+CT open source project</a>, and add your root CA to the list of trusted CAs. For a production system (or testing of one) you must contact the log operator to have your root CA added.</p>
 
-<p>For redundancy, it's recommended to add more logs than the minimum required in the certificate profile. That way certificate issuance will not fail if a single log is down.
-It is also a good idea to specify a short timeout value and/or enable the "ct.fastfail.enabled" option in conf/cesecore.properties, so a failing log does not slow down all requests.</p>
-<p>Regarding performance, EJBCA will connect to the logs in the order they have been added and in parallel, with the number of concurrent connections controlled by the 'Maximum number of mandatory SCTs' 
-and 'Maximum number of non-mandatory SCTs' value. It will also keep fetching SCTs until this number is reached (the 'Minimum number of mandatory SCTs', 'Minimum number of non-mandatory SCTs' and 
-'Minimum number of SCTs in total' value is currently only a limit for when EJBCA will consider the request failed). If you have more logs than the 'Maximum number of mandatory SCTs' or 'Maximum number of 
-non-mandatory SCTs' value, it's recommended to put slow (e.g. geographically distant) or unreliable logs at the end of the list, so they are only contacted as a last resort.</p>
+<p>For redundancy, it's recommended to add more logs to each label than the minimum required. That way certificate issuance will not fail if a single log is down. It is also a good idea to specify a short timeout 
+value and/or enable the "ct.fastfail.enabled" option in conf/cesecore.properties, so a failing log does not slow down all requests.</p>
 
-<p>You may change the order the logs are contacted by moving them up or down in the configuration page. The changed log ordering will not take effect until you edit and save your Certificate Profiles that use 
-the moved CT logs.</p>
+<p>Regarding performance: EJBCA will connect to every log having one of the labels selected in the certificate profile, in the order they have been added and in parallel. It will keep fetching SCTs until 
+'Maximum number of SCTs' is reached. EJBCA will fail issuance if it is unable to fetch at least the number of SCTs given by the parameter 'Minimum number of SCTs' specified in the 
+certificate profile. If the number of retrieved SCTs exceeds the max value, the log(s) last in order will be excluded.</p>
+
+<p>You may change the order in which the logs are contacted by moving them up or down in the 'System Configuration' page.</p>
 
 </subsection>
-<subsubsection name="Mandatory CT logs">
+<subsubsection name="CT log labels">
 <p>It may be a requirement to publish to certain logs and a certain number of logs before issuing a certificate. For example, Google Chrome requires that all EV certificates issued after 1st of 
 January 2015 must be published to at least one CT log operated by Google, at least one log not operated by Google, and to a certain number of logs in total, where the total amount of logs depends on the lifetime
-of the certificate. This is achieved by marking on or more Google logs as 'Mandatory' in the 'System Configuration' page and adjusting the 'Minimum number of mandatory SCTs', 'Minimum number of non-mandatory SCTs' 
-and 'Minimum number of SCTs in total' for the approprite certificate profile.</p>
+of the certificate. This is achieved by grouping logs using labels in 'System Configuration' page. All logs with the same label forms a log group. EJBCA will fail issuance unless it receieves at least one SCT from
+each log group. Log groups are enabled/disabled by selecting/deselecting labels in the certificate profile.</p>
+
+<p>The parameters 'Minimum number of SCTs' and 'Maximum number of SCTs' can be configured for each certificate profile, either manually or by certificate validity according to CT policy. An example setup complying to
+Chrome's CT policy could contain the following: </p>
+
+<ul>
+  <li>Two labels, 'Google logs' containing a set of logs operated by Google and 'Unlabeled' containing a set of logs not operated by Google.</li>
+  <li>A certificate profile with: 
+  <ul>
+    <li>The labels "Google logs" and "Unlabeled" selected</li>
+    <li>The paramater 'Minimum number of SCTs' set to 'By validity' to let EJBCA select a minimum dynamically based on Chrome's CT Policy.</li>
+    <li>The parameter 'Maximum number of SCTs' set to 'By validity' to only include the number of SCT's required based on Chrome's CT Policy in the certificate.</li>
+  </ul>
+  </li>
+</ul>
 
 </subsubsection>
 <subsection name="EJBCA audit logging">
@@ -2619,6 +2636,56 @@ Similarly the column serialNumber column of the table KeyRecoveryData matches th
         If an administrator belongs to multiple roles with RA Styles applied, the desired style can be changed from the 'Preferences' menu in the RA Web.
         </p>
     </subsection>
+</section>
+
+<section name="Modular Protocols Configuration">
+<p>
+EJBCA supports multiple protocols for certificate enrollment, status and web services. It might however be desirable to disable some of these for an EJBCA instance in order to reduce the attack surface. 
+E.g. an instance serving as an OCSP responder would not likely have any use for enrollment protocols, hence they can be disabled for that instance. Any request to a disabled protocol or service is 
+rejected immediately and an error code is returned.
+</p>
+<subsection name="Local Configuration">
+<p>
+The following protocols and services can be disabled:
+<ul>
+    <li>Certstore 	- Certificate store servlet /certificates</li>
+    <li>CMP 		- CMP protocol servlet /ejbca/publicweb/cmp</li>
+    <li>CRLstore 	- CRL Store servlet /crls</li>
+    <li>EST 		- EST protocol servlet /.well-known/est</li>
+    <li>OCSP		- OCSP Servlet /ejbca/publicweb/status/ocsp</li>
+    <li>Public Web 	- All functionality of public web /ejbca</li>
+    <li>SCEP 		- SCEP protocol servlet /ejbca/publicweb/apply/scep</li>
+    <li>Webdist 	- Web dist servlet /ejbca/publicweb/webdist</li>
+    <li>Web Service - All web service calls requiring authentication /ejbca/ejbcaws</li>
+</ul> 
+</p>
+<p>
+All configurable protocols and services added &lt; EJBCA 6.11.0 are enabled by default. Protocols can be disabled or re-enabled from the Admin GUI:
+<ol>
+    <li>System Configuration</li>
+    <li>Select the tab 'Protocol Configuration'</li>
+    <li>Enable or disable the desired protocol or service</li>
+</ol>
+</p>
+</subsection>
+<subsection name="Protocol Configurration Over Peers">
+<p>
+Each instance can disable protocols locally as described above. Additionally, an administrator may disable protocols for each outgoing Peer connection using access rules, hence making it possible to control protocol 
+access of remote instances. Disabling a protocol locally or for a Peer connection will always override an enabled configuration. E.g. if an external RA has web services disabled locally and the outgoing Peer 
+connection from the CA has configured web services as 'Allowed'. Any web service call to the external RA would be rejected. Currently, only external instances using RA proxying and protocols supporting it (CMP, EST 
+and Web services) are remotely configurable using access rules, i.e. external RAs. For a Peer connected VA instance, protocols may only be disabled locally on that instance.
+</p>
+<p>
+Protocols for an outgoing Peer connection can be configured from in the Admin GUI:
+<ol>
+    <li>Peer Systems</li>
+    <li>Select 'Authorized Requests' for the outgoing Peer (the Peer has to be enabled first)</li>
+    <li>Under 'Process requests from protocols', check protocols to enable, uncheck protocols to disabled and save</li>
+</ol>
+All protocols implemented &lt; EJBCA 6.11.0 are enabled by default for outgoing Peers. The access rules for /protocol/* only apply to Peer connector roles. Denying a protocol for a specific administrator 
+has no effect.
+</p>
+</subsection>
 </section>
 
 <section name="ePassport PKI">
@@ -4579,7 +4646,7 @@ After setting privileges, you can use softhsm as normal user.</p>
 <source>
 softhsm2-util --init-token --free --label myslot
 </source>
-<p>It turns out that the Ubuntu package for SoftHSM2 is not always initializing properly (depending on Ubuntu verion you are running on) so you may have to create missing directories etc. 
+<p>It turns out that the Ubuntu package for SoftHSM2 is not always initializing properly (depending on Ubuntu version you are running on) so you may have to create missing directories etc. 
 If you get an "ERROR: Could not initialize the library" when running the above there is a directory missing, and a token not initialized.</p>
 <source>
 sudo mkdir /var/lib/softhsm/tokens
@@ -5151,19 +5218,27 @@ Modify the matching role and ensure that "Accept long hanging connections (Exter
 
 <section name="Validators">
 	<p>
-		Validators are applied to CA's to validate the issuance of certificates, based on key strength, origin och on other values inherent to the 
-		certificate issued. To apply a Validator to a certificate it's chosen in the CA, where it will be called prior to issuance. Additionally, 
-		validators are restricted to only run for certain Certificate Profiles.
+		Validators are applied to CA's to validate the issuance of certificates, based on key strength, origin or on other values inherent to the 
+		certificate issued. To apply a Validator to a certificate it's chosen in the CA, where it will be called at fixed phase during certificate issuance.
+		Additionally, validators are restricted to only run for certain Certificate Profiles.
 	</p>
+	<p>
+		Validators are applied for one of the defined phases in the certificate issuance process:
+	</p>
+	<ul>
+		<li>'Data validation' after all required data for the certificate issuance was collected but before the certificate was generated, </li>
+		<li>'Pre-certificate validation' after the CT pre-certificate was generated but not stored and issued (works with CT only!), and</li>
+		<li>'Certificate validation' after the certificate was generated but not stored and issued.</li>
+	</ul>
 	<p>
 		To explore Validators, look under the <i>Validators</i> menu item under the <i>CA Functions</i> header.		 
 	</p>
 	<subsection name="Audit Logging">
 		<p>
-			All validation results are audit logged and also logged in the server logs for more detail. 
+			All validation results are audit logged and also logged in the server logs for more detail (log level can be configured). 
 		</p>
 	</subsection>
-	<subsection name="Key Validators">
+	<subsection name="Key Validators (data validation)">
 		<p>
 			Key Validators are rather intuitively meant to validate the quality of keys, foremost as a result of incoming CSRs. There are currently 
 			three types of Key Validators:
@@ -5226,26 +5301,30 @@ bin/ejbca.sh ca updatepublickeyblacklist --command remove --mode fingerprint --d
 		</subsubsection>
 	</subsection>
 	<subsection name="Certificate Field Validators">
-		<p>One may also wish to validate issuance based on other values which can't be evaluated during end entity creation. Currently, only one 
-		such validator has been implemented, the CAA Validator.</p>
+		<p>
+			One may also wish to validate issuance based on other certificate values before it comes to issuance.
+			Currently, only one such validator has been implemented, the CAA Validator.
+		</p>
 		<subsubsection name="CAA Validator">
 			<p>
-			The Certificate Authority Authentication (CAA) validator is based on <a href="https://tools.ietf.org/html/rfc6844">RFC 6844</a> and the 
-			CA/B-Forum <a href="https://cabforum.org/wp-content/uploads/CA-Browser-Forum-BR-1.4.5.pdf">guidelines</a>. These specify that for complying 
+			The Certificate Authority Authorization (CAA) validator is based on <a href="https://tools.ietf.org/html/rfc6844">RFC 6844</a>, <a href="http://www.rfc-editor.org/errata/eid5065">erratum 5065</a> 
+			and the CA/B-Forum <a href="https://cabforum.org/wp-content/uploads/CA-Browser-Forum-BR-1.4.5.pdf">guidelines</a>. These specify that for complying 
 			CAs issuing certificates containing DNSName values in the subjectAltName extension, the CA must perform a lookup check to the DNS(s) of 
-			all specified names and check that the CAA records allow issuance for the given issuer. </p> 
+			all specified names and check that the CAA records allow issuance for the given issuer.</p> 
 			<note>
 				The result of all CAA lookups are written to the server logs on the INFO level.
 			</note>
 			<p> A typical CAA record has the following format:</p>
-<source>
-example.com. 243	IN	CAA	0 issue "ca.org"
-</source>
+			<source>
+			example.com. 243	IN	CAA	0 issue "ca.org"
+			</source>
 			<p>
-				This record says that the issuer known as "ca.org" is permitted to issue certificates (including wildcards) all domains and subdomains 
-				to the domain "example.com". In the EJBCA case, this means that according to CAA an end entity that includes the field <i>DNSNAME=example.com</i>
-				in the subjectAltName (SAN) extension must pass a CAA Validator check before having a certificate issued to it. To set up such a CAA Validator,
-				there are three specific settings which may/should be set: 
+				This record says that the issuer known as "ca.org" is permitted to issue certificates (including wildcards) for all domains and subdomains 
+				to the domain "example.com". In the EJBCA case, this means that according to CAA, an end entity that includes the field <i>DNSNAME=example.com</i>
+				in the subjectAltName (SAN) extension must pass a CAA Validator check before having a certificate issued to it.
+			</p>
+			<p>
+			    EJBCA allows the administrator to configure the following when setting up a CAA Validator:
 			</p>
 			<p>
 				<ul>
@@ -5253,51 +5332,60 @@ example.com. 243	IN	CAA	0 issue "ca.org"
 						<p>This value should match up to the value field in the CAA record of the DNS, i.e "ca.org" in the above example.</p>
 					<li>DNS Resolver</li>
 						<p>Non-mandatory field where you may specify a DNS Resolver (such as 8.8.8.8 or 8.8.4.4). Should be an IP adress. If left 
-						blank, the system default responder will be used</p>
+						blank, Google's Public DNS will be used.</p>
 					<li>Lookup DNAMEs</li>
 					    <p>Check this box if you want to lookup and follow any DNAME records found during CAA processing. To comply with RFC 6844, it is recommended
 					    to keep this option enabled.</p>
 					<li>Validate DNSSEC</li>
-						<p>
-							Check this box if you want DNSSEC to be validated. If this box is checked, your DNS is signed with DNSSEC and your DNS presents a faulty set of records 
-							(suggesting a possible MitM attack), CAA validation will fail. It is strongly recommended to enable DNSSEC checks to ensure the authenticity of DNS responses.
+						<p>Check this box if you want DNSSEC to be validated. If this box is checked, your DNS is signed with DNSSEC and your DNS presents a faulty set of records 
+						(suggesting a possible MitM attack), CAA validation will fail. It is strongly recommended to enable DNSSEC checks to ensure the authenticity of DNS responses.
 						</p>
                     <li>Trust Anchor</li>
-                        <p>
-                            In order to obtain secure answers from the root zone of the DNS using DNSSEC, a trust anchor must be configured. By default IANA
-                            root anchor is used. This value may be modified but should remain unchanged unless the records is signed by another trust anchor.
+                        <p>In order to obtain secure answers from the root zone of the DNS using DNSSEC, a trust anchor must be configured. By default IANA
+                        root anchor is used. This value may be modified but should remain unchanged unless the records is signed by another trust anchor.
                         </p>
+                    <li>Fail on lookup error</li>
+                        <p>The default behaviour is to permit issuance if a lookup error is encountered more than once and EJBCA can establish that the domain is not signed with DNSSEC. To always prohibit
+                        issuance when a lookup error is encountered, tick this option. To have this option enabled may be a compliance requirement if you are contacting your own DNS resolver for CAA lookups.</p>
 					<li>Use IODEF E-mail</li>
 						<p>
-							Checking this box enables sending e-mails to any mailto-links registered on the DNA as CAA IODEF records. Doing so enables the 
+							Checking this box enables sending e-mails to any mailto-links registered on the DNS as CAA IODEF records. Doing so enables the 
 							following additional settings:
 							<ul>
-								<li>From:</li>
-									<p>The <i>From</i> field in the resulting e-mail.</p>
-								<li>Subject:</li>
-									<p>The <i>Subject</i> line in the resulting e-mail.</p>
+								<li>From:</li> <p>The <i>From</i> field in the resulting e-mail.</p>
+								<li>Subject:</li> <p>The <i>Subject</i> line in the resulting e-mail.</p>
 								<li>Additional Information:</li>
 									<p> 
 										Any additonal information required, in addition to the default message which will be appended last:
 									</p> 
-									<p><i><b>
-									A faulty Certificate Request was made for the domain 'example.com' for the issuer ca.com which was 
+								<p><i><b>A faulty Certificate Request was made for the domain 'example.com' for the issuer ca.com which was 
 									rejected by the CA due to the issuer not having a CAA record on the domain's DNS.
-									</b></i></p> 
-								
+								</b></i></p> 
 							</ul>
+						</p>
+					<li>Use IODEF WEB</li>
+						<p>
+							Checking this box enables sending iodef incident reports to any http/s-links registered on the DNS as CAA IODEF records.
 						</p>
 				</ul>
 			</p>
 			<p>
 				A few notes in regards to CAA validation:
-				<ul>
-					<li>CAA validation will pass if the DNS lacks CAA records entirely</li>
-					<li>According to the guidelines, a faulty CAA check should <b>always</b> lead to certificate issuance being canceled.</li>
-					<li>EJBCA currently doesn't validate parameters in CAA records, but such records will still be evaluated correctly. Parameter handling is planned in future versions.</li>
-					<li>EJBCA currently only supports e-mail IODEF records. WebService IODEF calls (RFC 5070) are not yet supported.</li>
-				</ul>			 
 			</p>
+			<note>
+				<ul>
+   					<li>CAA validation will pass if the DNS lacks CAA records entirely</li>
+					<li>EJBCA currently doesn't validate parameters in CAA records, but such records will still be evaluated correctly. Parameter handling is planned in future versions.</li>
+					<li>The CAA Validator requires TCP and UDP port 53 to be open in the firewall.</li>
+					<li>Current iodef implementation does not support TLS protocol to send iodef reports over secure connection. 
+						This will be added per request by customers or in future releases. </li>
+					<li>Another limitation is that the implementation does not support callback, only immidiate reponses with code 200 OK are supported. 
+						See <a href="https://tools.ietf.org/html/rfc6546">RFC-6546</a> for more details.</li>
+					<li>The attributes in the produced incident report are the minimum required ones.
+   						Optionals are ignored for now but could be added if requested.</li>
+				</ul>			 
+			</note>
+			
 			<p><strong>CAA Validator Logging</strong></p>
 			<p>The CAA validator will log both success and failure. Since success can be considered a security event, to be shown as evidence, this is logged in the security audit log. 
 			Failures are not security events per se and logged to the standard server log at info level.</p>
@@ -5321,21 +5409,85 @@ has permitted issuance of certificates to issuer primekey.com, with messages:
 			If you want to have a separate DNS lookup log, you can send the DEBUG log for the class CaaDnsLookup to a separate log, similar to how you can do that for OCSP Transaction and Audit logging. See the <a href="#Logging">Logging section</a> for more information.</p>
 		</subsubsection>
 	</subsection>
+	<subsection name="Post Processing Validators (Pre-Certificate or Certificate Validation)">
+		<p>
+			One may also wish to validate issuance based on other certificat values after the certificate (or eventual pre-certificate) has been generated but not issued, stored and published. Currently, 
+			only one such validator has been implemented: the External Command Certificate Validator.
+		</p>
+		<subsection name="External Script Certificate Validator">
+			<p>
+				With this validator an external script can be called for the generated certificate. The exit code of the external call determines if validation has failed.
+				This can be used not only to validate certificate criterias, but may be used to call other external commands or scripts. Of course the user running EJBCA's 
+				application server needs OS file system permissions to do so.
+			</p>
+			<p>
+				First token of the "External command" field must be the external command or script called, followed by its arguments, all separated by spaces.
+				<br></br>
+				The certificate is stored as a temporary file on the EJBCA server, and its full path is used as first argument. All subsequent arguments are shifted to the right.
+				<br></br>
+				If the placeholder '%cert%' is used as an argument at any position, the certificate is not stored on the EJBCA server file system: instead the placeholder is removed and the PEM encoded certificate is fed to the external command or script via STDIN.
+			</p>
+			<note>
+					The platform for MS Windows and Unix/Linux is auto-detected and the default shell command and shell options are set:
+					<ul>
+						<li>MS Windows -> 'cmd.exe /C'</li>
+						<li>Unix/Linux -> '/bin/sh -c'</li>
+					</ul>
+			</note>		
+			<p>
+				See the following samples for external commands for Unix/Linux platforms:
+			</p>
+            <source>
+/usr/local/opt/script.sh -param1 -param2
+/usr/local/opt/script.sh -param1 -param2 %cert%
+openssl x509 -text -noout -in %cert%
+            </source>
+			<subsubsection name="Whitelisting of scripts">
+			<p>An administrator may want impose restrictions on which scrips can be executed or not for security reasons. It is possible to do this using a whitelist which can be configured
+			under the 'External scripts' tab in the System Configuration's page. The whitelist should contain a list of paths to all scripts allowed to be executed by the External Command Certificate Validator.
+			If the whitelist is enabled by an administrator, any execution of scripts not excplicitly listed on the whitelist is prevented by EJBCA.</p>
+			<note>
+			If the External Scripts Whitelist has been enabled by an administrator and a Validator tries to execute a command which is not on the whitelist, the "Validator was not applicable" action 
+			is carried out.
+			</note>
+			<p>The format of the whitelist is as follows: Each line should contain the full path of the whitelisted script. Lines beginning with the character '#' are treated as comments. The whitelist
+			can contain any number of scripts. An empty (enabled) whitelist will effectively block execution of all external scripts. Below follows an example of a syntactically valid whitelist:</p>
+            <source>
+# -----------------------------------------------------------------------
+# This is an example, this configuration does not necessarily make sense
+# -----------------------------------------------------------------------
+/bin/echo
+# X.509 Certificate Linter by Amazon 
+# https://github.com/awslabs/certlint
+/opt/certlint/certlint
+/opt/certlint/cablint
+# X.509 Certificate Linter based on CA/B Forum Baseline Requirements and RFC 5280 
+# https://github.com/zmap/zlint
+/opt/scripts/zLint.sh
+#/opt/scripts/IAmDisabled.sh
+            </source>
+            <p>
+            This whitelist allows the three scripts '/opt/certlint/certlint', '/opt/certlint/cablint' and '/opt/scripts/zLint.sh' to be executed. There is no restriction on the parameters which can be given
+            as input to these scripts. Any input validation should be done in the script itself.
+            </p>
+			</subsubsection>
+		</subsection>
+	</subsection>
 	<subsection name="Common Validator Settings">
 		<p>
-			To control the behaviour while certificate issuance, for every validator the following base restrictions can be applied:
+			To control the behaviour during certificate issuance, for every validator the following base restrictions can be applied:
 		</p>
 		<ul>
-			<li>Description - a general decription of the Validator, not used for any validation purposes.</li>
-				<li>Apply for Certificate Profiles - Validate keys for these certificate profiles only. If nothing is selected in this list, no validation will be performed.</li>
+			<li>Description - a general description of the Validator, not used for any validation purposes.</li>
+			<li>Apply for Certificate Profiles - Validate keys for these certificate profiles only. If nothing is selected in this list, no validation will be performed.</li>
 			<li>Apply for all Certificate Profiles - Validate keys for all certificate profiles, the list above will be ignored.</li>
-			<li>If Validation failed - Define behaviour if key validation fails (i.e. abort issuance, log error message to trigger monitoring systems, etc.). 
+			<li>If Validation failed - Define behaviour if key validation fails (e.g. abort issuance, log error message to trigger monitoring systems, etc.). 
 				All failed issuance also adds a record in the security audit log.</li>
-			<li>If Validator was not applicable: - Define behaviour if the input is not applicable for the selected validator (i.e. abort issuance, log error 
+			<li>If Validator was not applicable - Define behaviour if the input is not applicable for the selected validator (e.g. abort issuance, log error 
 				message to trigger monitoring systems, etc.). This handles the case when for example a CSR with ECC keys is passed to an RSA key validator.</li>
 		</ul>
 	</subsection>
-</section>
+</section>#
 
 <section name="LDAP and Publishers">
 <p>
@@ -6105,7 +6257,7 @@ publisher "GPCP" and then "Edit" the same. Choose
 <li>Publisher type: General Purpose Custom Publisher</li>
 <li>Properties: </li>
 <ul>
-<li>Full pathname of X publishing script: For example "/fullpathname/exportscript.sh"</li>
+<li>Full pathname of X publishing script: For example "/fullpathname/exportscript.sh" for Unix/Linux or "C:/fullpathname/exportscript.bat" on MS Windows.</li>
 <li>Fail X publishing on script error code: Will treat the publishing as unsuccessful if the script returns with a non-zero error code.</li>
 <li>Fail X publishing on output to stderr: Will treat the publishing as unsuccessful if the script writes anything to standard error.</li>
 <li>Calculate Delta CRL locally: Described below.</li>
@@ -6904,6 +7056,19 @@ Example where there is a error to initialize an (this is a specific example and 
 <p>
 An error event like this should trigger an operator to take a look at the system to gauge what is wrong.
 </p>
+</subsection>
+</section>
+
+<section name="External Scripts">
+<p>Publishers or validators can call external scripts stored as file on the local server. These are: 
+<ul>
+<li>GeneralPurposeCustomPublisher</li>
+<li>ExternalCommandCertificateValidator</li>
+</ul>
+</p>
+<subsection name="Configure External Script Access">
+<p>The access to external scripts must enabled in the system configuration. If this feature is disabled the publishers or validators concerned are 
+neither rendered in the UI nor processed otherwise. Publishers or validators configured by the user are kept unchanged if this feature is disabled.</p>
 </subsection>
 </section>
 

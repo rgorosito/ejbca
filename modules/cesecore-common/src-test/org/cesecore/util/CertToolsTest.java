@@ -142,31 +142,36 @@ public class CertToolsTest {
                     .getBytes());
 
     private static byte[] altNameCertWithXmppAddr = Base64
-            .decode(("MIIEdDCCA1ygAwIBAgIIVjkVCQFZomowDQYJKoZIhvcNAQEFBQAwNTEWMBQGA1UE"
-                    +"AwwNTWFuYWdlbWVudCBDQTEOMAwGA1UECgwFUEstRE0xCzAJBgNVBAYTAkFFMB4X"
-                    +"DTE2MDkyMjE1MDgxM1oXDTE2MDkyNDE1MDgxM1owMDEOMAwGA1UEAwwFeG1wcDIx"
-                    +"ETAPBgNVBAoMCFByaW1lS2V5MQswCQYDVQQGEwJBRTCBnzANBgkqhkiG9w0BAQEF"
-                    +"AAOBjQAwgYkCgYEAlYenj6Yh6/WGDyxpSIFu4p8JUn8Gs0+p8jYwNsdwut0n2jRs"
-                    +"92u0ekrmao5C0sdOF3EgVojOAWMGbqA32Q/3skXQqKwapgVlJGJXpNeMm47EwB4z"
-                    +"HTFKDwHNrnUOU3EB4kf4Z3leZU1KsDppVyt3he9M1gPHwnhSMKRkdPg64AkCAwEA"
-                    +"AaOCAg8wggILMBkGB2eBCAEBBgIEDjAMAgEAMQcTAVATAklEMAwGA1UdEwEB/wQC"
-                    +"MAAwHwYDVR0jBBgwFoAUu2ifcFjWKrS4wThm+sPPj8GYatowagYDVR0RBGMwYYgD"
-                    +"KQECoBgGCisGAQQBgjcUAgOgCgwIZm9vQGEuc2WgIwYIKwYBBQUHCAWgFwwVdG9t"
-                    +"YXNAeG1wcC5kb21haW4uY29toBsGCCsGAQUFBwgHoA8WDV9TZXJ2aWNlLk5hbWUw"
-                    +"ggEDBgNVHSAEgfswgfgwKAYDKQECMCEwHwYIKwYBBQUHAgEWE2h0dHBzOi8vZWpi"
-                    +"Y2Eub3JnLzIwKAYDKQEDMCEwHwYIKwYBBQUHAgEWE2h0dHBzOi8vZWpiY2Eub3Jn"
-                    +"LzMwBQYDKQEBMD0GAykBBDA2MDQGCCsGAQUFBwICMCgeJgBNAHkAIABVAHMAZQBy"
-                    +"ACAATgBvAHQAaQBjAGUAIABUAGUAeAB0MFwGAykBBTBVMDAGCCsGAQUFBwICMCQe"
-                    +"IgBFAEoAQgBDAEEAIABVAHMAZQByACAATgBvAHQAaQBjAGUwIQYIKwYBBQUHAgEW"
-                    +"FWh0dHBzOi8vZWpiY2Eub3JnL0NQUzAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYB"
-                    +"BQUHAwQwHQYDVR0OBBYEFMUFBPXfQktUn7WTMUxTHnYSXk8TMA4GA1UdDwEB/wQE"
-                    +"AwIF4DANBgkqhkiG9w0BAQUFAAOCAQEAQ1K6zjPjCNFT1+KJ/E959khU/Hg5dObK"
-                    +"p4LsS+LpPmFu4M9DjS2vwr48lLh+eBB65U+6/WMTO7/3fEeD3AaoD2+f9pnG6pq9"
-                    +"tC3GlfQfuSWELIhebg+73+GcvEpGRqQIKQ0qguTZEJiGK6i7714ECRE+xVD81Hez"
-                    +"BE3M3tBSK1Q6zJ36DdgSx99hz0p8IutMX6ntYDWbA1DJ+V3zzCc5zF3ZSogWv3+T"
-                    +"CJG3EfrGDJ91eVUlGyfDpHRr9a3WOWbypLjh1Q92xxHOJbvgnS9J6mybaOpQYyCn"
-                    +"MVWCdyTMTi9Ik0eybpeVMZYaSEO4xIqwoGbvuBgE2WKm+RuMnMOkfA==").getBytes());
-    
+            .decode(("MIIFRTCCBC2gAwIBAgIQH4vuCeSeadpH3oWlr9q7wTANBgkqhkiG9w0BAQsFADA1"
+                    +"MRYwFAYDVQQDDA1NYW5hZ2VtZW50IENBMQ4wDAYDVQQKDAVQSy1ETTELMAkGA1UE"
+                    +"BhMCQUUwHhcNMTcxMjAxMTI0MTQ5WhcNMTgxMjAxMTI0MTQ5WjAVMRMwEQYDVQQD"
+                    +"DApUb21hcyBUZXN0MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbJum3Yilo2fD"
+                    +"DOWj5+1G/qxhOWf5sViiad0aSOBE/8laiEGoYHaz7IwA/cj81tUDTvQ48G9O6uhb"
+                    +"R6QZ9UJOxaOCAzowggM2MBkGB2eBCAEBBgIEDjAMAgEAMQcTAVATAklEMAwGA1Ud"
+                    +"EwEB/wQCMAAwHwYDVR0jBBgwFoAUu2ifcFjWKrS4wThm+sPPj8GYatowfwYIKwYB"
+                    +"BQUHAQEEczBxMCYGCCsGAQUFBzAChhpodHRwOi8vY2Fpc3N1ZXJwcm9maWxlLmNv"
+                    +"bTAnBggrBgEFBQcwAoYbaHR0cDovL2NhaXNzdWVycHJvZmlsZTEuY29tMB4GCCsG"
+                    +"AQUFBzABhhJodHRwOi8vY2FvY3NwLmNvbS8wgcYGA1UdEQSBvjCBu4YtdXJuOnV1"
+                    +"aWQ6ZjgxZDRmYWUtN2RlYy0xMWQwLWE3NjUtMDBhMGM5MWU2YmY2iAMpAQKgGAYK"
+                    +"KwYBBAGCNxQCA6AKDAhmb29AYS5zZaAjBggrBgEFBQcIBaAXDBV0b21hc0B4bXBw"
+                    +"LmRvbWFpbi5jb22gGwYIKwYBBQUHCAegDxYNX1NlcnZpY2UuTmFtZaApBghghkgB"
+                    +"ZQMGBqAdBBsEGdIyENghDCwahDCFoWhYMAhCEIYIgjIQw+Ewgc0GA1UdIASBxTCB"
+                    +"wjCBtAYLKwYBBAGC8DMBAQIwgaQwKAYIKwYBBQUHAgEWHGh0dHBzOi8vcG9saWN5"
+                    +"LnZpbmNhc2lnbi5uZXQweAYIKwYBBQUHAgIwbAxqQ2VydGlmaWNhZG8gY3VhbGlm"
+                    +"aWNhZG8gZGUgcGVyc29uYSBmw61zaWNhIHZpbmN1bGFkYSBlbWl0aWRvIGVuIFNv"
+                    +"ZnR3YXJlLiBWZXIgaHR0cHM6Ly9wb2xpY3kudmluY2FzaWduLm5ldDAJBgcEAIvs"
+                    +"QAEAMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAjBggrBgEFBQcBAwQX"
+                    +"MBUwEwYGBACORgEGMAkGBwQAjkYBBgEwHQYDVR0OBBYEFEVR44we5Nr5M5L/PtJ5"
+                    +"gh/Z9or+MBoGA1UdEAQTMBGBDzIwMTcxMjMxMTI0MTQ5WjAOBgNVHQ8BAf8EBAMC"
+                    +"BeAwCgYDVR02BAMCAQAwDwYDVR0kBAgwBoABAIEBADAkBgNVHSEEHTAbMBkGCisG"
+                    +"AQQBgbR9ASQGCysGAQQBgrgdBAEBMA0GCSqGSIb3DQEBCwUAA4IBAQDhXY41HX9c"
+                    +"bugosrg4qnF39OecZkeo43ElCEwCBGeiwk36BJdB5xjfHsYtxN2HA6wxs+CyRwSZ"
+                    +"elt0bGpVxAHGIcHd7bTyrE5c9kMBssce+MvJPbM4w9RLhKxqX1/sV1xvcaF2JY0B"
+                    +"JNu838tbtiDgFRUefoouQ03/mhEwuiAjokBrlVZmRQhZi6a6DaPV8YUw5liEdRYU"
+                    +"KIiZxSHfOuSL3wVAwjCuqTRDw+i1lJcHBzZ5m4Tx8JWndzqVw+wfR0IgEgkgNjB0"
+                    +"wb6l8y54W4iC90DG7u6XJKY/k6Ei6lLi1EJP+w0A9HtZyNUVKqotNc+1E8yXv17N"
+                    +"Rw0pP1f3jhdJ").getBytes());
+
     private static byte[] altNameCertWithSpecialCharacters = Base64.decode(
                     ("MIIElDCCA3ygAwIBAgIIPQiMRNUtIDwwDQYJKoZIhvcNAQELBQAwNzEVMBMGA1UE"
                     +"AwwMTWFuYWdlbWVudENBMREwDwYDVQQKDAhEZXYgQ0EgMTELMAkGA1UEBhMCU0Uw"
@@ -830,8 +835,10 @@ public class CertToolsTest {
         String dn31 = "CN=hexencoded SN,SN=#"+hex;
         assertEquals("CN=hexencoded SN,SN=foo", CertTools.stringToBCDNString(dn31));
 
-        String dn32 = "CN=eidas,O=MyOrg,ORGANIZATIONIDENTIFIER=12345,C=SE";
-        assertEquals("CN=eidas,organizationIdentifier=12345,O=MyOrg,C=SE", CertTools.stringToBCDNString(dn32));
+        String dn32a = "CN=eidas,O=MyOrg,ORGANIZATIONIDENTIFIER=12345,C=SE";
+        assertEquals("CN=eidas,organizationIdentifier=12345,O=MyOrg,C=SE", CertTools.stringToBCDNString(dn32a));
+        String dn32b = "CN=test,O=MyOrg,DESCRIPTION=Test Description,C=SE";
+        assertEquals("description=Test Description,CN=test,O=MyOrg,C=SE", CertTools.stringToBCDNString(dn32b));
 
         // Test spaces in the RDN value
         String dn33a = "CN=cn,O= the org ,C=SE";
@@ -855,7 +862,7 @@ public class CertToolsTest {
 
         // We try to examine the general case and som special cases, which we
         // want to be able to handle
-        String alt1 = "rfc822Name=ejbca@primekey.se, dNSName=www.primekey.se, uri=http://www.primekey.se/ejbca,registeredID=1.1.1.3,xmppAddr=tomas@xmpp.domain.com,srvName=_Service.Name";
+        String alt1 = "rfc822Name=ejbca@primekey.se, dNSName=www.primekey.se, uri=http://www.primekey.se/ejbca,registeredID=1.1.1.3,xmppAddr=tomas@xmpp.domain.com,srvName=_Service.Name,fascN=0419d23210d8210c2c1a843085a16858300842108608823210c3e1";
         assertEquals(CertTools.getPartFromDN(alt1, CertTools.EMAIL), "ejbca@primekey.se");
         assertNull(CertTools.getPartFromDN(alt1, CertTools.EMAIL1));
         assertNull(CertTools.getPartFromDN(alt1, CertTools.EMAIL2));
@@ -865,6 +872,7 @@ public class CertToolsTest {
         assertEquals(CertTools.getPartFromDN(alt1, CertTools.REGISTEREDID), "1.1.1.3");
         assertEquals(CertTools.getPartFromDN(alt1, CertTools.XMPPADDR), "tomas@xmpp.domain.com");
         assertEquals(CertTools.getPartFromDN(alt1, CertTools.SRVNAME), "_Service.Name");
+        assertEquals(CertTools.getPartFromDN(alt1, CertTools.FASCN), "0419d23210d8210c2c1a843085a16858300842108608823210c3e1");
 
         String alt2 = "email=ejbca@primekey.se, dNSName=www.primekey.se, uniformResourceIdentifier=http://www.primekey.se/ejbca";
         assertEquals(CertTools.getPartFromDN(alt2, CertTools.EMAIL1), "ejbca@primekey.se");
@@ -1288,6 +1296,10 @@ public class CertToolsTest {
         assertEquals("tomas@xmpp.domain.com", name);
         name = CertTools.getPartFromDN(altNames, CertTools.SRVNAME);
         assertEquals("_Service.Name", name);
+        name = CertTools.getPartFromDN(altNames, CertTools.FASCN);
+        assertEquals("0419d23210d8210c2c1a843085a16858300842108608823210c3e1", name);
+        name = CertTools.getPartFromDN(altNames, CertTools.URI);
+        assertEquals("urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6", name);
         altNames = CertTools.getSubjectAlternativeName(CertTools.getCertfromByteArray(altNameCertWithSpecialCharacters, Certificate.class));
         // Note that the actual values in this particular certificate contains \, and \\, so that's why it looks like it's double escaped
         assertEquals("uniformResourceIdentifier=http://x/A\\\\\\,B\\\\\\\\, srvName=test\\\\\\,with\\\\\\\\special=characters, permanentIdentifier=test\\\\\\,with\\\\\\\\special=characters/", altNames);
@@ -2007,7 +2019,6 @@ public class CertToolsTest {
             final String[] order1 = { "street", "pseudonym",
                 "telephonenumber", "postaladdress", "postalcode", "unstructuredaddress", "unstructuredname", "emailaddress", "e",
                 "email", "dn", "uid", "cn", "name", "sn", "gn", "givenname", "initials", "surname", "t", "ou", "o", "l", "st", "dc", "c", "serialnumber", "businesscategory", "jurisdictioncountry", "jurisdictionstate", "jurisdictionlocality"};
-            final String[] order2 = { "jurisdictioncountry", "jurisdictionstate", "jurisdictionlocality","businesscategory","serialnumber","c","dc","st","l","o","ou","t","surname","initials","givenname","gn","sn","name","cn","uid","dn","email","e","emailaddress","unstructuredname","unstructuredaddress","postalcode","postaladdress","telephonenumber","pseudonym","street"};
             final X500NameStyle nameStyle = CeSecoreNameStyle.INSTANCE;
             final String dn = "JurisdictionCountry=NL,JurisdictionState=State,JurisdictionLocality=Åmål,BusinessCategory=Private Organization,CN=evssltest6.test.lan,SN=1234567890,OU=XY,O=MyOrg B.V.,L=Åmål,ST=Norrland,C=SE"; 
             X500Name name = CertTools.stringToBcX500Name(dn, nameStyle, false, order1);
@@ -2015,10 +2026,25 @@ public class CertToolsTest {
             String desiredDN = "JurisdictionLocality=Åmål,JurisdictionState=State,JurisdictionCountry=NL,BusinessCategory=Private Organization,C=SE,ST=Norrland,L=Åmål,O=MyOrg B.V.,OU=XY,SN=1234567890,CN=evssltest6.test.lan";
             assertEquals("Name order should be as defined in order string array", desiredDN, name.toString());
             // Another order
+            final String[] order2 = { "jurisdictioncountry", "jurisdictionstate", "jurisdictionlocality","businesscategory","serialnumber","c","dc","st","l","o","ou","t","surname","initials","givenname","gn","sn","name","cn","uid","dn","email","e","emailaddress","unstructuredname","unstructuredaddress","postalcode","postaladdress","telephonenumber","pseudonym","street"};
             name = CertTools.stringToBcX500Name(dn, nameStyle, false, order2);
             assertNotNull(name);
-            desiredDN = "CN=evssltest6.test.lan,OU=XY,O=MyOrg B.V.,L=Åmål,ST=Norrland,C=SE,SN=1234567890,BusinessCategory=Private Organization,JurisdictionLocality=Åmål,JurisdictionState=State,JurisdictionCountry=NL";
-            assertEquals("Name order should be as defined in order string array", desiredDN, name.toString());
+            String desiredDNNoLap = "CN=evssltest6.test.lan,OU=XY,O=MyOrg B.V.,L=Åmål,ST=Norrland,C=SE,SN=1234567890,BusinessCategory=Private Organization,JurisdictionLocality=Åmål,JurisdictionState=State,JurisdictionCountry=NL";
+            assertEquals("Name order should be as defined in order string array", desiredDNNoLap, name.toString());
+            name = CertTools.stringToBcX500Name(dn, nameStyle, true, order2);
+            String desiredDNWithLDAP = "JurisdictionCountry=NL,JurisdictionState=State,JurisdictionLocality=Åmål,BusinessCategory=Private Organization,SN=1234567890,C=SE,ST=Norrland,L=Åmål,O=MyOrg B.V.,OU=XY,CN=evssltest6.test.lan"; 
+            assertEquals("Name order should be as defined in order string array", desiredDNWithLDAP, name.toString());
+            // Ignore LDAP DN order (do not apply)
+            name = CertTools.stringToBcX500Name(dn, nameStyle, true, order2, false);
+            assertEquals("Name order should be as defined in order string array", desiredDNWithLDAP, name.toString());
+            name = CertTools.stringToBcX500Name(dn, nameStyle, false, order2, false);
+            assertEquals("Name order should be as defined in order string array", desiredDNWithLDAP, name.toString());
+            // Don't ignore LDAP DN order (apply it == true), should be the same as without the extra boolean
+            name = CertTools.stringToBcX500Name(dn, nameStyle, true, order2, true);
+            assertEquals("Name order should be as defined in order string array", desiredDNWithLDAP, name.toString());
+            name = CertTools.stringToBcX500Name(dn, nameStyle, false, order2, true);
+            assertEquals("Name order should be as defined in order string array", desiredDNNoLap, name.toString());
+            
             // If the ordering string is missing some components that exist in the DN, these will just be added to the beginning of the resulting DN
             final String[] orderWithMissing = { "street", "pseudonym",
                     "telephonenumber", "postaladdress", "postalcode", "unstructuredaddress", "unstructuredname", "emailaddress", "e",

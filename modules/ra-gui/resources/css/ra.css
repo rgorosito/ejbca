@@ -187,6 +187,21 @@
     padding: 0;
 }
 
+.raNotification {
+	border: none;
+	padding: 2em;
+	background-color: #fff;
+	border-radius: 5px;
+	text-align: center;
+	font-size: 1.2em;
+}
+
+.raNotificationIcon {
+	margin-right: 2em;
+	border: none;
+	vertical-align: middle;
+}
+
 /* Add-Remove controls */
 .addRemoveListEnabled, .addRemoveListButtons, .addRemoveListAvailable {
     display: inline-block;
@@ -260,3 +275,41 @@ img.menu_logo {
 
 .row-even { background-color: transparent; }
 .row-odd { background-color: #f2f2f2; }
+
+/* Table for issued certificates when viewing an EE */
+.ra-eeCertTableView {
+    width: 75%;
+    margin: 5px auto 0 0.2em;
+    border: none;
+    font-size: 0.875em;
+}
+
+.ra-eeCertTableSearch {
+    width: 75%;
+    margin: 5px auto 0 2.5%;
+    border: none;
+    font-size: 0.875em;
+}
+
+.ra-eeCertTableView th, .ra-eeCertTableView td, .ra-eeCertTableSearch th, .ra-eeCertTableSearch td {
+    color: #ffffff;
+}
+
+/* End Entity status change */
+.ra-editEndEntity select, .ra-editEndEntity input {
+    color: #000000;
+}
+
+/* End Entity status change */
+.ra-endEntityNavEditBar {
+    width: auto !important;
+    margin: 1% 2% 0 2% !important;
+}
+
+.ra-searchEndEntityEdit {
+    float: right !important;
+}
+
+.ra-endEntityEditSaveCancel {
+    height: 40px !important;
+}

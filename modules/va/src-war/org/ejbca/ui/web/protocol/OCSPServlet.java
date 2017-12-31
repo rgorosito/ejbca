@@ -42,10 +42,13 @@ import org.cesecore.certificates.ocsp.logging.TransactionCounter;
 import org.cesecore.certificates.ocsp.logging.TransactionLogger;
 import org.cesecore.config.ConfigurationHolder;
 import org.cesecore.config.OcspConfiguration;
+import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.Base64;
 import org.cesecore.util.GUIDGenerator;
 import org.cesecore.util.StringTools;
+import org.ejbca.config.AvailableProtocolsConfiguration;
+import org.ejbca.config.AvailableProtocolsConfiguration.AvailableProtocols;
 import org.ejbca.core.ejb.ocsp.OcspKeyRenewalSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.ui.web.LimitLengthASN1Reader;
@@ -71,6 +74,8 @@ public class OCSPServlet extends HttpServlet {
     private OcspResponseGeneratorSessionLocal integratedOcspResponseGeneratorSession;
     @EJB
     private OcspKeyRenewalSessionLocal ocspKeyRenewalSession;
+    @EJB
+    private GlobalConfigurationSessionLocal globalConfigurationSession;
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
@@ -111,6 +116,8 @@ public class OCSPServlet extends HttpServlet {
                     ConfigurationHolder.updateConfiguration(aConfig[i].substring(0, separatorIx),
                             aConfig[i].substring(separatorIx + 1, aConfig[i].length()));
                 }
+                // This setting is cached and must be cleared on config update
+                OcspConfiguration.clearAcceptedSignatureAlgorithmCache();
                 OcspConfigurationCache.INSTANCE.reloadConfiguration();
                 log.info("Call from " + remote + " to update configuration");
                 return;
@@ -168,8 +175,15 @@ public class OCSPServlet extends HttpServlet {
 
     @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        boolean protocolEnabled = ((AvailableProtocolsConfiguration)globalConfigurationSession.getCachedConfiguration(AvailableProtocolsConfiguration.CONFIGURATION_ID)).
+                getProtocolStatus(AvailableProtocols.OCSP.getName());
         if (log.isTraceEnabled()) {
             log.trace(">doPost()");
+        }
+        if (!protocolEnabled) {
+            log.info("OCSP Protocol is disabled");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "OCSP is disabled");
+            return;
         }
         try {
             final String contentType = request.getHeader("Content-Type");

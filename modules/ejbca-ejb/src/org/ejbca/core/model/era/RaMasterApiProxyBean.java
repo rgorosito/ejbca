@@ -60,8 +60,11 @@ import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.IllegalNameException;
+import org.cesecore.certificates.certificate.CertificateCreateException;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
+import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
@@ -90,11 +93,13 @@ import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.core.model.keyrecovery.KeyRecoveryInformation;
+import org.ejbca.core.model.ra.CustomFieldException;
 import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.NoSuchAliasException;
 import org.ejbca.core.protocol.ws.objects.UserDataVOWS;
+import org.ejbca.ui.web.protocol.CertificateRenewalException;
 
 /**
  * Proxy implementation of the the RaMasterApi that will will get the result of the most preferred API implementation
@@ -695,7 +700,16 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         }
         return ret;
     }
-    
+
+    @Override
+    public RaCertificateSearchResponse searchForCertificatesByUsername(
+            final AuthenticationToken authenticationToken, final String username) {
+        RaCertificateSearchRequest request = new RaCertificateSearchRequest();
+        request.setUsernameSearchString(username);
+        request.setUsernameSearchExact(true);
+        return searchForCertificates(authenticationToken, request);
+    }
+
     @Override
     public RaRoleSearchResponse searchForRoles(AuthenticationToken authenticationToken,
             RaRoleSearchRequest raRoleSearchRequest) {
@@ -1355,7 +1369,28 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         }
         return ret;
     }
-    
+
+    @Override
+    public boolean editUser(AuthenticationToken authenticationToken, EndEntityInformation endEntityInformation)
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException,
+            CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (raMasterApi.isBackendAvailable()) {
+                try {
+                    if (raMasterApi.editUser(authenticationToken, endEntityInformation)) {
+                        // Successfully edited the user
+                        return true;
+                    }
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+        // Editing was unsuccessful
+        return false;
+    }
+
     @Override
     public boolean keyRecoveryPossible(AuthenticationToken authenticationToken, Certificate cert, String username) {
         // Special case where local key generation is enabled
@@ -1433,6 +1468,39 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
                 }
             }
         }
+        // either throw an exception or return null
+        if (caughtException != null) {
+            throw caughtException;
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public byte[] estDispatch(final String operation, final String alias, final X509Certificate cert, final String username, final String password,
+            final byte[] requestBody) throws NoSuchAliasException,
+            CADoesntExistsException, CertificateCreateException, CertificateRenewalException, AuthenticationFailedException  {
+        NoSuchAliasException caughtException = null;
+        Integer apiVersion = null;
+        for (final RaMasterApi raMasterApi : raMasterApis) {
+            if (apiVersion == null) {
+                apiVersion = raMasterApi.getApiVersion();
+            }           
+            if (raMasterApi.isBackendAvailable() && apiVersion >= 2) {
+                try {
+                    try {
+                        return raMasterApi.estDispatch(operation, alias, cert, username, password, requestBody);
+                    } catch (NoSuchAliasException e) {
+                        //We might not have an alias in the current RaMasterApi, so let's try another. Let's store the exception in case we need it
+                        //later though.
+                        caughtException = e;
+                    }                    
+                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
+                    // Just try next implementation
+                }
+            }
+        }
+
         // either throw an exception or return null
         if (caughtException != null) {
             throw caughtException;

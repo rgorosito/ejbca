@@ -47,11 +47,6 @@ public class EndEntityInformation implements Serializable {
      */
     private static final long serialVersionUID = 3837505643343885941L;
 
-    // Public constants
-    public static final int NO_ENDENTITYPROFILE    = 0;
-    public static final int NO_CERTIFICATEPROFILE  = 0;
-
-
     private String username;
     private String subjectDN;
     transient private String subjectDNClean = null;
@@ -343,7 +338,7 @@ public class EndEntityInformation implements Serializable {
             // We must base64 encode string for UTF safety
             final HashMap<Object, Object> b64DataMap = new Base64PutHashMap();
             b64DataMap.putAll(extendedinformation.getRawData());
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream(512);
     		try (final java.beans.XMLEncoder encoder = new java.beans.XMLEncoder(baos);) {
     		    encoder.writeObject(b64DataMap);
     		}

@@ -552,7 +552,6 @@
 				<property name="external-deps-satfisfied" value="isset"/>
 		</ant>
 	</target>
-    
 	
 	<!-- Helper to execute the EJBCA EJB CLI -->
 	<target name="ejbca-cli" depends="ejbca-ejb-cli">

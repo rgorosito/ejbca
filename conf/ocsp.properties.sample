@@ -33,13 +33,13 @@ ocsp.defaultresponder=CN=ManagementCA,O=EJBCA Sample,C=SE
 # Default true 
 #ocsp.includesignercert=true
 
-# Specifies which signature algorithms should be used on OCSP responses. You can specify several algorithm
+# Specifies which signature algorithms can be used in OCSP responses. You can specify several algorithm
 # separated by ';'. If RSA keys are used in the OCSP signing certificate, the algorithm with RSA will be used, and
 # if ECDSA keys are used in the OCSP signing certificate, the algorithm with ECDSA will be used and if 
 # DSA keys are used in the OCSP signing certificate, the algorithm with DSA will be used.
 #
-# Default: SHA1WithRSA;SHA1WithECDSA;SHA1WithDSA
-#ocsp.signaturealgorithm=SHA1WithRSA;SHA1WithECDSA;SHA1WithDSA
+# Default: SHA256WithRSA;SHA256withRSAandMGF1;SHA384WithRSA;SHA512WithRSA;SHA224withECDSA;SHA256withECDSA;SHA384withECDSA;SHA512withECDSA;SHA1WithDSA
+#ocsp.signaturealgorithm=SHA256WithRSA;SHA256withRSAandMGF1;SHA384WithRSA;SHA512WithRSA;SHA224withECDSA;SHA256withECDSA;SHA384withECDSA;SHA512withECDSA;SHA1WithDSA
 
 # The interval on which the the OCSP signing certificates are updated in seconds.
 # If set to 0 or negative these certificate are never updated.
@@ -183,7 +183,7 @@ ocsp.defaultresponder=CN=ManagementCA,O=EJBCA Sample,C=SE
 # Specifies classes implementing OCSP extensions matching oids above, 
 # separate multiple entries with ;"
 # Leave out if you do not know what this is.
-# Example value: org.ejbca.core.protocol.ocsp.OCSPUnidExtension
+# Example value: org.ejbca.core.protocol.ocsp.extension.unid.OCSPUnidExtension
 # Example value: org.ejbca.core.protocol.ocsp.extension.certhash.OcspCertHashExtension
 # Default: nothing
 #ocsp.extensionclass=
@@ -261,9 +261,16 @@ ocsp.defaultresponder=CN=ManagementCA,O=EJBCA Sample,C=SE
 
 # Configure how time of logging in auditlog will be output
 # Default: yyyy-MM-dd:HH:mm:ss:z
-#ocsp.log-date = yyyy-MM-dd:HH:mm:ss:z
+#
+# Almost standard example, but the time offset ':z' (e.g. ':CET') is not standard compliant:
+#ocsp.log-date = yyyy-MM-dd HH:mm:ss.SSS:z
+#
+# Reference: RFC 3339 - Date and Time on the Internet: Timestamps
+# Standard compliant example, the final 'Z' means that the time zone is GMT, i.e. time UTC+00:
+#ocsp.log-date = yyyy-MM-dd HH:mm:ss.SSSZ
 
 # Configure which time zone will be used for logging
+# Note: GMT is the time zone for the time UTC+00, and without daylight saving time. It's the best choice for logs.
 # Default: GMT
 #ocsp.log-timezone = GMT
 

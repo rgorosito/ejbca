@@ -62,7 +62,6 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
      */
     public PublicKeyBlacklistKeyValidator() {
         super();
-        init();
     }
     
     /**
@@ -70,7 +69,6 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
      */
     public PublicKeyBlacklistKeyValidator(final String name) {
         super(name);
-        init();
     }
 
     /**
@@ -120,11 +118,6 @@ public class PublicKeyBlacklistKeyValidator extends KeyValidatorBase {
         return TEMPLATE_FILE;
     }
     
-    @Override
-    public float getLatestVersion() {
-        return LATEST_VERSION;
-    }
-
     @Override
     public void upgrade() {
         super.upgrade();

@@ -192,6 +192,7 @@ public abstract class CertTools {
     public static final String REGISTEREDID = "registeredID";
     public static final String XMPPADDR = "xmppAddr";
     public static final String SRVNAME = "srvName";
+    public static final String FASCN = "fascN";
 
     /** Kerberos altName for smart card logon */
     public static final String KRB5PRINCIPAL = "krb5principal";
@@ -208,6 +209,7 @@ public abstract class CertTools {
     public static final String PERMANENTIDENTIFIER = "permanentIdentifier";
     public static final String PERMANENTIDENTIFIER_OBJECTID = "1.3.6.1.5.5.7.8.3";
     public static final String PERMANENTIDENTIFIER_SEP = "/";
+    public static final String FASCN_OBJECTID =  "2.16.840.1.101.3.6.6";
 
     /** Microsoft altName for windows domain controller guid */
     public static final String GUID = "guid";
@@ -330,12 +332,16 @@ public abstract class CertTools {
      * @return X500Name or null if input is null
      */
     public static X500Name stringToBcX500Name(String dn, final X500NameStyle nameStyle, final boolean ldaporder, final String[] order) {
+        return stringToBcX500Name(dn, nameStyle, ldaporder, order, true);
+    }
+    
+    public static X500Name stringToBcX500Name(String dn, final X500NameStyle nameStyle, final boolean ldaporder, final String[] order, final boolean applyLdapToCustomOrder) {
         final X500Name x500Name = stringToUnorderedX500Name(dn, nameStyle);
         if (x500Name==null) {
             return null;
         }
         // -- Reorder fields
-        final X500Name orderedX500Name = getOrderedX500Name(x500Name, ldaporder, order, nameStyle);
+        final X500Name orderedX500Name = getOrderedX500Name(x500Name, ldaporder, order, applyLdapToCustomOrder, nameStyle);
         if (log.isTraceEnabled()) {
             log.trace(">stringToBcX500Name: x500Name=" + x500Name.toString() + " orderedX500Name=" + orderedX500Name.toString());
         }
@@ -871,8 +877,16 @@ public abstract class CertTools {
         if (cert instanceof X509Certificate) {
             // cert.getType=X.509
             try {
-                final CertificateFactory cf = CertTools.getCertificateFactory();
-                final X509Certificate x509cert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(cert.getEncoded()));
+                final String clazz = cert.getClass().getName();
+                // The purpose of the below generateCertificate is to create a BC certificate object, because there we know how DN components
+                // are handled. If we already have a BC certificate however, we can save a lot of time to not have to encode/decode it.
+                final X509Certificate x509cert;
+                if (clazz.contains("org.bouncycastle")) {
+                    x509cert = (X509Certificate)cert;
+                } else {
+                    final CertificateFactory cf = CertTools.getCertificateFactory();
+                    x509cert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(cert.getEncoded()));                    
+                }
                 String dn = null;
                 if (which == 1) {
                     dn = x509cert.getSubjectDN().toString();
@@ -2148,6 +2162,30 @@ public abstract class CertTools {
     }
 
     /**
+     * Helper method.
+     * 
+     * @param seq the OtherName sequence
+     * @return bytes which is the decoded ASN.1 Octet String of the (simple) OtherName
+     */
+    private static byte[] getOctetStringFromSequence(final ASN1Sequence seq, final String oid) {
+        if (seq != null) {
+            // First in sequence is the object identifier, that we must check
+            ASN1ObjectIdentifier id = ASN1ObjectIdentifier.getInstance(seq.getObjectAt(0));
+            if (id.getId().equals(oid)) {
+                ASN1TaggedObject oobj = (ASN1TaggedObject) seq.getObjectAt(1);
+                // Due to bug in java cert.getSubjectAltName regarding OtherName, it can be tagged an extra time...
+                ASN1Primitive obj = oobj.getObject();
+                if (obj instanceof ASN1TaggedObject) {
+                    obj = ASN1TaggedObject.getInstance(obj).getObject();
+                }
+                ASN1OctetString str = ASN1OctetString.getInstance(obj);
+                return str.getOctets();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Gets the Permanent Identifier (altName, OtherName).
      * 
      * permanentIdentifier is an OtherName Subject Alternative Name:
@@ -2532,6 +2570,7 @@ public abstract class CertTools {
                 String rdn = null;
                 switch (type.intValue()) {
                 case 0:
+                    // OtherName, can be a lot of different things
                     final ASN1Sequence sequence = getAltnameSequence(item);
                     final ASN1ObjectIdentifier oid = ASN1ObjectIdentifier.getInstance(sequence.getObjectAt(0));
                     switch(oid.getId()) {
@@ -2556,6 +2595,10 @@ public abstract class CertTools {
                             break;
                         case CertTools.SRVNAME_OBJECTID:
                             rdn = CertTools.SRVNAME + "=" + getIA5StringFromSequence(sequence, CertTools.SRVNAME_OBJECTID);
+                            break;
+                        case CertTools.FASCN_OBJECTID:
+                            // PIV FASC-N (FIPS 201-2) is an OCTET STRING, we'll return if as a hex encoded String
+                            rdn = CertTools.FASCN + "=" + new String(Hex.encode(getOctetStringFromSequence(sequence, CertTools.FASCN_OBJECTID)));
                             break;
                     };
                     break;
@@ -2672,6 +2715,15 @@ public abstract class CertTools {
             final ASN1EncodableVector v = new ASN1EncodableVector();
             v.add(new ASN1ObjectIdentifier(CertTools.SRVNAME_OBJECTID));
             v.add(new DERTaggedObject(true, 0, new DERIA5String(srvName)));
+            vec.add(GeneralName.getInstance(new DERTaggedObject(false, 0, new DERSequence(v))));
+        }
+
+        // FASC-N is an OtherName see method getOctetString...... for asn.1 definition (PIV FIPS 201-2)
+        // We take the input as being a hex encoded octet string
+        for (final String fascN : CertTools.getPartsFromDN(altName, CertTools.FASCN)) {
+            final ASN1EncodableVector v = new ASN1EncodableVector();
+            v.add(new ASN1ObjectIdentifier(CertTools.FASCN_OBJECTID));
+            v.add(new DERTaggedObject(true, 0, new DEROctetString(Hex.decode(fascN))));
             vec.add(GeneralName.getInstance(new DERTaggedObject(false, 0, new DERSequence(v))));
         }
 
@@ -2831,6 +2883,9 @@ public abstract class CertTools {
                     break;
                 case CertTools.SRVNAME_OBJECTID:
                     ret = CertTools.SRVNAME + "=" + getIA5StringFromSequence(sequence, CertTools.SRVNAME_OBJECTID);
+                    break;
+                case CertTools.FASCN_OBJECTID:
+                    ret = CertTools.FASCN + "=" + new String(Hex.encode(getOctetStringFromSequence(sequence, CertTools.FASCN_OBJECTID)));
                     break;
             };
             break;
@@ -3793,10 +3848,11 @@ public abstract class CertTools {
      * @param ldaporder true if LDAP ordering of DN should be used (default in EJBCA), false for X.500 order, ldap order is CN=A,OU=B,O=C,C=SE, x.500
      *            order is the reverse
      * @param order specified order, which overrides 'ldaporder', care must be taken constructing this String array, ignored if null or empty
+     * @param applyLdapToCustomOrder specifies if the ldaporder setting should apply to an order (custom order) if this is not empty
      * @param nameStyle Controls how the name is encoded. Usually it should be a CeSecoreNameStyle.
      * @return X500Name with ordered conmponents according to the orcering vector
      */
-    private static X500Name getOrderedX500Name(final X500Name x500Name, boolean ldaporder, String[] order, final X500NameStyle nameStyle) {
+    private static X500Name getOrderedX500Name(final X500Name x500Name, boolean ldaporder, String[] order, final boolean applyLdapToCustomOrder, final X500NameStyle nameStyle) {
         // -- New order for the X509 Fields
         final List<ASN1ObjectIdentifier> newOrdering = new ArrayList<ASN1ObjectIdentifier>();
         final List<ASN1Encodable> newValues = new ArrayList<ASN1Encodable>();
@@ -3808,7 +3864,9 @@ public abstract class CertTools {
         // If we think the DN is in LDAP order, first order it as a LDAP DN, if we don't think it's LDAP order
         // order it as a X.500 DN. If we haven't specified our own ordering
         final List<ASN1ObjectIdentifier> ordering;
-        if ((order != null) && (order.length > 0)) {
+        final boolean useCustomOrder = (order != null) && (order.length > 0);  
+        if (useCustomOrder) {
+            log.debug("Using custom DN order");
             ordering = getX509FieldOrder(order);            
         } else {
             ordering = getX509FieldOrder(isLdapOrder);
@@ -3842,13 +3900,16 @@ public abstract class CertTools {
             }
         }
         // If the requested ordering was the reverse of the ordering the input string was in (by our guess in the beginning)
-        // we have to reverse the vectors
-        if (ldaporder != isLdapOrder) {
-            if (log.isDebugEnabled()) {
-                log.debug("Reversing order of DN, ldaporder=" + ldaporder + ", isLdapOrder=" + isLdapOrder);
+        // we have to reverse the vectors.
+        // Unless we have specified a custom order, and choose to not apply LDAP Order to this custom order, in which case we will not change the order from the custom
+        if ( (useCustomOrder && applyLdapToCustomOrder) || !useCustomOrder) {
+            if (ldaporder != isLdapOrder) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Reversing order of DN, ldaporder=" + ldaporder + ", isLdapOrder=" + isLdapOrder);
+                }
+                Collections.reverse(newOrdering);
+                Collections.reverse(newValues);
             }
-            Collections.reverse(newOrdering);
-            Collections.reverse(newValues);
         }
 
         X500NameBuilder nameBuilder = new X500NameBuilder(nameStyle);
@@ -4342,7 +4403,7 @@ public abstract class CertTools {
      * @param issuer Issuing CA.
      * @param subjectDNName Subject DN to check. Optional.
      * @param subjectAltName Subject Alternative Name to check. Optional.
-     * @throws IllegalNameException
+     * @throws IllegalNameException if the name(s) didn't pass naming constraints 
      */
     public static void checkNameConstraints(X509Certificate issuer, X500Name subjectDNName, GeneralNames subjectAltName) throws IllegalNameException {
         final byte[] ncbytes = issuer.getExtensionValue(Extension.nameConstraints.getId());

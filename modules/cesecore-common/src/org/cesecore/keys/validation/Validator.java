@@ -13,9 +13,9 @@
 
 package org.cesecore.keys.validation;
 
-import java.util.Collection;
 import java.util.List;
 
+import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.internal.UpgradeableDataHashMap;
 import org.cesecore.profiles.Profile;
 
@@ -25,7 +25,7 @@ import org.cesecore.profiles.Profile;
  * @version $Id$
  */
 
-public interface Validator extends Profile, Cloneable {
+public interface Validator extends PhasedValidator, CertificateProfileAwareValidator, Profile, Cloneable {
 
     static final String TYPE_NAME = "VALIDATOR";
     
@@ -41,24 +41,39 @@ public interface Validator extends Profile, Cloneable {
     void setKeyValidatorSettingsTemplate();
     
     /**
-     * Gets the failed action index {@link KeyValidationFailedActions}, defining what action should
-     * be taken when validation fails, i.e. #validate returns errors
+     * Gets the failed action index {@see #setFailedAction(int)}.
      * @return the index.
      */
     int getFailedAction();
     
+    /**
+     * Sets the failed action index {@link KeyValidationFailedActions}, defining what action should
+     * be taken when validation fails, i.e. #validate returns errors
+     * @param index the index.
+     */
     void setFailedAction(int index);
 
+    
     /**
-     * Gets the not_applicable action index {@link KeyValidationFailedActions}, defining what action should
+     * Gets the not_applicable action index {@see #setNotApplicableAction(int).
+     * @return the index.
+     */
+    int getNotApplicableAction();
+
+    /**
+     * Sets the not_applicable action index {@link KeyValidationFailedActions}, defining what action should
      * be taken when a Validator is not applicable for the input (for example ECC keys to an RSA key validator),
      * i.e. #validate throws ValidatorNotApplicableException
-     * @return the index.
+     * @param index the index.
      */
     void setNotApplicableAction(int index);
 
-    int getNotApplicableAction();
-
+    /**
+     * Gets a list of applicable CA types (X509 or CVC see {@link CAInfo.CATYPE_X509 or CAInfo.CATYPE_CVC}).
+     * @return the list of class names of the allowed CA types.
+     */
+    List<Integer> getApplicableCaTypes();
+    
     /**
      * @return the settings template index.
      */
@@ -82,34 +97,6 @@ public interface Validator extends Profile, Cloneable {
       */
      String toDisplayString();
 
-     /** 
-      * If the validator should apply to All certificate profiles. 
-      * 
-      * @return true or false.
-      */
-     boolean isAllCertificateProfileIds();
-     
-     /** 
-      * Sets if validation should be performed for all certificate profile ids.
-      * 
-      * @param isAll, true if validation should be done for all certificate profiles.
-      */
-     void setAllCertificateProfileIds(boolean isAll);
-
-     /** 
-      * Gets a list of selected certificate profile ids. 
-      * 
-      * @return the list.
-      */
-     List<Integer> getCertificateProfileIds();
-     
-     /** 
-      * Sets the selected certificate profile ids.
-      * 
-      * @param ids the collection of ids.
-      */
-     void setCertificateProfileIds(Collection<Integer> ids);
-     
      /**
       * Clone has to be implemented instead of a copy constructor due to the fact that we'll be referring to implementations by this interface only. 
       * 

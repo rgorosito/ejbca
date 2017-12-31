@@ -334,7 +334,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             caSession.addCA(intAdmin, rootCA);
             X509Certificate cacert = (X509Certificate) rootCA.getCACertificate();
             certificateStoreSession.storeCertificateRemote(intAdmin, EJBTools.wrap(cacert), "testuser", "1234",  CertificateConstants.CERT_ACTIVE,
-                    CertificateConstants.CERTTYPE_ROOTCA, CertificateProfileConstants.CERTPROFILE_NO_PROFILE, EndEntityInformation.NO_ENDENTITYPROFILE, null, new Date().getTime());
+                    CertificateConstants.CERTTYPE_ROOTCA, CertificateProfileConstants.CERTPROFILE_NO_PROFILE, EndEntityConstants.NO_END_ENTITY_PROFILE, null, new Date().getTime());
             //Create a SubCA for this test. 
             subCA = CryptoTokenTestUtils.createTestCAWithSoftCryptoToken(intAdmin, subCaSubjectDn, rootCA.getCAId());
             int cryptoTokenId = subCA.getCAToken().getCryptoTokenId();
@@ -342,8 +342,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             X509Certificate subCaCertificate = (X509Certificate) subCA.getCACertificate();
             //Store the CA Certificate.
             certificateStoreSession.storeCertificateRemote(intAdmin, EJBTools.wrap(subCaCertificate), "foo", "1234", CertificateConstants.CERT_ACTIVE,
-                    CertificateConstants.CERTTYPE_SUBCA, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, EndEntityInformation.NO_ENDENTITYPROFILE, "footag", new Date().getTime());
-            final EndEntityInformation endentity = new EndEntityInformation(subCaName, subCaSubjectDn, rootCA.getCAId(), null, null, new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE,
+                    CertificateConstants.CERTTYPE_SUBCA, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, EndEntityConstants.NO_END_ENTITY_PROFILE, "footag", new Date().getTime());
+            final EndEntityInformation endentity = new EndEntityInformation(subCaName, subCaSubjectDn, rootCA.getCAId(), null, null, new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
                     CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, EndEntityConstants.TOKEN_USERGEN, 0, null);
             endentity.setStatus(EndEntityConstants.STATUS_NEW);
             endentity.setPassword("foo123");
@@ -357,7 +357,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             //Make sure there is a rollover certificate in store
             final byte[] requestbytes = caAdminSessionRemote.makeRequest(intAdmin, subCA.getCAId(), null, null);
             final PKCS10RequestMessage req = new PKCS10RequestMessage(requestbytes);
-            final X509ResponseMessage respmsg = (X509ResponseMessage) certificateCreateSession.createCertificate(intAdmin, endentity, req, X509ResponseMessage.class, null);
+            final X509ResponseMessage respmsg = (X509ResponseMessage) certificateCreateSession.createCertificate(intAdmin, endentity, req, X509ResponseMessage.class, signSession.fetchCertGenParams());
             X509Certificate newCertificate =  (X509Certificate) respmsg.getCertificate();
             ejbcaraws.caCertResponseForRollover(subCaName, newCertificate.getEncoded(), null, "foo123");
 
@@ -769,7 +769,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(intAdmin, caname, "1024");
         createTestCA();
         EndEntityInformation approvingAdmin = new EndEntityInformation(adminUsername, "CN=" + adminUsername, getTestCAId(), null, null, new EndEntityType(
-                EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                 SecConst.TOKEN_SOFT_P12, 0, null);
         approvingAdmin.setPassword("foo123");
         try {
@@ -795,10 +795,10 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             X509Certificate admincert = (X509Certificate) this.signSession.createCertificate(intAdmin, adminUsername, "foo123", new PublicKeyWrapper(keys.getPublic()));
             AuthenticationToken approvingAdminToken = simpleAuthenticationProvider.authenticate(makeAuthenticationSubject(admincert));
             EndEntityInformation endEntityInformation = new EndEntityInformation(username, "CN=" + username, caId, "", "",
-                    new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                    new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                     SecConst.TOKEN_SOFT_P12, 0, null);
             ApprovalRequest approvalRequest = new AddEndEntityApprovalRequest(endEntityInformation, false, intAdmin, null, caId,
-                    SecConst.EMPTY_ENDENTITYPROFILE, approvalProfileSession.getApprovalProfile(approvalProfileId));
+                    EndEntityConstants.EMPTY_END_ENTITY_PROFILE, approvalProfileSession.getApprovalProfile(approvalProfileId));
             int approvalId = approvalSession.addApprovalRequest(intAdmin, approvalRequest);
             try {
                 assertEquals("There should be two approvals remaining.", 2,
@@ -1204,19 +1204,19 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username", "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
         userDataVoWs.setStartTime(oldTimeFormat);
         userDataVoWs.setEndTime(oldTimeFormat);
-        final EndEntityInformation endEntityInformation1 = ejbcaWSHelperSession.convertUserDataVOWS(userDataVoWs, 1, 2, 3, 4, 5);
+        final EndEntityInformation endEntityInformation1 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
         assertEquals("CUSTOM_STARTTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage, endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
         assertEquals("CUSTOM_ENDTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage, endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
         // Convert from UserDataVOWS with standard DateFormat to endEntityInformation
         userDataVoWs.setStartTime(newTimeFormatRequest);
         userDataVoWs.setEndTime(newTimeFormatRequest);
-        final EndEntityInformation endEntityInformation2 = ejbcaWSHelperSession.convertUserDataVOWS(userDataVoWs, 1, 2, 3, 4, 5);
+        final EndEntityInformation endEntityInformation2 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
         assertEquals("ExtendedInformation.CUSTOM_STARTTIME in new format was not correctly handled.", newTimeFormatStorage, endEntityInformation2.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
         assertEquals("ExtendedInformation.CUSTOM_ENDTIME in new format was not correctly handled.", newTimeFormatStorage, endEntityInformation2.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
         // Convert from UserDataVOWS with relative date format to endEntityInformation
         userDataVoWs.setStartTime(relativeTimeFormat);
         userDataVoWs.setEndTime(relativeTimeFormat);
-        final EndEntityInformation endEntityInformation3 = ejbcaWSHelperSession.convertUserDataVOWS(userDataVoWs, 1, 2, 3, 4, 5);
+        final EndEntityInformation endEntityInformation3 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
         assertEquals("ExtendedInformation.CUSTOM_STARTTIME in relative format was not correctly handled.", relativeTimeFormat, endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
         assertEquals("ExtendedInformation.CUSTOM_ENDTIME in relative format was not correctly handled.", relativeTimeFormat, endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
         // Convert from endEntityInformation with standard DateFormat to UserDataVOWS
@@ -1232,7 +1232,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         userDataVoWs.setStartTime("12:32 2011-02-28");  // Invalid
         userDataVoWs.setEndTime("2011-02-28 12:32:00+00:00");   // Valid
         try {
-            ejbcaWSHelperSession.convertUserDataVOWS(userDataVoWs, 1, 2, 3, 4, 5);
+            ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
             fail("Conversion of illegal time format did not generate exception.");
         } catch (EjbcaException e) {
             assertEquals("Unexpected error code in exception.", ErrorCode.FIELD_VALUE_NOT_VALID, e.getErrorCode());
@@ -1241,11 +1241,20 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         userDataVoWs.setStartTime("2011-02-28 12:32:00+00:00"); // Valid
         userDataVoWs.setEndTime("12:32 2011-02-28");    // Invalid
         try {
-            ejbcaWSHelperSession.convertUserDataVOWS(userDataVoWs, 1, 2, 3, 4, 5);
+            ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
             fail("Conversion of illegal time format did not generate exception.");
         } catch (EjbcaException e) {
             assertEquals("Unexpected error code in exception.", ErrorCode.FIELD_VALUE_NOT_VALID, e.getErrorCode());
         }
+        // Try a raw subjectDN
+        userDataVoWs.setStartTime(null); // Valid
+        userDataVoWs.setEndTime(null);    // Invalid
+        userDataVoWs.setSubjectDN("CN=User U,C=SE,O=Foo"); // not normal order
+        EndEntityInformation endEntityInformation4 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, true);
+        assertNotNull(endEntityInformation4.getExtendedInformation().getRawSubjectDn());
+        endEntityInformation4 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, true);
+        assertEquals("Raw subject DN is not raw order", "CN=User U,C=SE,O=Foo" ,endEntityInformation4.getExtendedInformation().getRawSubjectDn());
+        
         log.trace("<test36EjbcaWsHelperTimeFormatConversion()");
     }
     
@@ -1785,7 +1794,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 adminUser.setSubjectAltName(null);
                 adminUser.setStatus(EndEntityConstants.STATUS_NEW);
                 adminUser.setTokenType(SecConst.TOKEN_SOFT_JKS);
-                adminUser.setEndEntityProfileId(SecConst.EMPTY_ENDENTITYPROFILE);
+                adminUser.setEndEntityProfileId(EndEntityConstants.EMPTY_END_ENTITY_PROFILE);
                 adminUser.setCertificateProfileId(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
                 adminUser.setType(new EndEntityType(EndEntityTypes.ENDUSER, EndEntityTypes.ADMINISTRATOR));
                 log.info("Adding new user: "+adminUser.getUsername());
@@ -2305,13 +2314,13 @@ public class EjbcaWSTest extends CommonEjbcaWS {
      * Create a user a generate certificate.
      */
     private X509Certificate createUserAndCert(String username, int caID) throws Exception {
-        EndEntityInformation userdata = new EndEntityInformation(username, "CN=" + username, caID, null, null, new EndEntityType(EndEntityTypes.ENDUSER), SecConst.EMPTY_ENDENTITYPROFILE,
+        EndEntityInformation userdata = new EndEntityInformation(username, "CN=" + username, caID, null, null, new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, SecConst.TOKEN_SOFT_P12, 0, null);
         userdata.setPassword(PASSWORD);
         endEntityManagementSession.addUser(intAdmin, userdata, true);
         fileHandles.addAll(BatchCreateTool.createAllNew(intAdmin, new File(P12_FOLDER_NAME)));
         Collection<Certificate> userCerts = EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username));
-        assertTrue(userCerts.size() == 1);
+        assertEquals("Certificates for user with username " + username + " wasn't exactly one.", 1, userCerts.size());
         return (X509Certificate) userCerts.iterator().next();
     }
     

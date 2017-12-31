@@ -287,11 +287,15 @@ public class CrmfRequestTest extends CmpTestCase {
     public void test04BlueXCrmf() throws Exception {
         log.trace(">test04BlueXCrmf");
         // An EE with a matching subject and clear text password set to "foo123" must exist for HMAC validation in this test.
-        final String username = "cmptest_test04BlueXCrmf";
+        // foo123 is not the correct password however, so we will fail HMAC verification
+        final String username = "Some Common Name";
         super.createCmpUser(username, "CN=Some Common Name", false, this.caid, -1, -1);
         byte[] resp = sendCmpHttp(bluexir, 200, cmpAlias);
         assertNotNull(resp);
-        checkCmpPKIErrorMessage(resp, "C=NL,O=A.E.T. Europe B.V.,OU=Development,CN=Test CA 1", new X500Name(new RDN[0]), PKIFailureInfo.badPOP, null); // expecting a bad_pop
+        // We used to make POP verification before checking the HMAC verification, but this changed in ECA-6276, and since
+        // we don't know the correct HMAC password for this request, the error message changed
+        //checkCmpPKIErrorMessage(resp, "C=NL,O=A.E.T. Europe B.V.,OU=Development,CN=Test CA 1", new X500Name(new RDN[0]), PKIFailureInfo.badPOP, null); // expecting a bad_pop
+        checkCmpPKIErrorMessage(resp, "C=NL,O=A.E.T. Europe B.V.,OU=Development,CN=Test CA 1", new X500Name(new RDN[0]), PKIFailureInfo.badRequest, null); // expecting a bad_pop
         endEntityManagementSession.deleteUser(ADMIN, username);
         log.trace("<test04BlueXCrmf");
     }
@@ -553,7 +557,7 @@ public class CrmfRequestTest extends CmpTestCase {
             final X500Name userDN = new X500Name("C=SE,O=PrimeKey,CN=cmptest");
             EndEntityInformation user = new EndEntityInformation("cmptest", userDN.toString(), subcaID,
                     null, "cmptest@primekey.se", new EndEntityType(EndEntityTypes.ENDUSER),
-//                    SecConst.EMPTY_ENDENTITYPROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, 
+//                    EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, 
                     this.eepDnOverrideId, this.cpDnOverrideId,
                     SecConst.TOKEN_SOFT_PEM, 0, null);
             user.setPassword("foo123");

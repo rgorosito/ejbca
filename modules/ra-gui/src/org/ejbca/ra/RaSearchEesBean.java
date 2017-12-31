@@ -36,17 +36,25 @@ import javax.faces.event.AjaxBehaviorEvent;
 import javax.faces.model.SelectItem;
 
 import org.apache.log4j.Logger;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.util.ValidityDate;
+import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
+import org.ejbca.core.model.approval.ApprovalException;
+import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.era.IdNameHashMap;
 import org.ejbca.core.model.era.KeyToValueHolder;
+import org.ejbca.core.model.era.RaCertificateSearchResponse;
 import org.ejbca.core.model.era.RaEndEntitySearchRequest;
 import org.ejbca.core.model.era.RaEndEntitySearchResponse;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.ra.RaEndEntityDetails.Callbacks;
 
 /**
@@ -75,7 +83,7 @@ public class RaSearchEesBean implements Serializable {
     private final List<RaEndEntityDetails> resultsFiltered = new ArrayList<>();
     private Map<Integer,String> eepIdToNameMap = null;
     private Map<Integer,String> cpIdToNameMap = null;
-    private Map<Integer,String> caIdToNameMap = new HashMap<>();
+    private Map<Integer,String> caIdToNameMap = null;
     private List<SelectItem> availableEeps = new ArrayList<>();
     private List<SelectItem> availableCps = new ArrayList<>();
     private List<SelectItem> availableCas = new ArrayList<>();
@@ -98,6 +106,7 @@ public class RaSearchEesBean implements Serializable {
 
     private IdNameHashMap<EndEntityProfile> endEntityProfileMap = null;
     private RaEndEntityDetails currentEndEntityDetails = null;
+    private List<RaCertificateDetails> currentIssuedCerts = null;
 
     private final Callbacks raEndEntityDetailsCallbacks = new RaEndEntityDetails.Callbacks() {
         @Override
@@ -176,6 +185,11 @@ public class RaSearchEesBean implements Serializable {
     private void filterTransformSort() {
         resultsFiltered.clear();
         if (lastExecutedResponse != null) {
+            if (eepIdToNameMap==null || cpIdToNameMap==null || caIdToNameMap==null) {
+                getAvailableCas();
+                getAvailableEeps();
+                getAvailableCps();
+            }
             for (final EndEntityInformation endEntityInformation : lastExecutedResponse.getEndEntities()) {
                 // ...we don't filter if the requested maxResults is lower than the search request
                 if (!genericSearchString.isEmpty() && (
@@ -374,6 +388,7 @@ public class RaSearchEesBean implements Serializable {
                     return caInfo1.getName().compareTo(caInfo2.getName());
                 }
             });
+            caIdToNameMap = new HashMap<>();
             for (final CAInfo caInfo : caInfos) {
                 caIdToNameMap.put(caInfo.getCAId(), caInfo.getName());
             }
@@ -502,18 +517,23 @@ public class RaSearchEesBean implements Serializable {
 
     public void openEndEntityDetails(final RaEndEntityDetails selected) {
         currentEndEntityDetails = selected;
+        currentIssuedCerts = null;
     }
     public RaEndEntityDetails getCurrentEndEntityDetails() {
         return currentEndEntityDetails;
     }
+
     public void nextEndEntityDetails() {
         currentEndEntityDetails = currentEndEntityDetails.getNext();
+        currentIssuedCerts = null;
     }
     public void previousEndEntityDetails() {
         currentEndEntityDetails = currentEndEntityDetails.getPrevious();
+        currentIssuedCerts = null;
     }
     public void closeEndEntityDetails() {
         currentEndEntityDetails = null;
+        currentIssuedCerts = null;
     }
 
     /**
@@ -538,5 +558,89 @@ public class RaSearchEesBean implements Serializable {
 
     public boolean isShowPreviousPageButton() {
         return stagedRequest != null && stagedRequest.getPageNumber() > 0;
+    }
+
+    /**
+     * Performs a search for certificates belonging to an End Entity and returns a list of RaCertificateDetail objects.
+     *
+     * @param raMasterApiProxyBean the RaMasterApiProxyBeanLocal to be used in the search
+     * @param raAuthenticationBean the RaAuthenticationBean to be used in the search
+     * @param raLocaleBean the RaLocaleBean to be used when creating the RaCertificateDetail objects
+     * @param username the username of the End Entity to be used in the search
+     * @return
+     */
+    public static List<RaCertificateDetails> searchCertificatesByUsernameSorted(final RaMasterApiProxyBeanLocal raMasterApiProxyBean,
+            final RaAuthenticationBean raAuthenticationBean, final RaLocaleBean raLocaleBean, final String username) {
+        // Perform a certificate search with the given beans and username
+        RaCertificateSearchResponse response = raMasterApiProxyBean.searchForCertificatesByUsername(
+                raAuthenticationBean.getAuthenticationToken(), username);
+        RaCertificateDetails.Callbacks raCertificateDetailsCallbacks = new RaCertificateDetails.Callbacks() {
+            @Override
+            public RaLocaleBean getRaLocaleBean() {
+                return raLocaleBean;
+            }
+            @Override
+            public UIComponent getConfirmPasswordComponent() {
+                return null;
+            }
+            @Override
+            public boolean changeStatus(RaCertificateDetails raCertificateDetails, int newStatus, int newRevocationReason)
+                    throws ApprovalException, WaitingForApprovalException {
+                return false;
+            }
+            @Override
+            public boolean recoverKey(RaCertificateDetails raCertificateDetails) throws ApprovalException, CADoesntExistsException,
+                    AuthorizationDeniedException, WaitingForApprovalException,NoSuchEndEntityException, EndEntityProfileValidationException {
+                return false;
+            }
+            @Override
+            public boolean keyRecoveryPossible(RaCertificateDetails raCertificateDetails) {
+                return false;
+            }
+        };
+        List<RaCertificateDetails> certificates = new ArrayList<>();
+        for (CertificateDataWrapper cdw : response.getCdws()) {
+            certificates.add(new RaCertificateDetails(cdw, raCertificateDetailsCallbacks, null, null, null));
+        }
+        // Sort by date created, descending
+        Collections.sort(certificates, new Comparator<RaCertificateDetails>() {
+            @Override
+            public int compare(RaCertificateDetails cert1, RaCertificateDetails cert2) {
+                return cert1.getCreated().compareTo(cert2.getCreated()) * -1;
+            }
+        });
+        return certificates;
+    }
+
+    /**
+     * @return a list of the current End Entity's certificates
+     */
+    public List<RaCertificateDetails> getCurrentIssuedCerts() {
+        if (currentIssuedCerts == null) {
+            if (currentEndEntityDetails != null) {
+                currentIssuedCerts = RaEndEntityTools.searchCertsByUsernameSorted(
+                        raMasterApiProxyBean, raAuthenticationBean.getAuthenticationToken(),
+                        currentEndEntityDetails.getUsername(), raLocaleBean);
+            } else {
+                currentIssuedCerts = new ArrayList<>();
+            }
+        }
+        return currentIssuedCerts;
+    }
+
+    /**
+     * @return the URL to editing the current End Entity
+     */
+    public String redirectToEdit() {
+        String url = "endentity.xhtml?faces-redirect=true&edit=true&ee="
+                + currentEndEntityDetails.getUsername();
+        return url;
+    }
+
+    /**
+     * @return true if the API is compatible with End Entity editing 
+     */
+    public boolean isApiEditCompatible() {
+        return raMasterApiProxyBean.getApiVersion() >= 2;
     }
 }

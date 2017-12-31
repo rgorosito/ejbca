@@ -66,7 +66,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.crl.RevokedCertInfo;
-import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.config.OcspConfiguration;
@@ -78,6 +78,7 @@ import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.StringTools;
+import org.cesecore.util.ValueExtractor;
 import org.ejbca.cvc.PublicKeyEC;
 
 /**
@@ -713,9 +714,12 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
         if (log.isTraceEnabled()) {
             log.trace(">existsByIssuerAndSerno(), dn:" + issuerDN + ", serno=" + serno.toString(16));
         }
+        // Selecting an int column is optimal speed
+        final Query query = entityManager.createQuery("SELECT 1 FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber");
         // First make a DN in our well-known format
-        final String dn = CertTools.stringToBCDNString(StringTools.strip(issuerDN));
-        final boolean ret = CertificateData.existsByIssuerAndSerno(entityManager, dn, serno.toString());
+        query.setParameter("issuerDN", CertTools.stringToBCDNString(StringTools.strip(issuerDN)));
+        query.setParameter("serialNumber", serno.toString());
+        final boolean ret = query.getResultList().size() > 0;
         if (log.isTraceEnabled()) {
             log.trace("<existsByIssuerAndSerno(), dn:" + issuerDN + ", serno=" + serno.toString(16)+", ret="+ret);
         }
@@ -788,6 +792,22 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
     @Override
     public CertificateInfo findFirstCertificateInfo(final String issuerDN, final BigInteger serno) {
         return CertificateData.findFirstCertificateInfo(entityManager, CertTools.stringToBCDNString(issuerDN), serno.toString());
+    }
+
+    @Override
+    public int getFirstStatusByIssuerAndSerno(final String issuerDN, final BigInteger serno) {
+        final Query query = entityManager.createQuery("SELECT a.status FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber");
+        query.setParameter("issuerDN", CertTools.stringToBCDNString(issuerDN));
+        query.setParameter("serialNumber", serno.toString());
+        final int status;
+        @SuppressWarnings("rawtypes")
+        final List result = query.getResultList();
+        if (result.size() > 0) {
+            status = ValueExtractor.extractIntValue(result.get(0));
+        } else {
+            status = -1;
+        }
+        return status;
     }
 
     @Override
@@ -1438,7 +1458,7 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
                 try {
                     // needs to call using "certificateStoreSession." in order to honor the transaction annotations
                     certificateStoreSession.checkForUniqueCertificateSerialNumberIndexInTransaction(admin, cert1, userName, "abcdef0123456789",
-                            CertificateConstants.CERT_INACTIVE, 0, EndEntityInformation.NO_CERTIFICATEPROFILE, EndEntityInformation.NO_ENDENTITYPROFILE, "", new Date().getTime());
+                            CertificateConstants.CERT_INACTIVE, 0, CertificateProfileConstants.NO_CERTIFICATE_PROFILE, EndEntityConstants.NO_END_ENTITY_PROFILE, "", new Date().getTime());
                 } catch (Throwable e) { // NOPMD, we really need to catch all, never crash
                     throw new RuntimeException("It should always be possible to store initial dummy certificate.", e);
                 }
@@ -1448,7 +1468,7 @@ public class CertificateStoreSessionBean implements CertificateStoreSessionRemot
                 try { 
                     // needs to call using "certificateStoreSession." in order to honor the transaction annotations
                     certificateStoreSession.checkForUniqueCertificateSerialNumberIndexInTransaction(admin, cert2, userName, "fedcba9876543210",
-                            CertificateConstants.CERT_INACTIVE, 0, EndEntityInformation.NO_CERTIFICATEPROFILE, EndEntityInformation.NO_ENDENTITYPROFILE, "", new Date().getTime());
+                            CertificateConstants.CERT_INACTIVE, 0, CertificateProfileConstants.NO_CERTIFICATE_PROFILE, EndEntityConstants.NO_END_ENTITY_PROFILE, "", new Date().getTime());
                 } catch (Throwable e) { // NOPMD, we really need to catch all, never crash
                     log.info("certificateStoreSession.checkForUniqueCertificateSerialNumberIndexInTransaction threw Throwable (normal if there is a unique issuerDN/serialNumber index): "+e.getMessage());
                     log.info("Unique index in CertificateData table for certificate serial number");

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.SimpleTimeZone;
 
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -108,6 +109,7 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.CollectionStore;
 import org.bouncycastle.util.encoders.Hex;
+import org.cesecore.ErrorCode;
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.catoken.CATokenConstants;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAService;
@@ -146,6 +148,8 @@ import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.IllegalCryptoTokenException;
 import org.cesecore.keys.token.NullCryptoToken;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.keys.validation.ValidationException;
+import org.cesecore.keys.validation.IssuancePhase;
 import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.PrintableStringNameStyle;
@@ -231,8 +235,6 @@ public class X509CA extends CA implements Serializable {
 
     /**
      * Constructor used when retrieving existing X509CA from database.
-     * 
-     * @throws IllegalCryptoTokenException
      */
     @SuppressWarnings("deprecation")
     public X509CA(final HashMap<Object, Object> data, final int caId, final String subjectDN, final String name, final int status,
@@ -690,19 +692,18 @@ public class X509CA extends CA implements Serializable {
     }
 
     /**
-     * @see CA#createRequest(Collection, String, Certificate, int)
+     * @see CA#createRequest(CryptoToken, Collection, String, Certificate, int, CertificateProfile, AvailableCustomCertificateExtensionsConfiguration)
      */
     @Override
-    public byte[] createRequest(CryptoToken cryptoToken, Collection<ASN1Encodable> attributes, String signAlg, Certificate cacert, int signatureKeyPurpose)
-            throws CryptoTokenOfflineException {
+    public byte[] createRequest(final CryptoToken cryptoToken, final Collection<ASN1Encodable> attributes, final String signAlg, final Certificate cacert,
+            final int signatureKeyPurpose, final CertificateProfile certificateProfile, final AvailableCustomCertificateExtensionsConfiguration cceConfig)
+                    throws CryptoTokenOfflineException, CertificateExtensionException {
         log.trace(">createRequest: " + signAlg + ", " + CertTools.getSubjectDN(cacert) + ", " + signatureKeyPurpose);
         ASN1Set attrset = new DERSet();
         if (attributes != null) {
             log.debug("Adding attributes in the request");
-            Iterator<ASN1Encodable> iter = attributes.iterator();
             ASN1EncodableVector vec = new ASN1EncodableVector();
-            while (iter.hasNext()) {
-                ASN1Encodable o = (ASN1Encodable) iter.next();
+            for (final ASN1Encodable o : attributes) {
                 vec.add(o);
             }
             attrset = new DERSet(vec);
@@ -790,11 +791,11 @@ public class X509CA extends CA implements Serializable {
     
     
     /**
-     * @param providedRequestMessage provided request message containing optional information, and will be set with the signing key and provider. 
+     * @param request provided request message containing optional information, and will be set with the signing key and provider. 
      * If the certificate profile allows subject DN override this value will be used instead of the value from subject.getDN. Its public key is going to be used if 
-     * providedPublicKey == null && subject.extendedInformation.certificateRequest == null. Can be null.
-     * @param providedPublicKey provided public key which will have precedence over public key from providedRequestMessage but not over subject.extendedInformation.certificateRequest
-     * @param subject end entity information. If it contains certificateRequest under extendedInformation, it will be used instead of providedRequestMessage and providedPublicKey
+     * publicKey == null && subject.extendedInformation.certificateRequest == null. Can be null.
+     * @param publicKey provided public key which will have precedence over public key from the provided RequestMessage but not over subject.extendedInformation.certificateRequest
+     * @param subject end entity information. If it contains certificateRequest under extendedInformation, it will be used instead of the provided RequestMessage and publicKey
      */
     @Override
     public Certificate generateCertificate(CryptoToken cryptoToken, final EndEntityInformation subject, final RequestMessage request,
@@ -933,6 +934,8 @@ public class X509CA extends CA implements Serializable {
                 customDNOrder = order.toArray(new String[0]);
             }
         }
+        final boolean applyLdapToCustomOrder = certProfile.getUseCustomDnOrderWithLdap();
+
         final X500Name subjectDNName;
         if (certProfile.getAllowDNOverride() && (request != null) && (request.getRequestX500Name() != null)) {
             subjectDNName = request.getRequestX500Name();
@@ -952,10 +955,10 @@ public class X509CA extends CA implements Serializable {
                         log.debug("ExtendedInformation.getRawSubjectDn(): " + ei.getRawSubjectDn() + " will use: " + CeSecoreNameStyle.INSTANCE.toString(subjectDNName));
                     }
                 } else {
-                    subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldapdnorder, customDNOrder);
+                    subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldapdnorder, customDNOrder, applyLdapToCustomOrder);
                 }
             } else {
-                subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldapdnorder, customDNOrder);
+                subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldapdnorder, customDNOrder, applyLdapToCustomOrder);
             }
         }
         // Make sure the DN does not contain dangerous characters
@@ -1200,9 +1203,7 @@ public class X509CA extends CA implements Serializable {
 
             // Add Certificate Transparency extension. It needs to access the certbuilder and
             // the CA key so it has to be processed here inside X509CA.
-             if (ct != null && certProfile.isUseCertificateTransparencyInCerts() &&
-                certGenParams.getConfiguredCTLogs() != null &&
-                certGenParams.getCTAuditLogCallback() != null) {
+             if (ct != null && certProfile.isUseCertificateTransparencyInCerts() && certGenParams != null) {
                 
                 // Create pre-certificate
                 // A critical extension is added to prevent this cert from being used
@@ -1218,23 +1219,39 @@ public class X509CA extends CA implements Serializable {
                         new JcaContentSignerBuilder(sigAlg).setProvider(provider).build(caPrivateKey), 20480);
                 final X509CertificateHolder certHolder = precertbuilder.build(signer);
                 final X509Certificate cert = CertTools.getCertfromByteArray(certHolder.getEncoded(), X509Certificate.class);
-
-                // Get certificate chain
-                final List<Certificate> chain = new ArrayList<>();
-                chain.add(cert);
-                chain.addAll(getCertificateChain());
-
-                // Submit to logs and get signed timestamps
-                byte[] sctlist = null;
-                try {
-                    sctlist = ct.fetchSCTList(chain, certProfile, certGenParams.getConfiguredCTLogs());
-                }  finally {
-                    // Notify that pre-cert has been successfully or unsuccessfully submitted so it can be audit logged.
-                    certGenParams.getCTAuditLogCallback().logPreCertSubmission(this, subject, cert, sctlist != null);
+                // ECA-6051 Re-Factor with Domain Service Layer.
+                if (certGenParams.getAuthenticationToken() != null && certGenParams.getCertificateValidationDomainService() != null) {
+                    try {
+                        certGenParams.getCertificateValidationDomainService().validateCertificate(certGenParams.getAuthenticationToken(), IssuancePhase.PRE_CERTIFICATE_VALIDATION, this, subject, cert);
+                    } catch (ValidationException e) {
+                        throw new CertificateCreateException(ErrorCode.INVALID_CERTIFICATE, e);
+                    }
                 }
-                if (sctlist != null) { // can be null if the CTLog has been deleted from the configuration
-                    ASN1ObjectIdentifier sctOid = new ASN1ObjectIdentifier(CertificateTransparency.SCTLIST_OID);
-                    certbuilder.addExtension(sctOid, false, new DEROctetString(sctlist));
+                
+                if (certGenParams.getCTSubmissionConfigParams() == null) {
+                    log.debug("Not logging to CT. CT submission configuration parameters was null.");
+                } else if (MapUtils.isEmpty(certGenParams.getCTSubmissionConfigParams().getConfiguredCTLogs())) {
+                    log.debug("Not logging to CT. There are no CT logs configured in System Configuration.");
+                } else if (certGenParams.getCTAuditLogCallback() == null) {
+                    log.debug("Not logging to CT. No CT audit logging callback was passed to X509CA.");
+                } else {
+                    // Get certificate chain
+                    final List<Certificate> chain = new ArrayList<>();
+                    chain.add(cert);
+                    chain.addAll(getCertificateChain());
+    
+                    // Submit to logs and get signed timestamps
+                    byte[] sctlist = null;
+                    try {
+                        sctlist = ct.fetchSCTList(chain, certProfile, certGenParams.getCTSubmissionConfigParams());
+                    }  finally {
+                        // Notify that pre-cert has been successfully or unsuccessfully submitted so it can be audit logged.
+                        certGenParams.getCTAuditLogCallback().logPreCertSubmission(this, subject, cert, sctlist != null);
+                    }
+                    if (sctlist != null) { // can be null if the CTLog has been deleted from the configuration
+                        ASN1ObjectIdentifier sctOid = new ASN1ObjectIdentifier(CertificateTransparency.SCTLIST_OID);
+                        certbuilder.addExtension(sctOid, false, new DEROctetString(sctlist));
+                    }
                 }
             } else {
                 if (log.isDebugEnabled()) {
@@ -1247,13 +1264,9 @@ public class X509CA extends CA implements Serializable {
                         }
                         if (certGenParams == null) {
                             cause += "Certificate generation parameters was null.";
-                        } else if (certGenParams.getCTAuditLogCallback() == null) {
-                            cause += "No CT audit logging callback was passed to X509CA.";
-                        } else if (certGenParams.getConfiguredCTLogs() == null) {
-                            cause += "There are no CT logs configured in System Configuration.";
                         }
                     }
-                    log.debug("Not logging to CT. "+cause);                    
+                    log.debug("Not logging to CT. "+cause);
                 }
             }
         } catch (CertificateException e) {
@@ -1500,9 +1513,7 @@ public class X509CA extends CA implements Serializable {
             if (log.isDebugEnabled()) {
                 log.debug("Adding "+certs.size()+" revoked certificates to CRL. Free memory="+Runtime.getRuntime().freeMemory());
             }
-            final Iterator<RevokedCertInfo> it = certs.iterator();
-            while (it.hasNext()) {
-                final RevokedCertInfo certinfo = (RevokedCertInfo) it.next();
+            for (final RevokedCertInfo certinfo : certs) {
                 crlgen.addCRLEntry(certinfo.getUserCertificate(), certinfo.getRevocationDate(), certinfo.getReason());
             }
             if (log.isDebugEnabled()) {
@@ -1601,8 +1612,7 @@ public class X509CA extends CA implements Serializable {
                 String crlFreshestDP = getCADefinedFreshestCRL();
                 List<DistributionPoint> freshestDistPoints = generateDistributionPoints(crlFreshestDP);
                 if (freshestDistPoints.size() > 0) {
-                    CRLDistPoint ext = new CRLDistPoint((DistributionPoint[]) freshestDistPoints.toArray(new DistributionPoint[freshestDistPoints
-                            .size()]));
+                    CRLDistPoint ext = new CRLDistPoint(freshestDistPoints.toArray(new DistributionPoint[freshestDistPoints.size()]));
 
                     // According to the RFC, the Freshest CRL extension on a
                     // CRL must not be marked as critical. Therefore it is
@@ -1670,14 +1680,9 @@ public class X509CA extends CA implements Serializable {
      * @return list of distribution points.
      */
     private List<DistributionPoint> generateDistributionPoints(String distPoints) {
-        if (distPoints == null) {
-            distPoints = "";
-        }
         // Multiple CDPs are separated with the ';' sign
-        Iterator<String> it = StringTools.splitURIs(distPoints).iterator();
-        ArrayList<DistributionPoint> result = new ArrayList<DistributionPoint>();
-        while (it.hasNext()) {
-            String uri = (String) it.next();
+        ArrayList<DistributionPoint> result = new ArrayList<>();
+        for (final String uri : StringTools.splitURIs(StringUtils.defaultString(distPoints))) {
             GeneralName gn = new GeneralName(GeneralName.uniformResourceIdentifier, new DERIA5String(uri));
             if (log.isDebugEnabled()) {
                 log.debug("Added CRL distpoint: " + uri);
@@ -1692,6 +1697,7 @@ public class X509CA extends CA implements Serializable {
     }
 
     /** Implementation of UpgradableDataHashMap function getLatestVersion */
+    @Override
     public float getLatestVersion() {
         return LATEST_VERSION;
     }
@@ -1699,6 +1705,7 @@ public class X509CA extends CA implements Serializable {
     /**
      * Implementation of UpgradableDataHashMap function upgrade.
      */
+    @Override
     @SuppressWarnings("deprecation")
     public void upgrade() {
         if (Float.compare(LATEST_VERSION, getVersion()) != 0) {
@@ -1770,7 +1777,6 @@ public class X509CA extends CA implements Serializable {
             if (o instanceof Integer) {
                 setDeltaCRLPeriod(((Integer) o).longValue() * SimpleTime.MILLISECONDS_PER_HOUR); // h to ms
             }
-            data.put(VERSION, new Float(LATEST_VERSION));
             // v20, remove XKMS CA service
             if (data.get(EXTENDEDCASERVICES) != null) {
                 @SuppressWarnings("unchecked")
@@ -1799,7 +1805,9 @@ public class X509CA extends CA implements Serializable {
             // v23 'keyValidators' new empty list.
             if (null == data.get(VALIDATORS)) {
                 setValidators(new ArrayList<Integer>());
-            }            
+            }
+            
+            data.put(VERSION, new Float(LATEST_VERSION));
         }
     }
 
@@ -1808,6 +1816,7 @@ public class X509CA extends CA implements Serializable {
      * instantiated in the regular upgrade.
      */
     @SuppressWarnings({ "rawtypes", "deprecation" })
+    @Override
     public boolean upgradeExtendedCAServices() {
         boolean retval = false;
         // call upgrade, if needed, on installed CA services

@@ -161,9 +161,6 @@
 	<property name="mod.caa-cli.lib" location="${mod.dist.caa-cli.dir}/caa-cli.jar" />
     <property name="mod.est-war.path" location="${mod.path}/est" />
     <property name="mod.est.war" location="${mod.dist.path}/est.war" />
-	<property name="mod.est.lib" location="${mod.dist.path}/est-ejb.jar" />
-	<property name="mod.est-interface.lib" location="${mod.dist.path}/est-interface.jar" />
-
 	
     <!-- Variables of global interest -->
     <property name="java.target.version" value="${java.specification.version}"/>
@@ -190,7 +187,7 @@
 	<property name="systemtests.properties.file" location="${ejbca.home}/conf/systemtests.properties"/>
     
 	<!-- Define class-paths of global interest -->
-	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.6.jar"/></path>
+	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.8.jar"/></path>
 
 	<path id="lib.junit.classpath">
 		<fileset dir="${ejbca.home}/lib/ext">

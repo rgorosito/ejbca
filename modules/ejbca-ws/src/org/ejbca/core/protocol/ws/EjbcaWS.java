@@ -108,7 +108,6 @@ import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
-import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.internal.UpgradeableDataHashMap;
 import org.cesecore.keybind.CertificateImportException;
@@ -121,6 +120,8 @@ import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.StringTools;
+import org.ejbca.config.AvailableProtocolsConfiguration;
+import org.ejbca.config.AvailableProtocolsConfiguration.AvailableProtocols;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.config.WebServiceConfiguration;
 import org.ejbca.core.EjbcaException;
@@ -188,7 +189,6 @@ import org.ejbca.core.protocol.ws.logger.TransactionLogger;
 import org.ejbca.core.protocol.ws.logger.TransactionTags;
 import org.ejbca.core.protocol.ws.objects.Certificate;
 import org.ejbca.core.protocol.ws.objects.CertificateResponse;
-import org.ejbca.core.protocol.ws.objects.ExtendedInformationWS;
 import org.ejbca.core.protocol.ws.objects.HardTokenDataWS;
 import org.ejbca.core.protocol.ws.objects.KeyStore;
 import org.ejbca.core.protocol.ws.objects.NameAndId;
@@ -292,13 +292,16 @@ public class EjbcaWS implements IEjbcaWS {
 	private static final Logger log = Logger.getLogger(EjbcaWS.class);
     /** Internal localization of logs and errors */
     private static final InternalEjbcaResources intres = InternalEjbcaResources.getInstance();
-
+    /** Only intended to check if Peer connected instance is authorized to Web Services at all.*/
+    private final AuthenticationToken raWsAuthCheckToken = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("wsServiceAuthCheck"));
 
     /**
      * Gets an Admin object for a WS-API administrator authenticated with client certificate SSL.
      * Also checks that the admin, if it exists in EJCBA, have access to /administrator, i.e. really is an administrator.
      * Does not check any other authorization though, other than that it is an administrator.
      * Also checks that the admin certificate is not revoked.
+     * 
+     * If Web Services is disabled globally, an UnsupportedOperationException will be thrown
      *
      * @param wsContext web service context that contains the SSL information
      * @return Admin object based on the SSL client certificate
@@ -312,18 +315,23 @@ public class EjbcaWS implements IEjbcaWS {
      * - Checks (through authenticationSession.authenticate) that the certificate is valid
      * - If (WebConfiguration.getRequireAdminCertificateInDatabase) checks (through authenticationSession.authenticate) that the admin certificate is not revoked.
      * - If (allowNonAdmin == false), checks that the admin have access to /administrator, i.e. really is an administrator with the certificate mapped in an admin role.
+     * - If (AvailableProtocolsConfiguration.getProtocolStatus('WS') == true), checks if Web Services is enabled globally. Otherwise throws UnsupportedOperationException.
      *   Does not check any other authorization though, other than that it is an administrator.
      *
      * @param allowNonAdmins false if we should verify that it is a real administrator, true only extracts the certificate and checks that it is not revoked.
      * @return AuthenticationToken object based on the SSL client certificate
      * @throws AuthorizationDeniedException if no client certificate or allowNonAdmins == false and the cert does not belong to an admin
+     * @throws UnsupportedOperationException if this instance incoming peer connection denies web services
      */
     private AuthenticationToken getAdmin(final boolean allowNonAdmins) throws AuthorizationDeniedException {
         final MessageContext msgContext = wsContext.getMessageContext();
         final HttpServletRequest request = (HttpServletRequest) msgContext.get(MessageContext.SERVLET_REQUEST);
         final X509Certificate[] certificates = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
-
-        if ((certificates == null) || (certificates[0] == null)) {
+        final boolean isServiceEnabled = ((AvailableProtocolsConfiguration)globalConfigurationSession.getCachedConfiguration(AvailableProtocolsConfiguration.CONFIGURATION_ID)).getProtocolStatus(AvailableProtocols.WS.getName());
+        final boolean isServiceAuthorized = raMasterApiProxyBean.isAuthorizedNoLogging(raWsAuthCheckToken, AccessRulesConstants.REGULAR_PEERPROTOCOL_WS);
+        if (!(isServiceEnabled && isServiceAuthorized)) {
+            throw new UnsupportedOperationException("Not authorized to Web Services");
+        } else if ((certificates == null) || (certificates[0] == null)) {
             throw new AuthorizationDeniedException("Error no client certificate received used for authentication.");
         }
         return ejbcaWSHelperSession.getAdmin(allowNonAdmins, certificates[0]);
@@ -2707,7 +2715,6 @@ public class EjbcaWS implements IEjbcaWS {
 	        setUserDataVOWS(userdata);
 	    	final AuthenticationToken admin = getAdmin(false);
 	    	logAdminName(admin,logger);
-            enrichUserDataWithRawSubjectDn(userdata);
 	        return new CertificateResponse(responseType, raMasterApiProxyBean.createCertificateWS(admin, userdata, requestData, requestType,
 	                hardTokenSN, responseType));
 	    } catch( AuthorizationDeniedException t ) {
@@ -2746,16 +2753,6 @@ public class EjbcaWS implements IEjbcaWS {
         }
 	}
 
-    /** Add the raw subject DN as requested (used if we allow override from request End Entity Information) */
-    private void enrichUserDataWithRawSubjectDn(final UserDataVOWS userdata) {
-        if (userdata.getExtendedInformation()==null) {
-            userdata.setExtendedInformation(new ArrayList<ExtendedInformationWS>());
-        }
-        // It could/should B64 encoded to avoid XML baddies, ExtendedInformation.getRawSubjectDn does encoding, if the string is encoded
-        final String value = StringTools.putBase64String(userdata.getSubjectDN());
-        userdata.getExtendedInformation().add(new ExtendedInformationWS(ExtendedInformation.RAWSUBJECTDN, value));
-    }
-
     @SuppressWarnings("deprecation")
     @Override
 	public KeyStore softTokenRequest(UserDataVOWS userdata, String hardTokenSN, String keyspec, String keyalg)
@@ -2768,7 +2765,6 @@ public class EjbcaWS implements IEjbcaWS {
 	        userdata.setClearPwd(true);
 	    	final AuthenticationToken admin = getAdmin(false);
 	    	logAdminName(admin,logger);
-            enrichUserDataWithRawSubjectDn(userdata);
 	        final EndEntityInformation endEntityInformation = ejbcaWSHelperSession.convertUserDataVOWS(admin, userdata);
 	        final boolean createJKS = userdata.getTokenType().equals(UserDataVOWS.TOKEN_TYPE_JKS);
 	        final byte[] encodedKeyStore = certificateRequestSession.processSoftTokenReq(admin, endEntityInformation, hardTokenSN, keyspec, keyalg, createJKS);

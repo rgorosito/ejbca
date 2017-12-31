@@ -10,10 +10,10 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.cesecore.keys.validation;
 
 import java.security.PublicKey;
-import java.util.Date;
 import java.util.List;
 
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
@@ -24,7 +24,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
  * @version $Id$
  *
  */
-public interface KeyValidator extends Validator {
+public interface KeyValidator extends Validator, ValidityAwareValidator {
     
     /** List of accepted date formats for notBefore and notAfter filter. */
     static final String[] DATE_FORMAT = new String[] { "yyyy-MM-dd HH:mm:ssZZ", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd" };
@@ -38,38 +38,5 @@ public interface KeyValidator extends Validator {
      * @throws ValidatorNotApplicableException when this validator is not applicable for the input, for example ECC keys as input to an RSA key validator
      * @throws ValidationException if the certificate issuance MUST be aborted.
      */
-    List<String> validate(PublicKey publicKey, CertificateProfile certificateProfiles) throws ValidatorNotApplicableException, ValidationException;
-    
-    void setNotBefore(Date date);
-    
-    /**
-     * Sets the BaseKeyValidator notBefore field.
-     * @param formattedDate the formatted date string.
-     */
-    void setNotBeforeAsString(String formattedDate);
-    
-    Date getNotBefore();
-    
-    String getNotBeforeAsString();
-    
-    void setNotBeforeCondition(int index);
-    
-    int getNotBeforeCondition();
-    
-    void setNotAfter(Date date);
-    
-    /**
-     * Sets the BaseKeyValidator notAfter field.
-     * @param formattedDate the formatted date string.
-     */
-    void setNotAfterAsString(String formattedDate);
-    
-    Date getNotAfter();
-    
-    String getNotAfterAsString();
-    
-    int getNotAfterCondition();
-    
-    void setNotAfterCondition(int index);
-    
+    List<String> validate(PublicKey publicKey, CertificateProfile certificateProfiles) throws ValidatorNotApplicableException, ValidationException;    
 }

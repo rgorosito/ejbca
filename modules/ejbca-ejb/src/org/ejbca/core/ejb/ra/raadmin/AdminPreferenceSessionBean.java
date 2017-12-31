@@ -297,6 +297,10 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
 
     @Override
     public Integer getCurrentRaStyleId(AuthenticationToken admin) {
+        
+        if (!(admin instanceof X509CertificateAuthenticationToken)) {
+            return null;
+        }
 
         String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
 
@@ -328,6 +332,10 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
 
     @Override
     public Locale getCurrentRaLocale(AuthenticationToken admin) {
+        
+        if (!(admin instanceof X509CertificateAuthenticationToken)) {
+            return null;
+        }
 
         String certificatefingerprint = CertTools.getFingerprintAsString(((X509CertificateAuthenticationToken) admin).getCertificate());
 

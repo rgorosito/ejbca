@@ -82,7 +82,7 @@ import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
-import org.cesecore.certificates.certificatetransparency.CTLogInfo;
+import org.cesecore.certificates.certificatetransparency.CTSubmissionConfigParams;
 import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityConstants;
@@ -400,13 +400,12 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
         }
         if (ca.getStatus() != CAConstants.CA_ACTIVE) {
             final String msg = intres.getLocalizedMessage("signsession.canotactive", ca.getSubjectDN());
-            throw new EJBException(msg);
+            throw new CAOfflineException(msg);
         }
         try {
             // See if we need some key material to decrypt request
             final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(ca.getCAToken().getCryptoTokenId());
-            decryptAndVerify(cryptoToken, req, ca);
-            
+            setDecryptInfo(cryptoToken, req, ca);    
             if (ca.isUseUserStorage() && req.getUsername() == null) {
                 String msg = intres.getLocalizedMessage("signsession.nouserinrequest", req.getRequestDN());
                 throw new SignRequestException(msg);
@@ -461,6 +460,7 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
             throw ex;
         } catch (NoSuchProviderException e) {
             log.error("NoSuchProvider provider: ", e);
+            throw new IllegalStateException(e);
         } catch (InvalidKeyException e) {
             log.error("Invalid key in request: ", e);
         } catch (NoSuchAlgorithmException e) {
@@ -542,8 +542,8 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
 
     @Override
     public CertificateResponseMessage createRequestFailedResponse(final AuthenticationToken admin, final RequestMessage req,
-            final Class<? extends ResponseMessage> responseClass, final FailInfo failInfo, final String failText) throws CADoesntExistsException,
-            SignRequestSignatureException, CryptoTokenOfflineException, AuthorizationDeniedException {
+            final Class<? extends ResponseMessage> responseClass, final FailInfo failInfo, final String failText)
+            throws CADoesntExistsException, CryptoTokenOfflineException, AuthorizationDeniedException {
         if (log.isTraceEnabled()) {
             log.trace(">createRequestFailedResponse(IRequestMessage)");
         }
@@ -552,7 +552,7 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
         try {
             final CAToken catoken = ca.getCAToken();
             final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(catoken.getCryptoTokenId());
-            decryptAndVerify(cryptoToken, req, ca);
+            setDecryptInfo(cryptoToken, req, ca);
             //Create the response message with all nonces and checks etc
             ret = ResponseMessageUtils.createResponseMessage(responseClass, req, ca.getCertificateChain(),
                             cryptoToken.getPrivateKey(catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN)),
@@ -583,9 +583,8 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
     }
 
     @Override
-    public RequestMessage decryptAndVerifyRequest(final AuthenticationToken admin, final RequestMessage req) throws AuthStatusException,
-            AuthLoginException, IllegalKeyException, CADoesntExistsException, SignRequestException, SignRequestSignatureException,
-            CryptoTokenOfflineException, AuthorizationDeniedException {
+    public RequestMessage decryptAndVerifyRequest(final AuthenticationToken admin, final RequestMessage req)
+            throws CADoesntExistsException, SignRequestSignatureException, CryptoTokenOfflineException, AuthorizationDeniedException {
         if (log.isTraceEnabled()) {
             log.trace(">decryptAndVerifyRequest(IRequestMessage)");
         }
@@ -594,7 +593,12 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
         try {
             // See if we need some key material to decrypt request
             final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(ca.getCAToken().getCryptoTokenId());
-            decryptAndVerify(cryptoToken, req, ca);
+            setDecryptInfo(cryptoToken, req, ca);
+            // Verify the request
+            if (req.verify() == false) {
+                String msg = intres.getLocalizedMessage("createcert.popverificationfailed");
+                throw new SignRequestSignatureException(msg);
+            }
         } catch (NoSuchProviderException e) {
             log.error("NoSuchProvider provider: ", e);
         } catch (InvalidKeyException e) {
@@ -612,7 +616,7 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
         return req;
     }
 
-    /**
+    /** Sets information needed to decrypt a message, if such information is needed(i.e. CA private key for SCEP messages)
      * 
      * @param cryptoToken
      * @param req
@@ -622,10 +626,9 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
      * @throws InvalidKeyException If the key from the request used for verification is invalid.
      * @throws NoSuchAlgorithmException if the signature on the request is done with an unhandled algorithm
      * @throws NoSuchProviderException if there is an error with the Provider defined in the request
-     * @throws SignRequestSignatureException the the request couldn't be verified
      */
-    private void decryptAndVerify(final CryptoToken cryptoToken, final RequestMessage req, final CA ca) throws CryptoTokenOfflineException,
-            InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, SignRequestSignatureException {
+    private void setDecryptInfo(final CryptoToken cryptoToken, final RequestMessage req, final CA ca) throws CryptoTokenOfflineException,
+            InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException {
         final CAToken catoken = ca.getCAToken();
         if (req.requireKeyInfo()) {
             // You go figure...scep encrypts message with the public CA-cert
@@ -638,11 +641,6 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
                         cryptoToken.getPrivateKey(catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN)),
                         cryptoToken.getSignProviderName());
             }
-        }
-        // Verify the request
-        if (req.verify() == false) {
-            String msg = intres.getLocalizedMessage("createcert.popverificationfailed");
-            throw new SignRequestSignatureException(msg);
         }
     }
 
@@ -902,10 +900,12 @@ public class SignSessionBean implements SignSessionLocal, SignSessionRemote {
         // Supply extra info to X509CA for Certificate Transparency
         final GlobalConfiguration globalConfiguration = (GlobalConfiguration) globalConfigurationSession
                 .getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        final LinkedHashMap<Integer, CTLogInfo> configuredCTLogs = globalConfiguration.getCTLogs();
         
         final CertificateGenerationParams certGenParams = new CertificateGenerationParams();
-        certGenParams.setConfiguredCTLogs(configuredCTLogs);
+        final CTSubmissionConfigParams ctConfig = new CTSubmissionConfigParams();
+        ctConfig.setConfiguredCTLogs(globalConfiguration.getCTLogs());
+        ctConfig.setValidityPolicy(globalConfiguration.getGoogleCtPolicy());
+        certGenParams.setCTSubmissionConfigParams(ctConfig);
         return certGenParams;
     }
 

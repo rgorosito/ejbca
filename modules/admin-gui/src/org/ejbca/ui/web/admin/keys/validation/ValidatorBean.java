@@ -13,7 +13,10 @@
 
 package org.ejbca.ui.web.admin.keys.validation;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateParsingException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,28 +31,36 @@ import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
 import javax.faces.component.html.HtmlSelectOneMenu;
 import javax.faces.context.FacesContext;
+import javax.faces.event.AbortProcessingException;
 import javax.faces.event.AjaxBehaviorEvent;
 import javax.faces.model.SelectItem;
 import javax.faces.validator.ValidatorException;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.apache.myfaces.custom.fileupload.UploadedFile;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.util.AlgorithmTools;
+import org.cesecore.configuration.GlobalConfigurationSessionLocal;
+import org.cesecore.keys.validation.ExternalCommandCertificateValidator;
+import org.cesecore.keys.validation.IssuancePhase;
 import org.cesecore.keys.validation.KeyValidationFailedActions;
 import org.cesecore.keys.validation.KeyValidatorBase;
 import org.cesecore.keys.validation.KeyValidatorDateConditions;
 import org.cesecore.keys.validation.KeyValidatorDoesntExistsException;
 import org.cesecore.keys.validation.KeyValidatorSessionLocal;
 import org.cesecore.keys.validation.KeyValidatorSettingsTemplate;
+import org.cesecore.keys.validation.PhasedValidator;
 import org.cesecore.keys.validation.Validator;
 import org.cesecore.keys.validation.ValidatorBase;
 import org.cesecore.keys.validation.ValidatorFactory;
+import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
+import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
@@ -69,6 +80,9 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     private static final Logger log = Logger.getLogger(ValidatorBean.class);
 
     @EJB
+    private GlobalConfigurationSessionLocal configurationSession;
+
+    @EJB
     private CertificateProfileSessionLocal certificateProfileSession;
 
     @EJB
@@ -84,6 +98,8 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     /** Selected key validator. */
     private Validator validator = null;
 
+    private UploadedFile testExternalCommandCertificateValidatorPath;
+    
     /** Since this MBean is session scoped we need to reset all the values when needed. */
     private void reset() {
         currentValidatorId = -1;
@@ -180,8 +196,12 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return List of the available key validator types
      */
     public List<SelectItem> getAvailableValidators() {
+        final List<Class> excludeClasses = new ArrayList<Class>();
+        if (!((GlobalConfiguration) configurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableExternalScripts()) {
+            excludeClasses.add(ExternalCommandCertificateValidator.class);
+        }
         final List<SelectItem> ret = new ArrayList<>();
-        for (final Validator validator : ValidatorFactory.INSTANCE.getAllImplementations()) {
+        for (final Validator validator : ValidatorFactory.INSTANCE.getAllImplementations(excludeClasses)) {
             ret.add(new SelectItem(validator.getValidatorTypeIdentifier(), validator.getLabel()));
         }
         Collections.sort(ret, new Comparator<SelectItem>() {
@@ -205,6 +225,31 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         }
         return result;
     }
+    
+    /**
+     * Gets a list of select items of the certificate issuance process phases (see {@link IssuancePhase}).
+     * @return the list.
+     */
+    public List<SelectItem> getAllApplicablePhases() {
+        final List<SelectItem> result = new ArrayList<SelectItem>();
+        final IssuancePhase[] items = IssuancePhase.values();
+        for(IssuancePhase phase : items) {
+            result.add(new SelectItem(phase.getIndex(), getEjbcaWebBean().getText(phase.getLabel())));
+        }
+        return result;
+    }
+    
+    /**
+     * Gets a list of select items of the certificate issuance process phases (see {@link IssuancePhase}).
+     * @return the list.
+     */
+    public List<SelectItem> getApplicablePhases() {
+        final List<SelectItem> result = new ArrayList<SelectItem>();
+        for (Integer index : ((PhasedValidator) getValidator()).getApplicablePhases()) {
+            result.add(new SelectItem(index, getEjbcaWebBean().getText(IssuancePhase.indexOf(index).getLabel())));
+        }
+        return result;
+    }
 
     /**
      * Gets the selected validator type.
@@ -222,9 +267,6 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     public void setValidatorType(String value) {
         // this re-creates the whole validator, so only do it if it actually changed type
         if (!validator.getValidatorTypeIdentifier().equals(value)) {
-            if (log.isTraceEnabled()) {
-                log.trace("Changing validator type to "+value);
-            }
             validator = ValidatorFactory.INSTANCE.getArcheType(value);
             validator.setDataMap(getValidator().getDataMap());
             validator.setProfileId(getSelectedKeyValidatorId());
@@ -553,7 +595,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * 
      * @param e the event.
      */
-    public void validatorTemplateChanged(AjaxBehaviorEvent e) {
+    public void validatorTemplateChanged(AjaxBehaviorEvent e) throws AbortProcessingException {
         if (log.isDebugEnabled()) {
             log.debug("Setting key validator base parameter option " + ((HtmlSelectOneMenu) e.getComponent()).getValue());
         }
@@ -563,5 +605,46 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         keyValidator.setKeyValidatorSettingsTemplate();
         FacesContext.getCurrentInstance().renderResponse();
     }
+    
+    public UploadedFile getTestExternalCommandCertificateValidatorPath() {
+        return testExternalCommandCertificateValidatorPath;
+    }
 
+    public void setTestExternalCommandCertificateValidatorPath(final UploadedFile file) {
+    	if (log.isDebugEnabled()) {
+    	    log.debug("Uploaded test certificate file is: " + file);
+    	}
+        if (file != null) {
+            this.testExternalCommandCertificateValidatorPath = file;
+            try {
+                final List<Certificate> certificates = CertTools.getCertsFromPEM(file.getInputStream(), Certificate.class);
+                ((ExternalCommandCertificateValidator) validator).setTestCertificates(certificates);
+                if (log.isDebugEnabled()) {
+                    log.info("Test certificates uploaded: " + certificates);
+                }
+            } catch(IOException e) {
+                log.warn("Could not load file: " + e.getMessage(), e);
+            } catch(CertificateParsingException e) {
+                log.warn("Could not parse certificates: " + e.getMessage(), e);
+            }
+        }
+    }
+    
+    public String testExternalCommandCertificateValidatorAction() throws Exception {
+        if (testExternalCommandCertificateValidatorPath == null) {
+            addErrorMessage("EXTERNALCERTIFICATEVALIDATORTESTPATHMISSING");
+            return "";
+        }
+        final List<String> lines = ((ExternalCommandCertificateValidator) validator).testExternalCommandCertificateValidatorAction();
+        ((ExternalCommandCertificateValidator) validator).setTestStandardAndErrorOut(StringUtils.join(lines, getLineSeparator()));
+        if (log.isDebugEnabled()) {
+            log.debug("Test certificate with external command STOUT/ERROUT:" + System.getProperty("line.separator") + ((ExternalCommandCertificateValidator) validator).getTestStandardAndErrorOut());
+        }
+        FacesContext.getCurrentInstance().renderResponse();
+        return "";
+    }
+    
+    public String getLineSeparator() {
+        return System.getProperty("line.separator");
+    }
 }

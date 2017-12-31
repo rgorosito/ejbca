@@ -45,7 +45,7 @@ public class CustomPublisherContainer extends BasePublisher {
 		
 	// Default Values
     
-    protected static final String CLASSPATH = "classpath";
+    public static final String CLASSPATH = "classpath";
     protected static final String PROPERTYDATA = "propertydata";
 		
     public CustomPublisherContainer(){
@@ -118,6 +118,7 @@ public class CustomPublisherContainer extends BasePublisher {
     public Properties getProperties() throws IOException {
         final Properties properties = new Properties();
         final String propertyData = getPropertyData();
+        // Re-Factor: Here the strings are escaped: \\ -> \; \n -> new line, etc.
         if (propertyData != null) {
             properties.load(new ByteArrayInputStream(propertyData.getBytes()));
         }

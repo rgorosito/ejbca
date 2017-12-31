@@ -36,7 +36,10 @@ public final class CTLogInfo implements Serializable {
     private byte[] publicKeyBytes;
     private String url; // base URL, without "add-chain" or "add-pre-chain"
     private int timeout = 5000; // milliseconds
+    private String label;
+    @Deprecated
     private boolean isMandatory;
+    private Integer expirationYearRequired;
 
     private transient PublicKey publicKey;
 
@@ -50,9 +53,10 @@ public final class CTLogInfo implements Serializable {
      *        the strings "add-chain" or "add-pre-chain" depending on whether
      *        EJBCA is submitting a pre-certificate or a regular certificate.
      * @param publicKeyBytes  The ASN1 encoded public key of the log.
-     * @param isMandatory a boolean indicating whether this is mandatory log
+     * @param label to place CT log under.
+     * @param timeout of SCT response in ms.
      */
-    public CTLogInfo(final String url, final byte[] publicKeyBytes, final boolean isMandatory) {
+    public CTLogInfo(final String url, final byte[] publicKeyBytes, final String label, final int timeout) {
         if (!url.endsWith("/")) {
             log.error("CT Log URL must end with a slash. URL: "+url); // EJBCA 6.4 didn't enforce this due to a regression
         }
@@ -65,7 +69,12 @@ public final class CTLogInfo implements Serializable {
             throw new IllegalArgumentException("publicKeyBytes is null");
         }
         this.publicKeyBytes = publicKeyBytes.clone();
-        this.isMandatory = isMandatory;
+        if (label != null && label.isEmpty()) {
+            this.label = "Unlabeled";
+        } else {
+            this.label = label;
+        }
+        this.timeout = timeout;
     }
 
     private void ensureParsed() {
@@ -85,6 +94,10 @@ public final class CTLogInfo implements Serializable {
     public PublicKey getLogPublicKey() {
         ensureParsed();
         return publicKey;
+    }
+
+    public byte[] getPublicKeyBytes() {
+        return publicKeyBytes;
     }
 
     public void setLogPublicKey(final byte[] publicKeyBytes) {
@@ -149,7 +162,56 @@ public final class CTLogInfo implements Serializable {
         return url;
     }
 
-    public void setIsMandatory(final boolean isMandatory) {
-        this.isMandatory = isMandatory;
+    public String getLabel() {
+        return label == null ? "Unlabeled" : label;
+    }
+
+    public void setLabel(final String label) {
+        this.label = label;
+    }
+
+    /**
+     * Returns the expiration year which certificates published to this CT log must
+     * have in order to be accepted, or null if there is no such requirement. For
+     * example, if this method returns "2019" then you should only try to publish
+     * certificates to this CT log expiring in 2019, since all other certificates
+     * will be rejected.
+     * @return the expiration year required for all certificates being published to
+     * this log or null if there is no such requirement
+     */
+    public Integer getExpirationYearRequired() {
+        return expirationYearRequired;
+    }
+
+    /**
+     * Returns the expiration year which certificates published to this CT log must
+     * have in order to be accepted, or null if there is no such requirement. See
+     * {@link #getExpirationYearRequired()}.
+     * @param expirationYearRequired the expiration year required for new certificates
+     * being published to this CT log, or null if no such requirement
+     */
+    public void setExpirationYearRequired(final Integer expirationYearRequired) {
+        this.expirationYearRequired = expirationYearRequired;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || o.getClass() != CTLogInfo.class) {
+            return false;
+        }
+
+        final CTLogInfo ctLogInfo = (CTLogInfo) o;
+        return logId == ctLogInfo.getLogId() &&
+                url.equals(ctLogInfo.getUrl());
+    }
+
+    @Override
+    public int hashCode() {
+        return logId + (url.hashCode() * 4711);
+    }
+
+    @Override
+    public String toString() {
+        return getUrl();
     }
 }

@@ -64,6 +64,7 @@ public class DNFieldExtractor implements java.io.Serializable {
     public static final int PSEUDONYM = 37;
     public static final int STREET = 38;
     public static final int NAME = 55;
+    public static final int DESCRIPTION = 60;
     public static final int ORGANIZATIONIDENTIFIER = 106;
 
     // Subject Alternative Names.
@@ -118,15 +119,15 @@ public class DNFieldExtractor implements java.io.Serializable {
     /**
      * Fields that can be selected in Certificate profile and Publisher
      */
-    public static Integer[] getUseFields(final int type) {
+    public static List<Integer> getUseFields(final int type) {
         if (type == DNFieldExtractor.TYPE_SUBJECTDN) {
-            return DnComponents.getDnDnIds().toArray(new Integer[0]);
+            return DnComponents.getDnDnIds();
         } else if (type == DNFieldExtractor.TYPE_SUBJECTALTNAME) {
-            return DnComponents.getAltNameDnIds().toArray(new Integer[0]);
+            return DnComponents.getAltNameDnIds();
         } else if (type == DNFieldExtractor.TYPE_SUBJECTDIRATTR) {
-            return DnComponents.getDirAttrDnIds().toArray(new Integer[0]);
+            return DnComponents.getDirAttrDnIds();
         } else {
-            return new Integer[0];
+            return new ArrayList<Integer>();
         }
     }
     

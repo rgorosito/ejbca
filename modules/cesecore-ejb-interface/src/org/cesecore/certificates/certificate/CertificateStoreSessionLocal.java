@@ -79,7 +79,7 @@ public interface CertificateStoreSessionLocal extends CertificateStoreSession {
 
     /** 
      * Retrieve the full wrapped CertificateData and Base64CertData objects.
-     * @return null of no data for the specified fingerprint exists
+     * @return the sought certificate, or null if no data for the specified fingerprint exists
      */
     CertificateDataWrapper getCertificateData(final String fingerprint);
 
@@ -255,4 +255,14 @@ public interface CertificateStoreSessionLocal extends CertificateStoreSession {
      * @return true if a Certificate exists, false otherwise
      */
     boolean existsByIssuerAndSerno(String issuerDN, BigInteger serno);
+
+    /** Gets the status of the certificate, or -1 if the certificate does not exist. 
+     * If more than one certificate exists with the issuerDN/serialNumber, the first one is returned.
+     * This query performs limited database read and thus will not verify database integrity protection.
+     * 
+     * @param issuerDN issuer DN of the desired certificate.
+     * @param serno serial number of the desired certificate!
+     * @return one of the {@link CertificateConstants} statuses or -1 if the certificate does not exist in the database.
+     */
+    int getFirstStatusByIssuerAndSerno(String issuerDN, BigInteger serno);
 }

@@ -14,6 +14,7 @@ package org.ejbca.core.model.era;
 
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,11 @@ import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.IllegalNameException;
+import org.cesecore.certificates.certificate.CertificateCreateException;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateWrapper;
+import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.config.RaStyleInfo;
@@ -44,11 +48,13 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
+import org.ejbca.core.model.ra.CustomFieldException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
 import org.ejbca.core.protocol.cmp.NoSuchAliasException;
 import org.ejbca.core.protocol.ws.objects.UserDataVOWS;
+import org.ejbca.ui.web.protocol.CertificateRenewalException;
 
 /**
  * API of available methods on the CA that can be invoked by the RA.
@@ -259,16 +265,28 @@ public interface RaMasterApi {
      */
     RaRequestsSearchResponse searchForApprovalRequests(AuthenticationToken authenticationToken, RaRequestsSearchRequest raRequestsSearchRequest);
     
-    /** @return CertificateDataWrapper if it exists and the caller is authorized to see the data or null otherwise*/
+    /**
+     * Searches for a certificate. If present locally, then the data (revocation status etc.) from the local database will be returned 
+     * @return CertificateDataWrapper if it exists and the caller is authorized to see the data or null otherwise
+     */
     CertificateDataWrapper searchForCertificate(AuthenticationToken authenticationToken, String fingerprint);
     
-    /** @return CertificateDataWrapper if it exists and the caller is authorized to see the data or null otherwise*/
+    /**
+     * Searches for a certificate. If present locally, then the data (revocation status etc.) from the local database will be returned
+     * @return CertificateDataWrapper if it exists and the caller is authorized to see the data or null otherwise
+     */
     CertificateDataWrapper searchForCertificateByIssuerAndSerial(AuthenticationToken authenticationToken, String issuerDN, String serno);
     
-    /** @return list of certificates from the specified search criteria*/
+    /**
+     * Searches for certificates. Data (e.g. revocation status) of remote certificates take precedence over local ones.
+     * @return list of certificates from the specified search criteria
+     */
     RaCertificateSearchResponse searchForCertificates(AuthenticationToken authenticationToken, RaCertificateSearchRequest raCertificateSearchRequest);
 
-    /** @return list of end entities from the specified search criteria*/
+    /**
+     * Searches for end entities. Remote end entities take precedence over local ones.
+     * @return list of end entities from the specified search criteria
+     */
     RaEndEntitySearchResponse searchForEndEntities(AuthenticationToken authenticationToken, RaEndEntitySearchRequest raEndEntitySearchRequest);
 
     /**
@@ -444,7 +462,27 @@ public interface RaMasterApi {
      */
     boolean markForRecovery(AuthenticationToken authenticationToken, String username, String newPassword, CertificateWrapper cert, boolean localKeyGeneration) throws AuthorizationDeniedException, ApprovalException, 
                             CADoesntExistsException, WaitingForApprovalException, NoSuchEndEntityException, EndEntityProfileValidationException;
-    
+
+    /**
+     * Edit End Entity information. Can only be used with API version 2 and later.
+     * 
+     * @param authenticationToken the administrator performing the action
+     * @param endEntityInformation an EndEntityInformation object with the new information
+     * @throws AuthorizationDeniedException administrator not authorized to edit user
+     * @throws EndEntityProfileValidationException data doesn't fulfill EEP requirements
+     * @throws ApprovalException if an approval already is waiting for specified action
+     * @throws WaitingForApprovalException if the action has been added in the approval queue
+     * @throws CADoesntExistsException if the user's CA doesn't exist
+     * @throws IllegalNameException if the Subject DN failed constraints
+     * @throws CertificateSerialNumberException if SubjectDN serial number already exists
+     * @throws NoSuchEndEntityException if the EE was not found
+     * @throws CustomFieldException if the EE was not validated by a locally defined field validator
+     */
+    boolean editUser(AuthenticationToken authenticationToken, EndEntityInformation endEntityInformation)
+            throws AuthorizationDeniedException, EndEntityProfileValidationException,
+            WaitingForApprovalException, CADoesntExistsException, ApprovalException,
+            CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
+
     /**
      * Key recovery method to be called from web services. This method handles some special cases differently from the regular key recovery method.
      * 
@@ -509,4 +547,29 @@ public interface RaMasterApi {
      */
     byte[] cmpDispatch(AuthenticationToken authenticationToken, byte[] pkiMessageBytes, String cmpConfigurationAlias) throws NoSuchAliasException;
 
+    /**
+     * Dispatch EST request over RaMasterApi.
+     * 
+     * Basic ASN.1 validation is performed at a proxy to increase the protection of a CA slightly.
+     * 
+     * @param operation the EST operation to perform
+     * @param alias the requested CA configuration that should handle the request.
+     * @param cert The client certificate used to request this operation if any
+     * @param username The authentication username if any
+     * @param password The authentication password if any
+     * @param requestBody The HTTP request body. Usually a PKCS#10
+     * @return the HTTP response body
+     * 
+     * @throws NoSuchAliasException if the alias doesn't exist
+     * @throws CADoesntExistsException if the CA specified in a request for CA certs doesn't exist
+     * @throws CertificateCreateException if an error was encountered when trying to enroll
+     * @throws CertificateRenewalException if an error was encountered when trying to re-enroll
+     * @throws AuthenticationFailedException if request was sent in without an authenticating certificate, or the username/password combo was 
+     *           invalid (depending on authentication method). 
+     * 
+     * @see EstOperationBeanLocal#dispatchRequest(Certificate, String, String, String, String, byte[])
+     * @since RA Master API version 1 (EJBCA 6.8.0)
+     */
+    byte[] estDispatch(String operation, String alias, X509Certificate cert, String username, String password, byte[] requestBody)
+            throws NoSuchAliasException, CADoesntExistsException, CertificateCreateException, CertificateRenewalException, AuthenticationFailedException;
 }

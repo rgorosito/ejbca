@@ -25,6 +25,8 @@ import java.security.cert.CertificateParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,9 +56,11 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionRemote;
+import org.cesecore.certificates.certificatetransparency.CTLogInfo;
 import org.cesecore.configuration.GlobalConfigurationSessionRemote;
 import org.cesecore.keybind.InternalKeyBindingRules;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
+import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.roles.AccessRulesHelper;
 import org.cesecore.roles.Role;
@@ -65,16 +69,21 @@ import org.cesecore.roles.RoleNotFoundException;
 import org.cesecore.roles.management.RoleSessionRemote;
 import org.cesecore.roles.member.RoleMember;
 import org.cesecore.roles.member.RoleMemberDataProxySessionRemote;
+import org.cesecore.util.CertTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.approval.ApprovalProfileExistsException;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
+import org.ejbca.core.ejb.ca.publisher.PublisherSessionRemote;
 import org.ejbca.core.ejb.config.GlobalUpgradeConfiguration;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.core.model.approval.profile.AccumulativeApprovalProfile;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
+import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
+import org.ejbca.core.model.ca.publisher.GeneralPurposeCustomPublisher;
+import org.ejbca.core.model.ca.publisher.PublisherExistsException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileExistsException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
@@ -98,6 +107,7 @@ public class UpgradeSessionBeanTest {
     private CertificateProfileSessionRemote certificateProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class);
     private EndEntityProfileSessionRemote endEntityProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class);
     private GlobalConfigurationSessionRemote globalConfigSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
+    private PublisherSessionRemote publisherSession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublisherSessionRemote.class);
     private RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
     private RoleMemberDataProxySessionRemote roleMemberProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberDataProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private UpgradeSessionRemote upgradeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(UpgradeSessionRemote.class);
@@ -107,18 +117,21 @@ public class UpgradeSessionBeanTest {
     
     private AvailableCustomCertificateExtensionsConfiguration cceConfigBackup;
     private GlobalUpgradeConfiguration gucBackup;
+    private GlobalConfiguration gcBackup;
     
     @Before
     public void setUp() {
         cceConfigBackup = (AvailableCustomCertificateExtensionsConfiguration) globalConfigSession.
                 getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
         gucBackup = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+        gcBackup = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
     }
     
     @After
     public void tearDown() throws Exception {
         globalConfigSession.saveConfiguration(alwaysAllowtoken, cceConfigBackup);
         globalConfigSession.saveConfiguration(alwaysAllowtoken, gucBackup);
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, gcBackup);
     }
 
     /**
@@ -711,6 +724,182 @@ public class UpgradeSessionBeanTest {
             certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, noApprovalsName);
             certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, withApprovalsName);
             approvalProfileSession.removeApprovalProfile(alwaysAllowtoken, requireTwoApprovalsId);
+        }
+    }
+    
+    /**
+     * Tests upgrade from 6.9.0 to 6.10.1.
+     * The tests expects all previous CT log selections in certificate profiles to be changed into corresponding CT Labels.
+     * Additionally Each CT log should get a label set during upgrade. Previous Google logs 
+     * should get the label "Mandatory", remaining logs should get the label "Unlabeled"
+     * @throws CertificateProfileExistsException
+     * @throws AuthorizationDeniedException
+     */
+    @Test
+    public void testUpgradeCtLogsTo6101() throws CertificateProfileExistsException, AuthorizationDeniedException {
+        final String UNUSED_LABEL = "Unlabeled";
+        final String MANDATORY_LABEL = "Mandatory";
+        GlobalUpgradeConfiguration guc = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+        GlobalConfiguration gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        final String CTLOG_PUBKEY =
+                "-----BEGIN PUBLIC KEY-----\n"+
+                "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAnXBeTH4xcl2c8VBZqtfgCTa+5sc\n"+
+                "wV+deHQeaRJQuM5DBYfee9TQn+mvBfYPCTbKEnMGeoYq+BpLCBYgaqV6hw==\n"+
+                "-----END PUBLIC KEY-----\n";
+        final byte[] pubKeyBytes = KeyTools.getBytesFromPEM(CTLOG_PUBKEY, CertTools.BEGIN_PUBLIC_KEY, CertTools.END_PUBLIC_KEY);
+        // Create some logs
+        List<CTLogInfo> ctLogsPreUpgrade = new ArrayList<>();
+        final CTLogInfo log1 = new CTLogInfo("https://one.upgradetest.com/ct/v1/", pubKeyBytes, null, 5000);
+        final CTLogInfo log2 = new CTLogInfo("https://two.upgradetest.com/ct/v1/", pubKeyBytes, null, 5000);
+        final CTLogInfo log3 = new CTLogInfo("https://three.upgradetest.com/ct/v1/", pubKeyBytes, null, 5000);
+        final CTLogInfo log4 = new CTLogInfo("https://four.upgradetest.com/ct/v1/", pubKeyBytes, null, 5000);
+        final CTLogInfo logGoogle = new CTLogInfo("https://ct.googleapis.com/upgradetest/ct/v1/", pubKeyBytes, null, 5000);
+        ctLogsPreUpgrade.addAll(Arrays.asList(log1, log2, log3, log4, logGoogle));
+        gc.addCTLog(log1);
+        gc.addCTLog(log2);
+        gc.addCTLog(log3);
+        gc.addCTLog(log4);
+        gc.addCTLog(logGoogle);
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, gc);
+        final int numberOfCtLogsPreUpgrade = gc.getCTLogs().size();
+        // Create certificate profile using CT Logs
+        CertificateProfile profileUseCt = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+        final String profileUseCtName = "profileUseCt";
+        profileUseCt.setUseCertificateTransparencyInCerts(true);
+        profileUseCt.setEnabledCTLogs(new LinkedHashSet<Integer>(Arrays.asList(log1.getLogId(), log2.getLogId(), logGoogle.getLogId())));
+        certificateProfileSession.addCertificateProfile(alwaysAllowtoken, profileUseCtName, profileUseCt);
+        
+        CertificateProfile profileUseCt2 = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+        final String profileUseCtName2 = "profileUseCt2";
+        profileUseCt2.setUseCertificateTransparencyInCerts(true);
+        profileUseCt2.setEnabledCTLogs(new LinkedHashSet<Integer>(Arrays.asList(log1.getLogId(), log2.getLogId(), log3.getLogId())));
+        profileUseCt2.setCtMinNonMandatoryScts(0);
+        profileUseCt2.setCtMaxNonMandatoryScts(3);
+        certificateProfileSession.addCertificateProfile(alwaysAllowtoken, profileUseCtName2, profileUseCt2);
+        
+        guc.setUpgradedFromVersion("6.9.0"); 
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, guc);
+        try {
+            // Perform upgrade 6.9.0 --> 6.10.1
+            upgradeSession.upgrade(null, "6.9.0", false);
+            GlobalConfiguration gcUpgraded = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+            LinkedHashMap<Integer, CTLogInfo> upgradedCtLogs = gcUpgraded.getCTLogs();
+            // Check if all CT Logs survived upgrade
+            assertEquals("Unexpected number of CT logs. Some CT log(s) were lost during upgrade", numberOfCtLogsPreUpgrade, gc.getCTLogs().size());
+            // Check if labels were translated properly
+            assertEquals("Unexpected label set for CT log during upgrade", UNUSED_LABEL, upgradedCtLogs.get(log1.getLogId()).getLabel());
+            assertEquals("Unexpected label set for CT log during upgrade", UNUSED_LABEL, upgradedCtLogs.get(log2.getLogId()).getLabel());
+            assertEquals("Unexpected label set for CT log during upgrade", UNUSED_LABEL, upgradedCtLogs.get(log3.getLogId()).getLabel());
+            assertEquals("Unexpected label set for CT log during upgrade", UNUSED_LABEL, upgradedCtLogs.get(log4.getLogId()).getLabel());
+            assertEquals("Unexpected label set for CT log during upgrade", MANDATORY_LABEL, upgradedCtLogs.get(logGoogle.getLogId()).getLabel());
+            // Verify that CT logs selected in certificate profile were translated to selected CT Labels
+            CertificateProfile upgradedProfileUseCtName = certificateProfileSession.getCertificateProfile(profileUseCtName);
+            CertificateProfile upgradedProfileUseCtName2 = certificateProfileSession.getCertificateProfile(profileUseCtName2);
+            assertTrue("CT Log selected in cert profile was unselected after upgrade", upgradedProfileUseCtName.getEnabledCtLabels().contains(UNUSED_LABEL));
+            assertTrue("CT Log selected in cert profile was unselected after upgrade", upgradedProfileUseCtName.getEnabledCtLabels().contains(MANDATORY_LABEL));
+            assertTrue("CT Log selected in cert profile was unselected after upgrade", upgradedProfileUseCtName2.getEnabledCtLabels().contains(UNUSED_LABEL));
+            assertFalse("Invalid CT label selected after upgrade", upgradedProfileUseCtName2.getEnabledCtLabels().contains(MANDATORY_LABEL));
+            // Verify new SCT min / max value
+            assertTrue("Minimum number of SCTs was not set to 'By validity'", upgradedProfileUseCtName.isNumberOfSctByValidity());
+            assertTrue("Maximum number of SCTs was not set to 'By validity'", upgradedProfileUseCtName.isMaxNumberOfSctByValidity());
+            assertTrue("Minimum number of SCTs was not set to 'By custom'", upgradedProfileUseCtName2.isNumberOfSctByCustom());
+            assertTrue("Maximum number of SCTs was not set to 'By custom'", upgradedProfileUseCtName2.isMaxNumberOfSctByCustom());
+            assertEquals("Minimum number of SCTs was set lower than number of selected labels after upgrade", 1, upgradedProfileUseCtName2.getCtMinScts());
+            assertEquals("Maximum number of SCTs was should not have been changed during upgrade", 3, upgradedProfileUseCtName2.getCtMaxScts());
+        } finally {
+            // Clean up (CT logs are removed in @After)
+            certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, profileUseCtName);
+            certificateProfileSession.removeCertificateProfile(alwaysAllowtoken, profileUseCtName2);
+        }
+    }
+    
+    /**
+     * Tests upgrade to 6.11.0. Expected behavior is roles with access to /ra_master/invoke_api before upgrade
+     * should be granted 'Allow' access to the new set of rules controlling protocol access of remote RA 
+     * instances.
+     * @throws RoleExistsException
+     * @throws AuthorizationDeniedException
+     */
+    @Test
+    public void testUpgradeProtocolAccess6110() throws RoleExistsException, AuthorizationDeniedException {
+        GlobalUpgradeConfiguration guc = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+        String roleNameInvokeApi = "roleInvokeApi";
+        String roleNameSuperAdmin = "roleSuperAdmin";
+        String roleNameLowAccess = "roleLowAccess";
+        Role roleInvokeApiPreUpgrade = new Role(null, roleNameInvokeApi);
+        Role roleSuperAdminPreUpgrade = new Role(null, roleNameSuperAdmin);
+        Role roleLowAccessPreUpgrade = new Role(null, roleNameLowAccess);
+        roleInvokeApiPreUpgrade.getAccessRules().put(AccessRulesConstants.REGULAR_PEERCONNECTOR_INVOKEAPI, Role.STATE_ALLOW);
+        roleSuperAdminPreUpgrade.getAccessRules().put(StandardRules.ROLE_ROOT.resource(), Role.STATE_ALLOW);
+        roleLowAccessPreUpgrade.getAccessRules().put(AccessRulesConstants.REGULAR_RAFUNCTIONALITY, Role.STATE_ALLOW);
+        try {
+            Role roleInvokeApiPersisted = roleSession.persistRole(alwaysAllowtoken, roleInvokeApiPreUpgrade);
+            Role roleSuperAdminPersisted = roleSession.persistRole(alwaysAllowtoken, roleSuperAdminPreUpgrade);
+            Role roleLowAccessPersisted = roleSession.persistRole(alwaysAllowtoken, roleLowAccessPreUpgrade);
+            // Perform upgrade 6.10.1 --> 6.11.0
+            guc.setUpgradedFromVersion("6.10.1");
+            globalConfigSession.saveConfiguration(alwaysAllowtoken, guc);
+            upgradeSession.upgrade(null, "6.10.1", false);
+            
+            Role roleInvokeApiPostUpgrade = roleSession.getRole(alwaysAllowtoken, roleInvokeApiPersisted.getRoleId());
+            Role roleSuperAdminPostUpgrade = roleSession.getRole(alwaysAllowtoken, roleSuperAdminPersisted.getRoleId());
+            Role roleLowAccessPostUpgrade = roleSession.getRole(alwaysAllowtoken, roleLowAccessPersisted.getRoleId());
+            // Make sure roles survived upgrade at all
+            assertNotNull("Role vanished during upgrade", roleInvokeApiPostUpgrade);
+            assertNotNull("Role vanished during upgrade", roleSuperAdminPostUpgrade);
+            assertNotNull("Role vanished during upgrade", roleLowAccessPostUpgrade);
+            // Verify new and old access rules
+            assertTrue("Role lost old access rules during upgrade", roleInvokeApiPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERCONNECTOR_INVOKEAPI));
+            assertTrue("Denied access to new access rules", roleInvokeApiPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_CMP));
+            assertTrue("Denied access to new access rules", roleInvokeApiPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_EST));
+            assertTrue("Denied access to new access rules", roleInvokeApiPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_WS));
+            
+            assertTrue("Role lost old access rules during upgrade", roleSuperAdminPostUpgrade.hasAccessToResource(StandardRules.ROLE_ROOT.resource()));
+            assertTrue("Denied access to new access rules", roleSuperAdminPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_EST));
+            assertTrue("Denied access to new access rules", roleSuperAdminPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_CMP));
+            assertTrue("Denied access to new access rules", roleSuperAdminPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_WS));
+            
+            assertTrue("Role lost old access rules during upgrade", roleLowAccessPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_RAFUNCTIONALITY));
+            assertFalse("Unexpected rule allowed", roleLowAccessPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_CMP));
+            assertFalse("Unexpected rule allowed", roleLowAccessPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_EST));
+            assertFalse("Unexpected rule allowed", roleLowAccessPostUpgrade.hasAccessToResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_WS));
+        } finally {
+            // Clean up
+            deleteRole(null, roleNameInvokeApi);
+            deleteRole(null, roleNameSuperAdmin);
+            deleteRole(null, roleNameLowAccess);
+        }     
+    }
+    
+    @Test
+    public void testExternalScriptsSetting() throws AuthorizationDeniedException, PublisherExistsException {
+        GlobalConfiguration gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+        boolean savedEnableExternalScripts = gc.getEnableExternalScripts();
+        gc.setEnableExternalScripts(true);
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, gc);
+        
+        try {
+            final CustomPublisherContainer cpc = new CustomPublisherContainer();
+            cpc.setClassPath(GeneralPurposeCustomPublisher.class.getName());
+            cpc.setPropertyData(GeneralPurposeCustomPublisher.CRL_EXTERNAL_COMMAND_PROPERTY_NAME + "=/opt/example.sh");
+            cpc.setDescription("Description ABC 123");
+            cpc.setName(TESTCLASS);
+            publisherSession.addPublisher(alwaysAllowtoken, TESTCLASS, cpc);
+            
+            GlobalUpgradeConfiguration guc = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+            guc.setUpgradedFromVersion("6.10.1");
+            globalConfigSession.saveConfiguration(alwaysAllowtoken, guc);
+            upgradeSession.upgrade(null, "6.11.0", false);
+            
+            globalConfigSession.flushConfigurationCache(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+            gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+            assertTrue("External scripts should have been enabled when a General Purpose Custom Publisher is present.", gc.getEnableExternalScripts());
+        } finally {
+            publisherSession.removePublisher(alwaysAllowtoken, TESTCLASS);
+            
+            gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+            gc.setEnableExternalScripts(savedEnableExternalScripts);
+            globalConfigSession.saveConfiguration(alwaysAllowtoken, gc);
         }
     }
     

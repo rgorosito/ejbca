@@ -14,7 +14,6 @@
 package org.ejbca.ui.web.admin.configuration;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
@@ -484,40 +483,6 @@ public class EjbcaWebBean implements Serializable {
     /* Returns the global configuration */
     public GlobalConfiguration getGlobalConfiguration() {
         return this.informationmemory.getGlobalConfiguration();
-    }
-
-    /**
-     * A functions that returns wanted helpfile in preferred language. The parameter helpfilename should the wanted filename without language infix.
-     * For example: given helpfilename 'cahelp.html' would return 'cahelp.en.html' if English was the users preferred language.
-     */
-    public String getHelpfileInfix(String helpfilename) {
-        String returnedurl = null;
-        String[] strs = adminsweblanguage.getAvailableLanguages();
-        int index = currentadminpreference.getPreferedLanguage();
-        String prefered = strs[index];
-        String secondary = adminsweblanguage.getAvailableLanguages()[currentadminpreference.getSecondaryLanguage()];
-
-        String helpfile = helpfilename.substring(0, helpfilename.lastIndexOf('.'));
-        String postfix = helpfilename.substring(helpfilename.lastIndexOf('.') + 1);
-
-        String preferedfilename = "/" + globalconfiguration.getHelpPath() + "/" + helpfile + "." + prefered + "." + postfix;
-
-        String preferedurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getHelpPath() + "/" + helpfile + "."
-                + prefered + "." + postfix;
-
-        String secondaryurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getHelpPath() + "/" + helpfile + "."
-                + secondary + "." + postfix;
-
-        try (InputStream stream = this.getClass().getResourceAsStream(preferedfilename)) {
-            if (stream != null) {
-                returnedurl = preferedurl;
-            } else {
-                returnedurl = secondaryurl;
-            }
-        } catch (IOException e) {
-            log.info("IOException closing resource: ", e);
-        }
-        return returnedurl;
     }
 
     /**
@@ -1201,6 +1166,10 @@ public class EjbcaWebBean implements Serializable {
         return authorizedEEProfileNamesAndIds;
     }
 
+    public Map<String, String> getAuthorizedEEProfilesAndIdsNoKeyId(final String endEntityAccessRule) {
+        return new TreeMap<>(informationmemory.getAuthorizedEndEntityProfileNames(endEntityAccessRule));
+    }
+
     /**
      * Retrieve a collection of available certificate authority ids based on end entity profile id. The returned list may
      * contain an additional "KeyID" option which allows the end user to specify the CA in the CMP request.
@@ -1262,6 +1231,12 @@ public class EjbcaWebBean implements Serializable {
         return addKeyIdAndSort(certificateProfiles);
     }
 
+    public Collection<String> getCertificateProfilesNoKeyId(final String endEntityProfileId) {
+        final Collection<String> certificateProfiles = getAvailableCertProfilessOfEEProfile(endEntityProfileId);
+        certificateProfiles.remove(CmpConfiguration.PROFILE_USE_KEYID);
+        return certificateProfiles;
+    }
+
     private Collection<String> addKeyIdAndSort(final List<String> entries) {
         // No point in adding KeyId if there are no options to choose from
         if (entries.size() > 1) {
@@ -1297,7 +1272,7 @@ public class EjbcaWebBean implements Serializable {
         }
         return estConfigurationPresent.booleanValue();
     }
-    
+
     public EstConfiguration getEstConfiguration() {
         if (estconfiguration == null) {
             reloadEstConfiguration();
@@ -1369,7 +1344,7 @@ public class EjbcaWebBean implements Serializable {
     }
 
     /**
-     * Deletes a CMP alias from the database.
+     * Deletes a EST alias from the database.
      *
      * @param alias the name of the alias to delete.
      * @throws AuthorizationDeniedException if the current admin isn't authorized to edit configurations
@@ -1380,7 +1355,7 @@ public class EjbcaWebBean implements Serializable {
     }
 
     /**
-     * Renames a CMP alias
+     * Renames a EST alias
      *
      * @param oldName the old alias name
      * @param newName the new alias name

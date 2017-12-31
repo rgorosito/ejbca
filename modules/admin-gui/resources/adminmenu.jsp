@@ -64,8 +64,6 @@ org.cesecore.keybind.InternalKeyBindingRules
 	   final String RAWEB_LINK          = ejbcawebbean.getBaseUrl() + "ra/";
        
        final String MYPREFERENCES_LINK     =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "mypreferences.jsp";
-       final String HELP_LINK                =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getHelpPath() 
-               + "/index_help.html";
 
        final String LOGOUT_LINK                =  ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "logout";
 
@@ -363,16 +361,6 @@ org.cesecore.keybind.InternalKeyBindingRules
 <% } %>
 
 <%
-   // If authorized to edit SCEP configuration then display related links.
-     if(ejbcawebbean.isAuthorizedNoLogSilent(SYSTEMCONFIGURATION_RESOURCE)){
-       if(!configheaderprinted){
-         out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>"); 
-         configheaderprinted=true;
-         }  %>
-				<li><a href="<%= SCEPCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SCEPCONFIGURATION") %></a></li>
-<% } %>
-
-<%
 // If authorized to edit EST Configuration then display related links.
   if(ejbcawebbean.isEstConfigurationPresent() && ejbcawebbean.isAuthorizedNoLogSilent(SYSTEMCONFIGURATION_RESOURCE)){ 
       if(!configheaderprinted){      
@@ -380,6 +368,16 @@ org.cesecore.keybind.InternalKeyBindingRules
     configheaderprinted = true;
       } %>
     <li><a href="<%= ESTCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ESTCONFIGURATION") %></a></li>
+<% } %>
+
+<%
+   // If authorized to edit SCEP configuration then display related links.
+     if(ejbcawebbean.isAuthorizedNoLogSilent(SYSTEMCONFIGURATION_RESOURCE)){
+       if(!configheaderprinted){
+         out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>"); 
+         configheaderprinted=true;
+         }  %>
+				<li><a href="<%= SCEPCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SCEPCONFIGURATION") %></a></li>
 <% } %>
 
 <%

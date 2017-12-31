@@ -12,7 +12,6 @@
  *************************************************************************/
 package org.ejbca.core.ejb.upgrade;
 
-import java.util.List;
 import java.util.concurrent.Future;
 
 import javax.ejb.Local;
@@ -51,12 +50,6 @@ public interface UpgradeSessionLocal  extends UpgradeSession{
     boolean checkColumnExists500();
 
     /** For internal user from UpgradeSessionBean only! */
-    void postMigrateDatabase400SmallTables();
-    /** For internal user from UpgradeSessionBean only! */
-    void postMigrateDatabase400HardTokenData(List<String> subSet);
-    /** For internal user from UpgradeSessionBean only! */
-	boolean migrateDatabase500(String dbtype);
-    /** For internal user from UpgradeSessionBean only! */
     void migrateDatabase624() throws UpgradeFailedException;
     /** For internal user from UpgradeSessionBean only! */
     void migrateDatabase640() throws UpgradeFailedException;	
@@ -68,6 +61,10 @@ public interface UpgradeSessionLocal  extends UpgradeSession{
     void migrateDatabase660() throws UpgradeFailedException;
     /** For internal user from UpgradeSessionBean only! */
     void migrateDatabase680() throws UpgradeFailedException;
+    /** For internal user from UpgradeSessionBean only! */
+    void migrateDatabase6101() throws UpgradeFailedException;
+    /** For internal user from UpgradeSessionBean only! */
+    void migrateDatabase6110() throws UpgradeFailedException;
 
     /** Persist the time when the post-upgrade starts or 0L when it is no longer running. */
     boolean setPostUpgradeStarted(long startTimeMs);
@@ -80,4 +77,6 @@ public interface UpgradeSessionLocal  extends UpgradeSession{
      * @return true of the first version is lower (1.0 < 2.0) than the second, false otherwise. 
      */
     boolean isLesserThan(String first, String second);
+
+
 }

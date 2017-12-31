@@ -120,12 +120,15 @@
 <li>Regular maintenance and security releases.</li>
 <li>Common Criteria EAL4+ certified.</li>
 <li>Used in many WebTrust, CWA 14167 and eIDAS audited installations.</li>
+<li>eIDAS compliant certificates including profiles for Qualified certificates.</li>
+<li>FIPS 201-2 (PIV) compliant certificates including FASC-N subjectAltName</li>
 <li>Integrity protected <a href="docs/adminguide.html#Logging">audit log</a> (log signing), with digital signature or HMAC protection.</li>
 <li>Full database integrity protection of all tables, to detect database manipulation.</li>
 <li>Command line tool for verification of audit and database integrity protection.</li>
 <li>Validation tool for conformance checking of certificates and OCSP responders.</li>
 <li>EAC PKI (EAC 1.11 and 2.10) for ePassports and eIDs, Country Verifying CA (CVCA) and Document Verifiers (DV) issuing Inspection System (IS) certificates.</li>
 <li>Certified access control and authorization module, for assurance and high trust role separation.</li>
+<li>Support for EST protocol, <a href="https://tools.ietf.org/html/rfc7030">RFC7030</a>, Enrollment over Secure Transport.</li>
 <li>Support for Native <a href="https://www.primekey.com/products/software/ejbca-enterprise/#additionals">Autoenrollment in Windows environment</a> with add-on autoenrollment proxy module.</li>
 <li><a href="http://www.3gpp.org/">3GPP</a>, i.e. LTE/4G, compatible PKI, using <a href="docs/adminguide.html#CMP">CMP</a> with multiple Vendor CAs and vendor certificate authentication.</li>
 <li><a href="docs/adminguide.html#CMP%20Proxy%20(EJBCA%20Enterprise%20only)">CMP Proxy</a> to add an additional network layer, with message check, between the CA and CMP clients.</li>

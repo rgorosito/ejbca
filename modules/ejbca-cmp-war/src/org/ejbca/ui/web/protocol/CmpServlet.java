@@ -24,8 +24,11 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authentication.tokens.WebPrincipal;
+import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
+import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
 import org.ejbca.core.protocol.cmp.NoSuchAliasException;
 import org.ejbca.ui.web.LimitLengthASN1Reader;
@@ -42,12 +45,16 @@ public class CmpServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(CmpServlet.class);
     private static final InternalEjbcaResources intres = InternalEjbcaResources.getInstance();
-
+    
+    /** Only intended to check if Peer connected instance is authorized to CMP at all. */
+    private final AuthenticationToken raCmpAuthCheckToken = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("cmpProtocolAuthCheck"));
+    
     private static final String DEFAULT_CMP_ALIAS = "cmp";
     
     @EJB
     private RaMasterApiProxyBeanLocal raMasterApiProxyBean;
-
+    @EJB
+    private GlobalConfigurationSessionLocal globalConfigurationSession;
     /**
      * Handles HTTP post
      * 
@@ -61,7 +68,13 @@ public class CmpServlet extends HttpServlet {
         if (log.isTraceEnabled()) {
             log.trace(">doPost()");
         }
+        boolean isProtocolAuthorized = raMasterApiProxyBean.isAuthorizedNoLogging(raCmpAuthCheckToken, AccessRulesConstants.REGULAR_PEERPROTOCOL_CMP);
         try {
+            if (!isProtocolAuthorized) {
+                log.info("CMP Protocol not authorized for this Peer");
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "CMP Protocol not authorized for this Peer");
+                return;
+            }
             final String alias = getAlias(request.getPathInfo());
             if(alias.length() > 32) {
                 log.info("Unaccepted alias more than 32 characters.");

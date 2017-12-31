@@ -83,7 +83,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         FIXED_PROFILENAMES.add(HARDTOKENENCPROFILENAME);
         FIXED_PROFILENAMES.add(HARDTOKENSIGNPROFILENAME);
     }
-
+ 
     /**
      * Determines if a de-serialized file is compatible with this class.
      *
@@ -303,28 +303,47 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     /* Certificate Transparency */
     protected static final String CTSUBMITEXISTING  = "ctsubmitexisting";
     protected static final String CTLOGS = "ctlogs";
+    protected static final String CTLABELS = "ctlabels";
     protected static final String CT_MIN_TOTAL_SCTS = "ctminscts"; // This key is the same as in previous versions
     protected static final String CT_MIN_TOTAL_SCTS_OCSP = "ctminsctsocsp"; // This key is also the same as in previous versions
     @Deprecated
     protected static final String CT_MAX_SCTS = "ctmaxscts"; // Only used to fetch old value after upgrade, replaced by CT_MAX_NON_MANDATORY_SCTS and CT_MAX_MANDATORY_SCTS
     @Deprecated
     protected static final String CT_MAX_SCTS_OCSP = "ctmaxsctsocsp"; // Only used to fetch old value after upgrade, replaced by CT_MAX_NONMANDATORY_SCTS_OCSP and CT_MAX_MANDATORY_SCTS
+    
+    /* All deprecated below were removed in 6.10.1. Keep for upgrade purposes or move keys to UpgradeSessionBean */
+    @Deprecated
     protected static final String CT_MIN_MANDATORY_SCTS = "ctminmandatoryscts";
+    @Deprecated
     protected static final String CT_MAX_MANDATORY_SCTS = "ctmaxmandatoryscts";
+    @Deprecated
     protected static final String CT_MIN_MANDATORY_SCTS_OCSP = "ctminmandatorysctsocsp";
+    @Deprecated
     protected static final String CT_MAX_MANDATORY_SCTS_OCSP = "ctmaxmandatorysctsocsp";
+    @Deprecated
     protected static final String CT_MIN_NONMANDATORY_SCTS = "ctminnonmandatoryscts";
+    @Deprecated
     protected static final String CT_MAX_NONMANDATORY_SCTS = "ctmaxnonmandatoryscts";
+    @Deprecated
     protected static final String CT_MIN_NONMANDATORY_SCTS_OCSP = "ctminnonmandatorysctsocsp";
+    @Deprecated
     protected static final String CT_MAX_NONMANDATORY_SCTS_OCSP = "ctmaxnonmandatorysctsocsp";
+    protected static final String CT_SCTS_MIN = "ctsctsmin";
+    protected static final String CT_SCTS_MAX = "ctsctsmax";
+    protected static final String CT_SCTS_MIN_OCSP = "ctsctsminocsp";
+    protected static final String CT_SCTS_MAX_OCSP = "ctsctsmaxocsp";
+    protected static final String CT_NUMBER_OF_SCTS_BY_VALIDITY = "ctnumberofsctsbyvalidity";
+    protected static final String CT_NUMBER_OF_SCTS_BY_CUSTOM = "ctnumberofsctsbycustom";
+    protected static final String CT_MAX_NUMBER_OF_SCTS_BY_VALIDITY = "ctmaxnumberofsctsbyvalidity";
+    protected static final String CT_MAX_NUMBER_OF_SCTS_BY_CUSTOM = "ctmaxnumberofsctsbycustom";
     protected static final String CTMAXRETRIES = "ctmaxretries";
 
     protected static final String USERSINGLEACTIVECERTIFICATECONSTRAINT = "usesingleactivecertificateconstraint";
     protected static final String USECUSTOMDNORDER = "usecustomdnorder";
+    protected static final String USECUSTOMDNORDERLDAP = "usecustomdnorderldap";
     protected static final String CUSTOMDNORDER = "customdnorder";
     protected static final String OVERRIDABLEEXTENSIONOIDS = "overridableextensionoids";
     protected static final String NONOVERRIDABLEEXTENSIONOIDS = "nonoverridableextensionoids";
-
 
     /**
      * OID for creating Smartcard Number Certificate Extension SEIS Cardnumber Extension according to SS 614330/31
@@ -1522,6 +1541,32 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         return ret;
     }
 
+    /** Set to true if we should apply the rules for LDAP DN Order (separate flag) 
+     * to the custom DN order
+     * @param useldap true or false
+     */
+    public void setUseCustomDnOrderWithLdap(boolean useldap) {
+        data.put(USECUSTOMDNORDERLDAP, Boolean.valueOf(useldap));
+    }
+
+    /** 
+     * @return true if we should apply the rules for LDAP DN Order (separate flag), default to false for new usage, where no custom order exists, 
+     * and to true for old usage to be backward compatible 
+     */
+    public boolean getUseCustomDnOrderWithLdap() {
+        boolean ret = true; // Default value is true here
+        Object o = data.get(USECUSTOMDNORDERLDAP);
+        if (o != null) {
+            ret = ((Boolean) o).booleanValue();
+        } else if (getCustomDnOrder().isEmpty()) {
+            // We have not set a value for this checkbox, and we have no custom DN order defined
+            // in this case we default to false (new usage)
+            ret = false;
+        }
+        return ret;
+    }
+
+
     /** Custom DN order is an ArrayList of DN strings
      * @see DnComponents
      * @return ArrayList of Strings or an empty ArrayList
@@ -2491,6 +2536,54 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         data.put(USECERTIFICATETRANSPARENCYINPUBLISHERS, use);
     }
 
+    public boolean isNumberOfSctByValidity() {
+        if (data.get(CT_NUMBER_OF_SCTS_BY_VALIDITY) == null) {
+            // Default value
+            return true;
+        }
+        return (Boolean)data.get(CT_NUMBER_OF_SCTS_BY_VALIDITY);
+    }
+    
+    public void setNumberOfSctByValidity(boolean use) {
+        data.put(CT_NUMBER_OF_SCTS_BY_VALIDITY, use);
+    }
+
+    public boolean isNumberOfSctByCustom() {
+        if (data.get(CT_NUMBER_OF_SCTS_BY_CUSTOM) == null) {
+            // Default value
+            return false;
+        }
+        return (Boolean)data.get(CT_NUMBER_OF_SCTS_BY_CUSTOM);
+    }
+    
+    public void setNumberOfSctByCustom(boolean use) {
+        data.put(CT_NUMBER_OF_SCTS_BY_CUSTOM, use);
+    }
+    
+    public boolean isMaxNumberOfSctByValidity() {
+        if (data.get(CT_MAX_NUMBER_OF_SCTS_BY_VALIDITY) == null) {
+            // Default value
+            return false;
+        }
+        return (Boolean)data.get(CT_MAX_NUMBER_OF_SCTS_BY_VALIDITY);
+    }
+    
+    public void setMaxNumberOfSctByValidity(boolean use) {
+        data.put(CT_MAX_NUMBER_OF_SCTS_BY_VALIDITY, use);
+    }
+    
+    public boolean isMaxNumberOfSctByCustom() {
+        if (data.get(CT_MAX_NUMBER_OF_SCTS_BY_CUSTOM) == null) {
+            // Default value
+            return true;
+        }
+        return (Boolean)data.get(CT_MAX_NUMBER_OF_SCTS_BY_CUSTOM);
+    }
+    
+    public void setMaxNumberOfSctByCustom(boolean use) {
+        data.put(CT_MAX_NUMBER_OF_SCTS_BY_CUSTOM, use);
+    }
+    
     /**
      * Whether existing certificates should be submitted by the CT publisher and the CT OCSP extension class.
      */
@@ -2522,6 +2615,18 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         data.put(CTLOGS, new LinkedHashSet<>(logIds));
     }
 
+    @SuppressWarnings("unchecked")
+    public Set<String> getEnabledCtLabels() {
+        if (data.get(CTLABELS) == null) {
+            return new LinkedHashSet<>();
+        }
+        return (Set<String>)data.get(CTLABELS);
+    }
+    
+    public void setEnabledCTLabels(LinkedHashSet<String> ctLabels) {
+        data.put(CTLABELS, ctLabels);
+    }
+    
     /**
      * <p>Number of CT logs to require an SCT from, or it will be considered an error. If zero, CT is completely optional and
      * ignored if no log servers can be contacted.</p>
@@ -2555,84 +2660,17 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /**
-     * <p>Number of CT logs marked as "mandatory" to require an SCT from, or it will be considered an error. Default is zero logs.
-     * </p>
-     * <p>For publishers, certificates are submitted to all enabled logs.</p>
-     * @return the number of mandatory SCTs
-     */
-    public int getCtMinMandatoryScts() {
-        if (data.get(CT_MIN_MANDATORY_SCTS) == null) {
-            return 0;
-        }
-        return (Integer) data.get(CT_MIN_MANDATORY_SCTS);
-    }
-
-    /** @param value minimum number of mandatory SCTs */
-    public void setCtMinMandatoryScts(int value) {
-        data.put(CT_MIN_MANDATORY_SCTS, value);
-    }
-
-    /**
-     * <p>Number of SCTs retrieved after which we will stop contacting mandatory log servers.</p>
-     * @return the maximum number of mandatory SCTs
-     */
-    public int getCtMaxMandatoryScts() {
-        if (data.get(CT_MAX_MANDATORY_SCTS) == null) {
-            return 0;
-        }
-        return (Integer) data.get(CT_MAX_MANDATORY_SCTS);
-    }
-
-    /** @param value the maximum number of mandatory SCTs */
-    public void setCtMaxMandatoryScts(int value) {
-        data.put(CT_MAX_MANDATORY_SCTS, value);
-    }
-
-    /** @see CertificateProfile#getCtMaxMandatoryScts */
-    public int getCtMaxMandatorySctsOcsp() {
-        if (data.get(CT_MAX_MANDATORY_SCTS_OCSP) == null) {
-            return 0;
-        }
-        return (Integer) data.get(CT_MAX_MANDATORY_SCTS_OCSP);
-    }
-
-    /** @param value the maximum number of mandatory SCTs for OCSP responses */
-    public void setCtMaxMandatorySctsOcsp(int value) {
-        data.put(CT_MAX_MANDATORY_SCTS_OCSP, value);
-    }
-
-    /**
-     * @see CertificateProfile#getCtMinMandatoryScts
-     * @return the number of mandatory SCTs for OCSP responses
-     */
-    public int getCtMinMandatorySctsOcsp() {
-        if (data.get(CT_MIN_MANDATORY_SCTS_OCSP) == null) {
-            return getCtMinMandatoryScts();
-        }
-        return (Integer) data.get(CT_MIN_MANDATORY_SCTS_OCSP);
-    }
-
-    /**
-     * Set the minimum number of SCTs for OCSP responses.
-     * @see CertificateProfile#getCtMinMandatorySctsOcsp
-     * @param value a number indicating the number of mandatory SCTs for OCSP responses
-     */
-    public void setCtMinMandatorySctsOcsp(final int value) {
-        data.put(CT_MIN_MANDATORY_SCTS_OCSP, value);
-    }
-
-    /**
      * <p>Number of SCTs retrieved after which we will stop contacting non-mandatory log servers.</p>
      * @return the maximum number of non-mandatory SCTs
      */
     public int getCtMaxNonMandatoryScts() {
         if (data.get(CT_MAX_NONMANDATORY_SCTS) == null) {
-            if (data.get(CT_MAX_NONMANDATORY_SCTS) == null) {
-                if (data.get(CT_MAX_SCTS) == null) {
-                    return 1;
-                }
-                return (Integer) data.get(CT_MAX_SCTS);
+            if (data.get(CT_MAX_SCTS) == null) {
+                log.info("CT_MAX_NON_MANDATORY_SCTS is null => legacy value is also null, using 1 log as default.");
+                return 1;
             }
+            log.info("CT_MAX_NON_MANDATORY_SCTS is null => using legacy value: " + data.get(CT_MAX_SCTS));
+            return (Integer) data.get(CT_MAX_SCTS);
         }
         return (Integer) data.get(CT_MAX_NONMANDATORY_SCTS);
     }
@@ -2646,8 +2684,10 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public int getCtMaxNonMandatorySctsOcsp() {
         if (data.get(CT_MAX_NONMANDATORY_SCTS_OCSP) == null) {
             if (data.get(CT_MAX_SCTS_OCSP) == null) {
+                log.info("CT_MAX_NON_MANDATORY_SCTS_OCSP is null => legacy value is also null, using 1 log as default.");
                 return 1;
             }
+            log.info("CT_MAX_NON_MANDATORY_SCTS_OCSP is null => using legacy value: " + data.get(CT_MAX_SCTS_OCSP));
             return (Integer) data.get(CT_MAX_SCTS_OCSP);
         }
         return (Integer) data.get(CT_MAX_NONMANDATORY_SCTS_OCSP);
@@ -2687,6 +2727,51 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         data.put(CT_MIN_NONMANDATORY_SCTS_OCSP, value);
     }
 
+    public int getCtMinScts() {
+        if (data.get(CT_SCTS_MIN) == null) {
+            return getCtMinTotalScts();
+        }
+        return (Integer) data.get(CT_SCTS_MIN);
+    }
+    
+    public void setCtMinScts(int value) {
+        data.put(CT_SCTS_MIN, value);
+    }
+    
+    public int getCtMaxScts() {
+        if (data.get(CT_SCTS_MAX) == null) {
+            return getCtMinTotalScts();
+        }
+        return (Integer) data.get(CT_SCTS_MAX);
+    }
+    
+    public void setCtMaxScts(int value) {
+        data.put(CT_SCTS_MAX, value);
+    }
+    
+    public int getCtMinSctsOcsp() {
+        if (data.get(CT_SCTS_MIN_OCSP) == null) {
+            return getCtMinTotalScts();
+        }
+        return (Integer) data.get(CT_SCTS_MIN_OCSP);
+    }
+    
+    public void setCtMinSctsOcsp(int value) {
+        data.put(CT_SCTS_MIN_OCSP, value);
+    }
+    
+    public int getCtMaxSctsOcsp() {
+        if (data.get(CT_SCTS_MAX_OCSP) == null) {
+            return getCtMinTotalScts();
+        }
+        return (Integer) data.get(CT_SCTS_MAX_OCSP);
+    }
+    
+    public void setCtMaxSctsOcsp(int value) {
+        data.put(CT_SCTS_MAX_OCSP, value);
+    }
+    
+    
     /** Number of times to retry connecting to a Certificate Transparency log */
     public int getCTMaxRetries() {
         if (data.get(CTMAXRETRIES) == null) {
@@ -2698,6 +2783,45 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public void setCTMaxRetries(int numRetries) {
         data.put(CTMAXRETRIES, numRetries);
     }
+    
+    /**
+     * Usage only intended for post upgrade! 
+     * Removes CT data prior to EJBCA 6.10.1 from certificate profile. 
+     * */
+    public void removeLegacyCtData() {
+        if (data.get(CT_MAX_SCTS) != null) {
+            data.remove(CT_MAX_SCTS);
+        }
+        if (data.get(CT_MAX_SCTS_OCSP) != null) {
+            data.remove(CT_MAX_SCTS_OCSP);
+        }
+        if (data.get(CT_MIN_MANDATORY_SCTS) != null) {
+            data.remove(CT_MIN_MANDATORY_SCTS);
+        }
+        if (data.get(CT_MAX_MANDATORY_SCTS) != null) {
+            data.remove(CT_MAX_MANDATORY_SCTS);
+        }
+        if (data.get(CT_MIN_MANDATORY_SCTS_OCSP) != null) {
+            data.remove(CT_MIN_MANDATORY_SCTS_OCSP);
+        }
+        if (data.get(CT_MAX_MANDATORY_SCTS_OCSP) != null) {
+            data.remove(CT_MAX_MANDATORY_SCTS_OCSP);
+        }
+        if (data.get(CT_MIN_NONMANDATORY_SCTS) != null) {
+            data.remove(CT_MIN_NONMANDATORY_SCTS);
+        }
+        if (data.get(CT_MAX_NONMANDATORY_SCTS) != null) {
+            data.remove(CT_MAX_NONMANDATORY_SCTS);
+        }
+        if (data.get(CT_MIN_NONMANDATORY_SCTS_OCSP) != null) {
+            data.remove(CT_MIN_NONMANDATORY_SCTS_OCSP);
+        }
+        if (data.get(CT_MAX_NONMANDATORY_SCTS_OCSP) != null) {
+            data.remove(CT_MAX_NONMANDATORY_SCTS_OCSP);
+        }
+    }
+    
+    
 
     /**
      * Checks that a public key fulfills the policy in the CertificateProfile

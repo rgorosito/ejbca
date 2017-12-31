@@ -45,10 +45,11 @@ import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateData;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
+import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificatetransparency.CertificateTransparency;
 import org.cesecore.certificates.certificatetransparency.CertificateTransparencyFactory;
 import org.cesecore.certificates.crl.RevokedCertInfo;
-import org.cesecore.certificates.endentity.EndEntityInformation;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.certificates.util.cert.QCStatementExtension;
 import org.cesecore.certificates.util.cert.SubjectDirAttrExtension;
@@ -62,13 +63,13 @@ import org.ejbca.cvc.AuthorizationField;
 import org.ejbca.cvc.CVCertificateBody;
 import org.ejbca.cvc.CardVerifiableCertificate;
 
-/** 
+/**
  * UI representation of a certificate from the back end.
- * 
+ *
  * @version $Id$
  */
 public class RaCertificateDetails {
-    
+
     public interface Callbacks {
         RaLocaleBean getRaLocaleBean();
         boolean changeStatus(RaCertificateDetails raCertificateDetails, int newStatus, int newRevocationReason) throws ApprovalException, WaitingForApprovalException;
@@ -77,7 +78,7 @@ public class RaCertificateDetails {
         boolean keyRecoveryPossible(RaCertificateDetails raCertificateDetails);
         UIComponent getConfirmPasswordComponent();
     }
-    
+
     private static final Logger log = Logger.getLogger(RaCertificateDetails.class);
     public static String PARAM_REQUESTID = "requestId";
 
@@ -128,10 +129,10 @@ public class RaCertificateDetails {
     private boolean renderConfirmRecovery = false;
     private Boolean keyRecoveryPossible;
     private int styleRowCallCounter = 0;
-    
+
     private RaCertificateDetails next = null;
     private RaCertificateDetails previous = null;
-    
+
 
     private int newRevocationReason = RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED;
 
@@ -146,11 +147,23 @@ public class RaCertificateDetails {
         this.cdw = cdw;
         final CertificateData certificateData = cdw.getCertificateData();
         this.cpId = certificateData.getCertificateProfileId();
-        this.cpName = cpId==null ? null : cpIdToNameMap.get(cpId);
+        if (cpId != null && cpIdToNameMap != null) {
+            this.cpName = cpIdToNameMap.get(cpId);
+        } else {
+            this.cpName = null;
+        }
         this.eepId = certificateData.getEndEntityProfileIdOrZero();
-        this.eepName = eepIdToNameMap.get(Integer.valueOf(eepId));
+        if (eepIdToNameMap != null) {
+            this.eepName = eepIdToNameMap.get(Integer.valueOf(eepId));
+        } else {
+            this.eepName = null;
+        }
         this.issuerDn = certificateData.getIssuerDN();
-        this.caName = getCaNameFromIssuerDn(caSubjectToNameMap, issuerDn);
+        if (caSubjectToNameMap != null) {
+            this.caName = getCaNameFromIssuerDn(caSubjectToNameMap, issuerDn);
+        } else {
+            this.caName = null;
+        }
         this.status = certificateData.getStatus();
         this.revocationReason = certificateData.getRevocationReason();
         this.fingerprint = certificateData.getFingerprint();
@@ -281,7 +294,7 @@ public class RaCertificateDetails {
     public String getCaName() { return caName; }
     /** @return Certificate Profile Name from the provided CP ID or a localized error String */
     public String getCpName() {
-        if (cpId != null && cpId.intValue()==EndEntityInformation.NO_CERTIFICATEPROFILE) {
+        if (cpId != null && cpId.intValue()==CertificateProfileConstants.NO_CERTIFICATE_PROFILE) {
             return callbacks.getRaLocaleBean().getMessage("component_certdetails_info_unknowncp");
         } else if (cpName!=null) {
             return cpName;
@@ -291,7 +304,7 @@ public class RaCertificateDetails {
     public boolean isCpNameSameAsEepName() { return getEepName().equals(getCpName()); }
     /** @return End Entity Profile Name from the provided EEP ID or a localized error String */
     public String getEepName() {
-        if (eepId==EndEntityInformation.NO_ENDENTITYPROFILE) {
+        if (eepId==EndEntityConstants.NO_END_ENTITY_PROFILE) {
             return callbacks.getRaLocaleBean().getMessage("component_certdetails_info_unknowneep");
         }
         if (eepName!=null) {
@@ -309,7 +322,7 @@ public class RaCertificateDetails {
     public boolean isSuspended() {
         return status == CertificateConstants.CERT_REVOKED && revocationReason == RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD;
     }
-    
+
     /** @return a localized certificate (revocation) status string */
     public String getStatus() {
         switch (status) {
@@ -356,12 +369,12 @@ public class RaCertificateDetails {
         }
         return "";
     }
-    
+
     /** @return Certificate as java.security.cert.Certificate */
     public Certificate getCertificate() {
         return cdw.getCertificate();
     }
-    
+
     /** @return true if more details should be shown */
     public boolean isMore() { return more; }
     public void actionToggleMore() {
@@ -427,7 +440,7 @@ public class RaCertificateDetails {
         }
         styleRowCallCounter = 0;    // Reset
     }
-    
+
     public void actionReactivate() {
         try {
             if (callbacks.changeStatus(this, CertificateConstants.CERT_ACTIVE, RevokedCertInfo.NOT_REVOKED)) {
@@ -442,7 +455,7 @@ public class RaCertificateDetails {
         }
         styleRowCallCounter = 0;    // Reset
     }
-    
+
     public void actionRecovery() {
         try {
             if (callbacks.recoverKey(this)) {
@@ -480,7 +493,7 @@ public class RaCertificateDetails {
         styleRowCallCounter = 0;    // Reset
         renderConfirmRecoveryToggle();
     }
-    
+
     /** Validate that password and password confirm entries match and render error messages otherwise. */
     public final void validatePassword(ComponentSystemEvent event) {
         if (renderConfirmRecovery){
@@ -500,31 +513,31 @@ public class RaCertificateDetails {
             }
         }
     }
-    
+
     public final String getParamRequestId(){
         return PARAM_REQUESTID;
     }
-    
+
     public String getConfirmPassword() {
         return confirmPassword;
     }
-    
+
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
     }
-    
+
     public String getPassword() {
         return password;
     }
-    
+
     public void setPassword(String password) {
         this.password = password;
     }
-    
+
     public int getRequestId() {
         return requestId;
     }
-    
+
     public void setRequestId(int requestId) {
         this.requestId = requestId;
     }
@@ -536,15 +549,15 @@ public class RaCertificateDetails {
         }
         return keyRecoveryPossible;
     }
-    
+
     public boolean isRenderConfirmRecovery() {
         return renderConfirmRecovery;
     }
-    
+
     public void renderConfirmRecoveryToggle() {
         renderConfirmRecovery = !renderConfirmRecovery;
     }
-    
+
     public boolean isRequestIdInfoRendered(){
         return requestId != 0;
     }

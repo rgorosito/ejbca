@@ -101,7 +101,7 @@ If you select (as type) to use a PKCS#11 Crypto Token additional fields are disp
 <li>PKCS#11 Library: PKCS#11 shared library configured as available in conf/web.properties.</li>
 <li>PKCS#11 Reference Type: What kind of a slot reference that is described by the next parameter (Id, Index or Label).</li>
 <li>PKCS#11 Reference: PKCS#11 slot number, index or label.</li>
-<li>PCKS#11 Attribute File: If required, this is a PKCS#11 attribute file configured as available in conf/web.properties. This should only be required for non common HSMs.</li>
+<li>PKCS#11 Attribute File: If required, this is a PKCS#11 attribute file configured as available in conf/web.properties. This should only be required for non common HSMs.</li>
 </ul>
 The PKCS#11 properties above are described in more technical detail in the <a href="adminguide.html#Hardware Security Modules (HSM)">Adminguide's HSM</a> section.
 A unique Crypto Token identifier will be generated when the token is created.
@@ -368,7 +368,7 @@ the Admin GUI will not be very useful.
 The user data storage is enabled by default.
 </p>
 <p>
-If EJBCA is used as a certificate factory, where the functionality of the Admin GUI is not required, user data storage be disabled to improve performance. See the 
+If EJBCA is used as a certificate factory, where the functionality of the Admin GUI is not required, user data storage can be disabled to improve performance. See the 
 <a href="adminguide.html#Throw%20away%20CA">Throw Away CA</a> section in the Admin Guide for more information about this mode.
 </p>
 </subsubsection>
@@ -1326,6 +1326,8 @@ This means that if both are true the DN will have last-to-first (LDAP) DN order,
 <p>
 For some references see <a href="http://www.ietf.org/rfc/rfc2253.txt">RFC2253</a> and <a href="http://www.ietf.org/rfc/rfc4514.txt">RFC4514</a>
 </p>
+<p>When using a <i>Custom DN Order</i> the LDAP DN order setting is also applied by default, defining which component comes first (CN or C for example), regardless of the exact order you specified in the text field.
+By unchecking the checkbox 'Apply LDAP DN order setting' for the <i>Custom DN Order</i>, the exact order as specified will be used.</p>
 </subsubsection>
 
 <subsubsection name="Private Key Usage Period">
@@ -1409,9 +1411,20 @@ The purpose of CT is to create public audit logs of all certificates issued by t
 <p>Depending on which of the options above are enabled, one or more of the following options may appear:</p>
 
 <ul>
-<li>Enabled CT Logs: Which logs to submit to and obtain Signed Certificate Timestamp (SCTs) from. New logs can be added in the System Configuration, see the <a href="adminguide.html#Certificate%20Transparency%20(Enterprise%20only)">admin guide</a>.</li>
+<li>Enabled CT Labels: Which labels to submit to and obtain Signed Certificate Timestamp (SCTs) from. Each label contains a set of CT logs. At least one log from each selected label will be submitted to. New logs and labels can be added in the System Configuration, see the <a href="adminguide.html#Certificate%20Transparency%20(Enterprise%20only)">admin guide</a>.</li>
 <li>Minimum number of SCTs: If fewer servers respond with an SCT than this number, the underlying operation will fail (certificate issuing or generation of an OCSP response extension).</li>
+<ul>
+	<li>By Validity: Automatically sets the number of minimum SCT responses based on the validity of the certificate. The value is determined by the 
+		<a href="https://cabforum.org/pipermail/public/2016-May/007573.html">CT Policy for Chrome (May 2016)</a>. </li>
+	<li>Custom: Specifies the minimum number of SCT responses manually. This value cannot be less than the number of selected labels since
+		at least one CT log from each label will be written to and expect a response</li>	
+</ul>
 <li>Maximum number of SCTs: After having received this number of SCTs, EJBCA will stop contacting log servers.</li>
+<ul>
+	<li>By Validity: Sets the number of maximum SCT responses by validity i.e. maximum = minimum. This ensures that no more SCTs than required will be included in the final certificate</li>
+	<li>Custom: Specifies the maximum number of SCT responses manually. This value cannot be less than the number of selected labels since
+		at least one CT log from each label will be written to and expect a response</li>	
+</ul>
 <li>Submit existing certificates: If existing certificates (defined as not already having an SCT) should be submitted to CT logs during OCSP responses or publishing.</li>
 <li>Number of retries: If a log server times out it will be tried again after all other logs have been tried. This is the maximum number of tries per server.</li>
 </ul>
@@ -1691,6 +1704,12 @@ abc0123/
 
 2.16.840.1.101.3.4.2.1::CB3AE7FBFFFD9C85A3FB234E51FFFD2190B1F8F161C0A2873B998EFAC067B03A::6D9E6264DDBD0FC997B9B40524247C8BC319D02A583F4B499DD3ECAF06C786DF
 </source>
+<strong>Federal Agency Smart Credential Number (FASC-N)</strong>
+<p>FASC-N is an OtherName defined for PIV certificates in <a href="http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.201-2.pdf">FIPS 201-2</a>. It is encoded as an Octet String and therefore the
+altName in EJBCA is entered as Hex encoded octets. A subjectAltName string could for example look like: 'rfc822Name=email@example.com, fascN=0419d23210d8210c2c1a843085a16858300842108608823210c3e1'.
+Since the field is limited to 25 bytes, a suggested validation regex would be "[0-9a-f]{1,50}".
+</p>
+
 </subsubsection>
 <subsubsection name="Certificate Validity">
 <p>
@@ -1994,6 +2013,14 @@ a large number of pending publisher queue objects issued under this end entity, 
 complete.
 </p>
 </subsection>
+
+<subsection name="Editing Users in the RA Web">
+<p>
+Administrators have the ability to edit the status of an end entity from the RA Web. This is done by clicking the Edit button while viewing an end
+entity, selecting a status and entering a new Enrollment code. For the Edit button to appear the administrator needs to have the rights to edit the
+end entity and all EJBCA instances in the cluster must be running EJBCA 6.11 or later.
+</p>
+</subsection>
 </section>
 
 <section name="Administrators">
@@ -2153,6 +2180,8 @@ suitable a role can be created with the <i>Custom</i> template and be manually c
 <li>Supervisor:</li>
 <ul>
 <li>has full read access to the audit log</li>
+<li>can search for and view end entities</li>
+<li>can view certificates</li>
 </ul>
 <li>Auditor:</li>
 <ul>
@@ -2413,19 +2442,19 @@ Requesting access to the above resources will result in the following:
     
     <subsection name="Administrator details">
       <p>
-        You can chose to see all the logs created by a specific type of administrator, his or her IP address or the hexadecimal serialnumber of the administrator certificate used. There are six types of administrators:
+        You can choose to see all the logs created by a specific type of administrator, their IP address or the hexadecimal serial number of the administrator certificate used. There are six types of administrators:
         <ul>
-          <li>An administrator who logs in with a certificate. Typically an administrator who logs into the Admin GUI to perfom tacks that need administrator privileges.
-              An administrator who logs in with a certificate is loged with his certificate serialnumber and SubjectDN.</li>
-          <li>An administrator who logs into the public web using only username and password. An administrator who logs into the public web is loges with his IP address.</li>
-          <li>An RA user. The RA user is loged with his IP address.</li>
-          <li>An administrator performing administrative tasks through commandline.</li>
-          <li>An administrator performing administrative tasks through batch commandline.</li>
-          <li>An internal user performing tasks within Ejbca.</li>
+          <li>An administrator who logs in with a certificate. Typically an administrator who logs into the Admin GUI to perform tasks that need administrator privileges.
+              An administrator who logs in with a certificate is logged with their certificate's serial number and subject DN.</li>
+          <li>An administrator who logs into the public web using only username and password. An administrator who logs into the public web is logged with their IP address.</li>
+          <li>An RA user. The RA user is logged with his IP address.</li>
+          <li>An administrator performing administrative tasks through command line.</li>
+          <li>An administrator performing administrative tasks through batch command line.</li>
+          <li>An internal user performing tasks within EJBCA.</li>
         </ul>
       </p>
     </subsection>
-  <p> The log can be displayed on the screen or exported as a XML file.</p>
+  <p> The log can be displayed on the screen or be exported as an XML file.</p>
   <subsection name="Signing log files">
     <p>If so desired the exported log file can be signed by a specific signing certificate of a certificate authority. This will generate a binary (DER) format CMS/PKCS#7 MIME Message (p7m) file. Specific CMS compatible tools are needed to validate the signature and to 'strip' it off as to allow importing into other tools such as a text editor. 
  </p>

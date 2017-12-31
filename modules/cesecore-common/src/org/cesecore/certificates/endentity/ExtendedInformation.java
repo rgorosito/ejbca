@@ -85,7 +85,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     /** The (optional) revocation status a certificate issued to this user will have, immediately upon issuance. */
     public  static final String CUSTOM_REVOCATIONREASON = "REVOCATIONREASON";
 
-    /** The subject DN exactly as requested in the UserDataVOWS object. 
+    /** The subject DN exactly as requested in the UserDataVOWS object.
      * Should be stored B64 encoded to avoid possible XML/database encoding issues, getRawSubjectDn does decoding if it is encoded */
     public static final String RAWSUBJECTDN = "RAWSUBJECTDN";
 
@@ -203,7 +203,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
      * @return The number of remaining allowed failed login attempts or -1 for unlimited
      */
     public int getRemainingLoginAttempts() {
-        return ((Integer) data.get(REMAININGLOGINATTEMPTS)).intValue();
+        return Integer.valueOf(data.get(REMAININGLOGINATTEMPTS).toString());
     }
 
     /**
@@ -220,7 +220,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
      * @return The maximum number of allowed failed login attempts or -1 for unlimited
      */
     public int getMaxLoginAttempts() {
-        return ((Integer) data.get(MAXFAILEDLOGINATTEMPTS)).intValue();
+        return Integer.valueOf(data.get(MAXFAILEDLOGINATTEMPTS).toString());
     }
 
     /**

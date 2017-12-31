@@ -410,7 +410,7 @@ org.cesecore.authorization.AuthorizationDeniedException
 				<h:outputLabel for="enableCommandLineDefUser" value="#{web.text.ENABLECLIDEFAULTUSER}" styleClass="titles"/>
 				<%= ejbcawebbean.getHelpReference("/adminguide.html#Local%20CLI%20Authentication") %>
 				<br/>
-				<h:outputText value="#{web.text.ENABLECLIDEFAULTUSERHELPER}" styleClass="help"/>
+				<h:outputText value="#{web.text.ENABLECLIDEFAULTUSER_HELP}" styleClass="help"/>
 			</h:panelGroup>
 			<h:panelGroup>
 				<h:selectBooleanCheckbox id="enableCommandLineDefUser" value="#{systemConfigMBean.currentConfig.enableCommandLineDefaultUser}" 
@@ -418,16 +418,16 @@ org.cesecore.authorization.AuthorizationDeniedException
 				<h:outputLabel for="enableCommandLineDefUser" value="#{web.text.ACTIVATE}" />
 			</h:panelGroup>	
 		</h:panelGrid>
-
-		<h:panelGrid columns="2" styleClass="edit-bottom" cellspacing="3" cellpadding="3" border="0" width="100%" rowClasses="Row0" columnClasses="editColumnSystem1,editColumn2">
-			<h:panelGroup>
-				&nbsp;
-			</h:panelGroup>
-			<h:panelGroup>
-				<h:commandButton value="#{web.text.SAVE}" action="#{systemConfigMBean.saveCurrentConfig}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
-				<h:commandButton value="#{web.text.CANCEL}" action="#{systemConfigMBean.flushCache}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" />
-			</h:panelGroup>
-		</h:panelGrid>
+		
+        <h:panelGrid columns="2" styleClass="edit-bottom" cellspacing="3" cellpadding="3" border="0" width="100%" rowClasses="Row0" columnClasses="editColumnSystem1,editColumn2">
+            <h:panelGroup>
+                &nbsp;
+            </h:panelGroup>
+            <h:panelGroup>
+                <h:commandButton value="#{web.text.SAVE}" action="#{systemConfigMBean.saveCurrentConfig}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                <h:commandButton value="#{web.text.CANCEL}" action="#{systemConfigMBean.flushCache}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" />
+            </h:panelGroup>
+        </h:panelGrid>
 	</h:form>
 	
 	
@@ -494,6 +494,40 @@ org.cesecore.authorization.AuthorizationDeniedException
 		</h:panelGrid>
 	</h:form>
 	
+	<%-- Protocol Configuration --%>
+	
+	<h:form id="protocolconfigform" rendered="#{systemConfigMBean.selectedTab eq 'Protocol Configuration'}">
+		<h:panelGroup>
+			<h4>
+			<h:outputText value="#{web.text.PC_EDIT_PC_TITLE}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+			<h:outputText value="#{web.text.PC_VIEW_PC_TITLE}" rendered="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+			<%= ejbcawebbean.getHelpReference("/adminguide.html#Modular%20Protocol%20Configuration") %></h4> <!-- TODO link to actual documentation when available -->
+			</br>
+		</h:panelGroup>
+	
+		<h:dataTable value="#{systemConfigMBean.availableProtocols}" var="protocolinfos"
+					styleClass="grid" style="border-collapse: collapse; right: auto; left: auto">
+			<h:column>
+   				<f:facet name="header"><h:outputText value="#{web.text.PC_TABLE_PROTOCOL_TITLE}"/></f:facet>
+				<h:outputText value="#{protocolinfos.protocol}"/>
+			</h:column>
+			<h:column>
+				<f:facet name="header"><h:outputText value="#{web.text.PC_TABLE_RESOURCE_URL}"/></f:facet>
+				<h:outputText value="#{protocolinfos.url}"/>
+			</h:column>
+			<h:column>
+   				<f:facet name="header"><h:outputText value="#{web.text.PC_TABLE_STATUS_TITLE}"/></f:facet>
+				<h:outputText value="#{protocolinfos.status}"/>
+			</h:column>
+			<h:column>
+   				<f:facet name="header">
+   					<h:outputText value="#{web.text.PC_TABLE_ACTION_TITLE}"/>
+   				</f:facet>
+				<h:commandButton action="#{systemConfigMBean.toggleProtocolStatus}" value="#{protocolinfos.enabled ? web.text.PC_ACTION_DISABLE : web.text.PC_ACTION_ENABLE}" 
+					 rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" disabled="#{!protocolinfos.available}"/>
+			</h:column>
+		</h:dataTable>
+	</h:form>
 	
 	<%-- Extended Key Usages --%>
 	
@@ -535,74 +569,135 @@ org.cesecore.authorization.AuthorizationDeniedException
 		</h:dataTable>
 	</h:form>
 	
-	
 	<%-- Certificate Transparency Logs --%>
 
 	<h:form id="ctlogsform" enctype="multipart/form-data" rendered="#{systemConfigMBean.selectedTab eq 'Certificate Transparency Logs'}">
-		<h:panelGroup>
-			<h4>
-			<h:outputText value="#{web.text.CTLOGCONFIGURATION_EDIT_CTLOG_TITLE}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
-			<h:outputText value="#{web.text.CTLOGCONFIGURATION_VIEW_CTLOG_TITLE}" rendered="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
-			<%= ejbcawebbean.getHelpReference("/adminguide.html#Certificate%20Transparency%20(Enterprise%20only)") %></h4>
-			</br>
-		</h:panelGroup>
+		<div class="section-label">
+            <h4>
+            <h:outputText value="#{web.text.CTLOGCONFIGURATION_EDIT_CTLOG_TITLE}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <h:outputText value="#{web.text.CTLOGCONFIGURATION_VIEW_CTLOG_TITLE}" rendered="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <%= ejbcawebbean.getHelpReference("/adminguide.html#Certificate%20Transparency%20(Enterprise%20only)") %></h4>
+        </div>
 		
-		
-		<h:dataTable value="#{systemConfigMBean.ctLogs}" var="ctlog"
-					styleClass="grid" style="border-collapse: collapse; right: auto; left: auto">
-			<h:column>
-   				<f:facet name="header"><h:outputText value="#{web.text.CTLOGCONFIGURATION_URL}"/></f:facet>
-				<h:outputText value="#{systemConfigMBean.ctLogUrl}" title="#{web.text.CTLOGCONFIGURATION_URL} #{ctlog.url}"/>
-				<f:facet name="footer">
-					<h:inputText id="currentURL" value="#{systemConfigMBean.currentCTLogURL}" size="45" title="#{web.text.FORMAT_URI}" 
-						rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" />
-				</f:facet>
-			</h:column>
-			<h:column>
-   				<f:facet name="header"><h:outputText value="#{web.text.CTLOGCONFIGURATION_PUBLICKEY}"/></f:facet>
-				<h:outputText value="#{systemConfigMBean.ctLogPublicKeyID}" styleClass="monospace"/>
-				<f:facet name="footer">
-					<h:panelGroup>
- 	 	 	 			<h:outputText value="#{web.text.CTLOGCONFIGURATION_PUBLICKEYFILE} " rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
- 	 	 	 			<t:inputFileUpload id="currentCTLogKeyFile" value="#{systemConfigMBean.currentCTLogPublicKeyFile}"
- 	 	 	 					       title="#{web.text.CTLOGCONFIGURATION_PUBLICKEYFILE}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
- 	 	 	 		</h:panelGroup>
-				</f:facet>
-			</h:column>
-			<h:column>
-   				<f:facet name="header"><h:outputText value="#{web.text.CTLOGCONFIGURATION_TIMEOUT}"/></f:facet>
-				<h:outputText value="#{systemConfigMBean.ctLogTimeout}" styleClass="numberCell"/>
-				<f:facet name="footer">
-					<h:inputText id="currentTimeout" required="false"
-									value="#{systemConfigMBean.currentCTLogTimeout}"
-									title="#{web.text.FORMAT_MILLISECONDS}"
-									size="10"
-									rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}">
-   					</h:inputText>
-				</f:facet>
-			</h:column>
-			<h:column>
-   				<f:facet name="header">
-   					<h:outputText value="#{web.text.INTERNALKEYBINDING_ACTION}"/>
-   				</f:facet>
-   				<h:commandButton action="#{systemConfigMBean.moveCTLogUp}" value="↑" title="#{web.text.MOVEUP}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" disabled="#{systemConfigMBean.firstCTLog}"/>
-   				<h:commandButton action="#{systemConfigMBean.moveCTLogDown}" value="↓" title="#{web.text.MOVEDOWN}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" disabled="#{systemConfigMBean.lastCTLog}"/>
-				<h:commandButton action="#{systemConfigMBean.editCTLog}" value="#{web.text.EDIT}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
-				<h:commandButton action="#{systemConfigMBean.removeCTLog}" value="#{web.text.REMOVE}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
-				<f:facet name="footer">
-					<h:commandButton  value="#{web.text.ADD}" action="#{systemConfigMBean.addCTLog}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
-				</f:facet>
-			</h:column>
-			<h:column>
-			    <f:facet name="header">
-			        <h:outputText value="#{web.text.MANDATORY}" />
-			    </f:facet>
-			    <h:outputText value="#{ctlog.isMandatory() ? web.text.YES : web.text.NO}" />
-			    <f:facet name="footer">
-			        <h:selectBooleanCheckbox id="isMandatoryCtLog" value="#{systemConfigMBean.isCurrentCtLogMandatory}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" />
-			    </f:facet>
+		<h:dataTable value="#{systemConfigMBean.ctLogManager.labels}" var="label">
+		    <h:column>
+				<h3>
+				    <h:outputText value="#{label}"/>
+				</h3>
+				<h:dataTable value="#{systemConfigMBean.ctLogManager.getCtLogsByLabel(label)}" 
+				    var="ctlog"
+				    styleClass="grid" style="border-collapse: collapse; right: auto; left: auto;">
+					<h:column>
+		   				<f:facet name="header">
+		   				   <h:outputText value="#{web.text.CTLOGCONFIGURATION_URL}"/>
+		   			    </f:facet>
+						<h:outputText value="#{ctlog.url}" 
+						    title="#{web.text.CTLOGCONFIGURATION_URL}"/>
+					</h:column>
+					<h:column>
+		   				<f:facet name="header">
+		   				   <h:outputText value="#{web.text.CTLOGCONFIGURATION_PUBLICKEY}"/>
+		   				</f:facet>
+						<h:outputText value="#{ctlog.logKeyIdString}" 
+						    title="#{web.text.CTLOGCONFIGURATION_PUBLICKEY}"
+						    styleClass="monospace"/>
+					</h:column>
+					<h:column>
+		   				<f:facet name="header">
+		   				   <h:outputText value="#{web.text.CTLOGCONFIGURATION_TIMEOUT}"/>
+		   				</f:facet>
+						<h:outputText value="#{ctlog.timeout}" 
+					        styleClass="numberCell"/>
+					</h:column>
+					<h:column>
+					    <f:facet name="header">
+					        <h:outputText value="#{web.text.LABEL}"/>
+					    </f:facet>
+					    <h:selectOneMenu value="#{ctlog.label}"
+					         rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"
+					         onchange="this.form.submit()">
+					         <f:selectItems value="#{systemConfigMBean.ctLogManager.labels}" />
+					    </h:selectOneMenu>
+					</h:column>
+					<h:column>
+                        <f:facet name="header">
+                           <h:outputText value="#{web.text.INTERNALKEYBINDING_ACTION}"/>
+                        </f:facet>
+                        <h:commandButton action="#{systemConfigMBean.ctLogManager.editCtLog(ctlog)}" 
+                            value="#{web.text.EDIT}" 
+                            rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                        <h:commandButton action="#{systemConfigMBean.ctLogManager.removeCtLog(ctlog)}" 
+                             value="#{web.text.REMOVE}"
+                             rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                             <h:commandButton action="#{systemConfigMBean.ctLogManager.moveUp(ctlog)}" 
+                            value="↑" title="#{web.text.MOVEUP}" 
+                            rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" 
+                            disabled="#{systemConfigMBean.ctLogManager.isOnTop(ctlog)}"/>
+                        <h:commandButton action="#{systemConfigMBean.ctLogManager.moveDown(ctlog)}" 
+                            value="↓" 
+                            title="#{web.text.MOVEDOWN}" 
+                            rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" 
+                            disabled="#{systemConfigMBean.ctLogManager.isOnBottom(ctlog)}"/>
+                    </h:column>
+				</h:dataTable>
 			</h:column>
 		</h:dataTable>
+		<h:panelGrid styleClass="grid" columns="5" style="border-collapse: collapse; right: auto; left: auto; margin: 5px; width: 1070px;">
+	        <f:facet name="header">
+                <h:outputText value="#{web.text.CTLOGCONFIGURATION_ADD_NEW}" 
+                    rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            </f:facet>
+            <h:outputText value="#{web.text.CTLOGCONFIGURATION_URL}"/>
+            <h:outputText value="#{web.text.CTLOGCONFIGURATION_PUBLICKEY}"/>
+            <h:outputText value="#{web.text.CTLOGCONFIGURATION_TIMEOUT}"/>
+            <h:outputText value="#{web.text.LABEL}"/>
+            <h:outputText value="#{web.text.INTERNALKEYBINDING_ACTION}"/>
+            <h:inputText value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogUrl}" 
+                title="#{web.text.FORMAT_URI}"
+                rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"
+                size="45"/>
+		    <h:panelGroup>
+		        <h:outputText value="#{web.text.CTLOGCONFIGURATION_PUBLICKEYFILE}" 
+                       rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                <t:inputFileUpload id="currentCTLogKeyFile" 
+                    value="#{systemConfigMBean.ctLogManager.ctLogEditor.publicKeyFile}"
+                    title="#{web.text.CTLOGCONFIGURATION_PUBLICKEYFILE}"
+                    rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+             </h:panelGroup>
+             <h:inputText value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogTimeout}"
+                 rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"
+                 size="10" 
+                 required="true"/>
+	         <h:inputText value="#{systemConfigMBean.ctLogManager.ctLogEditor.ctLogLabel}"
+	             rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+	         <h:commandButton value="#{web.text.ADD}" 
+                 action="#{systemConfigMBean.ctLogManager.addCtLog}" 
+                 rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+        </h:panelGrid>
+        <h:outputLink value="https://www.certificate-transparency.org/known-logs" target="_blank" styleClass="tableFooter">
+        	<h:outputText value="#{web.text.CTLOGCONFIGURATION_KNOWN_LOGS}"/>
+        </h:outputLink>
+        <div class="section-label">
+            <h4><h:outputText value="#{web.text.CONFIGURE_GOOGLES_CT_POLICY}"/></h4>
+        </div>
+        <h:panelGrid columns="2" styleClass="grid">
+            <h:outputText value="#{web.text.CERT_VALIDITY}"/>
+            <h:outputText value="#{web.text.CT_NUMBER_OF_SCTS}"/>
+            <h:outputText value="#{web.text.LESS_THAN_15_MONTHS}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <h:inputText rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" value="#{systemConfigMBean.googleCtPolicy.lessThan15Months}" size="26"/>
+            <h:outputText value="#{web.text.BETWEEN_15_AND_27_MONTHS}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <h:inputText rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" value="#{systemConfigMBean.googleCtPolicy.between15And27Months}" size="26"/>
+            <h:outputText value="#{web.text.BETWEEN_27_AND_39_MONTHS}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <h:inputText rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" value="#{systemConfigMBean.googleCtPolicy.between27And39Months}" size="26"/>
+            <h:outputText value="#{web.text.MORE_THAN_39_MONTHS}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+            <h:inputText rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}" value="#{systemConfigMBean.googleCtPolicy.moreThan39Months}" size="26"/>
+        </h:panelGrid>
+        <div style="margin-top:1em;">
+            <h:commandButton action="#{systemConfigMBean.saveCurrentConfig}" 
+                value="#{web.text.SAVE_CT_POLICY}" 
+                title="#{web.text.SAVE_CT_POLICY}" 
+                rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+        </div>
 	</h:form>
 	
 	
@@ -701,18 +796,18 @@ org.cesecore.authorization.AuthorizationDeniedException
 		<br/>
 		<h3><h:outputText value="#{web.text.IMPORT}"/></h3>
 		
-		<h:panelGrid columns="2" columnClasses="gridColumnLeft,gridColoumRight">
+		<h:panelGrid columns="2" columnClasses="gridColumnLeft,gridColumnRight">
 			<h:outputLabel for="raCssFile" value="#{web.text.CSSIMPORTFROM}"/>
 			<t:inputFileUpload id="raCssFile" value="#{systemConfigMBean.raCssFile}"/>
 		</h:panelGrid>
-		<h:panelGrid columns="2" columnClasses="gridColumnLeft,gridColoumRight">
+		<h:panelGrid columns="2" columnClasses="gridColumnLeft,gridColumnRight">
 			<h:outputLabel for="raLogoFile" value="#{web.text.LOGOIMPORTFROM}"/>
 			<t:inputFileUpload id="raLogoFile" value="#{systemConfigMBean.raLogoFile}"/>
 		</h:panelGrid>
 		<h:panelGrid columns="1" columnClasses="gridColumnLeft">
 			<h:outputText value="#{web.text.COLUMNNAMETITLE}"/>
 		</h:panelGrid>
-		<h:panelGrid columns="2" columnClasses="gridColoumLeft,gridColoumRight">
+		<h:panelGrid columns="2" columnClasses="gridColoumLeft,gridColumnRight">
 			<h:inputText id="archiveName" value="#{systemConfigMBean.archiveName}"/>
 			<h:commandButton value="#{web.text.IMPORT}" action="#{systemConfigMBean.actionImportRaStyle}"/>
 		</h:panelGrid>
@@ -759,6 +854,61 @@ org.cesecore.authorization.AuthorizationDeniedException
                 &nbsp;
             </h:panelGroup>
             <h:commandButton value="#{web.text.IMPORT}" action="#{systemConfigMBean.importStatedump}"/>
+        </h:panelGrid>
+    </h:form>
+    
+    <%-- Global validator settings --%>
+    
+    <h:form id="validatorsForm" enctype="multipart/form-data" rendered="#{systemConfigMBean.selectedTab eq 'External Scripts'}">        
+        <h:panelGrid columns="2" styleClass="edit-top" cellspacing="3" cellpadding="3" border="0" width="100%" rowClasses="Row1" columnClasses="editColumnSystem1,editColumn2">
+            
+            <%-- Header --%>
+            
+            <h:outputText value="#{web.text.EXTERNALSCRIPTS}" style="font-weight: bold; font-size:1.2em;"/>
+            <h:panelGroup />
+            
+            <%-- Enable/disable external scripts (and commands) --%>
+            
+            <h:panelGroup>
+                <h:outputLabel for="enableExternalScripts" value="#{web.text.ENABLEEXTERNALSCRIPTS}" styleClass="titles"/>
+                <%= ejbcawebbean.getHelpReference("/adminguide.html#Configure%20External%20Script%20Access") %>
+                <br/>
+                <h:outputText value="#{web.text.ENABLEEXTERNALSCRIPTS_HELP}" styleClass="help"/>
+            </h:panelGroup>
+            <h:panelGroup>
+                <h:selectBooleanCheckbox id="enableExternalScripts" value="#{systemConfigMBean.currentConfig.enableExternalScripts}" disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                <h:outputLabel for="enableExternalScripts" value="#{web.text.ACTIVATE}" />
+            </h:panelGroup>
+
+            <%-- External script directories --%>
+
+            <h:panelGroup>
+                <h:outputText value="#{web.text.EXTERNAL_SCRIPTS_WHITELIST}" styleClass="titles"/>
+                <%= ejbcawebbean.getHelpReference("/adminguide.html%23Post%20Processing%20Validators%20(Pre-Certificate%20or%20Certificate%20Validation)") %>
+                <br/>
+                <h:outputText value="#{web.text.EXTERNAL_SCRIPTS_WHITELIST_HELP}" styleClass="help"/>
+            </h:panelGroup>
+            <h:panelGroup>
+                <h:selectBooleanCheckbox id="enableWhitelist" value="#{systemConfigMBean.validatorSettings.isExternalScriptsWhitelistEnabled}" disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                <h:outputLabel for="enableWhitelist" value="#{web.text.USE_EXTERNAL_SCRIPTS_WHITELIST}" />
+                <br />
+                <h:inputTextarea id="externalScriptDirectories" disabled="#{!systemConfigMBean.allowedToEditSystemConfiguration}" 
+                    value="#{systemConfigMBean.validatorSettings.externalScriptsWhitelist}" cols="80" rows="8" />
+                <br />
+                <h:dataTable value="#{systemConfigMBean.validatorSettings.validationResult}" var="validationMessage">
+                    <h:column>
+                        <h:outputText value="#{validationMessage}" />
+                    </h:column>
+                </h:dataTable>
+            </h:panelGroup>
+        </h:panelGrid>
+        
+        <h:panelGrid columns="2" styleClass="edit-bottom" cellspacing="3" cellpadding="3" border="0" width="100%" rowClasses="Row0" columnClasses="editColumnSystem1,editColumn2">
+            <h:panelGroup />
+            <h:panelGroup>
+                <h:commandButton value="#{web.text.SAVE}" action="#{systemConfigMBean.validatorSettings.save}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
+                <h:commandButton value="#{web.text.EXTERNAL_SCRIPTS_VALIDATE}" action="#{systemConfigMBean.validatorSettings.validateScripts}" />
+            </h:panelGroup>
         </h:panelGrid>
     </h:form>
 

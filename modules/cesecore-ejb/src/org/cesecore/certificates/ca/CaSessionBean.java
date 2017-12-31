@@ -36,6 +36,8 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -53,6 +55,7 @@ import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.internal.CACacheHelper;
 import org.cesecore.certificates.ca.internal.CaCache;
+import org.cesecore.certificates.ca.internal.CaIDCacheBean;
 import org.cesecore.certificates.certificate.certextensions.AvailableCustomCertificateExtensionsConfiguration;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
@@ -68,10 +71,11 @@ import org.cesecore.keys.token.PKCS11CryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
+import org.cesecore.util.QueryResultWrapper;
 
 /**
  * Implementation of CaSession, i.e takes care of all CA related CRUD operations.
- * 
+ *
  * @version $Id$
  */
 @Stateless(mappedName = JndiConstants.APP_JNDI_PREFIX + "CaSessionRemote")
@@ -87,7 +91,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     private EntityManager entityManager;
     @Resource
     private SessionContext sessionContext;
-    
+
     @EJB
     private AuthorizationSessionLocal authorizationSession;
     @EJB
@@ -98,7 +102,9 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     private SecurityEventsLoggerSessionLocal logSession;
     @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
-    
+    @EJB
+    private CaIDCacheBean caIDCache;
+
     private CaSessionLocal caSession;
 
     @PostConstruct
@@ -111,8 +117,50 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<CAData> findAll() {
+        final TypedQuery<CAData> query = entityManager.createQuery("SELECT a FROM CAData a", CAData.class);
+        return query.getResultList();
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public CAData findById(final Integer cAId) {
+        return entityManager.find(CAData.class, cAId);
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public CAData findByIdOrThrow(final Integer cAId) throws CADoesntExistsException {
+        final CAData ret = findById(cAId);
+        if (ret == null) {
+            throw new CADoesntExistsException("CA id: " + cAId);
+        }
+        return ret;
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public CAData findByName(final String name) {
+        final Query query = entityManager.createQuery("SELECT a FROM CAData a WHERE a.name=:name");
+        query.setParameter("name", name);
+        return (CAData) QueryResultWrapper.getSingleResult(query);
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public CAData findByNameOrThrow(final String name) throws CADoesntExistsException {
+        final CAData ret = findByName(name);
+        if (ret == null) {
+            throw new CADoesntExistsException("CA name: " + name);
+        }
+        return ret;
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public void flushCACache() {
         CaCache.INSTANCE.flush();
+        caIDCache.forceCacheExpiration();
         if (log.isDebugEnabled()) {
             log.debug("Flushed CA cache.");
         }
@@ -131,16 +179,17 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             if ((ca.getName() == null) || (ca.getSubjectDN() == null)) {
                 throw new CAExistsException("Null CA name or SubjectDN. Name: '"+ca.getName()+"', SubjectDN: '"+ca.getSubjectDN()+"'.");
             }
-            if (CAData.findByName(entityManager, cainfo.getName()) != null) {
+            if (findByName(cainfo.getName()) != null) {
                 String msg = intres.getLocalizedMessage("caadmin.caexistsname", cainfo.getName());
                 throw new CAExistsException(msg);
             }
-            if (CAData.findById(entityManager, ca.getCAId()) != null) {
+            if (findById(ca.getCAId()) != null) {
                 String msg = intres.getLocalizedMessage("caadmin.caexistsid", Integer.valueOf(ca.getCAId()));
                 throw new CAExistsException(msg);
             }
             final CAData caData = new CAData(cainfo.getSubjectDN(), cainfo.getName(), cainfo.getStatus(), ca);
             entityManager.persist(caData);
+            caIDCache.forceCacheExpiration(); // Clear ID cache so this one will be reloaded as well.
             String msg = intres.getLocalizedMessage("caadmin.addedca", ca.getCAId(), cainfo.getName(), cainfo.getStatus());
             final Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
@@ -168,24 +217,24 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 assertAuthorizationAndTarget(admin, cainfo.getName(), cainfo.getSubjectDN(), newCryptoTokenId, ca);
                 @SuppressWarnings("unchecked")
                 final Map<Object, Object> orgmap = (Map<Object, Object>)ca.saveData();
-                AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration) 
+                AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration)
                         globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
                 ca.updateCA(cryptoTokenManagementSession.getCryptoToken(ca.getCAToken().getCryptoTokenId()), cainfo, cceConfig);
                 // Audit log
                 @SuppressWarnings("unchecked")
-                final Map<Object, Object> newmap = (Map<Object, Object>)ca.saveData();             
+                final Map<Object, Object> newmap = (Map<Object, Object>)ca.saveData();
     			// Get the diff of what changed
                 final Map<Object, Object> diff = UpgradeableDataHashMap.diffMaps(orgmap, newmap);
                 final String msg = intres.getLocalizedMessage("caadmin.editedca", ca.getCAId(), ca.getName(), ca.getStatus());
-    			// Use a LinkedHashMap because we want the details logged (in the final log string) in the order we insert them, and not randomly 
+    			// Use a LinkedHashMap because we want the details logged (in the final log string) in the order we insert them, and not randomly
                 final Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
     			for (final Map.Entry<Object,Object> entry : diff.entrySet()) {
-    				details.put(entry.getKey().toString(), entry.getValue().toString());				
+    				details.put(entry.getKey().toString(), entry.getValue().toString());
     			}
                 details.put("tokenproperties", ca.getCAToken().getProperties());
                 details.put("tokensequence", ca.getCAToken().getKeySequence());
-                logSession.log(EventTypes.CA_EDITING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(ca.getCAId()), null, null, details);    			
+                logSession.log(EventTypes.CA_EDITING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(ca.getCAId()), null, null, details);
                 // Store it
                 mergeCa(ca);
     		} catch (InvalidAlgorithmException e) {
@@ -196,9 +245,9 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         	}
         } else {
             log.debug("Trying to edit null CAInfo, nothing done.");
-        }    	
+        }
     }
-    
+
     @Override
     public void editCA(final AuthenticationToken admin, final CA ca, boolean auditlog) throws CADoesntExistsException, AuthorizationDeniedException {
         if (ca != null) {
@@ -212,15 +261,15 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 // Get the diff of what changed
                 final Map<Object, Object> diff = orgca.diff(ca);
                 String msg = intres.getLocalizedMessage("caadmin.editedca", ca.getCAId(), ca.getName(), ca.getStatus());
-                // Use a LinkedHashMap because we want the details logged (in the final log string) in the order we insert them, and not randomly 
+                // Use a LinkedHashMap because we want the details logged (in the final log string) in the order we insert them, and not randomly
                 final Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
                 for (Map.Entry<Object,Object> entry : diff.entrySet()) {
-                    details.put(entry.getKey().toString(), entry.getValue().toString());                
+                    details.put(entry.getKey().toString(), entry.getValue().toString());
                 }
                 details.put("tokenproperties", ca.getCAToken().getProperties());
                 details.put("tokensequence", ca.getCAToken().getKeySequence());
-                logSession.log(EventTypes.CA_EDITING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(ca.getCAId()), null, null, details);              
+                logSession.log(EventTypes.CA_EDITING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(ca.getCAId()), null, null, details);
             }
             if (log.isTraceEnabled()) {
                 log.trace("<editCA (CA): "+ca.getName());
@@ -229,18 +278,18 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             mergeCa(ca);
         } else {
             log.debug("Trying to edit null CA, nothing done.");
-        }       
+        }
     }
-    
+
     @Override
     public boolean existsCa(final int caId) {
         return entityManager.find(CAData.class, caId) != null;
     }
     @Override
     public boolean existsCa(final String name) {
-        return CAData.findByName(entityManager, name) != null;
+        return findByName(name) != null;
     }
-    
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public boolean existsKeyValidatorInCAs(int keyValidatorId) throws AuthorizationDeniedException {
@@ -270,7 +319,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             throw new CADoesntExistsException("Not same CA subject DN.");
         }
 	}
-	
+
 	/** Ensure that the caller is authorized to the CA we are about to edit and that the CA name matches. */
     private void assertAuthorizationAndTargetWithNewSubjectDn(AuthenticationToken admin, final String name, final String subjectDN, final int cryptoTokenId, final CA ca)
             throws CADoesntExistsException, AuthorizationDeniedException {
@@ -315,7 +364,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         }
         return ca;
     }
-       
+
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public CA getCANoLog(final AuthenticationToken admin, final int caid) throws CADoesntExistsException, AuthorizationDeniedException {
@@ -383,12 +432,13 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             throw new AuthorizationDeniedException(msg);
         }
         // Get CA from database if it does not exist, ignore
-        CAData cadata = CAData.findById(entityManager, Integer.valueOf(caid));
+        CAData cadata = findById(Integer.valueOf(caid));
         if (cadata != null) {
             // Remove CA
             entityManager.remove(cadata);
             // Invalidate CA cache to refresh information
             CaCache.INSTANCE.removeEntry(caid);
+            caIDCache.forceCacheExpiration(); // Clear ID cache so this one will be reloaded as well.
             final String detailsMsg = intres.getLocalizedMessage("caadmin.removedca", Integer.valueOf(caid), cadata.getName());
             logSession.log(EventTypes.CA_DELETION, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(caid), null, null, detailsMsg);
         }
@@ -398,18 +448,19 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     public void renameCA(final AuthenticationToken admin, final String oldname, final String newname) throws CAExistsException,
             CADoesntExistsException, AuthorizationDeniedException {
         // Get CA from database
-        CAData cadata = CAData.findByNameOrThrow(entityManager, oldname);
+        CAData cadata = findByNameOrThrow(oldname);
         // Check authorization, to rename we need remove (for the old name) and add for the new name)
         if (!authorizationSession.isAuthorized(admin, StandardRules.CAREMOVE.resource(), StandardRules.CAADD.resource())) {
             String msg = intres.getLocalizedMessage("caadmin.notauthorizedtorenameca", admin.toString(), cadata.getCaId());
             throw new AuthorizationDeniedException(msg);
         }
-        if (CAData.findByName(entityManager, newname) == null) {
+        if (findByName(newname) == null) {
             // The new CA doesn't exist, it's okay to rename old one.
             cadata.setName(newname);
             // Invalidate CA cache to refresh information
             int caid = cadata.getCaId().intValue();
             CaCache.INSTANCE.removeEntry(caid);
+            caIDCache.forceCacheExpiration(); // Clear ID cache so this one will be reloaded as well.
             final String detailsMsg = intres.getLocalizedMessage("caadmin.renamedca", oldname, cadata.getCaId(), newname);
             logSession.log(EventTypes.CA_RENAMING, EventStatus.SUCCESS, ModuleTypes.CA, ServiceTypes.CORE,admin.toString(), String.valueOf(caid), null, null, detailsMsg);
         } else {
@@ -420,7 +471,8 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<Integer> getAllCaIds() {
-        return CAData.findAllCaIds(entityManager);
+        // We need a cache of these, to not list from the database all the time
+        return caIDCache.getCacheContent();
     }
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -446,10 +498,10 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 }
             }
         }
-     
+
         return returnval;
     }
-    
+
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<Integer> getAuthorizedCaIds(final AuthenticationToken admin) {
@@ -462,7 +514,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         }
         return returnval;
     }
-    
+
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public Collection<String> getAuthorizedCaNames(final AuthenticationToken admin) {
@@ -479,8 +531,8 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         }
         return names;
     }
-    
-    
+
+
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<CAInfo> getAuthorizedAndEnabledCaInfos(AuthenticationToken authenticationToken) {
@@ -492,15 +544,15 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             } catch (CADoesntExistsException e) {
                 throw new IllegalStateException("CA with ID " + caId + " was not found in spite if just being retrieved.");
             }
-            if ( caInfo.getStatus() != CAConstants.CA_EXTERNAL 
-                    && caInfo.getStatus() != CAConstants.CA_UNINITIALIZED 
+            if ( caInfo.getStatus() != CAConstants.CA_EXTERNAL
+                    && caInfo.getStatus() != CAConstants.CA_UNINITIALIZED
                     && caInfo.getStatus() != CAConstants.CA_WAITING_CERTIFICATE_RESPONSE ) {
                 result.add(caInfo);
             }
         }
         return result;
-    }   
-    
+    }
+
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public List<CAInfo> getAuthorizedAndNonExternalCaInfos(AuthenticationToken authenticationToken) {
@@ -517,8 +569,23 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             }
         }
         return result;
-    }    
+    }
 
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public List<CAInfo> getAuthorizedCaInfos(AuthenticationToken authenticationToken) {
+        List<CAInfo> result = new ArrayList<CAInfo>();
+        for (Integer caId : getAuthorizedCaIds(authenticationToken)) {
+            CAInfo caInfo;
+            try {
+                caInfo = getCAInfoInternal(caId);
+            } catch (CADoesntExistsException e) {
+                throw new IllegalStateException("CA with ID " + caId + " was not found in spite of the ID just being retrieved.");
+            }
+            result.add(caInfo);
+        }
+        return result;
+    }
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
@@ -530,7 +597,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     @Override
     public HashMap<Integer, String> getCAIdToNameMap() {
         final HashMap<Integer, String> returnval = new HashMap<Integer, String>();
-        for (final CAData cadata : CAData.findAll(entityManager)) {
+        for (final CAData cadata : findAll()) {
             returnval.put(cadata.getCaId(), cadata.getName());
         }
         return returnval;
@@ -540,9 +607,9 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     /**
      * Internal method for getting CA, to avoid code duplication. Tries to find the CA even if the CAId is wrong due to CA certificate DN not being
      * the same as CA DN. Uses CACache directly if configured to do so in ejbca.properties.
-     * 
+     *
      * Note! No authorization checks performed in this internal method
-     * 
+     *
      * @param caid
      *            numerical id of CA (subjectDN.hashCode()) that we search for, or -1 if a name is to be used instead
      * @param name
@@ -583,7 +650,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
 	/**
      * Checks if the CA certificate has expired (or is not yet valid) since last check.
      * Logs an info message first time that the CA certificate has expired, or every time when not yet valid.
-     * 
+     *
      * @return the true if the CA is expired
      */
     private boolean hasCAExpiredNow(final CA ca) {
@@ -608,9 +675,9 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
 
     /**
      * Internal method for getting CAData. Tries to find the CA even if the CAId is wrong due to CA certificate DN not being the same as CA DN.
-     * 
+     *
      * The returned CAData object is guaranteed to be upgraded and these upgrades merged back to the database.
-     * 
+     *
      * @param caid numerical id of CA (subjectDN.hashCode()) that we search for, or -1 of a name is to ge used instead
      * @param name human readable name of CA, used instead of caid if caid == -1, can be null of caid != -1
      * @throws CADoesntExistsException if no CA was found
@@ -618,12 +685,12 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
     private CAData getCAData(final int caid, final String name) throws CADoesntExistsException {
         CAData cadata = null;
         if (caid != -1) {
-            cadata = upgradeAndMergeToDatabase(CAData.findById(entityManager, Integer.valueOf(caid)));
+            cadata = upgradeAndMergeToDatabase(findById(Integer.valueOf(caid)));
             if (log.isDebugEnabled() && cadata == null) {
                 log.debug("Unable to get CAData with ID (from SubjectDN): "+caid);
             }
         } else {
-            cadata = upgradeAndMergeToDatabase(CAData.findByName(entityManager, name));
+            cadata = upgradeAndMergeToDatabase(findByName(name));
             if (log.isDebugEnabled() && cadata == null) {
                 log.debug("Unable to get CAData with name: "+name);
             }
@@ -643,10 +710,10 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
                 	if (log.isDebugEnabled()) {
                 		log.debug("Found a mapping from caid "+caid+" to realCaid "+oRealCAId);
                 	}
-                    cadata = CAData.findById(entityManager, oRealCAId);
+                    cadata = findById(oRealCAId);
                 } else {
                     // no, we have to search for it among all CA certs
-                    for (final CAData currentCaData : CAData.findAll(entityManager)) {
+                    for (final CAData currentCaData : findAll()) {
                         final CAData currentUpgradedCaData = upgradeAndMergeToDatabase(currentCaData);
                         final Certificate caCert = currentUpgradedCaData.getCA().getCACertificate();
                         if (caCert != null && caid == CertTools.getSubjectDN(caCert).hashCode()) {
@@ -676,7 +743,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         }
         return cadata;
     }
-    
+
     @Override
     public boolean authorizedToCANoLogging(final AuthenticationToken admin, final int caid) {
         final boolean ret = authorizationSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() + caid);
@@ -745,9 +812,10 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         caData = entityManager.merge(caData);
         // Since loading a CA is quite complex (populating CAInfo etc), we simple purge the cache here
         CaCache.INSTANCE.removeEntry(caId);
+        caIDCache.forceCacheExpiration();
         return caId;
     }
-    
+
     /** Performs upgrades on the entity if needed within a transaction. */
     private CAData upgradeAndMergeToDatabase(CAData cadata) {
         if (cadata == null) {
@@ -755,7 +823,7 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         }
         CAData caDataReturn = cadata;
         final LinkedHashMap<Object, Object> caDataMap = cadata.getDataMap();
-        // If CA-data is upgraded we want to save the new data, so we must get the old version before loading the data 
+        // If CA-data is upgraded we want to save the new data, so we must get the old version before loading the data
         // and perhaps upgrading
         final float oldversion = ((Float) caDataMap.get(UpgradeableDataHashMap.VERSION)).floatValue();
         // Perform "live" upgrade from 5.0.x and earlier
@@ -775,7 +843,9 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         final boolean upgradeCA = (Float.compare(oldversion, ca.getVersion()) != 0);
         if (adhocUpgrade || upgradedExtendedService || upgradeCA || expired) {
             if (log.isDebugEnabled()) {
-                log.debug("Merging CA to database. Name: "+cadata.getName()+", id: "+cadata.getCaId()+", adhocUpgrade: "+adhocUpgrade+", upgradedExtendedService: "+upgradedExtendedService+", upgradeCA: "+upgradeCA+", expired: "+expired);
+                log.debug("Merging CA to database. Name: " + cadata.getName() + ", id: " + cadata.getCaId() +
+                        ", adhocUpgrade: " + adhocUpgrade+", upgradedExtendedService: " + upgradedExtendedService +
+                        ", upgradeCA: " + upgradeCA + ", expired: " + expired);
             }
             ca.getCAToken();
             final int caId = caSession.mergeCa(ca);

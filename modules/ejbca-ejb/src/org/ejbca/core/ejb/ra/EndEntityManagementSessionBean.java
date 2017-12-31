@@ -405,6 +405,36 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         // Get CAInfo, to be able to read configuration
         // No need to access control on the CA here just to get these flags, we have already checked above that we are authorized to the CA
         final CAInfo caInfo = caSession.getCAInfoInternal(caid, null, true);
+        
+        // Check name constraints
+        if (caInfo instanceof X509CAInfo && caInfo.getCertificateChain() != null && !caInfo.getCertificateChain().isEmpty()) {
+            final X509CAInfo x509cainfo = (X509CAInfo) caInfo;
+            final X509Certificate cacert = (X509Certificate)caInfo.getCertificateChain().iterator().next();
+            final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(endEntity.getCertificateProfileId());
+            
+            final X500NameStyle nameStyle;
+            if (x509cainfo.getUsePrintableStringSubjectDN()) {
+                nameStyle = PrintableStringNameStyle.INSTANCE;
+            } else {
+                nameStyle = CeSecoreNameStyle.INSTANCE;
+            }
+            
+            final boolean ldaporder;
+            if (x509cainfo.getUseLdapDnOrder() && certProfile.getUseLdapDnOrder()) {
+                ldaporder = true; // will cause an error to be thrown later if name constraints are used
+            } else {
+                ldaporder = false;
+            }
+            
+            X500Name subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldaporder);
+            GeneralNames subjectAltName = CertTools.getGeneralNamesFromAltName(altName);
+            try {
+                CertTools.checkNameConstraints(cacert, subjectDNName, subjectAltName);
+            } catch (IllegalNameException e) {
+                e.setErrorCode(ErrorCode.NAMECONSTRAINT_VIOLATION);
+                throw e;
+            }
+        }
         // Check if approvals is required. (Only do this if store users, otherwise this approval is disabled.)
         if (caInfo.isUseUserStorage()) {
             final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(endEntity.getCertificateProfileId());
@@ -431,35 +461,6 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                 }
             } else {
                 log.warn("CA configured to enforce unique SubjectDN serialnumber, but not to store any user data. Check will be ignored. Please verify your configuration.");
-            }
-        }
-        // Check name constraints
-        if (caInfo instanceof X509CAInfo && caInfo.getCertificateChain() != null && !caInfo.getCertificateChain().isEmpty()) {
-            final X509CAInfo x509cainfo = (X509CAInfo) caInfo;
-            final X509Certificate cacert = (X509Certificate)caInfo.getCertificateChain().iterator().next();
-            final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(endEntity.getCertificateProfileId());
-            
-            final X500NameStyle nameStyle;
-            if (x509cainfo.getUsePrintableStringSubjectDN()) {
-                nameStyle = PrintableStringNameStyle.INSTANCE;
-            } else {
-                nameStyle = CeSecoreNameStyle.INSTANCE;
-            }
-            
-            final boolean ldaporder;
-            if (x509cainfo.getUseLdapDnOrder() && certProfile.getUseLdapDnOrder()) {
-                ldaporder = true; // will cause an error to be thrown later if name constraints are used
-            } else {
-                ldaporder = false;
-            }
-            
-            X500Name subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldaporder);
-            GeneralNames subjectAltName = CertTools.getGeneralNamesFromAltName(altName);
-            try {
-                CertTools.checkNameConstraints(cacert, subjectDNName, subjectAltName);
-            } catch (IllegalNameException e) {
-               e.setErrorCode(ErrorCode.NAMECONSTRAINT_VIOLATION);
-               throw e;
             }
         }
         // Store a new UserData in the database, if this CA is configured to do so.
@@ -522,6 +523,8 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                         String.valueOf(caid), null, username, details);
                 throw new EJBException(e);
             }
+        } else if (log.isDebugEnabled()) {
+            log.debug("User storage disabled on CA '"+caInfo.getName()+"', user with username '"+username+"' is not stored.");
         }
         if (log.isTraceEnabled()) {
             log.trace("<addUser(" + username + ", password, " + dn + ", " + email + ")");
@@ -816,8 +819,40 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
                 throw e;
             }
         }
-        // Check if approvals is required.
+        // Check name constraints
         final CAInfo cainfo = caSession.getCAInfoInternal(caid, null, true);
+        final boolean nameChanged = // only check when name is changed so existing end-entities can be changed even if they violate NCs
+                !userData.getSubjectDnNeverNull().equals(CertTools.stringToBCDNString(dn)) ||
+                (userData.getSubjectAltName() != null && !userData.getSubjectAltName().equals(altName));
+        if (nameChanged && cainfo instanceof X509CAInfo && !cainfo.getCertificateChain().isEmpty()) {
+            final X509CAInfo x509cainfo = (X509CAInfo) cainfo;
+            final X509Certificate cacert = (X509Certificate)cainfo.getCertificateChain().iterator().next();
+            final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(userData.getCertificateProfileId());
+            
+            final X500NameStyle nameStyle;
+            if (x509cainfo.getUsePrintableStringSubjectDN()) {
+                nameStyle = PrintableStringNameStyle.INSTANCE;
+            } else {
+                nameStyle = CeSecoreNameStyle.INSTANCE;
+            }
+            
+            final boolean ldaporder;
+            if (x509cainfo.getUseLdapDnOrder() && (certProfile != null && certProfile.getUseLdapDnOrder())) {
+                ldaporder = true; // will cause an error to be thrown later if name constraints are used
+            } else {
+                ldaporder = false;
+            }
+            
+            X500Name subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldaporder);
+            GeneralNames subjectAltName = CertTools.getGeneralNamesFromAltName(altName);
+            try {
+                CertTools.checkNameConstraints(cacert, subjectDNName, subjectAltName);
+            } catch (IllegalNameException e) {
+                e.setErrorCode(ErrorCode.NAMECONSTRAINT_VIOLATION);
+                throw e;
+            }
+        }
+        // Check if approvals is required.
         final CertificateProfile certificateProfile = certificateProfileSession.getCertificateProfile(endEntityInformation.getCertificateProfileId());
         final ApprovalProfile approvalProfile = approvalProfileSession.getApprovalProfileForAction(ApprovalRequestType.ADDEDITENDENTITY, cainfo, 
                 certificateProfile);
@@ -853,38 +888,6 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
         if (cainfo.isDoEnforceUniqueSubjectDNSerialnumber()) {
             if (!isSubjectDnSerialnumberUnique(caid, dn, username)) {
                 throw new CertificateSerialNumberException("Error: SubjectDN Serialnumber already exists.");
-            }
-        }
-        // Check name constraints
-        final boolean nameChanged = // only check when name is changed so existing end-entities can be changed even if they violate NCs
-            !userData.getSubjectDnNeverNull().equals(CertTools.stringToBCDNString(dn)) ||
-            (userData.getSubjectAltName() != null && !userData.getSubjectAltName().equals(altName));
-        if (nameChanged && cainfo instanceof X509CAInfo && !cainfo.getCertificateChain().isEmpty()) {
-            final X509CAInfo x509cainfo = (X509CAInfo) cainfo;
-            final X509Certificate cacert = (X509Certificate)cainfo.getCertificateChain().iterator().next();
-            final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(userData.getCertificateProfileId());
-            
-            final X500NameStyle nameStyle;
-            if (x509cainfo.getUsePrintableStringSubjectDN()) {
-                nameStyle = PrintableStringNameStyle.INSTANCE;
-            } else {
-                nameStyle = CeSecoreNameStyle.INSTANCE;
-            }
-            
-            final boolean ldaporder;
-            if (x509cainfo.getUseLdapDnOrder() && (certProfile != null && certProfile.getUseLdapDnOrder())) {
-                ldaporder = true; // will cause an error to be thrown later if name constraints are used
-            } else {
-                ldaporder = false;
-            }
-            
-            X500Name subjectDNName = CertTools.stringToBcX500Name(dn, nameStyle, ldaporder);
-            GeneralNames subjectAltName = CertTools.getGeneralNamesFromAltName(altName);
-            try {
-                CertTools.checkNameConstraints(cacert, subjectDNName, subjectAltName);
-            } catch (IllegalNameException e) {
-                e.setErrorCode(ErrorCode.NAMECONSTRAINT_VIOLATION);
-                throw e;
             }
         }
         
@@ -2250,11 +2253,10 @@ public class EndEntityManagementSessionBean implements EndEntityManagementSessio
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public boolean existsUser(String username) {
-        boolean returnval = true;
-        if (UserData.findByUsername(entityManager, username) == null) {
-            returnval = false;
-        }
-        return returnval;
+        // Selecting 1 column is optimal speed
+        final javax.persistence.Query query = entityManager.createQuery("SELECT 1 FROM UserData a WHERE a.username=:username");
+        query.setParameter("username", username);
+        return query.getResultList().size() > 0;
     }
     
     @Override

@@ -36,13 +36,49 @@ Upgrades across multiple versions
 Generally upgrades across multiple versions are supported using the generic upgrade instructions. 
 To enable efficient maintenance there are certain break points where multi-step upgrades 
 need to be done. Currently direct upgrades are supported through:
-- EJBCA 4.0.16 -> EJBCA 5.0.16 -> EJBCA 6.x
+- EJBCA 5.x/6.x -> EJBCA 6.x (latest)
+or:
+- EJBCA 4.0.16 -> EJBCA 6.3.2.6 -> EJBCA 6.x
 
-If you are running a version previous to EJBCA 4, a multi step upgrade is needed.
-- EJBCA 3.x -> EJBCA 4.0.16 -> EJBCA 5.0.16 -> EJBCA 6.x
+If you are running a version previous to EJBCA 4, further multi step upgrades are needed.
+- EJBCA 3.0.x -> EJBCA 3.8 -> EJBCA 3.11 -> EJBCA 4.0.16 -> EJBCA 6.3.2.6 -> EJBCA 6.x
+or if starting from EJBCA 3.10:
+- EJBCA 3.10 -> EJBCA 3.11 -> EJBCA 4.0.16 -> EJBCA 6.3.2.6 -> EJBCA 6.x
 
 For each version upgrade notes are provided below, if there are any considerations or behavioral changes in a version.
 When performing any upgrade, you should read through the upgrade notices below all the way down to the version you are upgrading from.
+
+For each version an 'ant upgrade' and 'ant post-upgrade' should be run (which can be done from the GUI since EJBCA 6.8 but must be done from command line before that).
+
+Up until, and including, EJBCA 6.3.2.6 EJBCA can be run on JBoss 5.1, while higher versions of EJBCA needs Java 7 or 8 and later versions of JBoss/WildFly.
+An upgrade can thus be done on Java 6 and JBoss 5.1.0 through EJBCA 3.x -> EJBCA 4.0.16 -> EJBCA 6.3.2.6, and after that a platform upgrade is needed.
+
+From EJBCA 6.10 to EJBCA 6.11.0
+-------------------------------
+
+EJBCA 6.11 introduces the EST protocol to EJBCA. Note that as a security measure the EST responder is by default turned off (as will all new 
+protocols from now on) and needs to be activated under System Configuration. 
+
+EJBCA 6.11 upgrades the Peers Protocol with information about protocol (CMP, ETC, etc) rights. Due to a minor bug in the protocol versioning system 
+it's highly recommended to upgrade RAs/VAs before the CAs, though the consequences for performing the upgrade in the incorrect order is merely that 
+any CMP or WS proxying will cease to work during the upgrade. 
+
+We've made running external scripts from within EJBCA (the new External Command Certificate Validator, and the old General Purpose Custom Publisher) 
+configurable under System Configuration. This setting will be turned off by default, mostly to avoid confusion in environments where they can't be 
+applied. If you're currently running a General Purpose Custom Publisher, this setting will be set to active during upgrade. 
+
+SHA1WithRSA and SHA1WithECDSA are no longer acceptable signature algorithms for an OCSP responder. If you are running a legacy responder that still 
+need to use these deprecated algorithms, you have to configure these in the setting 'ocsp.signaturealgorithm' in conf/ocsp.properties.
+
+
+From EJBCA 6.10.0 to EJBCA 6.10.1
+-------------------------------
+
+Upgrading to 6.10.1 will only affect users who write to Certificate Transparency logs during certificate issuance. 6.10.1 introduces the concept of 
+LABELS, which allow CAs to order CT logs into different groups. Labels replace the 'Mandatory' checkbox introduced in 6.10, allowing CA's to be more
+fine grained as to which logs they need to write to. The upgrade process will add labels automatically; any logs belonging to Google or checked as 
+mandatory will be labeled as 'MANDATORY', while all others will be labeled as 'UNLABELED'. After upgrade, post-upgrade needs to be run in order to 
+clean the logs of old references. 
 
 From EJBCA 6.9.x to EJBCA 6.10.0
 -------------------------------
