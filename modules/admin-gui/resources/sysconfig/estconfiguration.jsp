@@ -84,10 +84,14 @@
   <title><c:out value="<%= gc.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script type="text/javascript" src="<%= gc.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 
 <body>
+<jsp:include page="../adminmenu.jsp" />
+<div class="main-wrapper">
+<div class="container">
 
 <%
 	// Determine action 
@@ -200,21 +204,21 @@
     		       			//defaultCA
     		       			String value = request.getParameter(LIST_ESTDEFAULTCA);
     		       			if((value==null) || (value.length() == 0)) {
-    		       				estConfigClone.setDefaultCA(alias, "");
+    		       				estConfigClone.setDefaultCAID(alias, 0);
     		       			} else {
-    		                	estConfigClone.setDefaultCA(alias, value);
+    		                	estConfigClone.setDefaultCAID(alias, Integer.valueOf(value));
     		       			}
 									   
 							// ra endentity profile
 							value = request.getParameter(LIST_ESTEEPROFILES);
 							if(value != null){
-								estConfigClone.setEndEntityProfile(alias, value);
+								estConfigClone.setEndEntityProfileID(alias, Integer.valueOf(value));
 							}
 							   
 							// ra certprofile
 							value = request.getParameter(LIST_ESTCERTPROFILES);
 							if(value != null) {
-								estConfigClone.setCertProfile(alias, value);
+								estConfigClone.setCertProfileID(alias, Integer.valueOf(value));
 							}
 
 							// require cert
@@ -259,12 +263,16 @@
 <%}
   if( includefile.equals("estaliasespage.jspf")){ %>
    <%@ include file="estaliasespage.jspf" %> 
-<%}
+<%} %>
 
+</div> <!-- Container -->
+
+<%
    // Include Footer 
    String footurl =   gc.getFootBanner(); %>
    
   <jsp:include page="<%= footurl %>" />
 
+</div> <!-- main-wrapper -->
 </body>
 </html>

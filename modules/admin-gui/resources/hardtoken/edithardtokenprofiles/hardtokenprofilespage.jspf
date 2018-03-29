@@ -1,9 +1,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
-  TreeMap hardtokenprofiles = ejbcawebbean.getInformationMemory().getHardTokenProfiles(); 
+  TreeMap<String,Integer> hardtokenprofiles = ejbcawebbean.getHardTokenProfiles(); 
   
 %>
-
 
 <h1><%= ejbcawebbean.getText("MANAGEHARDTOKENPROFILES") %></h1>
 
@@ -41,7 +40,7 @@
     </tr>
     <tr> 
       <td width="40%">
-        <select name="<%=EditHardTokenProfileJSPHelper.SELECT_HARDTOKENPROFILES%>" style="width: 50em" size="15"  >
+        <select class="select-list" name="<%=EditHardTokenProfileJSPHelper.SELECT_HARDTOKENPROFILES%>" style="width: 50em" size="15"  >
           <% Iterator iter = hardtokenprofiles.keySet().iterator();
              while(iter.hasNext()){
                String profilename = (String) iter.next(); %>
@@ -82,11 +81,10 @@
       <td width="100%"> 
         <input type="text" name="<%= edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>" size="40" maxlength="255" title="<%= ejbcawebbean.getText("FORMAT_ID_STR") %>"> 
         <input type="submit" name="<%= edithardtokenprofile.BUTTON_ADD_HARDTOKENPROFILES%>" onClick='return checkfieldforlegalchars("document.editprofiles.<%=edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") %>")' value="<%= ejbcawebbean.getText("ADD") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= edithardtokenprofile.BUTTON_RENAME_HARDTOKENPROFILES%>" onClick='return checkfieldforlegalchars("document.editprofiles.<%=edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") %>")' value="<%= ejbcawebbean.getText("RENAME") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= edithardtokenprofile.BUTTON_CLONE_HARDTOKENPROFILES%>" onClick='return checkfieldforlegalchars("document.editprofiles.<%=edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") %>")' value="<%= ejbcawebbean.getText("USESELECTEDASTEMPLATE") %>">
+        <input type="submit" name="<%= edithardtokenprofile.BUTTON_RENAME_HARDTOKENPROFILES%>" onClick='return checkfieldforlegalchars("document.editprofiles.<%=edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") %>")' value="<%= ejbcawebbean.getText("RENAME_SELECTED") %>">&nbsp;&nbsp;&nbsp;
+        <input type="submit" name="<%= edithardtokenprofile.BUTTON_CLONE_HARDTOKENPROFILES%>" onClick='return checkfieldforlegalchars("document.editprofiles.<%=edithardtokenprofile.TEXTFIELD_HARDTOKENPROFILESNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") %>")' value="<%= ejbcawebbean.getText("CLONE_SELECTED") %>">
       </td>
     </tr>
   </table>
 
 </form>
-

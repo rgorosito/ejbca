@@ -65,7 +65,6 @@ org.ejbca.ui.web.admin.cainterface.CADataHandler,
 org.ejbca.ui.web.RequestHelper,
 org.ejbca.ui.web.RevokedInfoView,
 org.ejbca.ui.web.admin.cainterface.CAInfoView,
-org.ejbca.ui.web.admin.configuration.InformationMemory,
 org.ejbca.ui.web.admin.cainterface.CAInterfaceBean,
 org.ejbca.ui.web.admin.configuration.EjbcaWebBean,
 org.ejbca.ui.web.ParameterException
@@ -253,13 +252,13 @@ org.ejbca.ui.web.ParameterException
   int row = 0;
 
   Map<Integer,String> caidtonamemap = cabean.getCAIdToNameMap();
-  InformationMemory info = ejbcawebbean.getInformationMemory();
 
 %>
 <head>
   <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script type="text/javascript" src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 <%
@@ -825,12 +824,14 @@ org.ejbca.ui.web.ParameterException
 <%}
   if( includefile.equals("importcacert.jspf")){ %>
    <%@ include file="importcacert.jspf" %> 
-<%}
-
+<%} %>
+</div> <!-- Container -->
+<%
    // Include Footer 
    String footurl =   globalconfiguration.getFootBanner(); %>
    
   <jsp:include page="<%= footurl %>" />
 
+</div> <!-- main-wrapper -->
 </body>
 </html>

@@ -24,14 +24,14 @@ org.apache.commons.lang.StringUtils,
 org.cesecore.authorization.AuthorizationDeniedException,
 org.cesecore.authorization.control.StandardRules,
 org.cesecore.certificates.ca.CAConstants,
+org.cesecore.certificates.ca.CAInfo,
 org.cesecore.certificates.crl.CRLInfo,
 org.cesecore.keys.token.CryptoToken,
 org.cesecore.util.CertTools,
 org.ejbca.config.GlobalConfiguration,
 org.ejbca.core.model.authorization.AccessRulesConstants,
 org.ejbca.ui.web.RequestHelper,
-org.ejbca.util.HTMLTools,
-org.ejbca.ui.web.admin.cainterface.CAInfoView
+org.ejbca.util.HTMLTools
 "%>
 <html>
 <jsp:useBean id="ejbcawebbean" scope="session" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBean" />
@@ -71,10 +71,7 @@ org.ejbca.ui.web.admin.cainterface.CAInfoView
   final String DOWNLOADCERTIFICATE_LINK     = globalconfiguration.getCaPath() 
                                                   + "/cacert";
   final String DOWNLOADCRL_LINK             = globalconfiguration.getCaPath() + "/getcrl/getcrl";
-  boolean createcrlrights = false;
-  try{
-     createcrlrights = ejbcawebbean.isAuthorizedNoLog(StandardRules.CREATECRL.resource());
-  }catch(AuthorizationDeniedException e){}
+  boolean createcrlrights = ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CREATECRL.resource());
 
   RequestHelper.setDefaultCharacterEncoding(request);
 
@@ -114,28 +111,30 @@ org.ejbca.ui.web.admin.cainterface.CAInfoView
     }
   }
 
-  TreeMap<String, Integer> canames = ejbcawebbean.getInformationMemory().getAllCANames();
-  TreeMap<String, Integer> extcanames = ejbcawebbean.getInformationMemory().getExternalCAs();
+  // Get authorized CAs and external CAs
+  TreeMap<String, Integer> canames = ejbcawebbean.getCANames();
+  TreeMap<String, Integer> extcanames = ejbcawebbean.getExternalCANames();
 
 %>
 <head>
   <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script type="text/javascript" src="<%= globalconfiguration .getAdminWebPath() %>ejbcajslib.js"></script>
   <script type="text/javascript">
 <!--  
 function viewcacert(caid){   
     var link = "<%=VIEWCERTIFICATE_LINK%>?caid="+caid;
     link = encodeURI(link);     
-    win_popup = window.open(link, 'view_cert','height=650,width=750,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup = window.open(link, 'view_cert','height=750,width=750,scrollbars=yes,toolbar=no,resizable=1');
     win_popup.focus();
 } 
 
 function viewcainfo(caid){        
     var link = "<%=VIEWINFO_LINK%>?caid="+caid;
     link = encodeURI(link);
-    win_popup = window.open(link, 'view_info','height=600,width=750,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup = window.open(link, 'view_info','height=650,width=750,scrollbars=yes,toolbar=no,resizable=1');
     win_popup.focus();
 }
 
@@ -152,7 +151,9 @@ function getPasswordAndSubmit(formname) {
 </head>
 
 <body>
-
+<jsp:include page="../adminmenu.jsp" />
+<div class="main-wrapper">
+<div class="container">
   <h1><%= ejbcawebbean.getText("CASTRUCTUREANDCRL") %></h1>
 
   	 <c:set var="csrf_tokenname"><csrf:tokenname/></c:set>
@@ -161,11 +162,6 @@ function getPasswordAndSubmit(formname) {
 <% // Import CRLs of external CAs
   	 List<String> extCaNameList = new ArrayList<String>(extcanames.keySet());
 	 if(extCaNameList.size() > 0) {
-	  	 Collections.sort(extCaNameList, new Comparator<String>() {
-  		   	public int compare(String o1, String o2) {
-  	   		    return o1.compareToIgnoreCase(o2);
-  	   		}
-  		 });
   		 %>
   	 
   		 <h2><%= ejbcawebbean.getText("IMPORTCRL_TITLE") %></h2>  	 
@@ -213,33 +209,33 @@ function getPasswordAndSubmit(formname) {
      int number = 0;
      for(String caname : caNameList) { 
        int caid = ((Integer) canames.get(caname)).intValue();
-       CAInfoView cainfo = null;
-       try {
-           cainfo = cabean.getCAInfo(caid);
-       } catch (AuthorizationDeniedException e) {
-           continue; // We are obviously not authorized to this CA
-       }
+       CAInfo cainfo = null;
+       // canames contains authorized CAs only, so no need to do an auth check again
+       cainfo = cabean.getCAInfoFastNoAuth(caid);
        if (cainfo == null) {
          continue;	// Something wrong happened retrieving this CA?       
        }
-       String subjectdn = cainfo.getCAInfo().getSubjectDN();
+       String subjectdn = cainfo.getSubjectDN();
        Certificate[] certificatechain = (Certificate[]) cainfo.getCertificateChain().toArray(new Certificate[0]);
        int chainsize = certificatechain.length;
- %>
-       <H3><%= ejbcawebbean.getText("BASICFUNCTIONSFOR") + " : "%> <c:out value="<%= caname %>" /> &nbsp; <a href="<%=THIS_FILENAME%>"  onClick="viewcacert(<%=caid%>); return false;"><%= ejbcawebbean.getText("VIEWCERTIFICATE")%></a>&nbsp;&nbsp;
-                                                                            <a href="<%=THIS_FILENAME%>"  onClick="viewcainfo(<%=caid%>); return false;"><%= ejbcawebbean.getText("VIEWINFO")%></a></H3>    
- 
-        <table> 
+     %>
+
+		<h5><%= ejbcawebbean.getText("BASICFUNCTIONSFOR") + " : "%> <c:out value="<%= caname %>" /> &nbsp;
+			<button type='button' onclick='viewcacert(<%=caid%>)' title='<%= ejbcawebbean.getText("VIEW_CACERTIFICATE_TITLE") %> <%= ejbcawebbean.getText("POPUP_WINDOW") %>'><c:out value='<%= ejbcawebbean.getText("VIEW_CERTIFICATE") %>' /></button>
+			<button type='button' onclick='viewcainfo(<%=caid%>)' title='<%= ejbcawebbean.getText("VIEW_CAINFORMATION_TITLE") %> <%= ejbcawebbean.getText("POPUP_WINDOW") %>'><c:out value='<%= ejbcawebbean.getText("VIEW_INFORMATION") %>' /></button>
+			</h5>
+
+        <table class="outline-buttons-table"> 
           <% int row = 0;
              for(int j = chainsize-1; j >= 0; j--){
                if(j == chainsize -1){              
           %>
           <tr id="Row<%=row%2%>">
             <td>
-              <%= ejbcawebbean.getText("ROOTCA") + " : "%> 
+              <%= ejbcawebbean.getText("ROOTCA") + ": "%> 
             </td>
             <td>
-               <% out.write(HTMLTools.htmlescape(CertTools.getSubjectDN(certificatechain[j]))); %>                  
+               <% out.write(HTMLTools.htmlescape(CertTools.getUnescapedRdnValue(CertTools.getSubjectDN(certificatechain[j])))); %>
             </td>
           </tr>
           <tr id="Row<%=row%2%>">
@@ -276,10 +272,10 @@ function getPasswordAndSubmit(formname) {
 					<input type="hidden" name="issuer" value='<c:out value="<%= subjectdn %>" />'/>
 					<input type="hidden" name="password" value=""/>
               </form>
-              <a href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=iecacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADIE")%></a>&nbsp;&nbsp;&nbsp;
-              <a href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=nscacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADNS")%></a>&nbsp;&nbsp;&nbsp;
-              <a href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=cacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADPEM")%></a>&nbsp;&nbsp;&nbsp;
-			  <a href="javascript: getPasswordAndSubmit('<%= "JKSFORM"+Integer.toHexString((subjectdn+j).hashCode()) %>');"><%= ejbcawebbean.getText("DOWNLOADJKS")%></a>
+              <a class="outline-button" href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=iecacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADIE")%></a>&nbsp;&nbsp;&nbsp;
+              <a class="outline-button" href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=nscacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADNS")%></a>&nbsp;&nbsp;&nbsp;
+              <a class="outline-button" href="<%=DOWNLOADCERTIFICATE_LINK%>?cmd=cacert&level=<%= j%>&issuer=<%= java.net.URLEncoder.encode(subjectdn,"UTF-8") %>"><%= ejbcawebbean.getText("DOWNLOADPEM")%></a>&nbsp;&nbsp;&nbsp;
+			  <a class="outline-button" href="javascript: getPasswordAndSubmit('<%= "JKSFORM"+Integer.toHexString((subjectdn+j).hashCode()) %>');"><%= ejbcawebbean.getText("DOWNLOADJKS")%></a>
             </td>   
           </tr>
           <% }
@@ -289,7 +285,7 @@ function getPasswordAndSubmit(formname) {
         <br />
         
         <!-- Full CRLs --> 
-        <% CRLInfo crlinfo = cabean.getLastCRLInfo(cainfo.getCAInfo(), false);
+        <% CRLInfo crlinfo = cabean.getLastCRLInfo(cainfo, false);
            if(crlinfo == null){ 
              out.write(ejbcawebbean.getText("NOCRLHAVEBEENGENERATED"));
            }else{
@@ -306,9 +302,9 @@ function getPasswordAndSubmit(formname) {
 		<% } %>
 
 		<% // Delta CRLs 
- 	    CRLInfo deltacrlinfo = cabean.getLastCRLInfo(cainfo.getCAInfo(), true);
+ 	    CRLInfo deltacrlinfo = cabean.getLastCRLInfo(cainfo, true);
 	    if(deltacrlinfo == null){ 
-     		if (cainfo.getCAInfo().getDeltaCRLPeriod() > 0) {
+     		if (cainfo.getDeltaCRLPeriod() > 0) {
     	    	out.write(ejbcawebbean.getText("NODELTACRLHAVEBEENGENERATED"));
      	    } else {
      	    	out.write(ejbcawebbean.getText("DELTACRLSNOTENABLED"));
@@ -331,21 +327,21 @@ function getPasswordAndSubmit(formname) {
 	  <% // Display createcrl if admin is authorized
       if(createcrlrights){ %>
 		<br />
-		<form name='createcrl' method=GET action='<%=THIS_FILENAME %>'>
+		<form class="hidden" name='createcrl' method=GET action='<%=THIS_FILENAME %>'>
             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 			<input type='hidden' name='<%=HIDDEN_NUMBEROFCAS %>' value='<%=canames.keySet().size()%>'> 
 			<input type='hidden' name='<%=HIDDEN_CAID + number %>' value='<c:out value="<%= caid %>" />'> 
 			<%=ejbcawebbean.getText("CREATENEWCRL") + " : " %>
-       		<% if ( cainfo.getCAInfo().getStatus() == CAConstants.CA_ACTIVE ) {	%>
+       		<% if ( cainfo.getStatus() == CAConstants.CA_ACTIVE ) {	%>
 				<input type='submit' name='<%=BUTTON_CREATECRL + number %>' value='<%=ejbcawebbean.getText("CREATECRL") %>'>
        		<% }else{
            		out.write(ejbcawebbean.getText("CAISNTACTIVE"));
          		} 
-       		if(cainfo.getCAInfo().getDeltaCRLPeriod() > 0) { %>
+       		if(cainfo.getDeltaCRLPeriod() > 0) { %>
 			<br />
 			<input type='hidden' name='<%=HIDDEN_CAID + number %>' value='<c:out value="<%= caid %>" />'> 
 			<%=ejbcawebbean.getText("CREATENEWDELTACRL") + " : " %>
-      		<% if ( cainfo.getCAInfo().getStatus() == CAConstants.CA_ACTIVE) { %>
+      		<% if ( cainfo.getStatus() == CAConstants.CA_ACTIVE) { %>
 				<input type='submit' name='<%=BUTTON_CREATEDELTACRL + number %>' value='<%=ejbcawebbean.getText("CREATEDELTACRL") %>'>
        		<% } else {
             	out.write(ejbcawebbean.getText("CAISNTACTIVE"));
@@ -354,15 +350,16 @@ function getPasswordAndSubmit(formname) {
 		</form>
 	<% } %>
 		<br />
-		<hr />
 	<%  number++;
 	} %>
    
+   </div> <!-- Container -->
 
 		<% // Include Footer 
    		String footurl =  globalconfiguration.getFootBanner(); %>
    
   		<jsp:include page="<%= footurl %>" />
 		</form>
+	</div> <!-- main-wrapper -->
 	</body>
 </html>

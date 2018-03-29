@@ -18,11 +18,14 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Implements a cryptographically secure password generator. Runs as a
+ * <p><b>PasswordGenerator Module</b>
+ * <p>Implements a cryptographically secure password generator. Runs as a
  * command line client which may ask for the following parameters (if specified)
  *
  *      Flag    Description                              Default
@@ -38,7 +41,9 @@ public class PasswordGenerator extends ClientToolBox {
 
     @Override
     protected void execute(final String[] args) {
-        if (Arrays.asList(args).contains("help")) {
+        final List<String> argsList = new ArrayList<String>(Arrays.asList(args));
+        argsList.remove(getName());
+        if (argsList.contains("help")) {
             System.out.println("Flag    Description                              Default");
             System.out.println("-h      Hash function used for mixing            SHA-256");
             System.out.println("-c      Charset used for the generated password  [a-zA-Z0-9]");
@@ -48,10 +53,10 @@ public class PasswordGenerator extends ClientToolBox {
         }
 
         try {
-            final String algorithm = readInput(args, "Algorithm [SHA-256]", "-h", "SHA-256");
-            final String charset = expandRegex(readInput(args, "Charset [a-zA-Z0-9]", "-c", "[a-zA-Z0-9]"));
-            final int passwordBits = Integer.valueOf(readInput(args, "Bit strength [128]", "-b", "128"));
-            final String seed = readInput(args, "Seed [null]", "-s", "");
+            final String algorithm = readInput(argsList, "Algorithm [SHA-256]", "-h", "SHA-256");
+            final String charset = expandRegex(readInput(argsList, "Charset [a-zA-Z0-9]", "-c", "[a-zA-Z0-9]"));
+            final int passwordBits = Integer.valueOf(readInput(argsList, "Bit strength [128]", "-b", "128"));
+            final String seed = readInput(argsList, "Seed [null]", "-s", "");
 
             if (charset.length() < 2) {
                 System.err.println("Charset must consist of at least 2 characters.");
@@ -79,10 +84,11 @@ public class PasswordGenerator extends ClientToolBox {
             System.err.println("Bye!");
             return;
         }
+
     }
 
-    private String readInput(final String[] args, final String title, final String flag, final String defaultValue) throws IllegalStateException {
-        if (Arrays.asList(args).contains(flag)) {
+    private String readInput(final List<String> args, final String title, final String flag, final String defaultValue) throws IllegalStateException {
+        if (args.contains(flag)) {
             System.out.print(title + ": ");
             System.out.flush();
             final String input = System.console().readLine();

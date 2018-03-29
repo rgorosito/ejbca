@@ -65,6 +65,8 @@ import org.ejbca.core.ejb.ra.raadmin.AdminPreferenceSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.ejb.ra.userdatasource.UserDataSourceSessionLocal;
 import org.ejbca.core.ejb.services.ServiceSessionLocal;
+import org.ejbca.core.ejb.unidfnr.UnidfnrSession;
+import org.ejbca.core.ejb.unidfnr.UnidfnrSessionLocal;
 import org.ejbca.core.ejb.upgrade.UpgradeSessionLocal;
 import org.ejbca.core.ejb.ws.EjbcaWSHelperSessionLocal;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
@@ -201,6 +203,30 @@ public class EjbLocalHelper implements EjbBridgeSessionLocal {
             return (StatedumpSessionLocal) getInitialContext().lookup("java:global/ejbca/"+StatedumpSession.STATEDUMP_MODULE+"/StatedumpSessionBean!org.ejbca.statedump.ejb.StatedumpSessionLocal");
         } catch (NamingException e) {
             return null; // this is the common case, since statedump is an internal tool and is not included with EJBCA
+        }
+    }
+    
+    
+    /** 
+     * Dynamically loads the UnidfnrSession with JNDI. It's usually not available in the EJBCA source tree,
+     * and in this case this is properly handled  by returning null.
+     * 
+     * @return A unidfnr session object, or null if not available.
+     */
+    public UnidfnrSessionLocal getUnidfnrSession() {
+        try {
+            if (!useEjb31GlobalJndiName) {
+                return (UnidfnrSessionLocal) getInitialContext().lookup("java:comp/env/UnidfnrSession");
+            }
+        } catch (NamingException e) {
+            // NOPMD ignore and continue
+        }
+        
+        // Try using EJB 3.1 name
+        try {
+            return (UnidfnrSessionLocal) getInitialContext().lookup("java:global/ejbca/"+UnidfnrSession.UNIDFNR_MODULE+"/UnidfnrSessionBean!org.ejbca.core.ejb.unidfnr.UnidfnrSessionLocal");
+        } catch (NamingException e) {
+            return null; // this is the common case, since unidfnr is an special module and is not included with EJBCA
         }
     }
 

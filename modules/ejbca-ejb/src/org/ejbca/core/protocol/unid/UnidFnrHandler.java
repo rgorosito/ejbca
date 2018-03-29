@@ -14,6 +14,8 @@
 package org.ejbca.core.protocol.unid;
 
 import java.sql.PreparedStatement;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
@@ -23,6 +25,8 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.util.CeSecoreNameStyle;
+import org.ejbca.core.ejb.unidfnr.UnidfnrSessionLocal;
+import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.core.protocol.ExtendedUserDataHandler;
 import org.ejbca.util.JDBCUtil;
 import org.ejbca.util.JDBCUtil.Preparer;
@@ -37,6 +41,7 @@ public class UnidFnrHandler implements ExtendedUserDataHandler {
 	private static final Logger LOG = Logger.getLogger(UnidFnrHandler.class);
 	private static final Pattern onlyDecimalDigits = Pattern.compile("^[0-9]+$");
 	private Storage storage;
+	private UnidfnrSessionLocal unidfnrSession = new EjbLocalHelper().getUnidfnrSession();
 
 	/**
 	 * Used by EJBCA
@@ -60,8 +65,8 @@ public class UnidFnrHandler implements ExtendedUserDataHandler {
 	    if(this.storage == null) {
 	        this.storage = new MyStorage(unidDataSource);
 	    }
-	    
-		final X500Name dn = req.getRequestX500Name();
+
+	    final X500Name dn = req.getRequestX500Name();
 		if (LOG.isDebugEnabled()) {
 			LOG.debug(">processRequestMessage:'"+dn+"' and '"+certificateProfileName+"'");
 		}
@@ -69,20 +74,20 @@ public class UnidFnrHandler implements ExtendedUserDataHandler {
 		if ( unidPrefix==null ) {
 			return req;
 		}
-        final ASN1ObjectIdentifier[] oids = dn.getAttributeTypes();
+        final List<ASN1ObjectIdentifier> asn1ObjectIdentifiers = Arrays.asList(dn.getAttributeTypes());
 		X500NameBuilder nameBuilder = new X500NameBuilder(new CeSecoreNameStyle());
 		boolean changed = false;
-		for ( int i=0; i<oids.length; i++ ) {
-			if ( oids[i].equals(CeSecoreNameStyle.SERIALNUMBER) ) {
-			    RDN[] rdns = dn.getRDNs(oids[i]);
+		for (final ASN1ObjectIdentifier asn1ObjectIdentifier : asn1ObjectIdentifiers) {
+			if (asn1ObjectIdentifier.equals(CeSecoreNameStyle.SERIALNUMBER) ) {
+			    RDN[] rdns = dn.getRDNs(asn1ObjectIdentifier);
 			    String value = rdns[0].getFirst().getValue().toString();
 				final String newSerial = storeUnidFrnAndGetNewSerialNr(value, unidPrefix);
 				if ( newSerial!=null ) {
-					nameBuilder.addRDN(oids[i], newSerial);
+					nameBuilder.addRDN(asn1ObjectIdentifier, newSerial);
 					changed = true;
 				}
 			} else {
-			    nameBuilder.addRDN(dn.getRDNs(oids[i])[0].getFirst());
+			    nameBuilder.addRDN(dn.getRDNs(asn1ObjectIdentifier)[0].getFirst());
 			}
 		}
 		if(changed) {
@@ -122,6 +127,11 @@ public class UnidFnrHandler implements ExtendedUserDataHandler {
 	 * @throws HandlerException if unid-fnr can't be stored in DB. This will prevent any certificate to be created.
 	 */
 	private String storeUnidFrnAndGetNewSerialNr(String inputSerialNr, String unidPrefix) throws HandlerException {
+	    
+        if (this.unidfnrSession == null) {
+            throw new HandlerException("Unidfnr session bean is null!");
+        }	    
+	    
 		if ( inputSerialNr.length()!=17 ) {
 			return null;
 		}
@@ -138,8 +148,9 @@ public class UnidFnrHandler implements ExtendedUserDataHandler {
 		}
 		final String random = new LettersAndDigitsPasswordGenerator().getNewPassword(6, 6);
 		final String unid = unidPrefix + lra + random;
-		this.storage.storeIt(unid, fnr);
+		unidfnrSession.stroreUnidFnrData(unid, fnr);
 		return unid;
+
 	}
 	/**
 	 * To be implemented by unit test.

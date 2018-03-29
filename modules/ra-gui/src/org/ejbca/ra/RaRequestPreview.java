@@ -15,6 +15,7 @@ package org.ejbca.ra;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 
@@ -107,6 +108,18 @@ public class RaRequestPreview {
 
     public final String getSubjectDn() {
         return subjectDn;
+    }
+
+    /**
+     * @param value String to enescape
+     * @return value in unescaped RDN format
+     */
+    public final String getUnescapedRdnValue(final String value){
+        if (StringUtils.isNotEmpty(value)) {
+            return org.ietf.ldap.LDAPDN.unescapeRDN(value);
+        } else {
+            return value;
+        }
     }
 
     public void setSubjectDn(String subjectDn) {

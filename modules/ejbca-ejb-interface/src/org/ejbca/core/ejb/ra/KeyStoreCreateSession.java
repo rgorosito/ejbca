@@ -100,5 +100,4 @@ public interface KeyStoreCreateSession {
             CustomCertificateSerialNumberException, AuthStatusException, AuthLoginException, EndEntityProfileValidationException,
             NoSuchEndEntityException, CertificateSignatureException, CertificateEncodingException, CertificateException, NoSuchAlgorithmException,
             InvalidKeySpecException;
-
 }

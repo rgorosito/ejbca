@@ -27,7 +27,6 @@ import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.PublicAccessAuthenticationToken;
-import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
 
@@ -57,6 +56,9 @@ public class RaAuthenticationHelper implements Serializable {
     public AuthenticationToken getAuthenticationToken(final HttpServletRequest httpServletRequest, final HttpServletResponse httpServletResponse) {
         final String currentTlsSessionId = getTlsSessionId(httpServletRequest);
         if (authenticationToken==null || !StringUtils.equals(authenticationTokenTlsSessionId, currentTlsSessionId)) {
+            if (log.isTraceEnabled()) {
+                log.trace("New TLS session IDs or authenticationToken: currentClientTlsSessionID: "+currentTlsSessionId+", authenticationTokenTlsSessionId: "+authenticationTokenTlsSessionId);
+            }
             // Set the current TLS session 
             authenticationTokenTlsSessionId = currentTlsSessionId;
             final X509Certificate x509Certificate = getClientX509Certificate(httpServletRequest);
@@ -68,9 +70,11 @@ public class RaAuthenticationHelper implements Serializable {
             }
             if (x509Certificate != null) {
                 final String fingerprint = CertTools.getFingerprintAsString(x509Certificate);
+                if (log.isTraceEnabled()) {
+                    log.trace("currentRequestFingerprint: "+fingerprint+", x509AuthenticationTokenFingerprint: "+x509AuthenticationTokenFingerprint);
+                }
                 if (x509AuthenticationTokenFingerprint!=null) {
-                    final X509Certificate authenticatedCert = ((X509CertificateAuthenticationToken)authenticationToken).getCertificate();
-                    if (!StringUtils.equals(CertTools.getFingerprintAsString(authenticatedCert), x509AuthenticationTokenFingerprint)) {
+                    if (!StringUtils.equals(fingerprint, x509AuthenticationTokenFingerprint)) {
                         log.warn("Suspected session hijacking attempt from " + httpServletRequest.getRemoteAddr() +
                                 ". RA client presented a different TLS certificate in the same HTTP session." +
                                 " new certificate had subject '" + CertTools.getSubjectDN(x509Certificate) + "'.");

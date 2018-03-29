@@ -70,9 +70,7 @@
   int currentindex                = 0;
   int caid                        = 0;
 
-  try{
-    usekeyrecovery = globalconfiguration.getEnableKeyRecovery() && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_KEYRECOVERY_RIGHTS);
-  }catch(AuthorizationDeniedException ade){}
+  usekeyrecovery = globalconfiguration.getEnableKeyRecovery() && ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_KEYRECOVERY);
 
   RequestHelper.setDefaultCharacterEncoding(request);
 
@@ -145,7 +143,7 @@
      noparameter=false;
      int reason = Integer.parseInt(request.getParameter(SELECT_REVOKE_REASON));
      certificatedata = rabean.getCertificate(currentindex);
-     if(!cacerts && rabean.authorizedToRevokeCert(certificatedata.getUsername()) && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS) 
+     if(!cacerts && rabean.authorizedToRevokeCert(certificatedata.getUsername()) && ejbcawebbean.isAuthorizedNoLog(AccessRulesConstants.REGULAR_REVOKEENDENTITY) 
         && (!certificatedata.isRevoked()||certificatedata.isRevokedAndOnHold()) ) {
 		try {
 	    	rabean.revokeCert(certificatedata.getSerialNumberBigInt(), certificatedata.getIssuerDNUnEscaped(), certificatedata.getUsername(),reason);
@@ -179,7 +177,7 @@
 		certificatedata = rabean.getCertificate(currentindex);
 
 		if(!cacerts && rabean.authorizedToRevokeCert(certificatedata.getUsername()) 
-			&& ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS) && certificatedata.isRevokedAndOnHold()){
+			&& ejbcawebbean.isAuthorizedNoLog(AccessRulesConstants.REGULAR_REVOKEENDENTITY) && certificatedata.isRevokedAndOnHold()){
 				//-- call to unrevoke method
 				try {
 					rabean.unrevokeCert(certificatedata.getSerialNumberBigInt(), certificatedata.getIssuerDNUnEscaped(), certificatedata.getUsername());
@@ -328,7 +326,11 @@ function confirmrepublish(){
 
 <body class="popup" id="viewcertificate">
 
-  <h2><%= ejbcawebbean.getText("VIEWCERTIFICATE") %></h2>
+  <% if (cacerts) { %>
+  <h2><%= ejbcawebbean.getText("VIEW_CACERTIFICATE_HEADING") %></h2>
+  <% } else { %>
+  <h2><%= ejbcawebbean.getText("VIEW_CERTIFICATES_HEADING") %></h2>
+  <% } %>
 
   <%if(noparameter){%>
   <div class="message alert"><%=ejbcawebbean.getText("YOUMUSTSPECIFYCERT") %></div> 
@@ -432,7 +434,7 @@ function confirmrepublish(){
        
        <tr id="Row<%=(row++)%2%>">
 		 <td align="right" width="<%=columnwidth%>"><%= ejbcawebbean.getText("CERT_ISSUERDN") %></td>
-		 <td><span class="dn"><%= certificatedata.getIssuerDN() %></span></td>
+		 <td><span class="dn"><%= certificatedata.getUnescapedRdnValue(certificatedata.getIssuerDN()) %></span></td>
        </tr>
        <tr id="Row<%=(row)%2%>">
 		 <td align="right" width="<%=columnwidth%>"><%= ejbcawebbean.getText("CERT_VALIDFROM") %></td>
@@ -444,7 +446,7 @@ function confirmrepublish(){
        </tr>
        <tr id="Row<%=(row++)%2%>" class="title">
 		 <td align="right" width="<%=columnwidth%>"><strong><%= ejbcawebbean.getText("CERT_SUBJECTDN") %></strong></td>
-		 <td><strong class="dn"><%= certificatedata.getSubjectDN() %></strong></td>
+		 <td><strong class="dn"><%= certificatedata.getUnescapedRdnValue(certificatedata.getSubjectDN()) %></strong></td>
        </tr>
        
       <% if (!certificatedata.getType().equalsIgnoreCase("CVC")) { %>
@@ -674,7 +676,7 @@ function confirmrepublish(){
           </td>
           <td>
        <%  try{
-            if(!cacerts && rabean.authorizedToRevokeCert(certificatedata.getUsername()) && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS)){
+            if(!cacerts && rabean.authorizedToRevokeCert(certificatedata.getUsername()) && ejbcawebbean.isAuthorizedNoLog(AccessRulesConstants.REGULAR_REVOKEENDENTITY)){
 				if ( !certificatedata.isRevoked() || certificatedata.isRevokedAndOnHold() ){
 					//-- Certificate can be revoked or suspended
 		%>    

@@ -22,6 +22,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.cesecore.certificates.certificate.Base64CertData;
@@ -270,5 +271,15 @@ public class X509ResponseMessage implements CertificateResponseMessage {
 
     @Override
     public void setProtectionParamsFromRequest(RequestMessage reqMsg) {
+    }
+    
+    @Override
+    public void addAdditionalCaCertificates(final List<Certificate> certificates) {
+        // NOOP. Only for CMP.
+    }
+
+    @Override
+    public void addAdditionalResponseExtraCertsCertificates(List<Certificate> certificates) {
+        // NOOP. Only for CMP.
     }
 }

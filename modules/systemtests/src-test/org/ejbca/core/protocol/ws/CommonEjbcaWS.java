@@ -559,7 +559,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
 
         List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
         assertTrue(userdatas != null);
-        assertTrue(userdatas.size() == 1);
+        assertEquals("Exactly one result should have been returned", 1, userdatas.size());
         UserDataVOWS userdata = userdatas.get(0);
         assertTrue(userdata.getUsername().equals(userName));
         assertTrue(userdata.getPassword() == null);
@@ -684,8 +684,8 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             usermatch.setMatchtype(UserMatch.MATCH_TYPE_EQUALS);
             usermatch.setMatchvalue("noneExsisting");
             final List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
-            assertTrue(userdatas != null);
-            assertTrue(userdatas.size() == 0);
+            assertNotNull(userdatas != null);
+            assertEquals(0, userdatas.size());
         }
         {// Find an exising user
             final UserMatch usermatch = new UserMatch();
@@ -694,7 +694,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             usermatch.setMatchvalue(CA1_WSTESTUSER1);
 
             final List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
-            assertTrue(userdatas != null);
+            assertNotNull(userdatas);
             assertEquals(1, userdatas.size());
         }
         {// Find by O
@@ -703,7 +703,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             usermatch.setMatchtype(UserMatch.MATCH_TYPE_BEGINSWITH);
             usermatch.setMatchvalue("2Te");
             final List<UserDataVOWS> userdatas = ejbcaraws.findUser(usermatch);
-            assertTrue(userdatas != null);
+            assertNotNull(userdatas);
             assertEquals(1, userdatas.size());
             assertTrue(userdatas.get(0).getSubjectDN().equals(getDN(CA1_WSTESTUSER2)));
         }
@@ -2041,7 +2041,6 @@ public abstract class CommonEjbcaWS extends CaTestCase {
         CMSSignedData cmsSignedData = new CMSSignedData(CertificateHelper.getPKCS7(certenv.getData()));
         assertTrue(cmsSignedData != null);
 
-        @SuppressWarnings("unchecked")
         Store<X509CertificateHolder> certStore = cmsSignedData.getCertificates();
         assertTrue(certStore.getMatches(null).size() == 1);
 
@@ -2232,7 +2231,7 @@ public abstract class CommonEjbcaWS extends CaTestCase {
     protected void ejbcaVersion() throws Exception {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 6.11";
+        final String expectedSubString = "EJBCA 6.12";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));
     }
 
@@ -2442,11 +2441,11 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             if(cert2 != null) {
                 internalCertStoreSession.removeCertificate(CertTools.getFingerprintAsString(cert2));
             }
-            try {
-                caSession.removeCA(intAdmin, caSession.getCAInfo(intAdmin, testCaName).getCAId());
-            } catch (CADoesntExistsException e) {
-                log.debug("Clean up failed: " + e.getMessage());
+            CAInfo caInfo = caSession.getCAInfo(intAdmin, testCaName);
+            if (caInfo != null) {
+                caSession.removeCA(intAdmin, caInfo.getCAId());
             }
+
             endEntityProfileSession.removeEndEntityProfile(intAdmin, WS_EEPROF_EI);
             certificateProfileSession.removeCertificateProfile(intAdmin, WS_CERTPROF_EI);
         }
@@ -2651,74 +2650,6 @@ public abstract class CommonEjbcaWS extends CaTestCase {
             assertEquals(org.cesecore.ErrorCode.USER_WRONG_STATUS.getInternalErrorCode(), errorCode.getInternalErrorCode());
         }
         assertNotNull(errorCode);
-    }
-
-    protected void operationOnNonexistingCA() throws Exception {
-        final String MOCKSERIAL = "AABBCCDDAABBCCDD";
-
-        // Add a user for this test purpose.
-        UserDataVOWS user1 = new UserDataVOWS();
-        user1.setUsername("WSTESTUSER32");
-        user1.setPassword("foo1234");
-        user1.setClearPwd(true);
-        user1.setSubjectDN("CN=WSTESTUSER32");
-        user1.setEmail(null);
-        user1.setSubjectAltName(null);
-        user1.setStatus(EndEntityConstants.STATUS_NEW);
-        user1.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
-        user1.setEndEntityProfileName("EMPTY");
-        user1.setCertificateProfileName("ENDUSER");
-        user1.setCaName(BADCANAME);
-        try {
-            ejbcaraws.editUser(user1);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-          // Untested: ejbcaraws.pkcs10Request
-          // Untested: ejbcaraws.pkcs12Req
-        try {
-            ejbcaraws.revokeCert("CN=" + BADCANAME, MOCKSERIAL, RevokedCertInfo.NOT_REVOKED);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-          // Untested: ejbcaraws.revokeUser
-          // Untested: ejbcaraws.keyRecoverNewest
-          // Untested: ejbcaraws.revokeToken
-        try {
-            ejbcaraws.checkRevokationStatus("CN=" + BADCANAME, MOCKSERIAL);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-          // Untested: ejbcaraws.genTokenCertificates
-        try {
-            UserDataVOWS badUserDataWS = new UserDataVOWS();
-            badUserDataWS.setCaName(BADCANAME);
-            ejbcaraws.genTokenCertificates(badUserDataWS, new ArrayList<TokenCertificateRequestWS>(), null, false, false);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-          // Untested: ejbcaraws.getHardTokenData
-          // Untested: ejbcaraws.getHardTokenDatas
-        try {
-            ejbcaraws.republishCertificate(MOCKSERIAL, "CN=" + BADCANAME);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-        try {
-            ejbcaraws.customLog(IEjbcaWS.CUSTOMLOG_LEVEL_ERROR, "prefix", BADCANAME, null, null, "This should not have been logged");
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-        try {
-            ejbcaraws.getCertificate(MOCKSERIAL, "CN=" + BADCANAME);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
-        try {
-            ejbcaraws.createCRL(BADCANAME);
-            assertTrue("WS did not throw CADoesntExistsException as expected", false);
-        } catch (CADoesntExistsException_Exception e) {
-        } // Expected
     }
 
     protected void checkQueueLength() throws Exception {

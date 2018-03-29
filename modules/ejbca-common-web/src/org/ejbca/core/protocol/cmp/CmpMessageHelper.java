@@ -146,8 +146,8 @@ public class CmpMessageHelper {
         return pkiHeader;
     }
 
-    public static byte[] signPKIMessage(PKIMessage pkiMessage, Collection<Certificate> signCertChain, PrivateKey signKey, String digestAlg,
-            String provider) throws InvalidKeyException, NoSuchProviderException, NoSuchAlgorithmException, SecurityException, SignatureException,
+    public static byte[] signPKIMessage(PKIMessage pkiMessage, Collection<Certificate> signCertChain, PrivateKey signKey, String digestAlg, 
+    		String provider) throws InvalidKeyException, NoSuchProviderException, NoSuchAlgorithmException, SecurityException, SignatureException,
             CertificateEncodingException {
         if (LOG.isTraceEnabled()) {
             LOG.trace(">signPKIMessage()");
@@ -553,7 +553,7 @@ public class CmpMessageHelper {
 
         // Reconstructing the regToken
         ASN1Sequence o6 = (ASN1Sequence) ((ASN1Sequence) o2.toASN1Primitive()).getObjectAt(2);
-        final AttributeTypeAndValue av = AttributeTypeAndValue.getInstance(((ASN1Sequence) o6).getObjectAt(0));
+        final AttributeTypeAndValue av = AttributeTypeAndValue.getInstance(o6.getObjectAt(0));
         final AttributeTypeAndValue[] avs = { av };
 
         // finally, recreating the CertReqMsg object

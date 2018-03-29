@@ -328,11 +328,13 @@ public class EjbcaWS implements IEjbcaWS {
         final HttpServletRequest request = (HttpServletRequest) msgContext.get(MessageContext.SERVLET_REQUEST);
         final X509Certificate[] certificates = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
         final boolean isServiceEnabled = ((AvailableProtocolsConfiguration)globalConfigurationSession.getCachedConfiguration(AvailableProtocolsConfiguration.CONFIGURATION_ID)).getProtocolStatus(AvailableProtocols.WS.getName());
-        final boolean isServiceAuthorized = raMasterApiProxyBean.isAuthorizedNoLogging(raWsAuthCheckToken, AccessRulesConstants.REGULAR_PEERPROTOCOL_WS);
-        if (!(isServiceEnabled && isServiceAuthorized)) {
-            throw new UnsupportedOperationException("Not authorized to Web Services");
+        // Start with checking if it's enabled, preventing any call back to a CA for example (if using an external RA), if WS is not enabled
+        if (!isServiceEnabled) {
+            throw new UnsupportedOperationException("Web Services not enabled");
         } else if ((certificates == null) || (certificates[0] == null)) {
             throw new AuthorizationDeniedException("Error no client certificate received used for authentication.");
+        } else if (!raMasterApiProxyBean.isAuthorizedNoLogging(raWsAuthCheckToken, AccessRulesConstants.REGULAR_PEERPROTOCOL_WS)) {
+            throw new UnsupportedOperationException("Not authorized to Web Services");
         }
         return ejbcaWSHelperSession.getAdmin(allowNonAdmins, certificates[0]);
 
@@ -427,7 +429,7 @@ public class EjbcaWS implements IEjbcaWS {
         	final AuthenticationToken admin = getAdmin();
         	logAdminName(admin,logger);
         	final Query query = ejbcaWSHelperSession.convertUserMatch(admin, usermatch);
-        	final Collection<EndEntityInformation> result = endEntityManagementSession.query(admin, query, null,null, MAXNUMBEROFROWS, AccessRulesConstants.VIEW_END_ENTITY); // also checks authorization
+        	final Collection<EndEntityInformation> result = endEntityAccessSession.query(admin, query, null,null, MAXNUMBEROFROWS, AccessRulesConstants.VIEW_END_ENTITY); // also checks authorization
         	if (result.size() > 0) {
         		retval = new ArrayList<>(result.size());
         		for (final EndEntityInformation userdata : result) {
@@ -776,6 +778,10 @@ public class EjbcaWS implements IEjbcaWS {
 			// The public key of IS and DV certificate do not have any EC parameters so we have to do some magic to get a complete EC public key
 			// First get to the CVCA certificate that has the parameters
 			CAInfo info = caSession.getCAInfo(admin, CertTools.getIssuerDN(cert).hashCode());
+            if (info == null) {
+                throw new CADoesntExistsException("CA with id " + CertTools.getIssuerDN(cert).hashCode() + " doesn't exist.");
+            }
+
 			Collection<java.security.cert.Certificate> cacerts = info.getCertificateChain();
 			if (cacerts != null) {
 				log.debug("Found CA certificate chain of length: "+cacerts.size());
@@ -920,59 +926,67 @@ public class EjbcaWS implements IEjbcaWS {
 
 						// If there are no old certificate, continue processing as usual, using the sent in username/password hoping the
 						// status is NEW and password is correct.
-					} else { // if (StringUtils.equals(holderRef, caRef))
-						// Subject and issuerDN is CN=Mnemonic,C=Country
-						String dn = "CN="+caRef.getMnemonic()+",C="+caRef.getCountry();
-						log.debug("Authenticated request is not self signed, we will try to verify it using a CVCA certificate: "+dn);
-						try {
-						    CAInfo info = caSession.getCAInfo(admin, CertTools.stringToBCDNString(dn).hashCode());
-						    Collection<java.security.cert.Certificate> certs = info.getCertificateChain();
-						    if (certs != null) {
-						        log.debug("Found "+certs.size()+" certificates in chain for CA with DN: "+dn);
-						        Iterator<java.security.cert.Certificate> iterator = certs.iterator();
-						        if (iterator.hasNext()) {
-						            // The CA certificate is first in chain
-						            java.security.cert.Certificate cert = iterator.next();
-						            if (log.isDebugEnabled()) {
-						                log.debug("Trying to verify the outer signature with a CVCA certificate, fp: "+CertTools.getFingerprintAsString(cert));
-						            }
-						            try {
-						                // The CVCA certificate always contains the full key parameters, no need to du any EC curve parameter magic here
-						                authreq.verify(cert.getPublicKey());
-						                log.debug("Verified outer signature");
-						                verifiedOuter = true;
-						                // Yes we did it, we can move on to the next step because the outer signature was actually created with some old certificate
-						                try {
-						                    // Check certificate validity and set end entity status/password.
+                    } else { // if (StringUtils.equals(holderRef, caRef))
+                        // Subject and issuerDN is CN=Mnemonic,C=Country
+                        String dn = "CN=" + caRef.getMnemonic() + ",C=" + caRef.getCountry();
+                        log.debug("Authenticated request is not self signed, we will try to verify it using a CVCA certificate: " + dn);
+
+                        CAInfo info = caSession.getCAInfo(admin, CertTools.stringToBCDNString(dn).hashCode());
+                        if (info == null) {
+                            log.info("No CA found to authenticate request: " + dn);
+                            throw new CADoesntExistsException("CA with id " + CertTools.stringToBCDNString(dn).hashCode() + " doesn't exist.");
+                        } else {
+                            Collection<java.security.cert.Certificate> certs = info.getCertificateChain();
+                            if (certs != null) {
+                                log.debug("Found " + certs.size() + " certificates in chain for CA with DN: " + dn);
+                                Iterator<java.security.cert.Certificate> iterator = certs.iterator();
+                                if (iterator.hasNext()) {
+                                    // The CA certificate is first in chain
+                                    java.security.cert.Certificate cert = iterator.next();
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Trying to verify the outer signature with a CVCA certificate, fp: "
+                                                + CertTools.getFingerprintAsString(cert));
+                                    }
+                                    try {
+                                        // The CVCA certificate always contains the full key parameters, no need to du any EC curve parameter magic here
+                                        authreq.verify(cert.getPublicKey());
+                                        log.debug("Verified outer signature");
+                                        verifiedOuter = true;
+                                        // Yes we did it, we can move on to the next step because the outer signature was actually created with some old certificate
+                                        try {
+                                            // Check certificate validity and set end entity status/password.
                                             // This will throw one of several exceptions if the certificate is invalid
                                             ejbcaWSHelperSession.checkValidityAndSetUserPassword(admin, cert, username, password);
                                         } catch (EndEntityProfileValidationException e) {
                                             throw new UserDoesntFullfillEndEntityProfile(e);
                                         }
-						            } catch (InvalidKeyException e) {
-						                String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), e.getMessage());
-						                log.warn(msg, e);
-						            } catch (CertificateException e) {
-						                String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), e.getMessage());
-						                log.warn(msg, e);
-						            } catch (NoSuchAlgorithmException e) {
-						                String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), e.getMessage());
-						                log.warn(msg, e);
-						            } catch (NoSuchProviderException e) {
-						                String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), e.getMessage());
-						                log.warn(msg, e);
-						            } catch (SignatureException e) {
-						                String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), e.getMessage());
-						                log.warn(msg, e);
-						            }
-						        }
-						    } else {
-						        log.info("No CA certificate found to authenticate request: "+dn);
-						    }
-						}catch (CADoesntExistsException e) {
-						    log.info("No CA found to authenticate request: "+dn);
-						}
-					}
+                                    } catch (InvalidKeyException e) {
+                                        String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(),
+                                                e.getMessage());
+                                        log.warn(msg, e);
+                                    } catch (CertificateException e) {
+                                        String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(),
+                                                e.getMessage());
+                                        log.warn(msg, e);
+                                    } catch (NoSuchAlgorithmException e) {
+                                        String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(),
+                                                e.getMessage());
+                                        log.warn(msg, e);
+                                    } catch (NoSuchProviderException e) {
+                                        String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(),
+                                                e.getMessage());
+                                        log.warn(msg, e);
+                                    } catch (SignatureException e) {
+                                        String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(),
+                                                e.getMessage());
+                                        log.warn(msg, e);
+                                    }
+                                }
+                            } else {
+                                log.info("No CA certificate found to authenticate request: " + dn);
+                            }
+                        }
+                    }
 					// if verification failed because we could not verify the outer signature at all it is an error
 					if (!verifiedOuter) {
 						String msg = intres.getLocalizedMessage("cvc.error.outersignature", holderRef.getConcatenated(), "No certificate found that could authenticate request");
@@ -1367,12 +1381,11 @@ public class EjbcaWS implements IEjbcaWS {
 		try {
 			final AuthenticationToken admin = getAdmin();
 			logAdminName(admin,logger);
-			final int caid = CertTools.stringToBCDNString(issuerDN).hashCode();
-			caSession.verifyExistenceOfCA(caid);
 			final BigInteger serno = new BigInteger(certificateSN, 16);
 			// Revoke or unrevoke, will throw appropriate exceptions if parameters are wrong, such as trying to unrevoke a certificate
 			// that was permanently revoked
-			endEntityManagementSession.revokeCert(admin, serno, date, issuerDN, reason, true);
+			// The method over RA Master API will also check if the CA (issuer DN) is something we handle and throw a CADoesntExistsException if not
+			raMasterApiProxyBean.revokeCert(admin, serno, date, issuerDN, reason, true);
 		} catch (NoSuchEndEntityException e) {
 			throw new NotFoundException(e.getMessage());
 		} catch (RuntimeException e) {	// EJBException, ClassCastException, ...
@@ -1546,6 +1559,60 @@ public class EjbcaWS implements IEjbcaWS {
     }
 
     @Override
+    public KeyStore keyRecoverEnroll(String username, String certSNinHex, String issuerDN, String password, String hardTokenSN) 
+            throws AuthorizationDeniedException, EjbcaException, CADoesntExistsException, WaitingForApprovalException, NotFoundException {
+        if (log.isTraceEnabled()) {
+            log.trace(">keyRecoverEnroll");
+        }
+        
+        // Keystore type is available in UserData but we do it this way to avoid another network round trip, looking it up.
+        final byte PKCS12_MAGIC = (byte)48;
+        final byte JKS_MAGIC = (byte)(0xfe);
+        
+        final AuthenticationToken admin = getAdmin();
+        final IPatternLogger logger = TransactionLogger.getPatternLogger();
+        logAdminName(admin,logger);
+        
+        try {
+            byte[] keyStoreBytes = raMasterApiProxyBean.keyRecoverEnrollWS(admin, username, certSNinHex, issuerDN, password, hardTokenSN);
+            final java.security.KeyStore ks;
+            final KeyStore keyStore;
+            if (keyStoreBytes[0] == PKCS12_MAGIC) {
+                ks = java.security.KeyStore.getInstance("PKCS12", "BC");
+            } else if (keyStoreBytes[0] == JKS_MAGIC) {
+                ks = java.security.KeyStore.getInstance("JKS");
+            } else {
+                throw new IOException("Unsupported keystore type. Must be PKCS12 or JKS");
+            }
+            
+            ks.load(new ByteArrayInputStream(keyStoreBytes), password.toCharArray());
+            keyStore = new KeyStore(ks, password);
+            return keyStore;
+        } catch (KeyStoreException | NoSuchProviderException | NoSuchAlgorithmException | CertificateException | IOException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw new EjbcaException(ErrorCode.NOT_SUPPORTED_KEY_STORE, e.getMessage());
+        } catch (AuthorizationDeniedException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw e;
+        } catch (CADoesntExistsException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw e;
+        } catch (WaitingForApprovalException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw e;
+        } catch (NotFoundException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw e;
+        } catch(EjbcaException e) {
+            logger.paramPut(TransactionTags.ERROR_MESSAGE.toString(), e.toString());
+            throw e;
+        } finally {
+            logger.writeln();
+            logger.flush();
+        }
+    }
+    
+    @Override
 	public void revokeToken(String hardTokenSN, int reason)
 	throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException, AlreadyRevokedException, EjbcaException, ApprovalException, WaitingForApprovalException {
         final IPatternLogger logger = TransactionLogger.getPatternLogger();
@@ -1631,16 +1698,9 @@ public class EjbcaWS implements IEjbcaWS {
 		try{
 		  AuthenticationToken admin = getAdmin();
           logAdminName(admin,logger);
-
-		  // check that admin is autorized to CA
-		  int caid = CertTools.stringToBCDNString(issuerDN).hashCode();
-		  caSession.verifyExistenceOfCA(caid);
-		  if(!authorizationSession.isAuthorizedNoLogging(admin, StandardRules.CAACCESS.resource() +caid)) {
-			  final String msg = intres.getLocalizedMessage("authorization.notuathorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
-			  throw new AuthorizationDeniedException(msg);
-		  }
-
-		  CertificateStatus certinfo = certificateStoreSession.getStatus(issuerDN, new BigInteger(certificateSN,16));
+          // The method over RA Master API will also check if the CA (issuer DN) is something we handle and throw a CADoesntExistsException if not
+		  // It also checks if we are authorized to the CA, and throws AuthorizationDeniedException if not
+          CertificateStatus certinfo = raMasterApiProxyBean.getCertificateStatus(admin, issuerDN, new BigInteger(certificateSN,16));
 		  // If certificate is not available, pass this and return null
 		  if(certinfo != null && !certinfo.equals(CertificateStatus.NOT_AVAILABLE)){
 		    return new RevokeStatus(certinfo, issuerDN, certificateSN);
@@ -1724,9 +1784,11 @@ public class EjbcaWS implements IEjbcaWS {
 
     @SuppressWarnings("deprecation")
     @Override
-	public List<TokenCertificateResponseWS> genTokenCertificates(UserDataVOWS userDataWS, List<TokenCertificateRequestWS> tokenRequests, HardTokenDataWS hardTokenDataWS, boolean overwriteExistingSN, boolean revokePreviousCards)
-		throws CADoesntExistsException, AuthorizationDeniedException, WaitingForApprovalException, HardTokenExistsException,UserDoesntFullfillEndEntityProfile, ApprovalException, EjbcaException, ApprovalRequestExpiredException, ApprovalRequestExecutionException {
-		final ArrayList<TokenCertificateResponseWS> retval = new ArrayList<>();
+    public List<TokenCertificateResponseWS> genTokenCertificates(UserDataVOWS userDataWS, List<TokenCertificateRequestWS> tokenRequests,
+            HardTokenDataWS hardTokenDataWS, boolean overwriteExistingSN, boolean revokePreviousCards) throws CADoesntExistsException,
+            AuthorizationDeniedException, WaitingForApprovalException, HardTokenExistsException, UserDoesntFullfillEndEntityProfile,
+            ApprovalException, EjbcaException, ApprovalRequestExpiredException, ApprovalRequestExecutionException {
+    	final ArrayList<TokenCertificateResponseWS> retval = new ArrayList<>();
 		AuthenticationToken admin = getAdmin(true);
 		int endEntityProfileId = 0;
 		boolean hardTokenExists = false;
@@ -1744,8 +1806,7 @@ public class EjbcaWS implements IEjbcaWS {
 		try {
 			significantcAInfo = caSession.getCAInfo(intAdmin, userDataWS.getCaName());
 		if(significantcAInfo == null){
-			throw getEjbcaException("Error the given CA : " + userDataWS.getCaName() + " could not be found.",
-					logger, ErrorCode.CA_NOT_EXISTS, null);
+			throw new CADoesntExistsException("Error the given CA : " + userDataWS.getCaName() + " could not be found.");
 		}
 
 		EndEntityInformation endEntityInformation = endEntityAccessSession.findUser(intAdmin, userDataWS.getUsername());
@@ -2009,8 +2070,12 @@ public class EjbcaWS implements IEjbcaWS {
 
 						genCertificates.add(cert);
 						// Generate Keystore
+						CAInfo info = caSession.getCAInfo(admin, cAInfo.getCAId());
+						if (info == null) {
+                            throw new CADoesntExistsException("CA with id " + cAInfo.getCAId() + " doesn't exist.");
+                        } 
 						// Fetch CA Cert Chain.
-						Collection<java.security.cert.Certificate> chain =  caSession.getCAInfo(admin, cAInfo.getCAId()).getCertificateChain();
+						Collection<java.security.cert.Certificate> chain =  info.getCertificateChain();
 						String alias = CertTools.getPartFromDN(CertTools.getSubjectDN(cert), "CN");
 						if (alias == null){
 							alias = userData.getUsername();
@@ -2375,6 +2440,9 @@ public class EjbcaWS implements IEjbcaWS {
 			int caId = 0;
 			if(cAName  != null){
 				CAInfo cAInfo = caSession.getCAInfo(admin, cAName);
+                if (cAInfo == null) {
+                    throw new CADoesntExistsException("CA with name " + cAName + " doesn't exist.");
+                } 
 				caId = cAInfo.getCAId();
 			} else {
 				caId = ((X509CertificateAuthenticationToken)admin).getCertificate().getSubjectDN().getName().hashCode();
@@ -2543,13 +2611,8 @@ public class EjbcaWS implements IEjbcaWS {
 		try {
 		    final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(entityProfileId);
 			if (profile != null) {
-			    final String value = profile.getValue(EndEntityProfile.AVAILCERTPROFILES,0);
-				if (value != null) {
-				    final String[] availablecertprofilesId = value.split(EndEntityProfile.SPLITCHAR);
-					for (String id : availablecertprofilesId) {
-						int i = Integer.parseInt(id);
-						ret.put(certificateProfileSession.getCertificateProfileName(i), i);
-					}
+				for (int id : profile.getAvailableCertificateProfileIds()) {
+					ret.put(certificateProfileSession.getCertificateProfileName(id), id);
 				}
 			}
         } catch (RuntimeException e) {	// EJBException, ...
@@ -2570,13 +2633,12 @@ public class EjbcaWS implements IEjbcaWS {
 		try {
 			final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(entityProfileId);
 			if (profile != null) {
-			    final Collection<String> cas = profile.getAvailableCAs(); // list of CA ids available in profile
+			    final Collection<Integer> cas = profile.getAvailableCAs(); // list of CA ids available in profile
 			    final HashMap<Integer,String> map = caSession.getCAIdToNameMap();
-				for (String id : cas ) {
-					Integer i = Integer.valueOf(id);
-					String name = map.get(i);
+				for (int id : cas) {
+					String name = map.get(id);
 					if (name != null) {
-						ret.put(name, i);
+						ret.put(name, id);
 					}
 				}
 			}
@@ -2634,6 +2696,9 @@ public class EjbcaWS implements IEjbcaWS {
 			AuthenticationToken admin = getAdmin(true);
             logAdminName(admin,logger);
             CAInfo cainfo = caSession.getCAInfo(admin, caname);
+            if (cainfo == null) {
+                throw new CADoesntExistsException("CA with name " + caname + " doesn't exist.");
+            }
             publishingCrlSession.forceCRL(admin, cainfo.getCAId());
             publishingCrlSession.forceDeltaCRL(admin, cainfo.getCAId());
 		} catch (AuthorizationDeniedException e) {
@@ -2653,6 +2718,9 @@ public class EjbcaWS implements IEjbcaWS {
             AuthenticationToken admin = getAdmin(true);
             logAdminName(admin,logger);
             CAInfo cainfo = caSession.getCAInfo(admin, caname);
+            if (cainfo == null) {
+                throw new CADoesntExistsException("CA with name " + caname + " doesn't exist.");
+            }
             byte[] ret = crlStoreSession.getLastCRL(cainfo.getSubjectDN(), deltaCRL);
             return ret;
         } catch (AuthorizationDeniedException e) {
@@ -2833,6 +2901,9 @@ public class EjbcaWS implements IEjbcaWS {
         logAdminName(admin,logger);
 		try {
 			CAInfo info = caSession.getCAInfo(admin, caname);
+			if(info == null) {
+			    throw new CADoesntExistsException("CA with name " + caname + " doesn't exist.");
+			}
 			if (info.getStatus() == CAConstants.CA_WAITING_CERTIFICATE_RESPONSE){
 				return retval;
 			}

@@ -19,6 +19,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,7 +32,8 @@ import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.Enumeration;
+import java.util.Collections;
+import java.util.List;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -41,6 +43,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -78,30 +81,58 @@ import org.ejbca.core.ejb.ca.revoke.RevocationSessionRemote;
 import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityExistsException;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.ejbca.core.ejb.unidfnr.UnidfnrProxySessionRemote;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.protocol.ocsp.extension.unid.FnrFromUnidExtension;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
- * Tests http pages of ocsp lookup server. This test requires a lot of setup. - The lookup service must be active - There must be a database for the
- * unid-fnr mapping with the mapping 123456789, 654321 - You must have a CA that has issued certificates with serialNumber in the DN matching the unid
- * 123456789 - You also need a keystore issued by the CA for TLS communication, the keystore cert must be configured in the lookup extension as
- * trusted - /lookup-kstrust.p12 (password lookup) - You also need a keystore as above but not configured as trusted in the lookup extension -
- * /lookup-ksnotrust.p12 (password lookup) - The CA-certificate issuing the two keystores should be configured in ejbca.properties
+ * 
+ * Tests http pages of ocsp lookup server. This test requires the following setup:  
+ * 
+ *  1- The unidfnr extension must be activated and deployed via ocsp.properties file.
+ *  2- The lookup service (ocsp lookup) must be active. 
+ *  3- There must be a database for the unid-fnr mapping with the mapping 123456789, 654321 (it can be created using the create-table-unid-mysql.sql 
+ *     script which can be found under modules/unidfnr/resources/scripts/). 
+ *  4- You must have a CA that has issued certificates with serialNumber in the DN matching the unid
+ *     123456789 (Default ManagementCA can be used). 
+ *  5- You also need a keystore issued by the CA for TLS communication located under LOOKUP_KSTRUST_PATH, 
+ *     and its keystore cert (in pem format) must be configured in the ocsp lookup extension.
+ *  6- You also need a keystore as above but not configured as trusted in the lookup extension located under LOOKUP_KSNOTRUST_PATH. 
+ *  7- The CA-certificate issuing the two keystores should be configured in ejbca.properties (default ManagementCA could be used).
  * 
  * Simply create two new users with batch generation and PKCS12 keystores in ejbca and issue their keystores. The SSL certificate used for JBoss must
  * be issued by the same CA that creates lookup-kstrust.p12.
  * 
- * The database table for the UnidFnrMapping should look like (MySQL): CREATE TABLE UnidFnrMapping( unid varchar(250) NOT NULL DEFAULT '', fnr
- * varchar(250) NOT NULL DEFAULT '', PRIMARY KEY (unid) );
+ * The database table for the UnidFnrMapping should look like (MySQL): 
+    CREATE TABLE UnidFnrMapping (
+    unid VARCHAR(250) NOT NULL DEFAULT '',
+    fnr  VARCHAR(250) NOT NULL DEFAULT '',
+    rowProtection LONGTEXT,
+    rowVersion INT(11) NOT NULL,
+    PRIMARY KEY (unid);
+ *
+ *
  * 
- **/
+ * @version $Id$
+ *
+ */
 public class ProtocolLookupServerHttpTest extends CaTestCase {
     private static Logger log = Logger.getLogger(ProtocolLookupServerHttpTest.class);
 
+    // Set the proper trust/notrust keystore parameters here
+    private static final String LOOKUP_KSTRUST_PATH = "";
+    private static final String LOOKUP_KSNOTRUST_PATH = "";
+    private static final String KEYSTORE_PASS_PHRASE = "foo123";
+    private static final String TRUSTSTORE_PASS_PHRASE = "foo123";
+    private static final String TRUSTED_CA_NAME = "ManagementCA";
+    private static final String SAMPLE_UNID = "123456789";
+    private static final String SAMPLE_FNR = "654321";
+    
     private String httpReqPath;
     private String resourceOcsp;
 
@@ -114,12 +145,15 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
     private EndEntityManagementSessionRemote endEntityManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityManagementSessionRemote.class);
     private RevocationSessionRemote revocationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RevocationSessionRemote.class);
     private SignSessionRemote signSession = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class);
+    private static UnidfnrProxySessionRemote unidfnrProxySessionBean = EjbRemoteHelper.INSTANCE.getRemoteSession(UnidfnrProxySessionRemote.class,
+            EjbRemoteHelper.MODULE_TEST);
 
     @BeforeClass
     public static void beforeClass() {
         // Install BouncyCastle provider
         CryptoProviderTools.installBCProvider();
-
+        unidfnrProxySessionBean.removeUnidFnrDataIfPresent(SAMPLE_UNID);
+        unidfnrProxySessionBean.stroreUnidFnrData(SAMPLE_UNID, SAMPLE_FNR);
     }
 
     @Before
@@ -146,20 +180,21 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
      * @throws Exception error
      */
     @Test
+    //@Ignore
     public void test01OcspGoodWithFnr() throws Exception {
         // Make user that we know...
         boolean userExists = false;
         try {
-            endEntityManagementSession.addUser(admin, "unidtest", "foo123", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest", null,
+            endEntityManagementSession.addUser(admin, "unidtest", "foo123", "C=SE,O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+",CN=UNIDTest", null,
                     "unidtest@anatom.se", false, EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, EndEntityTypes.ENDUSER.toEndEntityType(),
                     SecConst.TOKEN_SOFT_PEM, 0, caid);
-            log.debug("created user: unidtest, foo123, C=SE, O=AnaTom,surname=Jansson,serialNumber=123456789, CN=UNIDTest");
+            log.debug("created user: unidtest, foo123, C=SE, O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+", CN=UNIDTest");
         } catch (EndEntityExistsException e) {
             userExists = true;
         }
         if (userExists) {
             log.debug("User unidtest already exists.");
-            EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest",
+            EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+",CN=UNIDTest",
                     caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
                     EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
                     null);
@@ -174,18 +209,21 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         assertNotNull("Failed to create certificate", ocspTestCert);
 
         // And an OCSP request
-        OCSPReqBuilder gen = new OCSPReqBuilder();
-        gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
+        OCSPReqBuilder ocspReqBuilder = new OCSPReqBuilder();
+        ocspReqBuilder.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
-        gen.setRequestExtensions(new Extensions(extensions));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString(SAMPLE_UNID.getBytes()));
+        ocspReqBuilder.setRequestExtensions(new Extensions(extensions));
         
-        OCSPReq req = gen.build();
+        OCSPReq ocspReq = ocspReqBuilder.build();
 
         // Send the request and receive a BasicResponse
-        BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), true);
-        assertEquals(getFnr(brep), "654321");
-        SingleResp[] singleResps = brep.getResponses();
+        BasicOCSPResp basicOCSPResp = sendOCSPPost(ocspReq.getEncoded(), true);
+        
+        System.out.println("Basic OCSP request extension oids  " + basicOCSPResp.getExtensionOIDs());
+        
+        assertEquals(SAMPLE_FNR, getFnr(basicOCSPResp));
+        SingleResp[] singleResps = basicOCSPResp.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
 
@@ -201,21 +239,36 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
      * @throws Exception error
      */
     @Test
+    @Ignore
     public void test02OcspBadWithFnr() throws Exception {
+        // Change uses to a Unid that is OK
+        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+",CN=UNIDTest",
+                caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
+                EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
+                null);
+        userData.setPassword("foo123");
+        userData.setStatus(EndEntityConstants.STATUS_NEW);
+        endEntityManagementSession.changeUser(admin, userData, false);
+        log.debug("Reset status to NEW");
+        // Generate certificate for the new/changed user
+        ocspTestCert = (X509Certificate) signSession.createCertificate(admin, "unidtest", "foo123", new PublicKeyWrapper(keys.getPublic()));
+        assertNotNull("Failed to create certificate", ocspTestCert);
+        
+        // Revoke the certificate immediately!
         revocationSession.revokeCertificate(admin, ocspTestCert, null, RevokedCertInfo.REVOCATION_REASON_KEYCOMPROMISE, null);
 
         // And an OCSP request
         OCSPReqBuilder gen = new OCSPReqBuilder();
         gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString(SAMPLE_UNID.getBytes()));
         gen.setRequestExtensions(new Extensions(extensions));
         OCSPReq req = gen.build();
 
         // Send the request and receive a BasicResponse
         BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), true);
         // When a certificate is revoked the FNR must not be returned
-        assertEquals(getFnr(brep), null);
+        assertEquals(StringUtils.EMPTY, getFnr(brep));
         SingleResp[] singleResps = brep.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
@@ -236,9 +289,10 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
      * @throws Exception error
      */
     @Test
+    @Ignore
     public void test03OcspGoodWithNoFnr() throws Exception {
         // Change uses to a Unid that we don't have mapping for
-        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest",
+        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=12345678,CN=UNIDTest",
                 caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
                 EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
                 null);
@@ -253,13 +307,13 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         OCSPReqBuilder gen = new OCSPReqBuilder();
         gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("12345678".getBytes()));
         gen.setRequestExtensions(new Extensions(extensions));
         OCSPReq req = gen.build();
 
         // Send the request and receive a BasicResponse
         BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), true);
-        assertEquals(getFnr(brep), null);
+        assertEquals(StringUtils.EMPTY, getFnr(brep));
         SingleResp[] singleResps = brep.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
@@ -271,14 +325,15 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
     }
 
     /**
-     * Tests ocsp message with good status but no serialNnumber in the DN
+     * Tests ocsp message with good status but no serialNumber in the DN
      * 
      * @throws Exception error
      */
     @Test
+    @Ignore
     public void test04OcspGoodNoSerialNo() throws Exception {
         // Change uses to not have any serialNumber
-        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest",
+        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,CN=UNIDTest",
                 caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
                 EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
                 null);
@@ -293,13 +348,13 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         OCSPReqBuilder gen = new OCSPReqBuilder();
         gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString(SAMPLE_UNID.getBytes()));
         gen.setRequestExtensions(new Extensions(extensions));
         OCSPReq req = gen.build();
 
         // Send the request and receive a BasicResponse
         BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), true);
-        assertEquals(getFnr(brep), null);
+        assertEquals(StringUtils.EMPTY, getFnr(brep));
         SingleResp[] singleResps = brep.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
@@ -311,14 +366,15 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
     }
 
     /**
-     * test a lookup message from an untrusted requestor, should not work
+     * test a lookup message from an untrusted requester, should not work
      * 
      * @throws Exception
      */
     @Test
+    @Ignore
     public void test05HttpsNotAuthorized() throws Exception {
         // Change uses to a Unid that is OK
-        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest",
+        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+",CN=UNIDTest",
                 caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
                 EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
                 null);
@@ -334,13 +390,13 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         OCSPReqBuilder gen = new OCSPReqBuilder();
         gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString(SAMPLE_UNID.getBytes()));
         gen.setRequestExtensions(new Extensions(extensions));
         OCSPReq req = gen.build();
 
         // Send the request and receive a BasicResponse
         BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), false);
-        assertEquals(getFnr(brep), null);
+        assertEquals(StringUtils.EMPTY, getFnr(brep));
         SingleResp[] singleResps = brep.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
@@ -357,12 +413,13 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
      * @throws Exception
      */
     @Test
+    @Ignore
     public void test06HttpNotAuthorized() throws Exception {
         // Change to use plain http, we should be able to get a OCSP response, but the FNR mapping
-        // will not be returned bacuse it requires https with client authentication
+        // will not be returned because it requires https with client authentication
         httpReqPath = "http://127.0.0.1:8080/ejbca";
         // Change uses to a Unid that is OK
-        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber=123456789,CN=UNIDTest",
+        EndEntityInformation userData = new EndEntityInformation("unidtest", "C=SE,O=AnaTom,surname=Jansson,serialNumber="+SAMPLE_UNID+",CN=UNIDTest",
                 caid, null, "unidtest@anatom.se", EndEntityConstants.STATUS_NEW, EndEntityTypes.ENDUSER.toEndEntityType(),
                 EndEntityConstants.EMPTY_END_ENTITY_PROFILE, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, null, null, SecConst.TOKEN_SOFT_PEM, 0,
                 null);
@@ -377,13 +434,13 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         OCSPReqBuilder gen = new OCSPReqBuilder();
         gen.addRequest(new JcaCertificateID(SHA1DigestCalculator.buildSha1Instance(), cacert, ocspTestCert.getSerialNumber()));
         Extension[] extensions = new Extension[1];
-        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString("123456789".getBytes()));
+        extensions[0] = new Extension(FnrFromUnidExtension.FnrFromUnidOid, false, new DEROctetString(SAMPLE_UNID.getBytes()));
         gen.setRequestExtensions(new Extensions(extensions));
         OCSPReq req = gen.build();
 
         // Send the request and receive a BasicResponse
         BasicOCSPResp brep = sendOCSPPost(req.getEncoded(), true);
-        assertEquals(getFnr(brep), null);
+        assertEquals(StringUtils.EMPTY, getFnr(brep));
         SingleResp[] singleResps = brep.getResponses();
         assertEquals("No of SingResps should be 1.", singleResps.length, 1);
         SingleResp singleResp = singleResps[0];
@@ -409,24 +466,25 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
 
         // POST it
         con.setRequestProperty("Content-Type", "application/ocsp-request");
-        OutputStream os = con.getOutputStream();
-        os.write(ocspPackage);
-        os.close();
+        OutputStream outputStream = con.getOutputStream();
+        outputStream.write(ocspPackage);
+        outputStream.close();
         assertEquals("Response code", 200, con.getResponseCode());
         assertEquals("Content-Type", "application/ocsp-response", con.getContentType());
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         // This works for small requests, and OCSP requests are small
-        InputStream in = con.getInputStream();
-        int b = in.read();
-        while (b != -1) {
-            baos.write(b);
-            b = in.read();
+        try (InputStream inputStream = con.getInputStream()) {
+            int b = inputStream.read();
+            while (b != -1) {
+                baos.write(b);
+                b = inputStream.read();
+            }
+            baos.flush();
         }
-        baos.flush();
-        in.close();
         byte[] respBytes = baos.toByteArray();
         OCSPResp response = new OCSPResp(respBytes);
         assertEquals("Response status not zero.", response.getStatus(), 0);
+        
         BasicOCSPResp brep = (BasicOCSPResp) response.getResponseObject();
         X509CertificateHolder[] chain = brep.getCerts();
         boolean verify = brep.isSignatureValid(new JcaContentVerifierProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME).build(chain[0]));
@@ -434,8 +492,8 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         return brep;
     }
 
-    private String getFnr(BasicOCSPResp brep) throws IOException {
-        byte[] fnrrep = brep.getExtension(FnrFromUnidExtension.FnrFromUnidOid).getExtnValue().getEncoded();
+    private String getFnr(BasicOCSPResp basicOCSPResp) throws IOException {
+        byte[] fnrrep = basicOCSPResp.getExtension(FnrFromUnidExtension.FnrFromUnidOid).getExtnValue().getEncoded();
         if (fnrrep == null) {
             return null;
         }
@@ -450,35 +508,41 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
     private SSLSocketFactory getSSLFactory(boolean trust) throws GeneralSecurityException, IOException {
         log.trace(">getSSLFactory()");
 
-        String trustp12 = "/lookup-kstrust.p12";
-        if (!trust) {
-            trustp12 = "/lookup-ksnotrust.p12";
+        final File trustp12 = trust ? new File(LOOKUP_KSTRUST_PATH) : new File(LOOKUP_KSNOTRUST_PATH);
+
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+        KeyStore keystore = KeyStore.getInstance("PKCS12", "BC");
+
+        try (final FileInputStream fileInputStream = new FileInputStream(trustp12)) {
+            keystore.load(fileInputStream, KEYSTORE_PASS_PHRASE.toCharArray());
         }
-        char[] passphrase = "lookup".toCharArray();
 
-        SSLContext ctx = SSLContext.getInstance("TLS");
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-
-        // Put the key and certs in the user keystore
-        KeyStore ks = KeyStore.getInstance("PKCS12", "BC");
-        ks.load(new FileInputStream(trustp12), passphrase);
-        kmf.init(ks, passphrase);
+        keyManagerFactory.init(keystore, KEYSTORE_PASS_PHRASE.toCharArray());
 
         // Now make a truststore to verify the server
         KeyStore trustks = KeyStore.getInstance("jks");
-        trustks.load(null, "foo123".toCharArray());
+        trustks.load(null, TRUSTSTORE_PASS_PHRASE.toCharArray());
+
         // add trusted CA cert
-        Enumeration<String> en = ks.aliases();
-        String alias = en.nextElement();
-        Certificate[] certs = KeyTools.getCertChain(ks, alias);
+        List<String> aliases = Collections.list(keystore.aliases());
+        Certificate[] certs = null;
+
+        for (final String alias : aliases) {
+            if (alias.equals(TRUSTED_CA_NAME)) {
+                continue;
+            }
+            certs = KeyTools.getCertChain(keystore, alias);
+        }
+        
         trustks.setCertificateEntry("trusted", certs[certs.length - 1]);
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
-        tmf.init(trustks);
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
+        trustManagerFactory.init(trustks);
 
-        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        ctx.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
         log.trace("<getSSLFactory()");
         return ctx.getSocketFactory();
+
     }
 
     /**
@@ -504,11 +568,10 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         log.trace("<getUrlConnection() --> " + orgcon);
         return orgcon;
     }
-
+    
     class SimpleVerifier implements HostnameVerifier {
         public boolean verify(String hostname, SSLSession session) {
             return true;
         }
     }
-
 }

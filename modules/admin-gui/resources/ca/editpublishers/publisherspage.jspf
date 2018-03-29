@@ -1,10 +1,10 @@
 <%
-	TreeMap<String, Integer> publishernames = ejbcawebbean.getInformationMemory().getAuthorizedPublisherNames(); 
+	TreeMap<String, Integer> publishernames = ejbcawebbean.getAuthorizedPublisherNames(); 
 
 %>
 
 
-<h1><%= ejbcawebbean.getText("MANAGEPUBLISHERS") %><%= ejbcawebbean.getHelpReference("/adminguide.html#LDAP%20and%20Publishers") %></h1>
+<h1><%= ejbcawebbean.getText("MANAGEPUBLISHERS") %><%= ejbcawebbean.getHelpReference("/LDAP_and_Publishers.html") %></h1>
 
 <form name="editpublishers" method="post"  action="<%= THIS_FILENAME%>">
   <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
@@ -32,7 +32,7 @@
     </tr>
     <tr> 
       <td width="40%">
-        <select name="<%=EditPublisherJSPHelper.SELECT_PUBLISHER%>" style="width: 50em" size="15"  >
+        <select class="select-list" name="<%=EditPublisherJSPHelper.SELECT_PUBLISHER%>" style="width: 50em" size="15"  >
           <% for(String publishername : publishernames.keySet()){ %>  
             <option value="<c:out value="<%= publishername %>"/>">
                 <c:out value="<%= publishername %>"/> 
@@ -72,8 +72,8 @@
       <td width="100%"> 
         <input type="text" name="<%= publisherhelper.TEXTFIELD_PUBLISHERNAME%>" size="40" maxlength="255" title="<%= ejbcawebbean.getText("FORMAT_ID_STR") %>"> 
         <input type="submit" name="<%= publisherhelper.BUTTON_ADD_PUBLISHER%>" onClick='return checkfieldforlegalchars("document.editpublishers.<%=publisherhelper.TEXTFIELD_PUBLISHERNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("ADD") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= publisherhelper.BUTTON_RENAME_PUBLISHER%>" onClick='return checkfieldforlegalchars("document.editpublishers.<%=publisherhelper.TEXTFIELD_PUBLISHERNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= publisherhelper.BUTTON_CLONE_PUBLISHER%>" onClick='return checkfieldforlegalchars("document.editpublishers.<%=publisherhelper.TEXTFIELD_PUBLISHERNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("USESELECTEDASTEMPLATE") %>">
+        <input type="submit" name="<%= publisherhelper.BUTTON_RENAME_PUBLISHER%>" onClick='return checkfieldforlegalchars("document.editpublishers.<%=publisherhelper.TEXTFIELD_PUBLISHERNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME_SELECTED") %>">&nbsp;&nbsp;&nbsp;
+        <input type="submit" name="<%= publisherhelper.BUTTON_CLONE_PUBLISHER%>" onClick='return checkfieldforlegalchars("document.editpublishers.<%=publisherhelper.TEXTFIELD_PUBLISHERNAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("CLONE_SELECTED") %>">
       </td>
     </tr>
   </table>

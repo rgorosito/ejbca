@@ -67,6 +67,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.CharUtils;
 import org.apache.commons.lang.StringUtils;
@@ -256,6 +257,8 @@ public abstract class CertTools {
     public static final String id_ct_redacted_domains = "1.3.6.1.4.1.11129.2.4.6";
     
     private static final String[] EMAILIDS = { EMAIL, EMAIL1, EMAIL2, EMAIL3 };
+    
+    private static final Pattern UNESCAPE_FIELD_REGEX = Pattern.compile("\\\\([,+\"\\\\<>; ])");
 
     public static final String BEGIN_CERTIFICATE_REQUEST = "-----BEGIN CERTIFICATE REQUEST-----";
     public static final String END_CERTIFICATE_REQUEST = "-----END CERTIFICATE REQUEST-----";
@@ -771,7 +774,7 @@ public abstract class CertTools {
                         currentStartPosition++;
                         endPosition--;
                     }
-                    parts.add(dn.substring(currentStartPosition, endPosition + 1));
+                    parts.add(unescapeFieldValue(dn.substring(currentStartPosition, endPosition + 1)));
                     if (onlyReturnFirstMatch) {
                         break;
                     }
@@ -848,6 +851,18 @@ public abstract class CertTools {
      */
     public static String getSubjectDN(final Certificate cert) {
         return getDN(cert, 1);
+    }
+
+    /**
+     * @param value String to enescape
+     * @return value in unescaped RDN format
+     */
+    public static String getUnescapedRdnValue(final String value){
+        if (StringUtils.isNotEmpty(value)) {
+            return org.ietf.ldap.LDAPDN.unescapeRDN(value);
+        } else {
+            return value;
+        }
     }
 
     /**
@@ -1381,7 +1396,7 @@ public abstract class CertTools {
      * @throws NoSuchProviderException
      * @throws CertificateException
      */
-    public static Collection<Certificate> getCertCollectionFromArray(Certificate[] certs, String provider) throws CertificateException,
+    public static List<Certificate> getCertCollectionFromArray(Certificate[] certs, String provider) throws CertificateException,
             NoSuchProviderException {
         if (log.isTraceEnabled()) {
             log.trace(">getCertCollectionFromArray: " + provider);
@@ -2510,7 +2525,27 @@ public abstract class CertTools {
      * @return Escaped string
      */
     protected static String escapeFieldValue(final String value) {
-        return value != null ? value.replaceAll("([,\\\\+\"])", "\\\\$1") : null;
+        if (value == null) {
+            return null;
+        } else if (value.indexOf('=') == value.length()-1) {
+            return value;
+        } else {
+            return LDAPDN.escapeRDN(value);
+        }
+    }
+    
+    /**
+     * Unescapes a value of a field in a DN, SAN or directory attributes.
+     * Unlike LDAPDN.unescapeRDN, this method handles value without the field name (e.g. example.com) and empty values (e.g. DNSNAME=)
+     * @param value Value to unescape
+     * @return Unescaped string
+     */
+    protected static String unescapeFieldValue(final String value) {
+        if (value == null) {
+            return null;
+        } else {
+            return UNESCAPE_FIELD_REGEX.matcher(value).replaceAll("$1");
+        }
     }
 
     
@@ -2666,7 +2701,7 @@ public abstract class CertTools {
 
         final String directoryName = getDirectoryStringFromAltName(altName);
         if (directoryName != null) {
-            final X500Name x500DirectoryName = new X500Name(CeSecoreNameStyle.INSTANCE, LDAPDN.unescapeRDN(directoryName));
+            final X500Name x500DirectoryName = new X500Name(CeSecoreNameStyle.INSTANCE, directoryName);
             final GeneralName gn = new GeneralName(4, x500DirectoryName);
             vec.add(gn);
         }

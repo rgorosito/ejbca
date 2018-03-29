@@ -37,7 +37,6 @@ import org.apache.log4j.Logger;
 import org.apache.myfaces.custom.fileupload.UploadedFile;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
@@ -130,9 +129,9 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
     public ListDataModel<CertificateProfileItem> getCertificateProfiles() {
         if (certificateProfileItems == null) {
-            final List<CertificateProfileItem> items = new ArrayList<CertificateProfileItem>();
+            final List<CertificateProfileItem> items = new ArrayList<>();
             final CertificateProfileSessionLocal certificateProfileSession = getEjbcaWebBean().getEjb().getCertificateProfileSession();
-            final List<Integer> authorizedProfileIds = new ArrayList<Integer>();
+            final List<Integer> authorizedProfileIds = new ArrayList<>();
 
             //Always include
             authorizedProfileIds.addAll(certificateProfileSession.getAuthorizedCertificateProfileIds(getAdmin(),
@@ -151,7 +150,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             }
             final List<Integer> profileIdsWithMissingCA = certificateProfileSession.getAuthorizedCertificateProfileWithMissingCAs(getAdmin());
             final Map<Integer, String> idToNameMap = certificateProfileSession.getCertificateProfileIdToNameMap();
-            final Set<Integer> existing = new HashSet<Integer>();
+            final Set<Integer> existing = new HashSet<>();
             for(Integer profileId : authorizedProfileIds) {
                 final boolean missingCa = profileIdsWithMissingCA.contains(profileId);
                 final boolean fixed = isCertProfileFixed(profileId);
@@ -173,7 +172,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
                     }
                 }
             });
-            certificateProfileItems = new ListDataModel<CertificateProfileItem>(items);
+            certificateProfileItems = new ListDataModel<>(items);
         }
         return certificateProfileItems;
     }
@@ -220,7 +219,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
     }
 
     private void selectCurrentRowData() {
-        final CertificateProfileItem certificateProfileItem = (CertificateProfileItem) getCertificateProfiles().getRowData();
+        final CertificateProfileItem certificateProfileItem = getCertificateProfiles().getRowData();
         selectedCertProfileId = certificateProfileItem.getId();
     }
 
@@ -235,9 +234,8 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         } else if (certProfileName.length() > 0) {
             try {
                 final CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
-                certificateProfile.setAvailableCAs(getEjbcaWebBean().getInformationMemory().getAuthorizedCAIds());
+                certificateProfile.setAvailableCAs(getEjbcaWebBean().getAuthorizedCAIds());
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().addCertificateProfile(getAdmin(), certProfileName, certificateProfile);
-                getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
                 setCertProfileName("");
             } catch (CertificateProfileExistsException e) {
                 addErrorMessage("CERTIFICATEPROFILEALREADY");
@@ -275,7 +273,6 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
                 }
                 getEjbcaWebBean().getEjb().getCertificateProfileSession()
                         .cloneCertificateProfile(getAdmin(), getSelectedCertProfileName(), certProfileName, authorizedCaIds);
-                getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
                 setCertProfileName("");
             } catch (CertificateProfileExistsException e) {
                 addErrorMessage("CERTIFICATEPROFILEALREADY");
@@ -305,7 +302,6 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             try {
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().removeCertificateProfile(getAdmin(), getSelectedCertProfileName());
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().flushProfileCache();
-                getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
             } catch (AuthorizationDeniedException e) {
                 addNonTranslatedErrorMessage("Not authorized to remove certificate profile.");
             }
@@ -334,7 +330,6 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             try {
                 getEjbcaWebBean().getEjb().getCertificateProfileSession()
                         .renameCertificateProfile(getAdmin(), getSelectedCertProfileName(), certProfileName);
-                getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
                 setCertProfileName("");
             } catch (CertificateProfileExistsException e) {
                 addErrorMessage("CERTIFICATEPROFILEALREADY");
@@ -359,15 +354,6 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         return getEjbcaWebBean().getEjb().getCertificateProfileSession().getCertificateProfile(selectedCertProfileId) != null;
     }
 
-    /*
-    @Deprecated // Bridge new and old so we can migrate step by step
-    private CAInterfaceBean getCaInterfaceBean() {
-        final ExternalContext externalContext = FacesContext.getCurrentInstance().getExternalContext();
-        final HttpSession httpSession = ((HttpSession)externalContext.getSession(false));
-        return (CAInterfaceBean) httpSession.getAttribute("cabean");
-    }
-    */
-
     private boolean canDeleteCertProfile() {
         boolean ret = true;
         final int certificateProfileId = getSelectedCertProfileId().intValue();
@@ -375,8 +361,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         final int certProfileType = certProfile.getType();
         // Count number of EEs that reference this CP
         if (certProfileType == CertificateConstants.CERTTYPE_ENDENTITY) {
-            final long numberOfEndEntitiesReferencingCP = getEjbcaWebBean().getEjb().getEndEntityManagementSession()
-                    .countEndEntitiesUsingCertificateProfile(certificateProfileId);
+            final long numberOfEndEntitiesReferencingCP = getEjbcaWebBean().getEjb().getEndEntityAccessSession().countByCertificateProfileId(certificateProfileId);
             if (numberOfEndEntitiesReferencingCP > 1000) {
                 ret = false;
                 addErrorMessage("CERTPROFILEUSEDINENDENTITIES");
@@ -384,7 +369,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             } else if (numberOfEndEntitiesReferencingCP > 0) {
                 ret = false;
                 addErrorMessage("CERTPROFILEUSEDINENDENTITIES");
-                final List<String> eeNames = getEjbcaWebBean().getEjb().getEndEntityManagementSession()
+                final List<String> eeNames = getEjbcaWebBean().getEjb().getEndEntityAccessSession()
                         .findByCertificateProfileId(certificateProfileId);
                 addNonTranslatedErrorMessage(getEjbcaWebBean().getText("DISPLAYINGFIRSTTENRESULTS") + numberOfEndEntitiesReferencingCP + " "
                         + getAsCommaSeparatedString(eeNames));
@@ -576,7 +561,6 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             } else {
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().addCertificateProfile(getAdmin(), profileid, profilename, certificateProfile);                
             }
-            getEjbcaWebBean().getInformationMemory().certificateProfilesEdited();
             importedFiles += filename + ", ";
             log.info("Added Certificate profile: " + profilename);
         } while ((ze = zis.getNextEntry()) != null);
@@ -618,7 +602,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, msg, null));
     }
 
-    private CertificateProfile getCertProfileFromByteArray(String profilename, byte[] profileBytes) throws AuthorizationDeniedException {
+    private CertificateProfile getCertProfileFromByteArray(String profilename, byte[] profileBytes) {
         ByteArrayInputStream is = new ByteArrayInputStream(profileBytes);
         CertificateProfile cprofile = new CertificateProfile();
         try {
@@ -640,13 +624,11 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
 
             // Make sure CAs in profile exist
             List<Integer> cas = cprofile.getAvailableCAs();
-            ArrayList<Integer> casToRemove = new ArrayList<Integer>();
+            ArrayList<Integer> casToRemove = new ArrayList<>();
             for (Integer currentCA : cas) {
                 // If the CA is not ANYCA and the CA does not exist, remove it from the profile before import
                 if (currentCA != CertificateProfile.ANYCA) {
-                    try {
-                        getEjbcaWebBean().getEjb().getCaSession().getCAInfo(getAdmin(), currentCA);
-                    } catch (CADoesntExistsException e) {
+                    if(!getEjbcaWebBean().getEjb().getCaSession().existsCa(currentCA)) {
                         casToRemove.add(currentCA);
                     }
                 }
@@ -663,7 +645,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
             cprofile.setAvailableCAs(cas);
             // Remove and warn about unknown publishers
             List<Integer> publishers = cprofile.getPublisherList();
-            ArrayList<Integer> allToRemove = new ArrayList<Integer>();
+            ArrayList<Integer> allToRemove = new ArrayList<>();
             for (Integer publisher : publishers) {
                 BasePublisher pub = null;
                 try {

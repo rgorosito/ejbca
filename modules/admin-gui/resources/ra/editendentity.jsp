@@ -5,7 +5,7 @@
     response.setContentType("text/html; charset="+org.ejbca.config.WebConfiguration.getWebContentEncoding());
 %>
 <%@page  errorPage="/errorpage.jsp" import="java.util.*, org.ejbca.ui.web.admin.configuration.EjbcaWebBean,org.ejbca.config.GlobalConfiguration, org.ejbca.ui.web.admin.rainterface.UserView,
-    org.ejbca.ui.web.RequestHelper,org.ejbca.ui.web.admin.rainterface.RAInterfaceBean, org.ejbca.ui.web.admin.rainterface.EndEntityProfileDataHandler, org.ejbca.core.model.ra.raadmin.EndEntityProfile, org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator, org.cesecore.certificates.endentity.EndEntityConstants,
+    org.ejbca.ui.web.RequestHelper,org.ejbca.ui.web.admin.rainterface.RAInterfaceBean, org.ejbca.core.model.ra.raadmin.EndEntityProfile, org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator, org.cesecore.certificates.endentity.EndEntityConstants,
                  javax.ejb.CreateException, java.io.Serializable, org.cesecore.authorization.AuthorizationDeniedException, org.cesecore.certificates.util.DNFieldExtractor, org.ejbca.core.model.ra.ExtendedInformationFields, org.cesecore.certificates.endentity.EndEntityInformation,
                  org.ejbca.ui.web.admin.hardtokeninterface.HardTokenInterfaceBean, org.ejbca.core.model.hardtoken.HardTokenIssuer,org.ejbca.core.model.hardtoken.HardTokenIssuerInformation,java.math.BigInteger,org.ejbca.core.model.SecConst,org.cesecore.util.StringTools,
                  org.cesecore.certificates.util.DnComponents,org.apache.commons.lang.time.DateUtils,org.cesecore.certificates.endentity.ExtendedInformation,org.cesecore.certificates.crl.RevokedCertInfo,org.cesecore.ErrorCode,org.ejbca.core.model.authorization.AccessRulesConstants,
@@ -120,432 +120,446 @@
     boolean endentitysaved = false;
     boolean usehardtokenissuers = false;
     boolean usekeyrecovery = false;
-
+    String[] profilenames = null;
     String approvalmessage = null;
 
-    Map<Integer, String> caidtonamemap = ejbcawebbean.getInformationMemory().getCAIdToNameMap();
+    Map<Integer, String> caidtonamemap = ejbcawebbean.getCAIdToNameMap();
 
     RequestHelper.setDefaultCharacterEncoding(request);
 
+    profilenames = (String[]) ejbcawebbean.getAuthorizedEndEntityProfileNames(AccessRulesConstants.CREATE_END_ENTITY).keySet().toArray(new String[0]);
+    
+    
     if (request.getParameter(USER_PARAMETER) != null) {
         username = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER), "UTF-8");
         try {
-    userdata = rabean.findUserForEdit(username);
-    if (userdata != null) {
-        notauthorized = false;
-        profileid = userdata.getEndEntityProfileId();    
-        profile = rabean.getEndEntityProfile(profileid);
-        if (request.getParameter(ACTION) != null) {
-            if (request.getParameter(ACTION).equals(ACTION_EDITUSER)) {
-                if (request.getParameter(BUTTON_SAVE) != null) {
-                    UserView newuser = new UserView();
-                    newuser.setEndEntityProfileId(profileid);
-                    newuser.setUsername(username);
-                    String value = request.getParameter(TEXTFIELD_PASSWORD);
-                    if (value != null) {
-                        value = value.trim();
-                        if (!value.equals("")) {
-                            newuser.setPassword(value);
-                        }
-                    }
-                    value = request.getParameter(CHECKBOX_REGENERATEPASSWD);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            newuser.setPassword("NEWPASSWORD");
-                        } else {
-                            newuser.setPassword(null);
-                        }
-                    }
-                    value = request.getParameter(SELECT_PASSWORD);
-                    if (value != null) {
-                        if (!value.equals("")) {
-                            newuser.setPassword(value);
-                        }
-                    }
-                    value = request.getParameter(CHECKBOX_CLEARTEXTPASSWORD);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            newuser.setClearTextPassword(true);
-                        } else {
-                            newuser.setClearTextPassword(false);
-                        }
-                    }
-                    // Start by filling all old ExtendedInformation from the existing user, if any
-                    // Fields that can be edited are changed below, but we don't want to loose anything else
-                    //
-                    // Fields we handle explicitly (view and edit):
-                    // MAXFAILEDLOGINATTEMPTS
-                    // EXTENSIONDATA
-                    // REMAININGLOGINATTEMPTS
-                    // CUSTOM_REQUESTCOUNTER
-                    // CUSTOM_REVOCATIONREASON
-					// CUSTOM_ENDTIME
-					// CERTIFICATESERIALNUMBER
-					// NAMECONSTRAINTS_PERMITTED
-					// NAMECONSTRAINTS_EXCLUDED
-					// 
-					// In addition we display information about:
-					// RAWSUBJECTDN
-					// KEYSTORE_ALGORITHM_TYPE
-					// KEYSTORE_ALGORITHM_SUBTYPE
-					// CERTIFICATE_REQUEST
-                    ExtendedInformation ei = userdata.getExtendedInformation();
-                    if (ei == null) {
-                        ei = new ExtendedInformation();
-                    }
-                    editendentitybean.setExtendedInformation(ei);
-                    value = request.getParameter(RADIO_MAXFAILEDLOGINS);
-                    if (RADIO_MAXFAILEDLOGINS_VAL_UNLIMITED.equals(value)) {
-                        value = "-1";
-                    } else {
-                        value = request.getParameter(TEXTFIELD_MAXFAILEDLOGINS);
-                    }
-                    if (value != null) {
-                        ei.setMaxLoginAttempts(Integer.parseInt(value));
-                        newuser.setExtendedInformation(ei);
-                    }
-                    value = request.getParameter(TEXTAREA_EXTENSIONDATA);
-                    if (value != null) {
-                        // Save the new value if the profile allows it
-                        if (profile.getUseExtensiondata()) {
-                            editendentitybean.setExtensionData(value);
-                        }
-                    }
-                    value = request.getParameter(CHECKBOX_RESETLOGINATTEMPTS);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            ei.setRemainingLoginAttempts(ei.getMaxLoginAttempts());
-                            newuser.setExtendedInformation(ei);
-                        }
-                    }
-                    value = request.getParameter(TEXTFIELD_EMAIL);
-                    String emaildomain = request.getParameter(TEXTFIELD_EMAILDOMAIN);
-                    if (value == null || value.trim().equals("")) {
-                        if (emaildomain == null || emaildomain.trim().equals("")) {
-                            newuser.setEmail("");
-                        } else {
-                            // TEXTFIELD_EMAIL empty but not TEXTFIELD_EMAILDOMAIN
-                            approvalmessage = ejbcawebbean.getText("EMAILINCOMPLETE");
-                        }
-                    } else {
-                        value = value.trim();
-                        if (emaildomain != null) {
-                            emaildomain = emaildomain.trim();
-                            if (!emaildomain.equals("")) {
-                                newuser.setEmail(value + "@" + emaildomain);
-                            } else {
-                                // TEXTFIELD_EMAILDOMAIN empty but not TEXTFIELD_EMAIL
-                                approvalmessage = ejbcawebbean.getText("EMAILINCOMPLETE");
-                            }
-                        }
-                        emaildomain = request.getParameter(SELECT_EMAILDOMAIN);
-                        if (emaildomain != null) {
-                            emaildomain = emaildomain.trim();
-                            if (!emaildomain.equals("")) {
-                                newuser.setEmail(value + "@" + emaildomain);
-                            }
-                        }
-                    }
-                    value = request.getParameter(TEXTFIELD_CARDNUMBER);
-                    if (value != null) {
-                        value = value.trim();
-                        newuser.setCardNumber(value);
-                    }
-                    String subjectdn = "";
-                    int numberofsubjectdnfields = profile.getSubjectDNFieldOrderLength();
-                    for (int i = 0; i < numberofsubjectdnfields; i++) {
-                        value = null;
-                        fielddata = profile.getSubjectDNFieldsInOrder(i);
-                        if (!EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.DNEMAILADDRESS)){
-                            value = request.getParameter(TEXTFIELD_SUBJECTDN + i);
-                        } else {
-                            if (request.getParameter(CHECKBOX_SUBJECTDN + i) != null) {
-                                if (request.getParameter(CHECKBOX_SUBJECTDN + i).equals(CHECKBOX_VALUE)) {
-                                    value = newuser.getEmail();
-                                }
-                            }
-                        }
-                        if (value != null) {
-                            value = value.trim();
-                            final String field = DNFieldExtractor.getFieldComponent(
-                                    DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                    DNFieldExtractor.TYPE_SUBJECTDN) + value;
-                            final String dnPart;
-                            if (field.charAt(field.length() - 1) != '=') {
-                                dnPart = org.ietf.ldap.LDAPDN.escapeRDN(field);
-                            } else {
-                                dnPart = field;
-                            }
-                            if (subjectdn.equals("")) {
-                                subjectdn = dnPart;
-                            } else {
-                                subjectdn += ", " + dnPart;
-                            }
-                        }
-                        value = request.getParameter(SELECT_SUBJECTDN + i);
-                        if (value != null) {
-                            if (!value.equals("")) {
-                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
-                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                        DNFieldExtractor.TYPE_SUBJECTDN) + value);
-                                if (subjectdn.equals("")) {
-                                    subjectdn = value;                                    
-                                } else {
-                                    subjectdn += ", " + value;
-                                }
-                            }
-                        }
-                    }
-
-                    newuser.setSubjectDN(subjectdn);
-
-                    String subjectaltname = "";
-                    int numberofsubjectaltnamefields = profile.getSubjectAltNameFieldOrderLength();
-                    for (int i = 0; i < numberofsubjectaltnamefields; i++) {
-                        fielddata = profile.getSubjectAltNameFieldsInOrder(i);
-                        value = null;
-                        if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.RFC822NAME)) {
-                            if (request.getParameter(CHECKBOX_SUBJECTALTNAME + i) != null) {
-                                if (request.getParameter(CHECKBOX_SUBJECTALTNAME + i).equals(CHECKBOX_VALUE)) {
-                                    value = newuser.getEmail();
-                                }
-                            } else {
-                                // If we are not using the email field, we have to gether together the email pieces
-                                String dom = request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
-                                String na = request.getParameter(TEXTFIELD_EMAIL + i);
-                                if ((na != null) && (!na.trim().equals("")) && (dom != null) && (!dom.trim().equals(""))) {
-                                    value = na + "@" + dom;
-                                } else {
-                                    value = dom;
-                                }
-                            }
-                        } else {
-                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.UPN)) {
-                                if (request.getParameter(TEXTFIELD_SUBJECTALTNAME + i) != null
-                                        && !request.getParameter(TEXTFIELD_SUBJECTALTNAME + i).equals("")
-                                        && request.getParameter(TEXTFIELD_UPNNAME + i) != null
-                                        && !request.getParameter(TEXTFIELD_UPNNAME + i).equals("")) {
-                                    value = request.getParameter(TEXTFIELD_UPNNAME + i) + "@"
-                                            + request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
-                                }
-                            } else {
-                                value = request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
-                            }
-                        }
-                        if (value != null) {
-                            if (!value.equals("")) {
-                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
-                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                        DNFieldExtractor.TYPE_SUBJECTALTNAME) + value);
-                                if (subjectaltname.equals("")) {
-                                    subjectaltname = value;
-                                } else {
-                                    subjectaltname += ", " + value;
-                                }
-                            }
-                        }
-                        // We have to do almost the same again they may have select drop-downs instead of textfields
-                        value = request.getParameter(SELECT_SUBJECTALTNAME + i);
-                        if (value != null) {
-                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.UPN)) {
-                                if (request.getParameter(TEXTFIELD_UPNNAME + i) != null && !value.trim().equals("")) {
-                                    value = request.getParameter(TEXTFIELD_UPNNAME + i) + "@" + value;
-                                }
-                            }
-                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.RFC822NAME)) {
-                                String na = request.getParameter(TEXTFIELD_EMAIL + i);
-                                if ((na != null) && (!na.trim().equals("")) && !value.trim().equals("")) {
-                                    value = na + "@" + value;
-                                }
-                            }
-                            if (!value.equals("")) {
-                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
-                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                        DNFieldExtractor.TYPE_SUBJECTALTNAME) + value);
-                                if (subjectaltname.equals("")) {
-                                    subjectaltname = value;
-                                } else {
-                                    subjectaltname += ", " + value;
-                                }
-                            }
-                        }
-                    }
-
-                    newuser.setSubjectAltName(subjectaltname);
-
-                    String subjectdirattr = "";
-                    int numberofsubjectdirattrfields = profile.getSubjectDirAttrFieldOrderLength();
-                    for (int i = 0; i < numberofsubjectdirattrfields; i++) {
-                        fielddata = profile.getSubjectDirAttrFieldsInOrder(i);
-                        value = request.getParameter(TEXTFIELD_SUBJECTDIRATTR + i);
-                        if (value != null) {
-                            value = value.trim();
-                            if (!value.equals("")) {
-                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
-                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                        DNFieldExtractor.TYPE_SUBJECTDIRATTR) + value);
-                                if (subjectdirattr.equals("")) {
-                                    subjectdirattr = value;
-                                } else {
-                                    subjectdirattr += ", " + value;
-                                }
-                            }
-                        }
-                        value = request.getParameter(SELECT_SUBJECTDIRATTR + i);
-                        if (value != null) {
-                            if (!value.equals("")) {
-                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
-                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
-                                        DNFieldExtractor.TYPE_SUBJECTDIRATTR) + value);
-                                if (subjectdirattr.equals("")) {
-                                    subjectdirattr = value;
-                                }  else {
-                                    subjectdirattr += ", " + value;
-                                }
-                            }
-                        }
-                    }
-                    newuser.setSubjectDirAttributes(subjectdirattr);
-                    value = request.getParameter(SELECT_ALLOWEDREQUESTS);
-                    if (value != null) {
-                        ei.setCustomData(ExtendedInformationFields.CUSTOM_REQUESTCOUNTER, value);
-                        newuser.setExtendedInformation(ei);
-                    }
-                    value = request.getParameter(CHECKBOX_KEYRECOVERABLE);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            newuser.setKeyRecoverable(true);
-                        } else {
-                            newuser.setKeyRecoverable(false);
-                        }
-                    }
-                    value = request.getParameter(CHECKBOX_SENDNOTIFICATION);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            newuser.setSendNotification(true);
-                        } else {
-                            newuser.setSendNotification(false);
-                        }
-                    }
-                    value = request.getParameter(CHECKBOX_PRINT);
-                    if (value != null) {
-                        if (value.equals(CHECKBOX_VALUE)) {
-                            newuser.setPrintUserData(true);
-                        } else {
-                            newuser.setPrintUserData(false);
-                        }
-                    }
-
-                    value = request.getParameter(SELECT_CERTIFICATEPROFILE);
-                    newuser.setCertificateProfileId(Integer.parseInt(value));
-                    value = request.getParameter(SELECT_CA);
-                    newuser.setCAId(Integer.parseInt(value));
-                    value = request.getParameter(SELECT_TOKEN);
-                    int tokentype = Integer.parseInt(value);
-                    newuser.setTokenType(Integer.parseInt(value));
-                    int hardtokenissuer = SecConst.NO_HARDTOKENISSUER;
-                    if (tokentype > SecConst.TOKEN_SOFT && request.getParameter(SELECT_HARDTOKENISSUER) != null) {
-                        value = request.getParameter(SELECT_HARDTOKENISSUER);
-                        hardtokenissuer = Integer.parseInt(value);
-                    }
-                    newuser.setHardTokenIssuerId(hardtokenissuer);
-                    // Issuance revocation reason, what state a newly issued certificate will have
-                    value = request.getParameter(SELECT_ISSUANCEREVOCATIONREASON);
-                    // If it's not modifyable don't even try to modify it
-                    if ((profile.getUse(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0))
-                            && (!profile.isModifyable(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0))) {
-                        value = profile.getValue(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0);
-                    }
-                    if (value != null) {
-                        ei.setCustomData(ExtendedInformation.CUSTOM_REVOCATIONREASON, value);
-                        newuser.setExtendedInformation(ei);
-                    }
-                    value = request.getParameter(TEXTFIELD_STARTTIME);
-                    if (value != null) {
-                        value = value.trim();
-                        if (value.length() > 0) {
-                            String storeValue = ejbcawebbean.getImpliedUTCFromISO8601OrRelative(value);
-                            ei.setCustomData(EndEntityProfile.STARTTIME, storeValue);
-                            newuser.setExtendedInformation(ei);
-                        }
-                    }
-                    value = request.getParameter(TEXTFIELD_ENDTIME);
-                    if (value != null) {
-                        value = value.trim();
-                        if (value.length() > 0) {
-                            String storeValue = ejbcawebbean.getImpliedUTCFromISO8601OrRelative(value);
-                            ei.setCustomData(EndEntityProfile.ENDTIME, storeValue);
-                            newuser.setExtendedInformation(ei);
-                        }
-                    }
-                    value = request.getParameter(TEXTFIELD_CERTSERIALNUMBER);
-                    if (value != null && value.length() > 0) {
-                        ei.setCertificateSerialNumber(new BigInteger(value.trim(), 16));
-                    } else {
-                        ei.setCertificateSerialNumber(null);
-                    }
-                    value = request.getParameter(TEXTAREA_NC_PERMITTED);
-                    if (value != null && !value.trim().isEmpty()) {
-                        ei.setNameConstraintsPermitted(NameConstraint.parseNameConstraintsList(value));
-                    } else {
-                        ei.setNameConstraintsPermitted(null);
-                    }
-                    value = request.getParameter(TEXTAREA_NC_EXCLUDED);
-                    if (value != null && !value.trim().isEmpty()) {
-                        ei.setNameConstraintsExcluded(NameConstraint.parseNameConstraintsList(value));
-                    } else {
-                        ei.setNameConstraintsExcluded(null);
-                    }
-                    newuser.setExtendedInformation(ei);
-
-                    if (request.getParameter(SELECT_CHANGE_STATUS) != null) {
-                        int newstatus = Integer.parseInt(request.getParameter(SELECT_CHANGE_STATUS));
-                        if (newstatus == EndEntityConstants.STATUS_NEW || newstatus == EndEntityConstants.STATUS_GENERATED
-                                || newstatus == EndEntityConstants.STATUS_HISTORICAL
-                                || newstatus == EndEntityConstants.STATUS_KEYRECOVERY)
-                            newuser.setStatus(newstatus);
-                    }
-                    String newUsername = request.getParameter(TEXTFIELD_NEWUSERNAME);
-                    if (approvalmessage == null) {
-                        try {
-                            // Send changes to database.
-                            rabean.changeUserData(newuser, newUsername);
-                            endentitysaved = true;
-                            username = newUsername;
-                        } catch (org.cesecore.authorization.AuthorizationDeniedException e) {
-                            notauthorized = true;
-                        } catch (org.ejbca.core.ejb.ra.NoSuchEndEntityException e) {
-                            approvalmessage = ejbcawebbean.getText("ENDENTITYDOESNTEXIST");
-                        } catch (org.cesecore.certificates.ca.IllegalNameException e) {
-                            if (e.getMessage().equals("Username already taken")) {
-                                approvalmessage = ejbcawebbean.getText("ENDENTITYALREADYEXISTS");
-                            } else {
-                                throw e;
-                            }
-                        } catch (org.ejbca.core.model.approval.ApprovalException e) {
-                            approvalmessage = ejbcawebbean.getText("THEREALREADYEXISTSAPPROVAL");
-                        } catch (org.ejbca.core.model.approval.WaitingForApprovalException e) {
-                            approvalmessage = ejbcawebbean.getText("REQHAVEBEENADDEDFORAPPR");
-                        } catch (org.ejbca.core.EjbcaException e) {
-                            if (e.getErrorCode().equals(ErrorCode.SUBJECTDN_SERIALNUMBER_ALREADY_EXISTS)) {
-                                approvalmessage = ejbcawebbean.getText("SERIALNUMBERALREADYEXISTS");
-                            }
-                            if (e.getErrorCode().equals(ErrorCode.CA_NOT_EXISTS)) {
-                                approvalmessage = ejbcawebbean.getText("CADOESNTEXIST");
-                            }
-                            if (e.getErrorCode().equals(ErrorCode.FIELD_VALUE_NOT_VALID)) {
-                                approvalmessage = e.getMessage();
-                            }
-                            if (e.getErrorCode().equals(ErrorCode.NAMECONSTRAINT_VIOLATION)) {
-                                approvalmessage = e.getMessage();
-                            }
-                        }
-                        userdata = newuser;
-                    }
-                }
-            }
-        }
-    }
+        	userdata = rabean.findUserForEdit(username);
+		    
+		    if (userdata != null) {
+		        notauthorized = false;
+		        
+		        if (ACTION_CHANGEPROFILE.equals(request.getParameter(ACTION))) {
+		            profileid = Integer.parseInt(request.getParameter(SELECT_ENDENTITYPROFILE));
+		            userdata.setEndEntityProfileId(profileid);
+		        } else if (ACTION_EDITUSER.equals(request.getParameter(ACTION))) {
+		            profileid = Integer.parseInt(request.getParameter(HIDDEN_PROFILE));
+		            userdata.setEndEntityProfileId(profileid);
+		        } else {
+		            profileid = userdata.getEndEntityProfileId();
+		        }
+		        
+		        profile = rabean.getEndEntityProfile(profileid);
+		        if (request.getParameter(ACTION) != null) {
+		            if (request.getParameter(ACTION).equals(ACTION_EDITUSER)) {
+		                if (request.getParameter(BUTTON_SAVE) != null) {
+		                    UserView newuser = new UserView();
+		                    newuser.setEndEntityProfileId(profileid);
+		                    newuser.setUsername(username);
+		                    String value = request.getParameter(TEXTFIELD_PASSWORD);
+		                    if (value != null) {
+		                        value = value.trim();
+		                        if (!value.equals("")) {
+		                            newuser.setPassword(value);
+		                        }
+		                    }
+		                    value = request.getParameter(CHECKBOX_REGENERATEPASSWD);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            newuser.setPassword("NEWPASSWORD");
+		                        } else {
+		                            newuser.setPassword(null);
+		                        }
+		                    }
+		                    value = request.getParameter(SELECT_PASSWORD);
+		                    if (value != null) {
+		                        if (!value.equals("")) {
+		                            newuser.setPassword(value);
+		                        }
+		                    }
+		                    value = request.getParameter(CHECKBOX_CLEARTEXTPASSWORD);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            newuser.setClearTextPassword(true);
+		                        } else {
+		                            newuser.setClearTextPassword(false);
+		                        }
+		                    }
+		                    // Start by filling all old ExtendedInformation from the existing user, if any
+		                    // Fields that can be edited are changed below, but we don't want to loose anything else
+		                    //
+		                    // Fields we handle explicitly (view and edit):
+		                    // MAXFAILEDLOGINATTEMPTS
+		                    // EXTENSIONDATA
+		                    // REMAININGLOGINATTEMPTS
+		                    // CUSTOM_REQUESTCOUNTER
+		                    // CUSTOM_REVOCATIONREASON
+							// CUSTOM_ENDTIME
+							// CERTIFICATESERIALNUMBER
+							// NAMECONSTRAINTS_PERMITTED
+							// NAMECONSTRAINTS_EXCLUDED
+							// 
+							// In addition we display information about:
+							// RAWSUBJECTDN
+							// KEYSTORE_ALGORITHM_TYPE
+							// KEYSTORE_ALGORITHM_SUBTYPE
+							// CERTIFICATE_REQUEST
+		                    ExtendedInformation ei = userdata.getExtendedInformation();
+		                    if (ei == null) {
+		                        ei = new ExtendedInformation();
+		                    }
+		                    editendentitybean.setExtendedInformation(ei);
+		                    value = request.getParameter(RADIO_MAXFAILEDLOGINS);
+		                    if (RADIO_MAXFAILEDLOGINS_VAL_UNLIMITED.equals(value)) {
+		                        value = "-1";
+		                    } else {
+		                        value = request.getParameter(TEXTFIELD_MAXFAILEDLOGINS);
+		                    }
+		                    if (value != null) {
+		                        ei.setMaxLoginAttempts(Integer.parseInt(value));
+		                        newuser.setExtendedInformation(ei);
+		                    }
+		                    value = request.getParameter(TEXTAREA_EXTENSIONDATA);
+		                    if (value != null) {
+		                        // Save the new value if the profile allows it
+		                        if (profile.getUseExtensiondata()) {
+		                            editendentitybean.setExtensionData(value);
+		                        }
+		                    }
+		                    value = request.getParameter(CHECKBOX_RESETLOGINATTEMPTS);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            ei.setRemainingLoginAttempts(ei.getMaxLoginAttempts());
+		                            newuser.setExtendedInformation(ei);
+		                        }
+		                    }
+		                    value = request.getParameter(TEXTFIELD_EMAIL);
+		                    String emaildomain = request.getParameter(TEXTFIELD_EMAILDOMAIN);
+		                    if (value == null || value.trim().equals("")) {
+		                        if (emaildomain == null || emaildomain.trim().equals("")) {
+		                            newuser.setEmail("");
+		                        } else {
+		                            // TEXTFIELD_EMAIL empty but not TEXTFIELD_EMAILDOMAIN
+		                            approvalmessage = ejbcawebbean.getText("EMAILINCOMPLETE");
+		                        }
+		                    } else {
+		                        value = value.trim();
+		                        if (emaildomain != null) {
+		                            emaildomain = emaildomain.trim();
+		                            if (!emaildomain.equals("")) {
+		                                newuser.setEmail(value + "@" + emaildomain);
+		                            } else {
+		                                // TEXTFIELD_EMAILDOMAIN empty but not TEXTFIELD_EMAIL
+		                                approvalmessage = ejbcawebbean.getText("EMAILINCOMPLETE");
+		                            }
+		                        }
+		                        emaildomain = request.getParameter(SELECT_EMAILDOMAIN);
+		                        if (emaildomain != null) {
+		                            emaildomain = emaildomain.trim();
+		                            if (!emaildomain.equals("")) {
+		                                newuser.setEmail(value + "@" + emaildomain);
+		                            }
+		                        }
+		                    }
+		                    value = request.getParameter(TEXTFIELD_CARDNUMBER);
+		                    if (value != null) {
+		                        value = value.trim();
+		                        newuser.setCardNumber(value);
+		                    }
+		                    String subjectdn = "";
+		                    int numberofsubjectdnfields = profile.getSubjectDNFieldOrderLength();
+		                    for (int i = 0; i < numberofsubjectdnfields; i++) {
+		                        value = null;
+		                        fielddata = profile.getSubjectDNFieldsInOrder(i);
+		                        if (!EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.DNEMAILADDRESS)){
+		                            value = request.getParameter(TEXTFIELD_SUBJECTDN + i);
+		                        } else {
+		                            if (request.getParameter(CHECKBOX_SUBJECTDN + i) != null) {
+		                                if (request.getParameter(CHECKBOX_SUBJECTDN + i).equals(CHECKBOX_VALUE)) {
+		                                    value = newuser.getEmail();
+		                                }
+		                            }
+		                        }
+		                        if (value != null) {
+		                            value = value.trim();
+		                            final String field = DNFieldExtractor.getFieldComponent(
+		                                    DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                    DNFieldExtractor.TYPE_SUBJECTDN) + value;
+		                            final String dnPart;
+		                            if (field.charAt(field.length() - 1) != '=') {
+		                                dnPart = org.ietf.ldap.LDAPDN.escapeRDN(field);
+		                            } else {
+		                                dnPart = field;
+		                            }
+		                            if (subjectdn.equals("")) {
+		                                subjectdn = dnPart;
+		                            } else {
+		                                subjectdn += ", " + dnPart;
+		                            }
+		                        }
+		                        value = request.getParameter(SELECT_SUBJECTDN + i);
+		                        if (value != null) {
+		                            if (!value.equals("")) {
+		                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
+		                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                        DNFieldExtractor.TYPE_SUBJECTDN) + value);
+		                                if (subjectdn.equals("")) {
+		                                    subjectdn = value;                                    
+		                                } else {
+		                                    subjectdn += ", " + value;
+		                                }
+		                            }
+		                        }
+		                    }
+		
+		                    newuser.setSubjectDN(subjectdn);
+		
+		                    String subjectaltname = "";
+		                    int numberofsubjectaltnamefields = profile.getSubjectAltNameFieldOrderLength();
+		                    for (int i = 0; i < numberofsubjectaltnamefields; i++) {
+		                        fielddata = profile.getSubjectAltNameFieldsInOrder(i);
+		                        value = null;
+		                        if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.RFC822NAME)) {
+		                            if (request.getParameter(CHECKBOX_SUBJECTALTNAME + i) != null) {
+		                                if (request.getParameter(CHECKBOX_SUBJECTALTNAME + i).equals(CHECKBOX_VALUE)) {
+		                                    value = newuser.getEmail();
+		                                }
+		                            } else {
+		                                // If we are not using the email field, we have to gether together the email pieces
+		                                String dom = request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
+		                                String na = request.getParameter(TEXTFIELD_EMAIL + i);
+		                                if ((na != null) && (!na.trim().equals("")) && (dom != null) && (!dom.trim().equals(""))) {
+		                                    value = na + "@" + dom;
+		                                } else {
+		                                    value = dom;
+		                                }
+		                            }
+		                        } else {
+		                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.UPN)) {
+		                                if (request.getParameter(TEXTFIELD_SUBJECTALTNAME + i) != null
+		                                        && !request.getParameter(TEXTFIELD_SUBJECTALTNAME + i).equals("")
+		                                        && request.getParameter(TEXTFIELD_UPNNAME + i) != null
+		                                        && !request.getParameter(TEXTFIELD_UPNNAME + i).equals("")) {
+		                                    value = request.getParameter(TEXTFIELD_UPNNAME + i) + "@"
+		                                            + request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
+		                                }
+		                            } else {
+		                                value = request.getParameter(TEXTFIELD_SUBJECTALTNAME + i);
+		                            }
+		                        }
+		                        if (value != null) {
+		                            if (!value.equals("")) {
+		                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
+		                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                        DNFieldExtractor.TYPE_SUBJECTALTNAME) + value);
+		                                if (subjectaltname.equals("")) {
+		                                    subjectaltname = value;
+		                                } else {
+		                                    subjectaltname += ", " + value;
+		                                }
+		                            }
+		                        }
+		                        // We have to do almost the same again they may have select drop-downs instead of textfields
+		                        value = request.getParameter(SELECT_SUBJECTALTNAME + i);
+		                        if (value != null) {
+		                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.UPN)) {
+		                                if (request.getParameter(TEXTFIELD_UPNNAME + i) != null && !value.trim().equals("")) {
+		                                    value = request.getParameter(TEXTFIELD_UPNNAME + i) + "@" + value;
+		                                }
+		                            }
+		                            if (EndEntityProfile.isFieldOfType(fielddata[EndEntityProfile.FIELDTYPE], DnComponents.RFC822NAME)) {
+		                                String na = request.getParameter(TEXTFIELD_EMAIL + i);
+		                                if ((na != null) && (!na.trim().equals("")) && !value.trim().equals("")) {
+		                                    value = na + "@" + value;
+		                                }
+		                            }
+		                            if (!value.equals("")) {
+		                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
+		                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                        DNFieldExtractor.TYPE_SUBJECTALTNAME) + value);
+		                                if (subjectaltname.equals("")) {
+		                                    subjectaltname = value;
+		                                } else {
+		                                    subjectaltname += ", " + value;
+		                                }
+		                            }
+		                        }
+		                    }
+		
+		                    newuser.setSubjectAltName(subjectaltname);
+		
+		                    String subjectdirattr = "";
+		                    int numberofsubjectdirattrfields = profile.getSubjectDirAttrFieldOrderLength();
+		                    for (int i = 0; i < numberofsubjectdirattrfields; i++) {
+		                        fielddata = profile.getSubjectDirAttrFieldsInOrder(i);
+		                        value = request.getParameter(TEXTFIELD_SUBJECTDIRATTR + i);
+		                        if (value != null) {
+		                            value = value.trim();
+		                            if (!value.equals("")) {
+		                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
+		                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                        DNFieldExtractor.TYPE_SUBJECTDIRATTR) + value);
+		                                if (subjectdirattr.equals("")) {
+		                                    subjectdirattr = value;
+		                                } else {
+		                                    subjectdirattr += ", " + value;
+		                                }
+		                            }
+		                        }
+		                        value = request.getParameter(SELECT_SUBJECTDIRATTR + i);
+		                        if (value != null) {
+		                            if (!value.equals("")) {
+		                                value = org.ietf.ldap.LDAPDN.escapeRDN(DNFieldExtractor.getFieldComponent(
+		                                        DnComponents.profileIdToDnId(fielddata[EndEntityProfile.FIELDTYPE]),
+		                                        DNFieldExtractor.TYPE_SUBJECTDIRATTR) + value);
+		                                if (subjectdirattr.equals("")) {
+		                                    subjectdirattr = value;
+		                                }  else {
+		                                    subjectdirattr += ", " + value;
+		                                }
+		                            }
+		                        }
+		                    }
+		                    newuser.setSubjectDirAttributes(subjectdirattr);
+		                    value = request.getParameter(SELECT_ALLOWEDREQUESTS);
+		                    if (value != null) {
+		                        ei.setCustomData(ExtendedInformationFields.CUSTOM_REQUESTCOUNTER, value);
+		                        newuser.setExtendedInformation(ei);
+		                    }
+		                    value = request.getParameter(CHECKBOX_KEYRECOVERABLE);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            newuser.setKeyRecoverable(true);
+		                        } else {
+		                            newuser.setKeyRecoverable(false);
+		                        }
+		                    }
+		                    value = request.getParameter(CHECKBOX_SENDNOTIFICATION);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            newuser.setSendNotification(true);
+		                        } else {
+		                            newuser.setSendNotification(false);
+		                        }
+		                    }
+		                    value = request.getParameter(CHECKBOX_PRINT);
+		                    if (value != null) {
+		                        if (value.equals(CHECKBOX_VALUE)) {
+		                            newuser.setPrintUserData(true);
+		                        } else {
+		                            newuser.setPrintUserData(false);
+		                        }
+		                    }
+		
+		                    value = request.getParameter(SELECT_CERTIFICATEPROFILE);
+		                    newuser.setCertificateProfileId(Integer.parseInt(value));
+		                    value = request.getParameter(SELECT_CA);
+		                    newuser.setCAId(Integer.parseInt(value));
+		                    value = request.getParameter(SELECT_TOKEN);
+		                    int tokentype = Integer.parseInt(value);
+		                    newuser.setTokenType(Integer.parseInt(value));
+		                    int hardtokenissuer = SecConst.NO_HARDTOKENISSUER;
+		                    if (tokentype > SecConst.TOKEN_SOFT && request.getParameter(SELECT_HARDTOKENISSUER) != null) {
+		                        value = request.getParameter(SELECT_HARDTOKENISSUER);
+		                        hardtokenissuer = Integer.parseInt(value);
+		                    }
+		                    newuser.setHardTokenIssuerId(hardtokenissuer);
+		                    // Issuance revocation reason, what state a newly issued certificate will have
+		                    value = request.getParameter(SELECT_ISSUANCEREVOCATIONREASON);
+		                    // If it's not modifyable don't even try to modify it
+		                    if ((profile.getUse(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0))
+		                            && (!profile.isModifyable(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0))) {
+		                        value = profile.getValue(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0);
+		                    }
+		                    if (value != null) {
+		                        ei.setCustomData(ExtendedInformation.CUSTOM_REVOCATIONREASON, value);
+		                        newuser.setExtendedInformation(ei);
+		                    }
+		                    value = request.getParameter(TEXTFIELD_STARTTIME);
+		                    if (value != null) {
+		                        value = value.trim();
+		                        if (value.length() > 0) {
+		                            String storeValue = ejbcawebbean.getImpliedUTCFromISO8601OrRelative(value);
+		                            ei.setCustomData(EndEntityProfile.STARTTIME, storeValue);
+		                            newuser.setExtendedInformation(ei);
+		                        }
+		                    }
+		                    value = request.getParameter(TEXTFIELD_ENDTIME);
+		                    if (value != null) {
+		                        value = value.trim();
+		                        if (value.length() > 0) {
+		                            String storeValue = ejbcawebbean.getImpliedUTCFromISO8601OrRelative(value);
+		                            ei.setCustomData(EndEntityProfile.ENDTIME, storeValue);
+		                            newuser.setExtendedInformation(ei);
+		                        }
+		                    }
+		                    value = request.getParameter(TEXTFIELD_CERTSERIALNUMBER);
+		                    if (value != null && value.length() > 0) {
+		                        ei.setCertificateSerialNumber(new BigInteger(value.trim(), 16));
+		                    } else {
+		                        ei.setCertificateSerialNumber(null);
+		                    }
+		                    value = request.getParameter(TEXTAREA_NC_PERMITTED);
+		                    if (value != null && !value.trim().isEmpty()) {
+		                        ei.setNameConstraintsPermitted(NameConstraint.parseNameConstraintsList(value));
+		                    } else {
+		                        ei.setNameConstraintsPermitted(null);
+		                    }
+		                    value = request.getParameter(TEXTAREA_NC_EXCLUDED);
+		                    if (value != null && !value.trim().isEmpty()) {
+		                        ei.setNameConstraintsExcluded(NameConstraint.parseNameConstraintsList(value));
+		                    } else {
+		                        ei.setNameConstraintsExcluded(null);
+		                    }
+		                    newuser.setExtendedInformation(ei);
+		
+		                    if (request.getParameter(SELECT_CHANGE_STATUS) != null) {
+		                        int newstatus = Integer.parseInt(request.getParameter(SELECT_CHANGE_STATUS));
+		                        if (newstatus == EndEntityConstants.STATUS_NEW || newstatus == EndEntityConstants.STATUS_GENERATED
+		                                || newstatus == EndEntityConstants.STATUS_HISTORICAL
+		                                || newstatus == EndEntityConstants.STATUS_KEYRECOVERY)
+		                            newuser.setStatus(newstatus);
+		                    }
+		                    String newUsername = request.getParameter(TEXTFIELD_NEWUSERNAME);
+		                    if (approvalmessage == null) {
+		                        try {
+		                            // Send changes to database.
+		                            rabean.changeUserData(newuser, newUsername);
+		                            endentitysaved = true;
+		                            username = newUsername;
+		                        } catch (org.cesecore.authorization.AuthorizationDeniedException e) {
+		                            notauthorized = true;
+		                        } catch (org.ejbca.core.ejb.ra.NoSuchEndEntityException e) {
+		                            approvalmessage = ejbcawebbean.getText("ENDENTITYDOESNTEXIST");
+		                        } catch (org.cesecore.certificates.ca.IllegalNameException e) {
+		                            if (e.getMessage().equals("Username already taken")) {
+		                                approvalmessage = ejbcawebbean.getText("ENDENTITYALREADYEXISTS");
+		                            } else {
+		                                throw e;
+		                            }
+		                        } catch (org.ejbca.core.model.approval.ApprovalException e) {
+		                            approvalmessage = ejbcawebbean.getText("THEREALREADYEXISTSAPPROVAL");
+		                        } catch (org.ejbca.core.model.approval.WaitingForApprovalException e) {
+		                            approvalmessage = ejbcawebbean.getText("REQHAVEBEENADDEDFORAPPR");
+		                        } catch (org.ejbca.core.EjbcaException e) {
+		                            if (e.getErrorCode().equals(ErrorCode.SUBJECTDN_SERIALNUMBER_ALREADY_EXISTS)) {
+		                                approvalmessage = ejbcawebbean.getText("SERIALNUMBERALREADYEXISTS");
+		                            }
+		                            if (e.getErrorCode().equals(ErrorCode.CA_NOT_EXISTS)) {
+		                                approvalmessage = ejbcawebbean.getText("CADOESNTEXIST");
+		                            }
+		                            if (e.getErrorCode().equals(ErrorCode.FIELD_VALUE_NOT_VALID)) {
+		                                approvalmessage = e.getMessage();
+		                            }
+		                            if (e.getErrorCode().equals(ErrorCode.NAMECONSTRAINT_VIOLATION)) {
+		                                approvalmessage = e.getMessage();
+		                            }
+		                        }
+		                        userdata = newuser;
+		                    }
+		                }
+		            }
+		        }
+		    }
         } catch (AuthorizationDeniedException e) {
         }
         nouserparameter = false;
@@ -559,7 +573,7 @@
 
     if (userdata != null && profile != null) {
         if (globalconfiguration.getIssueHardwareTokens()) {
-    TreeMap<String, Integer> hardtokenprofiles = ejbcawebbean.getInformationMemory().getHardTokenProfiles();
+    TreeMap<String, Integer> hardtokenprofiles = ejbcawebbean.getHardTokenProfiles();
 
     tokentexts = new String[RAInterfaceBean.tokentexts.length + hardtokenprofiles.keySet().size()];
     tokenids = new int[tokentexts.length];
@@ -603,7 +617,7 @@
         }
     }
 
-    Map<Integer, List<Integer>> availablecas = ejbcawebbean.getInformationMemory().getCasAvailableToEndEntity(profileid, AccessRulesConstants.EDIT_END_ENTITY);
+    Map<Integer, List<Integer>> availablecas = rabean.getCasAvailableToEndEntity(profileid, AccessRulesConstants.EDIT_END_ENTITY);
     if (userdata!=null) {
         editendentitybean.setExtendedInformation(userdata.getExtendedInformation());
     }
@@ -973,7 +987,7 @@ function checkUseInBatch(){
                  if(usekeyrecovery) out.write(" isKeyRecoveryPossible(); ");%>
                  fillCAField();'>
 
-  <h2><%= ejbcawebbean.getText("EDITENDENTITYTITLE") %></h2>
+  <h2><%= ejbcawebbean.getText("EDIT_ENDENTITY_HEADING") %></h2>
 
  <%if(nouserparameter){%>
   <div class="message alert"><%=ejbcawebbean.getText("YOUMUSTSPECIFYUSERNAME") %></div> 
@@ -994,27 +1008,45 @@ function checkUseInBatch(){
   <div class="message info"><%=ejbcawebbean.getText("ENDENTITYSAVED") %></div> 
     <%     } %>
 
+    
 
-  <form name="edituser" action="<%= THIS_FILENAME %>" method="post">   
-    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
-	<input type="hidden" name="<%= ACTION %>" value="<%=ACTION_EDITUSER %>" />   
-	<input type="hidden" name="<%= HIDDEN_PROFILE %>" value="<%=profileid %>" />    
-	<input type="hidden" name="<%= USER_PARAMETER %>" value="<c:out value="<%= username %>"/>" />
-
+    
 	<table class="edit" border="0" cellpadding="0" cellspacing="2" width="100%">
+	<form name="changeprofile" action="<%= THIS_FILENAME %>" method="post">
+		<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+        <input type="hidden" name='<%= ACTION %>' value='<%=ACTION_CHANGEPROFILE %>'>
+		<input type="hidden" name="<%= HIDDEN_PROFILE %>" value="<%=profileid %>" />
+		<input type="hidden" name="<%= USER_PARAMETER %>" value="<c:out value="<%= username %>"/>" />
+		
+		<tr id="Row<%=(row)%2%>">
+		  <td align="right"><%= ejbcawebbean.getText("ENDENTITYPROFILE")%></td>  
+		  <td>
+		  	<select name="<%=SELECT_ENDENTITYPROFILE %>" size="1" tabindex="<%=tabindex++%>" onchange="<% session.setAttribute("userData", userdata); %> document.changeprofile.submit()">
+				<% for(int i = 0; i < profilenames.length;i++){
+		            int pid = rabean.getEndEntityProfileId(profilenames[i]);
+		            %>                
+			 		<option value='<c:out value="<%=pid %>"/>' <% if(pid == profileid)
+						out.write("selected"); %>>
+			 			<c:out value="<%= profilenames[i] %>"/>
+		            </option>
+		            <% 
+	            }%>
+    	     </select>
+	         <div class="warning-message">
+                <%= ejbcawebbean.getText("WARNINGCHANGINGPROFILE")%>
+             </div>
+			</td>
+		  <td><%= ejbcawebbean.getText("REQUIRED") %></td>
+		</tr>
+    </form>
 
-	<tr id="Row<%=(row)%2%>">
-	  <td align="right"><%= ejbcawebbean.getText("ENDENTITYPROFILE")%></td>  
-	  <td><% if(rabean.getEndEntityProfileName(profileid)==null) {
-				out.write(ejbcawebbean.getText("NOENDENTITYPROFILEDEFINED"));
-			 } else {%>
-			    <c:out value="<%= rabean.getEndEntityProfileName(profileid) %>"/>
-		     <%}%>
-		</td>
-	  <td><%= ejbcawebbean.getText("REQUIRED") %></td>
-	</tr>
-
-
+	
+	
+    <form name="edituser" action="<%= THIS_FILENAME %>" method="post">   
+    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+    <input type="hidden" name="<%= ACTION %>" value="<%=ACTION_EDITUSER %>" />   
+    <input type="hidden" name="<%= HIDDEN_PROFILE %>" value="<%=profileid %>" />    
+    <input type="hidden" name="<%= USER_PARAMETER %>" value="<c:out value="<%= username %>"/>" />
     <!-- ---------- Status -------------------- -->
 
     <tr  id="Row<%=(row++)%2%>"> 
@@ -1036,7 +1068,7 @@ function checkUseInBatch(){
          <option <%if(userdata.getStatus()== EndEntityConstants.STATUS_HISTORICAL) out.write(" selected ");%> value='<%= EndEntityConstants.STATUS_HISTORICAL %>'><%= ejbcawebbean.getText("STATUSHISTORICAL") %></option>
         </select>
         &nbsp;&nbsp;&nbsp;
-        <input style="font-weight:bold;" type="submit" name="<%= BUTTON_SAVE %>" value="<%= ejbcawebbean.getText("SAVE") %>" tabindex="<%=tabindex++%>" onClick='return checkallfields()' />
+        <input type="submit" name="<%= BUTTON_SAVE %>" value="<%= ejbcawebbean.getText("SAVE") %>" tabindex="<%=tabindex++%>" onClick='return checkallfields()' />
       </td>
       <td>&nbsp;</td>
     </tr>
@@ -1443,7 +1475,7 @@ function checkUseInBatch(){
        <tr id="Row<%=(row++)%2%>">
 	 <td align="right"><%= ejbcawebbean.getText("CERTIFICATEPROFILE") %></td>
 	 <td>
-         <select name="<%= SELECT_CERTIFICATEPROFILE %>" size="1" tabindex="<%=tabindex++%>" onchange='fillCAField()'>
+         <select class="select-list" name="<%= SELECT_CERTIFICATEPROFILE %>" size="1" tabindex="<%=tabindex++%>" onchange='fillCAField()'>
          <%
            String[] availablecertprofiles = profile.getValue(EndEntityProfile.AVAILCERTPROFILES, 0).split(EndEntityProfile.SPLITCHAR);
            if( availablecertprofiles != null){
@@ -1464,7 +1496,7 @@ function checkUseInBatch(){
        <tr id="Row<%=(row++)%2%>">
 	 <td align="right"><%= ejbcawebbean.getText("CA") %></td>
 	 <td>
-         <select name="<%= SELECT_CA %>" size="1" tabindex="<%=tabindex++%>">
+         <select class="select-list" name="<%= SELECT_CA %>" size="1" tabindex="<%=tabindex++%>">
          </select>
          </td>
 	 <td><input type="checkbox" name="checkbox" value="true"  disabled="disabled" CHECKED></td>
@@ -1473,7 +1505,7 @@ function checkUseInBatch(){
        <tr id="Row<%=(row++)%2%>">
 	 <td align="right"><%= ejbcawebbean.getText("TOKEN") %></td>
 	 <td>
-         <select name="<%= SELECT_TOKEN %>" size="1" tabindex="<%=tabindex++%>" onchange='<% if(usehardtokenissuers) out.write("setAvailableHardTokenIssuers();");
+         <select class="select-list" name="<%= SELECT_TOKEN %>" size="1" tabindex="<%=tabindex++%>" onchange='<% if(usehardtokenissuers) out.write("setAvailableHardTokenIssuers();");
                                                                                              if(usekeyrecovery) out.write(" isKeyRecoveryPossible();");%>'>
          <%
            if( availabletokens != null){
@@ -1530,7 +1562,7 @@ function checkUseInBatch(){
 		<tr  id="Row<%=(row++)%2%>"> 
 			<td align="right"> 
 				<%= ejbcawebbean.getText("CERT_SERIALNUMBER_HEXA") %>
-				(<%= ejbcawebbean.getText("EXAMPLE").toLowerCase() %> : 1234567890ABCDEF)
+				<p class="help">(<%= ejbcawebbean.getText("EXAMPLE").toLowerCase() %> : 1234567890ABCDEF)</p>
 			</td>
 			<td> 
 				<input type="text" name="<%= TEXTFIELD_CERTSERIALNUMBER %>" size="20" maxlength="40" tabindex="<%=tabindex++%>" title="<%= ejbcawebbean.getText("FORMAT_HEXA") %>" class="hexa"
@@ -1640,7 +1672,7 @@ function checkUseInBatch(){
         <tr id="Row<%=(row)%2%>">
             <td align="right">
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED\") %>"/>
-                <%= ejbcawebbean.getHelpReference("/userguide.html#Name%20Constraints") %>
+                <%= ejbcawebbean.getHelpReference("/CA_Fields.html#Name_Constraints") %>
                 <p class="help"><c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED_HELP1\") %>"/><br />
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED_HELP2\") %>"/></p>
             </td>
@@ -1658,7 +1690,7 @@ function checkUseInBatch(){
         <tr id="Row<%=(row++)%2%>">
             <td align="right">
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_EXCLUDED\") %>"/>
-                <%= ejbcawebbean.getHelpReference("/userguide.html#Name%20Constraints") %>
+                <%= ejbcawebbean.getHelpReference("/CA_Fields.html#Name_Constraints") %>
                 <p class="help"><c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_EXCLUDED_HELP\") %>"/></p>
             </td>
             <td>
@@ -1685,7 +1717,7 @@ function checkUseInBatch(){
         <tr id="Row<%=(row++)%2%>">
             <td align="right">
                 <c:out value="<%= ejbcawebbean.getText(\"RAWSUBJECTDN\") %>"/>
-                <%= ejbcawebbean.getHelpReference("/userguide.html#Certificate%20Profile%20Fields") %>
+                <%= ejbcawebbean.getHelpReference("Certificate_Profile_Fields.html") %>
                 <p class="help"><c:out value="<%= ejbcawebbean.getText(\"RAWSUBJECTDN_HELP\") %>"/></p>
             </td>
 			<td style="text-align: left"><c:out value="<%= userdata.getExtendedInformation().getRawSubjectDn() %>"/></td>
@@ -1743,7 +1775,7 @@ function checkUseInBatch(){
     <tr  id="Row<%=(row++)%2%>"> 
       <td  align="right"> 
         <c:out value="<%= ejbcawebbean.getText(\"KEYRECOVERABLE\") %>"/> 
-        <%= ejbcawebbean.getHelpReference("/adminguide.html#Key%20recovery") %>
+        <%= ejbcawebbean.getHelpReference("Key_Recovery.html") %>
       </td>
       <td> 
         <input type="checkbox" name="<%=CHECKBOX_KEYRECOVERABLE%>" value="<%=CHECKBOX_VALUE %>" tabindex="<%=tabindex++%>" <% 

@@ -81,15 +81,18 @@
        <!--@ejbca-systemtest-ejb.jar@-->
        <!--@ejbca-ws-ejb.jar@-->
        <!--@doc.war@-->
+       <!--@doc_legacy.war@-->
        <!--@renew.war@-->
        <!--@ejbca-cmp-tcp.war@-->
        <!--@statedump-ejb.jar@-->
+       <!--@configdump-ejb.jar@-->
        <!--@peerconnector-ejb.jar@-->
        <!--@peerconnector.rar@-->
        <!--@peerconnector.war@-->
        <!--@ra-gui.war@-->
        <!--@acme.war@-->
        <!--@est.war@-->
+       <!--@unidfnr-ejb.jar@-->
        
 </application>
 

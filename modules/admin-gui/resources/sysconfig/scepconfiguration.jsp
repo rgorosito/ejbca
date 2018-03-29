@@ -35,6 +35,7 @@ org.cesecore.authorization.control.StandardRules
   <title><h:outputText value="#{web.ejbcaWebBean.globalConfiguration.ejbcaTitle}" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
   <script>
 	/** Prevent form submission if enter is pressed in form and instead clicks on the button right of the inputText instead..) */
@@ -51,10 +52,13 @@ org.cesecore.authorization.control.StandardRules
    
 </head>
 <body>
+<jsp:include page="../adminmenu.jsp" />
+<div class="main-wrapper">
+<div class="container">
 	<h1>
 		<h:outputText value="#{web.text.SCEP_MANAGEALIASES}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"/>
 		<h:outputText value="#{web.text.SCEP_VIEW_ALIASES}" rendered="#{!systemConfigMBean.allowedToEditSystemConfiguration}"/>		
-		<%= ejbcawebbean.getHelpReference("/adminguide.html#SCEP") %>
+		<%= ejbcawebbean.getHelpReference("/SCEP.html") %>
 	</h1>
 	<div class="message"><h:messages layout="table" errorClass="alert"/></div>
 	<h3><h:outputText value="#{web.text.SCEP_LISTOFALIASES}" /></h3>
@@ -86,7 +90,7 @@ org.cesecore.authorization.control.StandardRules
 			</h:column>
 		
 			<h:column>
-				<f:facet name="header"><h:outputText value="#{web.text.SCEP_ACTION}"/></f:facet>
+				<f:facet name="header"><h:outputText value="#{web.text.ACTIONS}"/></f:facet>
 				<h:commandLink action="#{scepConfigMBean.renameAlias}" rendered="#{systemConfigMBean.allowedToEditSystemConfiguration}"
 					onclick="return getInputToField('aliases:newAlias','#{web.text.SCEP_ENTERNEWALIAS}', '#{web.text.ONLYCHARACTERS}') && getInsertIntoField('aliases:currentAliasStr','#{alias.alias}', '#{web.text.ONLYCHARACTERS}');"
 					styleClass="commandLink" title="#{web.text.SCEP_RENAME_ALIAS}">
@@ -107,9 +111,13 @@ org.cesecore.authorization.control.StandardRules
 		</h:commandLink>
  
 	</h:form>
+	
+	</div> <!-- Container -->
+	
 	<%	// Include Footer 
 	String footurl = globalconfiguration.getFootBanner(); %>
 	<jsp:include page="<%= footurl %>" />
+</div> <!-- main-wrapper -->
 </body>
 </f:view>
 </html>

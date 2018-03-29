@@ -377,6 +377,13 @@
 			replacement-context-root="/ejbca/doc"
 		/>
 		<war-replacement-in-module
+			replacement-tag="!--@doc_legacy.war@-->"
+			replacement-file="${eardd.src}/META-INF/application.xml"
+			replacement-enabled="${doc.war.enabled}"
+			replacement-web-uri="doc_legacy.war"
+			replacement-context-root="/ejbca/doc_legacy"
+		/>
+		<war-replacement-in-module
 			replacement-tag="!--@renew.war@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
 			replacement-enabled="${web.renewalenabled}"
@@ -409,11 +416,26 @@
             replacement-ejb="statedump-ejb.jar"
         />
 		<jar-replacement-in-module
+            replacement-tag="!--@configdump-ejb.jar@-->"
+            replacement-file="${eardd.src}/META-INF/application.xml"
+            replacement-enabled="${mod.configdump.exists}"
+            replacement-ejb="configdump-ejb.jar"
+        />
+		<jar-replacement-in-module
 			replacement-tag="!--@peerconnector-ejb.jar@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
 			replacement-enabled="${mod.peerconnector.exists}"
 			replacement-ejb="peerconnector-ejb.jar"
+			/>
+
+
+		<jar-replacement-in-module
+			replacement-tag="!--@unidfnr-ejb.jar@-->"
+			replacement-file="${eardd.src}/META-INF/application.xml"
+			replacement-enabled="${mod.unidfnr.enabled}"
+			replacement-ejb="unidfnr-ejb.jar"
 		/>
+
 		<connector-replacement-in-module
 			replacement-tag="!--@peerconnector.rar@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
@@ -491,6 +513,7 @@
                 <include name="httpcore-*.jar" />
                 <include name="httpmime-*.jar" />
                 <include name="json-simple-*.jar" />
+            	<include name="snakeyaml-*.jar" />
             	<include name="dns*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/ct" erroronmissingdir="false">
@@ -500,7 +523,7 @@
                 <include name="guava-*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/batik" includes="*.jar" excludes="${bundle-xerces-exclude}"/>
-            <fileset dir="${dist.dir}" includes="doc.war"/>
+            <fileset dir="${dist.dir}" includes="doc*.war"/>
             <fileset dir="${ejbca.home}/modules/dist">
                 <include name="cesecore-ejb.jar" />
                 <include name="ejbca-ejb.jar" />
@@ -521,9 +544,11 @@
                 <include name="ejbca-cmp-tcp.war" />
 				<include name="${in-test-mode-include}systemtests-ejb.jar"/>
             	<include name="statedump-ejb.jar" />
-                <include name="peerconnector.rar" />
+            	<include name="configdump-ejb.jar" />
+            	<include name="peerconnector.rar" />
                 <include name="peerconnector.war" />
                 <include name="peerconnector-ejb.jar" />
+                <include name="unidfnr-ejb.jar" />
                 <include name="ra-gui.war" />
                 <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
 				<include name="${in-test-mode-include}acme.war" />
@@ -548,13 +573,19 @@
         		<include name="edition-specific-interface.jar" />
         		<include name="edition-specific-ejb.jar" />
         		<include name="statedump-common.jar" />
-                <include name="peerconnector-ra.jar" />
+        		<include name="configdump-common.jar" />
+        		<include name="peerconnector-ra.jar" />
                 <include name="peerconnector-publ.jar" />
                 <include name="peerconnector-interface.jar" />
                 <include name="peerconnector-common.jar" />
         		<include name="peerconnector-entity.jar" />
         		<include name="va-publisher.jar" />
-        	    <include name="caa.jar" />
+        		<include name="caa.jar" />
+	                <include name="unidfnr-ejb.jar" />
+	                <include name="ejbca-ejb.jar" />
+
+
+
                 <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
 				<include name="${in-test-mode-include}acme-common.jar" />
         	</zipfileset>
@@ -796,7 +827,14 @@
 	
 	<target name="ziprelease" depends="deprecated:check" description="Make a zip file for EJBCA release. -Dedition=ee or ce (default)">
 		<antcall target="clean" />
-
+		<!-- Always retrieve current version from Confluence -->
+		<antcall target="doc" inheritAll="true">
+			<param name="update.from.confluence" value="true"/>	
+		</antcall>
+		<!-- Copy the retrieved documentation from the tmp/docs directory into doc/dist for the sake of this release-->
+		<copy todir="doc/dist">
+		    <fileset dir="tmp/docs" includes="**/*"/>
+		</copy>
 		<!-- A small script that converts the version x.y.z to x_y_z to be used in the file. JavaScript does not work under Java 1.5. -->
 		<scriptdef name="convertdot" language="javascript">
 		    <![CDATA[
@@ -836,15 +874,18 @@
 		    	<exclude name="**/hs_err*" />
 		    	<exclude name="doc/xdocs/site/**" />
 		    	<exclude name="modules/statedump/**" />
-		    	<!-- Exclude ACME until 6.11 -->
+		    	<!-- Exclude ACME until finished. -->
 		    	<exclude name="modules/acme/**" />
-		    	<!-- Exclude EST for 6.11.0 -->
-		    	<exclude name="modules/est/**" />
+		    	<!-- Exclude Web Tests -->
+		    	<exclude name="modules/ejbca-webtest/**"/>
+		    	<!-- Exclude internal Confluence information -->
+		    	<exclude name="src/doc.properties" />
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="700" dirmode="700"> 
 		    	<include name="**/*.sh" />
 		    	<exclude name="bin/backup/**" />
 		    	<exclude name="modules/statedump/**" />
+		    	<exclude name="modules/configdump/**" />
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="600" dirmode="700">
 		    	<include name="conf/extendedkeyusage.properties" />		    	
@@ -951,6 +992,53 @@ SHA1 checksum:    ${statedumpsrcSHA1}
 SHA-256 checksum: ${statedumpsrcSHA256}
         	
 Note that this zip is not standalone but needs to be unzipped inside an existing EJBCA installation and built there.
+After building, you will need to re-deploy EJBCA.
+        </echo>
+    </target>
+	
+    <!-- ======================================================================= -->
+    <!-- Make a ZIP source release for Configdump, if available.                 -->
+    <!-- Creates a fat source zip containing all Configedump source files and    -->
+    <!-- can be included in your IDE to be able to browse the source.            -->
+	<!-- 																		 -->
+	<!-- Note that this zip is not standalone but needs to be unzipped inside an -->
+	<!-- existing EJBCA installation and built there.							 -->
+    <!-- ======================================================================= -->
+    <target name="ziprelease-configdump-src" if="${mod.configdump.exists}" description="Make a source zip for the Configdump modules">
+        <property name="configdump.src.basezipfile" value="configdump-${app.version.number}-src"/>
+        <delete file="../${configdump.src.basezipfile}.zip"/>
+
+        <property name="configdump.src.release.dir" location="${tmp}/configdump-release-src"/>
+        <delete dir="${configdump.src.release.dir}"/>
+        <mkdir dir="${configdump.src.release.dir}"/>
+        <copy todir="${configdump.src.release.dir}">
+            <fileset dir="${basedir}/modules/">
+                <include name="configdump/src-*/**/*.java" />
+                <include name="configdump/*.txt" />
+                <include name="configdump/*.xml" />
+                <include name="configdump/resources/**" />
+            </fileset>
+        </copy>
+
+        <zip destfile="../${configdump.src.basezipfile}.zip">
+            <zipfileset dir="${configdump.src.release.dir}" filemode="600" dirmode="700">
+            </zipfileset>
+        </zip>
+
+        <antcall target="signjar">
+            <param name="signjar.file" value="../${configdump.src.basezipfile}.zip"/>
+        </antcall>
+        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA1" forceOverwrite="yes" format="MD5SUM"/>
+        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA1" property="configdumpsrcSHA1"/>
+        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA-256" forceOverwrite="yes" format="MD5SUM"/>
+        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA-256" property="configdumpsrcSHA256"/>
+        <echo>
+File:             ../${configdump.src.basezipfile}.zip
+SHA1 checksum:    ${configdumpsrcSHA1}
+SHA-256 checksum: ${configdumpsrcSHA256}
+        	
+Note that this zip is not standalone but needs to be unzipped inside an existing EJBCA installation and built there.
+After building, you will need to re-deploy EJBCA.
         </echo>
     </target>
 
@@ -1158,6 +1246,10 @@ SHA-256 checksum: ${cesecorebinSHA256}
     	<ant dir="modules" target="ejbca-caa-cli" />
     </target>
 
+	<target name="ejbca-webtest" depends="deprecated:check" if="webtest.exists" description="Builds EJBCA web test module">
+		<ant dir="modules" target="ejbca-webtest" />
+	</target>
+	
 	<target name="ejbca-ejb-interface">
        	<ant dir="modules" target="ejbca-ejb-interface" />
     </target>
@@ -1227,7 +1319,11 @@ SHA-256 checksum: ${cesecorebinSHA256}
 	<target name="poop" >
 		<antcall target="statedump" />
 	</target>
-
+	
+	<target name="configdump" depends="deprecated:check" description="Build EJBCA ConfigDump tool">
+		<ant dir="modules" target="configdump" />
+    </target>
+	
 	<target name="cmpclient" depends="deprecated:check" description="Build EJBCA CMP Client">
 		<ant dir="modules" target="cmpclient" />
     </target>

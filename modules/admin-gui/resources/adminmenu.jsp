@@ -1,16 +1,14 @@
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page pageEncoding="ISO-8859-1"%>
-<% response.setContentType("text/html; charset="+org.ejbca.config.WebConfiguration.getWebContentEncoding()); %>
-<%@page errorPage="errorpage.jsp" import="
+<%@page import="
 org.cesecore.authorization.AuthorizationDeniedException,
 org.cesecore.authorization.control.AuditLogRules,
 org.cesecore.authorization.control.CryptoTokenRules,
 org.cesecore.authorization.control.StandardRules,
+org.cesecore.keybind.InternalKeyBindingRules,
 org.ejbca.config.GlobalConfiguration,
+org.ejbca.config.InternalConfiguration,
 org.ejbca.core.model.authorization.AccessRulesConstants,
-org.cesecore.keybind.InternalKeyBindingRules
+org.ejbca.util.HTMLTools
 "%>
-<html>
 <jsp:useBean id="ejbcawebbean" scope="session" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBean" />
 <jsp:setProperty name="ejbcawebbean" property="*" /> 
 <%
@@ -18,9 +16,9 @@ org.cesecore.keybind.InternalKeyBindingRules
        // Initialize environment.
        GlobalConfiguration globalconfiguration = ejbcawebbean.initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR); 
       
-       final String THIS_FILENAME            =   globalconfiguration.getMenuFilename();
+       final String THIS_FILENAME            =   "adminmenu.jsp";
 
-       final String MAIN_LINK                =   ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() +globalconfiguration.getMainFilename();
+       final String MAIN_LINK                =   ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath();
 
        final String APPROVAL_LINK            =   ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() + "approval/approveactionlist.jsf";
        
@@ -79,8 +77,7 @@ org.cesecore.keybind.InternalKeyBindingRules
        final String EDITCUSTOMCERTEXTENSION_RESOURCE	   = StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource();
        final String ADMINPRIVILEGES_RESOURCE               = StandardRules.VIEWROLES.resource();
        final String INTERNALKEYBINDING_RESOURCE            = InternalKeyBindingRules.VIEW.resource();
- %>
-<%  
+
   boolean caheaderprinted     =false;
   boolean reportsheaderprinted =false;
   boolean raheaderprinted     =false;
@@ -89,23 +86,26 @@ org.cesecore.keybind.InternalKeyBindingRules
   boolean systemheaderprinted =false;
   boolean configheaderprinted = false;
 
-%>
-<head>
-  <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
-  <base href="<%= ejbcawebbean.getBaseUrl() %>" />
-  <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
-  <!--[if IE]><link rel="stylesheet" type="text/css" href="<%= ejbcawebbean.getIeFixesCssFile() %>" /><![endif]-->
-  <script type="text/javascript" src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
-</head>
 
-<body id="menu">
+  if (globalconfiguration.isNonDefaultHeadBanner()) { %>
+    <iframe id="topFrame" name="topFrame" scrolling="no" width="100%" height="100" src="<%= globalconfiguration.getHeadBanner() %>">
+        <h1>Administration</h1>
+    </iframe>
+<% } else { %>
+    <div id="header">
+        <div id="banner">
+            <a href="<%= ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() %>"><img src="<%= ejbcawebbean.getImagefileInfix("banner_"+InternalConfiguration.getAppNameLower()+"-admin.png") %>" alt="<%= HTMLTools.htmlescape(InternalConfiguration.getAppNameCapital()) %>" /></a>
+            <span>Administration</span>
+        </div>
+	</div>
+<% } %>
 
 	<div id="navigation">
-	<ul>
+	<ul class="navbar">
 
 <% // If authorized to use the main page then display related links.
      if(ejbcawebbean.isAuthorizedNoLogSilent(MAIN_RESOURCE)){ %>
-		<li id="cat0"><a href="<%=MAIN_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_HOME") %></a>
+		<li id="cat0"><a href="<%=MAIN_LINK %>"><%=ejbcawebbean.getText("NAV_HOME") %></a>
 		</li>
 <% } %>
 <%
@@ -118,7 +118,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         } %>
-				<li><a href="<%= CA_ACTIVATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CAACTIVATION") %></a></li>
+				<li><a href="<%= CA_ACTIVATION_LINK %>"><%=ejbcawebbean.getText("NAV_CAACTIVATION") %></a></li>
 <% } %>
 <% 
      if(ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CAVIEW.resource())){ 
@@ -126,7 +126,7 @@ org.cesecore.keybind.InternalKeyBindingRules
              out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
               caheaderprinted=true;
            } %>
-				<li><a href="<%= CA_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CASTRUCTUREANDCRL") %></a></li>
+				<li><a href="<%= CA_LINK %>"><%=ejbcawebbean.getText("NAV_CASTRUCTUREANDCRL") %></a></li>
 <% } %>
 <%
      if(ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CERTIFICATEPROFILEVIEW.resource())){ 
@@ -134,7 +134,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         } %>
-				<li><a href="<%= CA_CERTIFICATEPROFILELINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CERTIFICATEPROFILES") %></a></li>
+				<li><a href="<%= CA_CERTIFICATEPROFILELINK %>"><%=ejbcawebbean.getText("NAV_CERTIFICATEPROFILES") %></a></li>
 <% } %>
 <%
      if(ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CAVIEW.resource())){ 
@@ -142,7 +142,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         } %>
-				<li><a href="<%= EDITCA_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CAS") %></a></li>     
+				<li><a href="<%= EDITCA_LINK %>"><%=ejbcawebbean.getText("NAV_CAS") %></a></li>     
 <% } %>
 <% 
    // If authorized to use the ca then display related links.
@@ -152,7 +152,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         } %>
-				<li><a href="<%= CRYPTOTOKENS_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CRYPTOTOKENS") %></a></li>
+				<li><a href="<%= CRYPTOTOKENS_LINK %>"><%=ejbcawebbean.getText("NAV_CRYPTOTOKENS") %></a></li>
 <% } %>
 <%
      if(ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWPUBLISHER)){ 
@@ -160,7 +160,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         } %>
-				<li><a href="<%= EDITPUBLISHERS_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_PUBLISHERS") %></a></li>
+				<li><a href="<%= EDITPUBLISHERS_LINK %>"><%=ejbcawebbean.getText("NAV_PUBLISHERS") %></a></li>
 <% } %>
 <%
      if(ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWVALIDATOR)) {
@@ -168,7 +168,7 @@ org.cesecore.keybind.InternalKeyBindingRules
           out.write("<li id=\"cat1\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_CAFUNCTIONS")+"</strong><ul>"); 
            caheaderprinted=true;
         }  %>
-				<li><a href="<%= EDITVALIDATORS_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_VALIDATORS") %></a></li>
+				<li><a href="<%= EDITVALIDATORS_LINK %>"><%=ejbcawebbean.getText("NAV_VALIDATORS") %></a></li>
 <%  }  %>
 <%
    if(caheaderprinted){
@@ -186,7 +186,7 @@ org.cesecore.keybind.InternalKeyBindingRules
            out.write("<li id=\"cat2\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_RAFUNCTIONS")+"</strong><ul>"); 
            raheaderprinted=true;
          }  %>
-				<li><a href="<%= RA_ADDENDENTITYLINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ADDENDENTITY") %></a></li>
+				<li><a href="<%= RA_ADDENDENTITYLINK %>"><%=ejbcawebbean.getText("NAV_ADDENDENTITY") %></a></li>
 <% } %>
 <%
       if(ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWENDENTITYPROFILES)){            
@@ -194,7 +194,7 @@ org.cesecore.keybind.InternalKeyBindingRules
            out.write("<li id=\"cat2\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_RAFUNCTIONS")+"</strong><ul>"); 
            raheaderprinted=true;
          }  %>
-				<li><a href="<%= RA_EDITPROFILESLINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ENDENTITYPROFILES") %></a></li>
+				<li><a href="<%= RA_EDITPROFILESLINK %>"><%=ejbcawebbean.getText("NAV_ENDENTITYPROFILES") %></a></li>
 <% } %>
 <%
       if(ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWENDENTITY)){ 
@@ -202,7 +202,7 @@ org.cesecore.keybind.InternalKeyBindingRules
               out.write("<li id=\"cat2\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_RAFUNCTIONS")+"</strong><ul>"); 
               raheaderprinted=true;
             }  %>
-				<li><a href="<%= RA_LISTENDENTITIESLINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SEARCHENDENTITIES") %></a></li>
+				<li><a href="<%= RA_LISTENDENTITIESLINK %>"><%=ejbcawebbean.getText("NAV_SEARCHENDENTITIES") %></a></li>
 <% } %>
 <%
      if(ejbcawebbean.isAuthorizedNoLogSilent(RAEDITUSERDATASOURCES_RESOURCE)){ 
@@ -210,7 +210,7 @@ org.cesecore.keybind.InternalKeyBindingRules
              out.write("<li id=\"cat2\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_RAFUNCTIONS")+ "</strong><ul>");
 			 raheaderprinted=true;
 			 } %> 
-				<li><a href="<%= RA_EDITUSERDATASOURCESLINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_USERDATASOURCES") %></a></li>
+				<li><a href="<%= RA_EDITUSERDATASOURCESLINK %>"><%=ejbcawebbean.getText("NAV_USERDATASOURCES") %></a></li>
 <% } %>
 <%
    if(raheaderprinted){
@@ -232,7 +232,7 @@ org.cesecore.keybind.InternalKeyBindingRules
 		<li id="cat3" class="section"><strong><%=ejbcawebbean.getText("NAV_HARDTOKENFUNCTIONS") %></strong>
 			<ul>
            <% } %>
-				<li><a href="<%= HT_EDITHARDTOKENISSUERS_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_HARDTOKENISSUERS") %></a></li>
+				<li><a href="<%= HT_EDITHARDTOKENISSUERS_LINK %>"><%=ejbcawebbean.getText("NAV_HARDTOKENISSUERS") %></a></li>
 <% } %>
     <%
      // If authorized to edit the hard token profiles then display related links.
@@ -242,7 +242,7 @@ org.cesecore.keybind.InternalKeyBindingRules
 		<li id="cat3" class="section"><strong><%=ejbcawebbean.getText("NAV_HARDTOKENFUNCTIONS") %></strong>
 			<ul>
            <% } %>
-				<li><a href="<%= HT_EDITHARDTOKENPROFILES_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_HARDTOKENPROFILES") %></a></li>
+				<li><a href="<%= HT_EDITHARDTOKENPROFILES_LINK %>"><%=ejbcawebbean.getText("NAV_HARDTOKENPROFILES") %></a></li>
 <%     } %>
 <%
 	if(htheaderprinted){
@@ -263,7 +263,7 @@ org.cesecore.keybind.InternalKeyBindingRules
 			logheaderprinted = true;%>
 		<li id="cat4" class="section"><strong><%=ejbcawebbean.getText("NAV_SUPERVISIONFUNCTIONS") %></strong>
 			<ul>
-			  <li><a href="<%= APPROVAL_PROFILES_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_APPROVALPROFILES") %></a></li>
+			  <li><a href="<%= APPROVAL_PROFILES_LINK %>"><%=ejbcawebbean.getText("NAV_APPROVALPROFILES") %></a></li>
 			
 	<% }%>
 <%
@@ -275,7 +275,7 @@ org.cesecore.keybind.InternalKeyBindingRules
              out.write("<li id=\"cat4\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SUPERVISIONFUNCTIONS")+"</strong><ul>"); 
              logheaderprinted=true;
            }  %>
-			<li><a href="<%= APPROVAL_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_APPROVEACTIONS") %></a></li>
+			<li><a href="<%= APPROVAL_LINK %>"><%=ejbcawebbean.getText("NAV_APPROVEACTIONS") %></a></li>
 <%    }
     // If authorized to view log then display related links.
       if(ejbcawebbean.isAuthorizedNoLogSilent(LOGVIEW_RESOURCE)){
@@ -283,7 +283,7 @@ org.cesecore.keybind.InternalKeyBindingRules
               out.write("<li id=\"cat4\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SUPERVISIONFUNCTIONS")+"</strong><ul>"); 
               logheaderprinted=true;
             }  %>
-				<li><a href="<%= AUDIT_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_AUDIT") %></a></li>
+				<li><a href="<%= AUDIT_LINK %>"><%=ejbcawebbean.getText("NAV_AUDIT") %></a></li>
 <%    }
    if(logheaderprinted){
      out.write("</ul></li>"); 
@@ -303,7 +303,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          out.write("<li id=\"cat7\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMFUNCTIONS")+"</strong><ul>"); 
          systemheaderprinted=true;
          }  %>
-				<li><a href="<%= ADMINISTRATORPRIV_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ROLES") %></a></li>
+				<li><a href="<%= ADMINISTRATORPRIV_LINK %>"><%=ejbcawebbean.getText("NAV_ROLES") %></a></li>
 <% } %>
 
 
@@ -314,7 +314,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          out.write("<li id=\"cat7\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMFUNCTIONS")+"</strong><ul>"); 
          systemheaderprinted=true;
          }  %>
-				<li><a href="<%= INTERNALKEYBINDING_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_KEYBINDINGS") %></a></li>
+				<li><a href="<%= INTERNALKEYBINDING_LINK %>"><%=ejbcawebbean.getText("NAV_KEYBINDINGS") %></a></li>
 <% } %>
 
 <%
@@ -324,7 +324,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          out.write("<li id=\"cat7\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMFUNCTIONS")+"</strong><ul>"); 
          systemheaderprinted=true;
          }  %>
-				<li><a href="<%= PEERCONNECTOR_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_PEERCONNECTOR") %></a></li>
+				<li><a href="<%= PEERCONNECTOR_LINK %>"><%=ejbcawebbean.getText("NAV_PEERCONNECTOR") %></a></li>
 <% } %>
 
 <%
@@ -334,7 +334,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          out.write("<li id=\"cat7\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMFUNCTIONS")+"</strong><ul>"); 
          systemheaderprinted=true;
          }  %>
-				<li><a href="<%= SERVICES_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SERVICES") %></a></li>
+				<li><a href="<%= SERVICES_LINK %>"><%=ejbcawebbean.getText("NAV_SERVICES") %></a></li>
 <% } %>
 
 
@@ -357,17 +357,17 @@ org.cesecore.keybind.InternalKeyBindingRules
         out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>");
         configheaderprinted = true;
           } %>
-				<li><a href="<%= CMPCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_CMPCONFIGURATION") %></a></li>
+				<li><a href="<%= CMPCONFIGURATION_LINK %>"><%=ejbcawebbean.getText("NAV_CMPCONFIGURATION") %></a></li>
 <% } %>
 
 <%
 // If authorized to edit EST Configuration then display related links.
-  if(ejbcawebbean.isEstConfigurationPresent() && ejbcawebbean.isAuthorizedNoLogSilent(SYSTEMCONFIGURATION_RESOURCE)){ 
+  if(ejbcawebbean.isAuthorizedNoLogSilent(SYSTEMCONFIGURATION_RESOURCE)){ 
       if(!configheaderprinted){      
     out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>");
     configheaderprinted = true;
       } %>
-    <li><a href="<%= ESTCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_ESTCONFIGURATION") %></a></li>
+    <li><a href="<%= ESTCONFIGURATION_LINK %>"><%=ejbcawebbean.getText("NAV_ESTCONFIGURATION") %></a></li>
 <% } %>
 
 <%
@@ -377,7 +377,7 @@ org.cesecore.keybind.InternalKeyBindingRules
          out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>"); 
          configheaderprinted=true;
          }  %>
-				<li><a href="<%= SCEPCONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SCEPCONFIGURATION") %></a></li>
+				<li><a href="<%= SCEPCONFIGURATION_LINK %>"><%=ejbcawebbean.getText("NAV_SCEPCONFIGURATION") %></a></li>
 <% } %>
 
 <%
@@ -393,10 +393,10 @@ org.cesecore.keybind.InternalKeyBindingRules
         out.write("<li id=\"cat5\" class=\"section\"><strong>" + ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION")+"</strong><ul>");
         configheaderprinted = true;
           } %>
-				<li><a href="<%= CONFIGURATION_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION") %></a></li>
+				<li><a href="<%= CONFIGURATION_LINK %>"><%=ejbcawebbean.getText("NAV_SYSTEMCONFIGURATION") %></a></li>
 
     <%  if (ejbcawebbean.isPostUpgradeRequired()) { %>
-        <li><a href="<%= UPGRADE_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><b><%= ejbcawebbean.getText("NAV_SYSTEMUPGRADE") %></b></a></li>
+        <li><a href="<%= UPGRADE_LINK %>"><b><%= ejbcawebbean.getText("NAV_SYSTEMUPGRADE") %></b></a></li>
     <% } %>
 <% } %>
 
@@ -415,11 +415,9 @@ if(configheaderprinted){
 
 <%
     // If authorized to edit user preferences then display related links.
-    try{
-      if(ejbcawebbean.isAuthorizedNoLog(MAIN_RESOURCE)){ %>
-				<li id="cat8"><a href="<%= MYPREFERENCES_LINK %>" target="<%=GlobalConfiguration.MAINFRAME %>"><%=ejbcawebbean.getText("NAV_MYPREFERENCES") %></a></li>
+      if (ejbcawebbean.isAuthorizedNoLogSilent(MAIN_RESOURCE)){ %>
+				<li id="cat8"><a href="<%= MYPREFERENCES_LINK %>"><%=ejbcawebbean.getText("NAV_MYPREFERENCES") %></a></li>
 <%   }
-   }catch(AuthorizationDeniedException e){}
 %>
 
 		<li id="cat9"><a href="<%= RAWEB_LINK %>" target="_ejbcaraweb"><%=ejbcawebbean.getText("RAWEB") %></a>
@@ -432,12 +430,12 @@ if(configheaderprinted){
 		<li id="cat10"><a href="<%= ejbcawebbean.getHelpBaseURI() %>/index.html" target="<%= GlobalConfiguration.DOCWINDOW %>"
 			title="<%= ejbcawebbean.getText("OPENHELPSECTION") %>"><%=ejbcawebbean.getText("DOCUMENTATION") %></a>
 		</li>
+		<li id="cat10"><a href="<%= ejbcawebbean.getLegacyHelpBaseURI() %>/index.html" target="<%= GlobalConfiguration.DOCWINDOW %>"
+			title="<%= ejbcawebbean.getText("OPENHELPSECTION") %>"><%="Old Documentation" %></a>
+		</li>
 <% } %>
 
 		<li id="cat11"><a href="<%= LOGOUT_LINK %>" target="_top"><%=ejbcawebbean.getText("LOGOUT") %></a></li>
 
-	</ul>
+	</ul><!-- class="navbar" -->
 	</div><!-- id="navigation" -->
-
-</body>
-</html>

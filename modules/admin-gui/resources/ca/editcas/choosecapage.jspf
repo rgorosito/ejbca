@@ -1,5 +1,5 @@
 <%
-  TreeMap<String,Integer> canames     = info.getAllCANames(); 
+  TreeMap<String,Integer> canames     = ejbcawebbean.getCANames(); 
 
 %>
 
@@ -20,7 +20,10 @@ function confirmcadeletion() {
 }
 //-->
 </script>
+<jsp:include page="../../adminmenu.jsp" />
 
+<div class="main-wrapper">
+<div class="container">
 <h1><%= ejbcawebbean.getText("MANAGECAS") %></h1>
 
 <form name="editcas" method="post"  action="<%= THIS_FILENAME%>">
@@ -112,12 +115,12 @@ function confirmcadeletion() {
     </tr>
     <tr> 
       <td width="40%">
-        <select name="<%=SELECT_CAS%>" style="width: 50em" size="15"  >
+        <select name="<%=SELECT_CAS%>" style="width: 50em" size="15" class="select-list" >
           <% for (final String nameofca : canames.keySet()) {
               	 int currentCaId = canames.get(nameofca).intValue();
-                 CAInfo cainfo2 = cabean.getCAInfoNoAuth(currentCaId).getCAInfo();
+                 int status = cabean.getCAStatusNoAuth(currentCaId);
                  
-                 String nameandstatus = nameofca + ", (" +ejbcawebbean.getText(CAConstants.getStatusText(cainfo2.getStatus())) + ")"; %>
+                 String nameandstatus = nameofca + ", (" +ejbcawebbean.getText(CAConstants.getStatusText(status)) + ")"; %>
              	<%if(cabean.isAuthorizedToCa(currentCaId)) { %>
             		<option value="<c:out value="<%= canames.get(nameofca) %>"/>"> 
                 		<c:out value="<%= nameandstatus %>"/>
@@ -169,7 +172,7 @@ function confirmcadeletion() {
   <% if(ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CARENEW.resource())) {  %>
     <tr> 
       <td width="100%"> 
-        <input type="submit" name="<%= BUTTON_SIGNREQUEST%>" value="<%= ejbcawebbean.getText("CREATEAUTHCSR") %>"> <%= ejbcawebbean.getHelpReference("/userguide.html#Signing%20a%20roll-over%20certificate%20(NewWithOld)") %>
+        <input type="submit" name="<%= BUTTON_SIGNREQUEST%>" value="<%= ejbcawebbean.getText("CREATEAUTHCSR") %>"> <%= ejbcawebbean.getHelpReference("/Signing_a_Rollover_Certificate.html") %>
       </td>
     </tr>
     <% } %>
@@ -186,7 +189,7 @@ function confirmcadeletion() {
         <input type="submit" name="<%= BUTTON_CREATE_CA%>" onClick='return checkfieldforlegalchars("document.editcas.<%=TEXTFIELD_CANAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("CREATE") %>...">&nbsp;&nbsp;&nbsp;
         <% } %>
        	<% if(ejbcawebbean.isAuthorizedNoLogSilent(StandardRules.CAEDIT.resource())) {  %>
-        <input type="submit" name="<%= BUTTON_RENAME_CA%>" onClick='return checkfieldforlegalchars("document.editcas.<%=TEXTFIELD_CANAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME") %>"><br />
+        <input type="submit" name="<%= BUTTON_RENAME_CA%>" onClick='return checkfieldforlegalchars("document.editcas.<%=TEXTFIELD_CANAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME_SELECTED") %>">
       	<% } %>
       </td>
     </tr>

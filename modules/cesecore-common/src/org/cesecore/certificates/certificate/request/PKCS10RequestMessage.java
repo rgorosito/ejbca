@@ -19,17 +19,19 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.asn1.DERPrintableString;
-import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
+import org.bouncycastle.asn1.x500.DirectoryString;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
@@ -48,7 +50,7 @@ import org.cesecore.util.CertTools;
  *
  * @version $Id$
  */
-public class PKCS10RequestMessage implements RequestMessage {
+public class PKCS10RequestMessage implements RequestMessage {  
     /**
      * Determines if a de-serialized file is compatible with this class.
      *
@@ -89,6 +91,10 @@ public class PKCS10RequestMessage implements RequestMessage {
     /** Error text */
     private String errorText = null;
 
+    private List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+    
+    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<Certificate>();
+    
     /**
      * Constructs a new empty PKCS#10 message handler object.
      */
@@ -207,12 +213,13 @@ public class PKCS10RequestMessage implements RequestMessage {
 
         if (obj != null) {
             ASN1String str = null;
-
             try {
-                str = DERPrintableString.getInstance((obj));
+            	// Should be any DirectoryString according to RFC2985, preferably a PrintableString or UTF8String
+                str = DirectoryString.getInstance((obj));
             } catch (IllegalArgumentException ie) {
-                // This was not printable string, should be utf8string then according to pkcs#9 v2.0
-                str = DERUTF8String.getInstance((obj));
+                // This was not a DirectoryString type, it could then be IA5string, breaking pkcs#9 v2.0
+                // but some version of openssl have been known to produce IA5strings
+                str = DERIA5String.getInstance((obj));
             }
 
             if (str != null) {
@@ -515,4 +522,23 @@ public class PKCS10RequestMessage implements RequestMessage {
         // NOOP
     }
 
+    @Override
+    public List<Certificate> getAdditionalCaCertificates() {
+        return additionalCaCertificates;
+    }
+
+    @Override
+    public void setAdditionalCaCertificates(final List<Certificate> certificates) {
+        this.additionalCaCertificates = certificates;
+    }
+    
+    @Override
+    public List<Certificate> getAdditionalExtraCertsCertificates() {
+        return additionalExtraCertsCertificates;
+    }
+
+    @Override
+    public void setAdditionalExtraCertsCertificates(List<Certificate> additionalExtraCertsCertificates) {
+        this.additionalExtraCertsCertificates = additionalExtraCertsCertificates;
+    }
 }

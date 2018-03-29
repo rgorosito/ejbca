@@ -15,6 +15,9 @@ package org.ejbca.core.protocol.cmp;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.security.cert.Certificate;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -30,7 +33,7 @@ import org.cesecore.util.Base64;
  * @version $Id$
  */
 public abstract class BaseCmpMessage implements Serializable {
-
+  
 	private static final long serialVersionUID = 1L;
 
 	private transient PKIMessage pkiMessage = null;
@@ -48,6 +51,10 @@ public abstract class BaseCmpMessage implements Serializable {
 	private String pbeKeyId = null;
 	private String pbeKey = null;
 
+	private List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+
+	private List<Certificate> additionalExtraCerts = new ArrayList<Certificate>();
+	
 	/** @return the ASN.1 encoded octets as a bas64 encoded String or null if no such data is available */
 	protected String getBase64FromAsn1OctetString(final ASN1OctetString asn1OctetString) {
         if (asn1OctetString != null) {
@@ -146,4 +153,38 @@ public abstract class BaseCmpMessage implements Serializable {
 	public int getPbeIterationCount() {
 		return pbeIterationCount;
 	}
+
+	/**
+     * Gets the list of additional CA certificates
+     * (i.e. to be appended to the user certificates CA certificate returned in the CMP response message caPubs field).
+     * @return the list of CA certificates.
+     */
+	public List<Certificate> getAdditionalCaCertificates() {
+        return additionalCaCertificates;
+    }
+	
+	/**
+     * Sets the list of additional CA certificates
+     * (i.e. to be appended to the user certificates CA certificate returned in the CMP response message caPubs field).
+     * @param certificates the list of CA certificates.
+     */
+    public void setAdditionalCaCertificates(final List<Certificate> certificates) {
+        this.additionalCaCertificates = certificates;
+    }
+    
+    /**
+     * Gets the list of additional CA certificates to be appended to the PKI response message extraCerts field.
+     * @return the list of CA certificates.
+     */
+    public List<Certificate> getAdditionalExtraCertsCertificates() {
+        return additionalExtraCerts;
+    }
+    
+    /**
+     * Sets the list of additional CA certificates to be appended to the PKI response message extraCerts field.
+     * @param certificates the list of CA certificates.
+     */
+    public void setAdditionalExtraCertsCertificates(final List<Certificate> certificates) {
+        this.additionalExtraCerts = certificates;
+    }
 }

@@ -209,7 +209,6 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     // CRL extensions
     protected static final String USECRLNUMBER = "usecrlnumber";
     protected static final String CRLNUMBERCRITICAL = "crlnumbercritical";
-    protected static final String USECRLDISTRIBUTIONPOINTONCRL = "usecrldistributionpointoncrl";
     //
     // Certificate extensions
     protected static final String USEBASICCONSTRAINTS = "usebasicconstrants";
@@ -304,7 +303,9 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     protected static final String CTSUBMITEXISTING  = "ctsubmitexisting";
     protected static final String CTLOGS = "ctlogs";
     protected static final String CTLABELS = "ctlabels";
+    @Deprecated
     protected static final String CT_MIN_TOTAL_SCTS = "ctminscts"; // This key is the same as in previous versions
+    @Deprecated
     protected static final String CT_MIN_TOTAL_SCTS_OCSP = "ctminsctsocsp"; // This key is also the same as in previous versions
     @Deprecated
     protected static final String CT_MAX_SCTS = "ctmaxscts"; // Only used to fetch old value after upgrade, replaced by CT_MAX_NON_MANDATORY_SCTS and CT_MAX_MANDATORY_SCTS
@@ -447,7 +448,6 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         setUseDefaultCRLDistributionPoint(false);
         setCRLDistributionPointCritical(false);
         setCRLDistributionPointURI("");
-        setUseCRLDistributionPointOnCRL(false);
         setUseFreshestCRL(false);
         setUseCADefinedFreshestCRL(false);
         setFreshestCRLURI("");
@@ -1125,19 +1125,6 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         } else {
             return ((Boolean) obj).booleanValue();
         }
-    }
-
-    public boolean getUseCRLDistributionPointOnCRL() {
-        Object obj = data.get(USECRLDISTRIBUTIONPOINTONCRL);
-        if (obj == null) {
-            return false;
-        } else {
-            return ((Boolean) obj).booleanValue();
-        }
-    }
-
-    public void setUseCRLDistributionPointOnCRL(boolean usecrldistributionpointoncrl) {
-        data.put(USECRLDISTRIBUTIONPOINTONCRL, Boolean.valueOf(usecrldistributionpointoncrl));
     }
 
     public void setUseFreshestCRL(boolean usefreshestcrl) {
@@ -2206,6 +2193,10 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public void setCVCTerminalType(int termtype) {
         data.put(CVCTERMINALTYPE, Integer.valueOf(termtype));
     }
+    
+    public boolean isCvcTerminalTypeIs() { return getCVCTerminalType() == CertificateProfile.CVC_TERMTYPE_IS; }
+    public boolean isCvcTerminalTypeAt() { return getCVCTerminalType() == CertificateProfile.CVC_TERMTYPE_AT; }
+    public boolean isCvcTerminalTypeSt() { return getCVCTerminalType() == CertificateProfile.CVC_TERMTYPE_ST; }
 
     public int getCVCAccessRights() {
         if (data.get(CVCACCESSRIGHTS) == null) {
@@ -2236,7 +2227,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
             data.put(CVCLONGACCESSRIGHTS, null);
         } else {
             // Convert to List<Byte> since byte[] doesn't work with database protection
-            data.put(CVCLONGACCESSRIGHTS, new ArrayList<Byte>(Arrays.asList(ArrayUtils.toObject(access))));
+            data.put(CVCLONGACCESSRIGHTS, new ArrayList<>(Arrays.asList(ArrayUtils.toObject(access))));
         }
     }
 
@@ -2535,6 +2526,12 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     public void setUseCertificateTransparencyInPublishers(boolean use) {
         data.put(USECERTIFICATETRANSPARENCYINPUBLISHERS, use);
     }
+    
+    public boolean isCtEnabled() {
+        return isUseCertificateTransparencyInCerts() ||
+            isUseCertificateTransparencyInOCSP() ||
+            isUseCertificateTransparencyInPublishers();
+    }
 
     public boolean isNumberOfSctByValidity() {
         if (data.get(CT_NUMBER_OF_SCTS_BY_VALIDITY) == null) {
@@ -2602,6 +2599,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      * Gets the IDs of the CT logs that are activated in this profile.
      */
     @SuppressWarnings("unchecked")
+    @Deprecated
     public Set<Integer> getEnabledCTLogs() {
         if (data.get(CTLOGS) == null) {
             return new LinkedHashSet<>();
@@ -2611,6 +2609,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** Sets the enabled CT logs. NOTE: The argument must be a LinkedHashSet, since order is important */
+    @Deprecated
     public void setEnabledCTLogs(LinkedHashSet<Integer> logIds) {
         data.put(CTLOGS, new LinkedHashSet<>(logIds));
     }
@@ -2634,6 +2633,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      * <p>
      * @return the total number of SCTs required
      */
+    @Deprecated
     public int getCtMinTotalScts() {
         if (data.get(CT_MIN_TOTAL_SCTS) == null) {
             return 0; // setting is OFF
@@ -2642,11 +2642,13 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** @param value minimum number of SCTs required in total */
+    @Deprecated
     public void setCtMinTotalScts(int value) {
         data.put(CT_MIN_TOTAL_SCTS, value);
     }
 
     /** @see CertificateProfile#getCtMinTotalScts */
+    @Deprecated
     public int getCtMinTotalSctsOcsp() {
         if (data.get(CT_MIN_TOTAL_SCTS_OCSP) == null) {
             return getCtMinTotalScts();
@@ -2655,6 +2657,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** @param value minimum number of SCTs for OCSP responses required in total */
+    @Deprecated
     public void setCtMinTotalSctsOcsp(int value) {
         data.put(CT_MIN_TOTAL_SCTS_OCSP, value);
     }
@@ -2663,6 +2666,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      * <p>Number of SCTs retrieved after which we will stop contacting non-mandatory log servers.</p>
      * @return the maximum number of non-mandatory SCTs
      */
+    @Deprecated
     public int getCtMaxNonMandatoryScts() {
         if (data.get(CT_MAX_NONMANDATORY_SCTS) == null) {
             if (data.get(CT_MAX_SCTS) == null) {
@@ -2676,11 +2680,13 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** @param value the maximum number of non-mandatory SCTs */
+    @Deprecated
     public void setCtMaxNonMandatoryScts(int value) {
         data.put(CT_MAX_NONMANDATORY_SCTS, value);
     }
 
     /** @see CertificateProfile#getCtMaxNonMandatoryScts */
+    @Deprecated
     public int getCtMaxNonMandatorySctsOcsp() {
         if (data.get(CT_MAX_NONMANDATORY_SCTS_OCSP) == null) {
             if (data.get(CT_MAX_SCTS_OCSP) == null) {
@@ -2694,6 +2700,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** @param value maximum value number of non-mandatory SCTs for OCSP responses */
+    @Deprecated
     public void setCtMaxNonMandatorySctsOcsp(int value) {
         data.put(CT_MAX_NONMANDATORY_SCTS_OCSP, value);
     }
@@ -2702,6 +2709,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
      * <p>Number of CT logs marked as "not mandatory" to require an SCT from, or it will be considered an error. Default is zero logs.</p>
      * <p>For publishers, certificates are submitted to all enabled logs.</p>
      */
+    @Deprecated
     public int getCtMinNonMandatoryScts() {
         if (data.get(CT_MIN_NONMANDATORY_SCTS) == null) {
             return getCtMinTotalScts();
@@ -2710,11 +2718,13 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     }
 
     /** @param value minimum number of non-mandatory SCTs */
+    @Deprecated
     public void setCtMinNonMandatoryScts(int value) {
         data.put(CT_MIN_NONMANDATORY_SCTS, value);
     }
 
     /** @see CertificateProfile#getCtMinNonMandatoryScts */
+    @Deprecated
     public int getCtMinNonMandatorySctsOcsp() {
         if (data.get(CT_MIN_NONMANDATORY_SCTS_OCSP) == null) {
             return getCtMinNonMandatoryScts();
@@ -2722,7 +2732,8 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         return (Integer) data.get(CT_MIN_NONMANDATORY_SCTS_OCSP);
     }
 
-    /** @param minimum number of non-mandatory SCTs */
+    /** @param value minimum number of non-mandatory SCTs */
+    @Deprecated
     public void setCtMinNonMandatorySctsOcsp(int value) {
         data.put(CT_MIN_NONMANDATORY_SCTS_OCSP, value);
     }
@@ -3041,9 +3052,6 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
                 }
             }
 
-            if (data.get(USECRLDISTRIBUTIONPOINTONCRL) == null) {
-                setUseCRLDistributionPointOnCRL(false); // v24
-            }
             if ( (data.get(USECAISSUERS) == null) && (data.get(USEAUTHORITYINFORMATIONACCESS) == null) ) {
                 // Only set this flag if we have not already set the new flag USEAUTHORITYINFORMATIONACCESS
                 // setUseCaIssuers(false); // v24

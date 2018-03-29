@@ -3,11 +3,11 @@
   HardTokenProfile profiledata = edithardtokenprofile.profiledata;
    
 
-  Map authorizedcas = ejbcawebbean.getInformationMemory().getCANames();
-  TreeMap authorizedcertprofiles = ejbcawebbean.getInformationMemory().getAuthorizedEndEntityCertificateProfileNames();
+  Map authorizedcas = ejbcawebbean.getCANames();
+  TreeMap authorizedcertprofiles = ejbcawebbean.getAuthorizedEndEntityCertificateProfileNames();
   authorizedcertprofiles.put("No Certificate", CertificateProfileConstants.CERTPROFILE_NO_PROFILE);
  
-  Map caidtonamemap = ejbcawebbean.getInformationMemory().getCAIdToNameMap();
+  Map caidtonamemap = ejbcawebbean.getCAIdToNameMap();
     
   int[] hardtokentypes = {SwedishEIDProfile.TYPE_SWEDISHEID, EnhancedEIDProfile.TYPE_ENHANCEDEID, TurkishEIDProfile.TYPE_TURKISHEID};
   String[] hardtokentypetexts = {"SWEDISHEID", "ENHANCEDEID", "TURKISHEID"};
@@ -57,6 +57,7 @@ function checkallfields(){
 -->
 
 </script>
+<div class="container">
 <div align="center"> 
   <h2><%= ejbcawebbean.getText("EDITHARDTOKENPROF") %></h2>
   <h3><c:out value='<%= ejbcawebbean.getText("HARDTOKENPROFILE")+ " : " + edithardtokenprofile.profilename %>'/></h3>
@@ -219,3 +220,4 @@ function checkallfields(){
     
   </table>
  </form>
+ </div> <!-- container -->

@@ -406,6 +406,18 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
             
             // Check if this certificate belongs to the user
             if ( (username != null) && (extraCertUsername != null) ) {
+                if (cmpConfiguration.getVendorMode(this.confAlias)) {
+                    String fix = cmpConfiguration.getRANameGenPrefix(this.confAlias);
+                    if (StringUtils.isNotBlank(fix)) {
+                        log.info("Preceded RA name prefix '" + fix + "' to username '" + username + "' in CMP vendor mode.");
+                        extraCertUsername = fix + extraCertUsername;
+                    }
+                    fix = cmpConfiguration.getRANameGenPostfix(this.confAlias);
+                    if (StringUtils.isNotBlank( cmpConfiguration.getRANameGenPostfix(this.confAlias))) {
+                        log.info("Attached RA name postfix '" + fix + "' to username '" + username + "' in CMP vendor mode.");
+                        extraCertUsername += fix;
+                    }
+                }
                 if (!StringUtils.equals(username, extraCertUsername)) {
                     this.errorMessage = "The End Entity certificate attached to the PKIMessage in the extraCert field does not belong to user '"+username+"'";
                     if(log.isDebugEnabled()) {
@@ -873,15 +885,19 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
                 } else {
                     rootcert = (X509Certificate)crt;
                     if (log.isDebugEnabled()) {
-                        log.debug("Using certificate with subject "+CertTools.getSubjectDN(crt)+", as trust anchor");
+                        log.debug("Using certificate with subject "+CertTools.getSubjectDN(crt)+", as trust anchor, removing from certlist if it is there");
                     }
+                    // Don't have the trust anchor in the cert path, remove doesn't do anything if rootcert doesn't exist in certlist 
+                    certlist.remove(rootcert);
                 }
-            }            
+            }
             CertPath cp = CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME).generateCertPath(certlist);
             // The end entity cert is the first one in the CertPath according to javadoc
             // - "By convention, X.509 CertPaths (consisting of X509Certificates), are ordered starting with the target 
             //    certificate and ending with a certificate issued by the trust anchor. 
             //    That is, the issuer of one certificate is the subject of the following one."
+            // Note: CertPath above will most likely not sort the path, at least if there is a root cert in certlist
+            // the cp will fail verification if it was not in the right order in certlist to start with
             endentitycert = cp.getCertificates().get(0);
             TrustAnchor anchor = new TrustAnchor(rootcert, null);
             PKIXParameters params = new PKIXParameters(Collections.singleton(anchor));
@@ -913,10 +929,11 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
     }
 
     private boolean isExtraCertActive(final CertificateInfo certinfo) {
-        if (certinfo.getStatus() != CertificateConstants.CERT_ACTIVE) {
+        // CERT_NOTIFIEDABOUTEXPIRATION is also active...
+        if (certinfo.getStatus() != CertificateConstants.CERT_ACTIVE && certinfo.getStatus() != CertificateConstants.CERT_NOTIFIEDABOUTEXPIRATION) {
             this.errorMessage = "The certificate attached to the PKIMessage in the extraCert field is not active.";
             if (log.isDebugEnabled()) {
-                log.debug(this.errorMessage + " Username=" + certinfo.getUsername());
+                log.debug(this.errorMessage + " Username=" + certinfo.getUsername()+", fingerprint="+certinfo.getFingerprint());
             }
             return false;
         }
@@ -929,11 +946,6 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
     private CAInfo getCAInfoByName(String caname) {
         try {
             return caSession.getCAInfo(admin, caname);
-        } catch (CADoesntExistsException e) {
-            this.errorMessage = "CA '" + caname + "' does not exist";
-            if(log.isDebugEnabled()) {
-                log.debug(this.errorMessage + " - " + e.getLocalizedMessage());
-            }
         } catch (AuthorizationDeniedException e) {
             this.errorMessage = "Authorization denied for CA: " + caname;
             if(log.isDebugEnabled()) {
@@ -946,11 +958,6 @@ public class EndEntityCertificateAuthenticationModule implements ICMPAuthenticat
     private CAInfo getCAInfoByIssuer(String issuerDN) {
         try {
             return caSession.getCAInfo(admin, issuerDN.hashCode());
-        } catch (CADoesntExistsException e) {
-            this.errorMessage = "CA '" + issuerDN + "' does not exist";
-            if(log.isDebugEnabled()) {
-                log.debug(this.errorMessage + " - " + e.getLocalizedMessage());
-            }
         } catch (AuthorizationDeniedException e) {
             this.errorMessage = "Authorization denied for CA: " + issuerDN;
             if(log.isDebugEnabled()) {

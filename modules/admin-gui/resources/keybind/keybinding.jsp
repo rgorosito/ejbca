@@ -33,16 +33,21 @@ org.cesecore.keybind.InternalKeyBindingRules
   <title><h:outputText value="#{web.ejbcaWebBean.globalConfiguration.ejbcaTitle}" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 <body>
+<jsp:include page="../adminmenu.jsp" />
+
+<div class="main-wrapper">
+<div class="container">
 	<h1>
 		<h:outputText value="#{web.text.INTERNALKEYBINDING}"/>
-		<%= ejbcawebbean.getHelpReference("/userguide.html#Managing%20Internal%20Key%20Bindings") %>
+		<%= ejbcawebbean.getHelpReference("/Managing_Internal_Key_Bindings.html") %>
 	</h1>
 	<div class="message"><h:messages layout="table" errorClass="alert" infoClass="infoMessage"/></div>
 	<div>
-		<h:panelGrid columns="2">
+		<h:panelGrid columns="2" styleClass="margin-bottom">
 			<h:outputLink value="adminweb/keybind/keybindings.jsf?type=#{internalKeyBindingMBean.selectedInternalKeyBindingType}">
 				<h:outputText value="#{internalKeyBindingMBean.backLinkTranslatedText}"/>
 			</h:outputLink>
@@ -175,7 +180,19 @@ org.cesecore.keybind.InternalKeyBindingRules
 			</f:facet>
 		</h:column>
 		<h:column>
-   			<f:facet name="header"><h:outputText value="#{web.text.INTERNALKEYBINDING_ACTION}"/></f:facet>
+   			<f:facet name="header"><h:outputText value="#{web.text.INTERNALKEYBINDING_TRUSTENTRY_DESCRIPTION}"/></f:facet>
+   			<h:outputText value="#{trustEntry.trustEntryDescription}"/>
+   			<f:facet name="footer">
+				<h:inputText id="trustEntryDescription" rendered="#{internalKeyBindingMBean.inEditMode}" required="false"
+					value="#{internalKeyBindingMBean.currentTrustEntryDescription}"
+					size="18" maxlength="255"
+					title="#{web.text.INTERNALKEYBINDING_TRUSTENTRY_TITLE}">
+   				</h:inputText>
+				<h:message for="trustEntryDescription" rendered="#{internalKeyBindingMBean.inEditMode}"/>
+			</f:facet>
+		</h:column>
+		<h:column>
+   			<f:facet name="header"><h:outputText value="#{web.text.INTERNALKEYBINDING_ACTIONS}"/></f:facet>
 			<h:commandButton value="#{web.text.REMOVE}" action="#{internalKeyBindingMBean.removeTrust}" rendered="#{internalKeyBindingMBean.inEditMode}"/>
 			<f:facet name="footer">
 				<h:commandButton  rendered="#{internalKeyBindingMBean.inEditMode}" action="#{internalKeyBindingMBean.addTrust}"
@@ -183,6 +200,7 @@ org.cesecore.keybind.InternalKeyBindingRules
 			</f:facet>
 		</h:column>
 	</h:dataTable>
+	
 	<h3><h:outputText value="#{web.text.INTERNALKEYBINDING_PROPERTIES}"/></h3>
 	<h:dataTable value="#{internalKeyBindingMBean.internalKeyBindingPropertyList}" var="property" styleClass="propertyTable">
 		<h:column>
@@ -204,12 +222,39 @@ org.cesecore.keybind.InternalKeyBindingRules
 	<h:panelGroup rendered="#{internalKeyBindingMBean.internalKeyBindingPropertyList.rowCount == 0}">
 	    <div><h:outputText value="#{web.text.INTERNALKEYBINDING_NOPROPERTIES}"/></div>
     </h:panelGroup>
+    
+   	<h3><h:outputText value="#{web.text.INTERNALKEYBINDING_OCSPKEYBINDING_OCSPEXTENSIONHEADER}" rendered="#{internalKeyBindingMBean.ocspKeyBinding}"/></h3>
+	<h:dataTable id="ocspExtensions" value="#{internalKeyBindingMBean.ocspExtensions}" rendered="#{internalKeyBindingMBean.ocspKeyBinding}" var="extensionEntry">
+		<h:column>
+   			<f:facet name="header"><h:outputText value="#{web.text.INTERNALKEYBINDING_OCSPKEYBINDING_OCSPOID}"/></f:facet>
+			<h:outputText value="#{internalKeyBindingMBean.ocspExtensionName}"/>
+			<f:facet name="footer">
+				<h:selectOneMenu rendered="#{internalKeyBindingMBean.inEditMode}"
+					value="#{internalKeyBindingMBean.currentOcspExtension}">
+					<f:selectItems value="#{internalKeyBindingMBean.availableOcspExtensions}"/>
+				</h:selectOneMenu>
+			</f:facet>
+		</h:column>
+		<h:column>
+   			<f:facet name="header"><h:outputText value="#{web.text.INTERNALKEYBINDING_ACTIONS}"/></f:facet>
+			<h:commandButton value="#{web.text.REMOVE}" action="#{internalKeyBindingMBean.removeOcspExtension}" rendered="#{internalKeyBindingMBean.inEditMode}"/>
+			<f:facet name="footer">
+				<h:commandButton  rendered="#{internalKeyBindingMBean.inEditMode}" action="#{internalKeyBindingMBean.addOcspExtension}"
+					value="#{web.text.ADD}"/>
+			</f:facet>
+		</h:column>
+	</h:dataTable>
+    
 	<h:commandButton value="#{web.text.CREATE}" action="#{internalKeyBindingMBean.createNew}" rendered="#{internalKeyBindingMBean.inEditMode and internalKeyBindingMBean.creatingNew}"/>
 	<h:commandButton value="#{web.text.SAVE}" action="#{internalKeyBindingMBean.saveCurrent}" rendered="#{internalKeyBindingMBean.inEditMode and !internalKeyBindingMBean.creatingNew}"/>
 	</h:form>
+	
+	</div> <!-- container -->
+	
 	<%	// Include Footer 
 	String footurl = globalconfiguration.getFootBanner(); %>
 	<jsp:include page="<%= footurl %>" />
+</div> <!-- main-wrapper -->
 </body>
 </f:view>
 </html>

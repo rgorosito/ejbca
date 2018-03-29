@@ -15,7 +15,9 @@
     <property name="project.name" value="ejbca"/>
     <property name="docs.tools.dest"    location="tmp/docs-tools"/>
     <property name="docs.src"     location="doc/xdocs/docs"/>
+    <property name="docs.legacy.dest"    location="tmp/htdocs/docs-legacy"/>
     <property name="docs.dest"    location="tmp/htdocs/docs"/>
+    <property name="docs.dist"    location="doc/dist"/>
     <property name="docs.nojs.dest"    location="tmp/htdocs/docsnojs"/>
     <property name="docs.dest.ws" location="tmp/htdocs/docs/ws"/>
     <property name="docs.dest.logtypes" location="tmp/htdocs/docs/logtypes"/>
@@ -35,24 +37,33 @@
     <property name="docs.velocity.props"   location="${docs.src}/velocity.properties" />
     <property name="site.velocity.props"   location="${site.src}/velocity.properties" />
     <property name="include.xml"  value="**/*.xml" />
-
+   	<property file="src/doc.properties"/>
+    <property name="confluence.url"  value="none" />
+    <property name="confluence.port"  value="-1" />
 	<path id="jdoc.classpath">
 		<path location="dist/ejbca-common.jar" />
 		<path location="modules/dist/ejbca-ejb.jar" />
         <path location="modules/dist/cesecore-common.jar"/>
         <path location="modules/dist/cesecore-entity.jar"/>
        	<path location="modules/dist/cesecore-ejb-interface.jar"/>
-		<path location="lib/bcprov-jdk15on-158.jar" />
-		<path location="lib/bcpkix-jdk15on-158.jar" />
+		<path location="lib/bcprov-jdk15on-159.jar" />
+		<path location="lib/bcpkix-jdk15on-159.jar" />
     </path>
     
     <!-- =================================================================== -->
     <!-- Build doc part                                                                                                                             -->
     <!-- =================================================================== -->
-    <target name="doc.war" if="doc.war.enabled">
-    	<delete dir="${docs.dest}" />
-    	<antcall target="doc" />
-    	
+     <!-- Build doc part Remove before release of 6.12 -->
+    <target name="doc.legacy.war" if="doc.war.enabled">
+    	<delete dir="${docs.legacy.dest}" />
+    	<antcall target="doc-legacy" />  	
+		<war destfile="${dist.dir}/doc_legacy.war" webxml="${ejbca.home}/src/publicweb/empty_webxml.xml">
+            <fileset dir="${docs.legacy.dest}" />
+        </war>
+    </target>
+	
+	 <target name="doc.war" if="doc.war.enabled" depends="doc.legacy.war">
+    	<antcall target="doc" />  	
 		<war destfile="${dist.dir}/doc.war" webxml="${ejbca.home}/src/publicweb/empty_webxml.xml">
             <fileset dir="${docs.dest}" />
         </war>
@@ -84,10 +95,55 @@
             AnakiaTask is not present! Please check to make sure that
             velocity.jar is in your classpath.
         </echo>
-        <mkdir dir="${docs.dest}"/>
     </target>
 
-	<target name="doc-external-deps" unless="external-deps-satfisfied"><antcall target="ejbca-common.jar"/></target>
+	<condition property="update.from.confluence" value="true" else="false">
+		<istrue value="${doc.update}"/>
+    </condition>
+    
+    <condition property="connected.to.confluence" value="true" else="false">
+    	<isreachable url="http://${confluence.url}" timeout="2"/>	
+    </condition>
+
+	<target name="doc-confluence">
+		<antcall target="doc-confluence-from-server"/>
+		<antcall target="doc-confluence-copy-local"/>
+	</target>
+	
+	<target name="doc-confluence-from-server" if="${update.from.confluence}">	
+	    <delete dir="${docs.dest}" />
+	    <mkdir dir="${docs.dest}"/>
+	    
+		<fail message="Could not contact Confluence Server.">
+			<condition>
+	       		<isfalse value="${connected.to.confluence}"/>
+	       	</condition>
+		</fail>
+		<echo message="Pulling documentation from Confluence Server"/>
+		<!-- Perform a REST call to Confluence - only runs if -Ddoc.update is set and Confluence can be contacted -->
+		<!-- The values here are described in doc.properties -->
+		<get src="http://${confluence.url}:${confluence.port}/rest/scroll-html/1.0/sync-export?exportSchemeId=${confluence.export.schemed.id}&amp;rootPageId=${confluence.root.page.id}&amp;versionId=${confluence.version}" 
+			dest="${docs.dest}/export.zip" 
+			username="${confluence.username}"
+			password="${confluence.password}"
+			/>
+		<unzip src="${docs.dest}/export.zip" dest="${docs.dest}"/>
+		<delete file="${docs.dest}/export.zip"/>		
+	</target>
+	
+	<target name="doc-confluence-copy-local" unless="${update.from.confluence}">
+		<!-- Do not update from Confluence, instead copy in a placeholder file (if no documentation currently exists). -->
+		<echo message="Using local documentation, if any. Set -Ddoc.update=true if you wish to update documentation from Confluence."/>		
+		<mkdir dir="${docs.dest}"/>
+		<copy todir="${docs.dest}">
+        	<fileset dir="${docs.dist}" includes="**/*"/>
+        </copy>
+	</target>
+
+	<target name="doc-external-deps" unless="external-deps-satfisfied">
+		<antcall target="ejbca-common.jar"/>
+	</target>
+    
     <target name="site" if="site.present">
         <taskdef name="anakia" classname="org.apache.velocity.anakia.AnakiaTask">
             <classpath refid="anakia.classpath"/>
@@ -108,12 +164,14 @@
         	<fileset dir="${site.src}" includes="sensornet/**/*"/>
         </copy>
     </target>
-    <target name="doc" if="AnakiaTask.present" depends="prepare-error, doc-build-tool, doc-external-deps, site" description="Build EJBCA inline ear file docs.">
-        <taskdef name="anakia" classname="org.apache.velocity.anakia.AnakiaTask">
+    
+    <target name="doc-legacy" if="AnakiaTask.present"  depends="prepare-error">
+        <mkdir dir="${docs.legacy.dest}"/>
+    	<taskdef name="anakia" classname="org.apache.velocity.anakia.AnakiaTask">
             <classpath refid="anakia.classpath"/>
         </taskdef>
 		<echo file="${docs.templ.path}/VERSION" append="false" message="${app.version}"/>
-        <anakia basedir="${docs.src}" destdir="${docs.dest}"
+        <anakia basedir="${docs.src}" destdir="${docs.legacy.dest}"
              extension=".html" style="./site.vsl"
              projectFile="${project.file}"
              excludes="**/stylesheets/**"
@@ -123,11 +181,13 @@
              velocityPropertiesFile="${docs.velocity.props}">
         </anakia>
 		<delete file="${docs.templ.path}/VERSION"/>
-
-        <copy todir="${docs.dest}">
+        <copy todir="${docs.legacy.dest}">
         	<fileset dir="${docs.src}" includes="**/*.css,**/*.png,**/*.jpg,**/*.gif,**/*.pdf"/>
         </copy>
-        
+        <echo message="Legacy documentation is now available in file://${docs.legacy.dest}/index.html"/> 
+    </target>
+    
+    <target name="doc" depends="prepare, doc-build-tool, doc-external-deps, site, doc-confluence, doc-legacy" description="Build EJBCA inline ear file docs. Set -Ddoc.update=true to update documentation from PrimeKey's Confluence Server.">
         <echo message="WS=${ws.objects.dir}"/>
         <mkdir dir="${jdocs.ws.tmp}"/>
         <mkdir dir="${docs.dest.ws}"/>
@@ -165,7 +225,7 @@
 	        </fileset>
 	       <link offline="true" href="http://docs.oracle.com/javase/7/docs/api/" packagelistLoc="${env.JAVA_HOME}/docs/api"/>
 	      <doctitle><![CDATA[<h1>EJBCA WS Support</h1>]]></doctitle>
-	      <bottom><![CDATA[<i>2015 PrimeKey Solutions AB.</i>]]></bottom>
+	      <bottom><![CDATA[<i>2018 PrimeKey Solutions AB.</i>]]></bottom>
 	    </javadoc>
         <mkdir dir="${docs.dest.logtypes}"/>
 	    <javadoc destdir="${docs.dest.logtypes}"
@@ -188,9 +248,8 @@
 	        </fileset>
 	       <link offline="true" href="http://docs.oracle.com/javase/7/docs/api/" packagelistLoc="${env.JAVA_HOME}/docs/api"/>
 	      <doctitle><![CDATA[<h1>EJBCA and CESeCore Audit Log types</h1>]]></doctitle>
-	      <bottom><![CDATA[<i>2015 PrimeKey Solutions AB.</i>]]></bottom>
-	    </javadoc>
-        
+	      <bottom><![CDATA[<i>2018 PrimeKey Solutions AB.</i>]]></bottom>
+	    </javadoc>        
         <echo message="Local documentation is now available in file://${docs.dest}/index.html"/>
     </target>
     

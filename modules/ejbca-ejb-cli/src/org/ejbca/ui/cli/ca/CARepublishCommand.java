@@ -25,7 +25,6 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.certificate.CertificateStoreSessionRemote;
@@ -38,7 +37,7 @@ import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.core.ejb.ca.publisher.PublisherSessionRemote;
-import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
 import org.ejbca.ui.cli.infrastructure.parameter.Parameter;
 import org.ejbca.ui.cli.infrastructure.parameter.ParameterContainer;
@@ -86,13 +85,7 @@ public class CARepublishCommand extends BaseCaAdminCommand {
 
         try {
             // Get the CAs info and id
-            CAInfo cainfo;
-            try {
-                cainfo = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).getCAInfo(getAuthenticationToken(), caname);
-            } catch (CADoesntExistsException e) {
-                getLogger().info("CA with name '" + caname + "' does not exist.");
-                return CommandResult.FUNCTIONAL_FAILURE;
-            }
+            CAInfo cainfo = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).getCAInfo(getAuthenticationToken(), caname);
             if (cainfo == null) {
                 getLogger().info("CA with name '" + caname + "' does not exist.");
                 return CommandResult.FUNCTIONAL_FAILURE;
@@ -146,7 +139,7 @@ public class CARepublishCommand extends BaseCaAdminCommand {
 
             if (eecertmode) {
                 // Get all users for this CA
-                Collection<EndEntityInformation> coll = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityManagementSessionRemote.class)
+                Collection<EndEntityInformation> coll = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityAccessSessionRemote.class)
                         .findAllUsersByCaId(getAuthenticationToken(), cainfo.getCAId());
                 Iterator<EndEntityInformation> iter = coll.iterator();
                 while (iter.hasNext()) {

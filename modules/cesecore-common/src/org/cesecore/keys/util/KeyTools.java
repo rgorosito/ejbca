@@ -98,6 +98,7 @@ import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
@@ -167,7 +168,7 @@ public final class KeyTools {
         } catch (NoSuchProviderException e) {
             throw new IllegalStateException("BouncyCastle was not found as a provider.", e);
         }
-        if (StringUtils.equals(keyAlg, AlgorithmConstants.KEYALGORITHM_ECDSA)) {
+        if (StringUtils.equals(keyAlg, AlgorithmConstants.KEYALGORITHM_ECDSA) || StringUtils.equals(keyAlg, AlgorithmConstants.KEYALGORITHM_EC)) {
             if ((keySpec != null) && !StringUtils.equals(keySpec, "implicitlyCA")) {
                 log.debug("Generating named curve ECDSA key pair: " + keySpec);
                 // Check if we have an OID for this named curve
@@ -1326,5 +1327,58 @@ public final class KeyTools {
         } catch (IOException e) {
             throw new CertificateParsingException(e);
         }
+    }
+    
+    /**
+     * Returns the modulus of the public key.
+     * @param public key
+     * @return modulus of the public key
+     */
+    public static String getKeyModulus(final PublicKey publicKey) {
+        String modulus = null;
+        if ( publicKey instanceof RSAPublicKey ) {
+            byte[] modulusBytes = ((RSAPublicKey) publicKey).getModulus().toByteArray();
+            modulus = new String(Hex.encode(modulusBytes));
+        } else if(publicKey instanceof DSAPublicKey) {
+            byte[] modulusBytes = ((DSAPublicKey)publicKey).getY().toByteArray();
+            modulus = new String(Hex.encode(modulusBytes));
+        } else if(publicKey instanceof ECPublicKey) {
+            byte[] modulusBytesX = ((ECPublicKey)publicKey).getW().getAffineX().toByteArray();
+            byte[] modulusBytesY = ((ECPublicKey)publicKey).getW().getAffineY().toByteArray();
+            modulus = new String(Hex.encode(modulusBytesX)).concat(new String(Hex.encode(modulusBytesY)));
+        }
+        return modulus;
+    }
+    
+    /**
+     * Returns the exponent of the public key.
+     * @param public key
+     * @return modulus of the public key
+     */
+    public static String getKeyPublicExponent(final PublicKey publicKey) {
+        String exponent = null;
+        if ( publicKey instanceof RSAPublicKey ) {
+            exponent = ((RSAPublicKey) publicKey).getPublicExponent().toString();
+        }
+        return exponent;
+    }
+    
+    /**
+     * Generates the SHA256 fingerprint of the given text string.
+     * @param input on what to generate the fingerprint
+     * @return SHA256 fingerprint of given input string 
+     */
+    public static String getSha256Fingerprint(String text) throws IOException {
+        byte[] sha256Fingerprint = CertTools.generateSHA256Fingerprint(text.getBytes());
+        return new String(Hex.encode(sha256Fingerprint));
+    }
+    
+    /**
+     * Returns the signature of the given JcaPKCS10CertificationRequest.
+     * @param BouncyCastle JcaPKCS10CertificationRequest certification request
+     * @return signature of given certification request
+     */
+    public static String getCertificateRequestSignature(JcaPKCS10CertificationRequest certificationRequest) {
+        return new String(Hex.encode(certificationRequest.getSignature()));
     }
 }

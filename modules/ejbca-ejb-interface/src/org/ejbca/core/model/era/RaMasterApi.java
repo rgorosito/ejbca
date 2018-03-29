@@ -12,9 +12,14 @@
  *************************************************************************/
 package org.ejbca.core.model.era;
 
+import java.math.BigInteger;
 import java.security.KeyStoreException;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,18 +31,32 @@ import org.cesecore.authorization.access.AccessSet;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.IllegalNameException;
+import org.cesecore.certificates.ca.IllegalValidityException;
+import org.cesecore.certificates.ca.InvalidAlgorithmException;
+import org.cesecore.certificates.ca.SignRequestException;
+import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.CertificateCreateException;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
+import org.cesecore.certificates.certificate.CertificateRevokeException;
+import org.cesecore.certificates.certificate.CertificateStatus;
+import org.cesecore.certificates.certificate.CertificateStoreSession;
 import org.cesecore.certificates.certificate.CertificateWrapper;
+import org.cesecore.certificates.certificate.IllegalKeyException;
+import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
+import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.config.RaStyleInfo;
+import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.member.RoleMember;
 import org.ejbca.core.EjbcaException;
+import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
+import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -48,11 +67,13 @@ import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
+import org.ejbca.core.model.ra.AlreadyRevokedException;
 import org.ejbca.core.model.ra.CustomFieldException;
+import org.ejbca.core.model.ra.RevokeBackDateNotAllowedForProfileException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
+import org.ejbca.core.protocol.NoSuchAliasException;
 import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
-import org.ejbca.core.protocol.cmp.NoSuchAliasException;
 import org.ejbca.core.protocol.ws.objects.UserDataVOWS;
 import org.ejbca.ui.web.protocol.CertificateRenewalException;
 
@@ -445,6 +466,21 @@ public interface RaMasterApi {
             throws ApprovalException, WaitingForApprovalException;
     
     /**
+     * @see EndEntityManagementSessionLocal#revokeCert(AuthenticationToken, BigInteger, Date, String, int, boolean)
+     * @throws CADoesntExistsException in addition to the above throws if the CA (from issuerdn) is not handled by this instance, fail-fast 
+     */
+    void revokeCert(AuthenticationToken authenticationToken, BigInteger certserno, Date revocationdate, String issuerdn, int reason, boolean checkDate)
+            throws AuthorizationDeniedException, NoSuchEndEntityException, ApprovalException, WaitingForApprovalException,
+            RevokeBackDateNotAllowedForProfileException, AlreadyRevokedException, CADoesntExistsException;
+
+    /** 
+     * @see CertificateStoreSession#getStatus(String, BigInteger)
+     * @throws CADoesntExistsException in addition to the above throws if the CA (from issuerdn) is not handled by this instance, fail-fast 
+     * @throws AuthorizationDeniedException in addition to the above throws if caller is not authorized to revoke certificates from the CA (from issuerdn)
+     */
+    CertificateStatus getCertificateStatus(AuthenticationToken authenticationToken, String issuerDN, BigInteger serno) throws CADoesntExistsException, AuthorizationDeniedException;
+
+    /**
      * Marks End entity for key recovery, sets a new enrollment code (used to enroll a new certificate) and marks KeyRecoveryData for recovery.
      * 
      * @param authenticationToken of the requesting administrator
@@ -500,6 +536,24 @@ public interface RaMasterApi {
                         WaitingForApprovalException, ApprovalException, CADoesntExistsException;
     
     /**
+     * Atomic Key recovery and PKCS12 / JKS enrollment method to be called from web services. 
+     * @param authenticationToken of the requesting administrator
+     * @param username of end entity holding the certificate to recover
+     * @param certSNinHex of the certificate to recover
+     * @param issuerDN issuer of the certificate
+     * @param password new
+     * @param hardTokenSN see {@link org.ejbca.core.protocol.ws.common.IEjbcaWS#certificateRequest IEjbcaWS.certificateRequest()}
+     * @return KeyStore generated, post recovery
+     * @throws AuthorizationDeniedException if administrator isn't authorized to operations carried out during key recovery and enrollment
+     * @throws WaitingForApprovalException if operation requires approval (expected to be thrown with approvals enabled)
+     * @throws EjbcaException exception with errorCode if check fails
+     * @throws CADoesntExistsException if CA which issued the certificate no longer exists
+     * @throws ApprovalException if an approval is already pending to recover this certificate
+     */
+    byte[] keyRecoverEnrollWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN, String password,
+            String hardTokenSN) throws AuthorizationDeniedException, ApprovalException, CADoesntExistsException, EjbcaException, WaitingForApprovalException;
+    
+    /**
      * Checks if key recovery is possible for the given parameters. Requesting administrator has be authorized to perform key recovery
      * and authorized to perform key recovery on the End Entity Profile which the End Entity belongs to.
      * KeyRecoverData has to be present in the database for the given certificate, 
@@ -531,8 +585,50 @@ public interface RaMasterApi {
      */
     void checkSubjectDn(AuthenticationToken admin, EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException;
 
+    /**
+     * @see EndEntityAuthenticationSessionLocal#authenticateUser(AuthenticationToken, String, String)
+     */
     void checkUserStatus(AuthenticationToken authenticationToken, String username, String password) throws NoSuchEndEntityException, AuthStatusException, AuthLoginException;
 
+    
+    /**
+     * Dispatch SCEP message over RaMasterpi.
+     * 
+     * @param authenticationToken the origin of the request
+     * @param operation desired SCEP operation to perform
+     * @param message to dispatch
+     * @param scepConfigurationAlias name of alias containing SCEP configuration
+     * @return byte array containing dispatch response from CA. Content depends on operation
+     * @throws CertificateEncodingException
+     * @throws NoSuchAliasException
+     * @throws CADoesntExistsException
+     * @throws NoSuchEndEntityException
+     * @throws CustomCertificateSerialNumberException
+     * @throws CryptoTokenOfflineException
+     * @throws IllegalKeyException
+     * @throws SignRequestException
+     * @throws SignRequestSignatureException
+     * @throws AuthStatusException
+     * @throws AuthLoginException
+     * @throws IllegalNameException
+     * @throws CertificateCreateException
+     * @throws CertificateRevokeException
+     * @throws CertificateSerialNumberException
+     * @throws IllegalValidityException
+     * @throws CAOfflineException
+     * @throws InvalidAlgorithmException
+     * @throws SignatureException
+     * @throws CertificateException
+     * @throws AuthorizationDeniedException
+     * @throws CertificateExtensionException
+     * @throws CertificateRenewalException
+     */
+    byte[] scepDispatch(AuthenticationToken authenticationToken, String operation, String message, String scepConfigurationAlias) throws CertificateEncodingException, 
+    NoSuchAliasException, CADoesntExistsException, NoSuchEndEntityException, CustomCertificateSerialNumberException, CryptoTokenOfflineException, IllegalKeyException, SignRequestException, 
+    SignRequestSignatureException, AuthStatusException, AuthLoginException, IllegalNameException, CertificateCreateException, CertificateRevokeException, CertificateSerialNumberException, 
+    IllegalValidityException, CAOfflineException, InvalidAlgorithmException, SignatureException, CertificateException, AuthorizationDeniedException, 
+    CertificateExtensionException, CertificateRenewalException;
+    
     /**
      * Dispatch CMP request over RaMasterApi.
      * 
@@ -572,4 +668,5 @@ public interface RaMasterApi {
      */
     byte[] estDispatch(String operation, String alias, X509Certificate cert, String username, String password, byte[] requestBody)
             throws NoSuchAliasException, CADoesntExistsException, CertificateCreateException, CertificateRenewalException, AuthenticationFailedException;
+
 }

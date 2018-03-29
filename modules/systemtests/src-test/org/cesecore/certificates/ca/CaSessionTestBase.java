@@ -15,6 +15,7 @@ package org.cesecore.certificates.ca;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 import org.cesecore.RoleUsingTestCase;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -156,9 +158,8 @@ public class CaSessionTestBase extends RoleUsingTestCase {
         KeyPair keypair = KeyTools.genKeys("512", "RSA");
         CertificateProfile cp = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
         CryptoToken cryptoToken1 = cryptoTokenManagementProxySession.getCryptoToken(ca1.getCAToken().getCryptoTokenId());
-        final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration) 
-                globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
-        Certificate usercert1 = ca1.generateCertificate(cryptoToken1, user, keypair.getPublic(), 0, null, "10d", cp, "00000", cceConfig);
+         final AvailableCustomCertificateExtensionsConfiguration cceConfig = (AvailableCustomCertificateExtensionsConfiguration)
+                globalConfigurationSession.getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);        Certificate usercert1 = ca1.generateCertificate(cryptoToken1, user, keypair.getPublic(), 0, null, "10d", cp, "00000", cceConfig);
         assertEquals("CN=User", CertTools.getSubjectDN(usercert1));
         CryptoToken cryptoToken2 = cryptoTokenManagementProxySession.getCryptoToken(ca2.getCAToken().getCryptoTokenId());
         Certificate usercert2 = ca2.generateCertificate(cryptoToken2, user, keypair.getPublic(), 0, null, "10d", cp, "00000", cceConfig);
@@ -167,12 +168,8 @@ public class CaSessionTestBase extends RoleUsingTestCase {
 
         String oldname = testx509ca.getName();
         caSession.renameCA(roleMgmgToken, testx509ca.getName(), "TEST1");
-        try {
-        	caTestSession.getCA(roleMgmgToken, oldname);
-            assertTrue("Should throw", false);
-        } catch (CADoesntExistsException e) {
-            // NOPMD
-        }
+        assertNull("CA by name of " +  oldname + " shouldn't exist.", caTestSession.getCA(roleMgmgToken, oldname));
+
         ca1 = caTestSession.getCA(roleMgmgToken, "TEST1");
         assertEquals(testx509ca.getCAId(), ca1.getCAId());
         try {
@@ -191,12 +188,7 @@ public class CaSessionTestBase extends RoleUsingTestCase {
         assertTrue(caught);
         // Rename back again
         caSession.renameCA(roleMgmgToken, "TEST1", testx509ca.getName());
-        try {
-        	caTestSession.getCA(roleMgmgToken, "TEST1");
-            assertTrue("Should throw", false);
-        } catch (CADoesntExistsException e) {
-            // NOPMD
-        }
+        assertNull("CA by name of " +  "TEST1" + " shouldn't exist.", caTestSession.getCA(roleMgmgToken, "TEST1"));
         
         // Test edit
         CA ca = caTestSession.getCA(roleMgmgToken, testx509ca.getName());
@@ -230,19 +222,10 @@ public class CaSessionTestBase extends RoleUsingTestCase {
         
         // Remove
         caSession.removeCA(roleMgmgToken, testx509ca.getCAId());
-        try {
-        	caTestSession.getCA(roleMgmgToken, testx509ca.getName());
-            assertTrue("Should throw", false);
-        } catch (CADoesntExistsException e) {
-            // NOPMD
-        }
-        try {
-        	caTestSession.getCA(roleMgmgToken, "TEST1");
-            assertTrue("Should throw", false);
-        } catch (CADoesntExistsException e) {
-            // NOPMD
-        }        
-    } // testAddRenameAndRemoveX509CA
+        assertNull("CA by name of " +  testx509ca.getName() + " shouldn't exist.", caTestSession.getCA(roleMgmgToken, testx509ca.getName()));
+        assertNull("CA by name of " +   "TEST1" + " shouldn't exist.", caTestSession.getCA(roleMgmgToken,  "TEST1"));
+      
+    } 
 
     public void addAndGetCAWithDifferentCaid() throws Exception {
         cleanUpAnyExistingCa(testx509ca.getCAId(), testx509ca.getName());
@@ -255,7 +238,7 @@ public class CaSessionTestBase extends RoleUsingTestCase {
         // Now edit the CA to change the CA-certificate to something with a different subjectDN
         String cadn = "CN=TEST,O=Foo,C=SE";
         CAToken catoken = ca1.getCAToken();
-        Collection<Certificate> cachain = new ArrayList<Certificate>();
+        List<Certificate> cachain = new ArrayList<Certificate>();
         final PublicKey publicKey = cryptoTokenManagementProxySession.getPublicKey(catoken.getCryptoTokenId(), catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN)).getPublicKey();
         final PrivateKey privateKey = cryptoTokenManagementProxySession.getPrivateKey(catoken.getCryptoTokenId(), catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN));
         X509Certificate cacert = CertTools.genSelfCert(cadn, 10L, "1.1.1.1", privateKey, publicKey, "SHA256WithRSA", true, cryptoTokenManagementProxySession.getSignProviderName(catoken.getCryptoTokenId()));
@@ -312,7 +295,7 @@ public class CaSessionTestBase extends RoleUsingTestCase {
             // Verifies with CA token?
             cert.verify(pk);
             // Add the new CA cert
-            Collection<Certificate> certs = info.getCertificateChain(); 
+            List<Certificate> certs = info.getCertificateChain(); 
             assertEquals(0, certs.size());
             certs.add(cert);
             info.setCertificateChain(certs);
@@ -449,14 +432,13 @@ public class CaSessionTestBase extends RoleUsingTestCase {
             caSession.removeCA(roleMgmgToken, caId.intValue());
         }
         if (caname != null) {
-            try {
-                final CAInfo caInfo = caSession.getCAInfo(roleMgmgToken, caname);
+            final CAInfo caInfo = caSession.getCAInfo(roleMgmgToken, caname);
+            if (caInfo != null) {
                 caSession.removeCA(roleMgmgToken, caInfo.getCAId());
-            } catch (CADoesntExistsException e) {
-                // Great! This is what we want! :D
             }
+
         }
-    } 
+    }
     
     public void addCAUseSessionBeanToGenerateKeys(CA ca, String cadn, char[] tokenpwd) throws Exception {
         
@@ -475,7 +457,7 @@ public class CaSessionTestBase extends RoleUsingTestCase {
             assertNotNull(pubK);
             // Now create a CA certificate
             CAInfo info = caSession.getCAInfo(authenticationToken, ca.getCAId());
-            Collection<Certificate> certs = info.getCertificateChain();
+            List<Certificate> certs = info.getCertificateChain();
             assertEquals(0, certs.size());
 
             EndEntityInformation user = new EndEntityInformation("casessiontestca", ca.getSubjectDN(), ca.getCAId(), null, null, new EndEntityType(

@@ -20,3 +20,5 @@ Jitsi							dnssecjava						Eclipse					https://github.com/ibauersachs/dnssecjav
 Log4j							log4j							Apache					https://logging.apache.org/log4j						Used for logging throughout EJBCA		
 Nimbus Jose						nimbus-jose-jwt					Apache					https://connect2id.com/products/nimbus-jose-jwt
 OpenLDAP						ldap							OpenLDAP Public License http://www.openldap.org/								Used for publishing in LDAP directories
+SnakeYAML                       snakeyaml                       Apache                  https://bitbucket.org/asomov/snakeyaml                  Serialisation of Java objects to/from YAML
+CSRF Guard						csrfguard						BSD						https://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project CSRF protection for non-JSF (JSP) pages

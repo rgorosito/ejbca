@@ -5,7 +5,7 @@
     response.setContentType("text/html; charset="+org.ejbca.config.WebConfiguration.getWebContentEncoding());
 %>
 <%@page  errorPage="/errorpage.jsp" import="java.util.*, org.ejbca.ui.web.admin.configuration.EjbcaWebBean,org.ejbca.config.GlobalConfiguration, org.ejbca.ui.web.admin.rainterface.UserView,
-    org.ejbca.ui.web.RequestHelper,org.ejbca.ui.web.admin.rainterface.RAInterfaceBean, org.ejbca.ui.web.admin.rainterface.EndEntityProfileDataHandler, org.ejbca.core.model.ra.raadmin.EndEntityProfile, org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator, org.cesecore.certificates.endentity.EndEntityConstants,
+    org.ejbca.ui.web.RequestHelper,org.ejbca.ui.web.admin.rainterface.RAInterfaceBean, org.ejbca.core.model.ra.raadmin.EndEntityProfile, org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator, org.cesecore.certificates.endentity.EndEntityConstants,
                  javax.ejb.CreateException, java.io.Serializable, org.cesecore.certificates.util.DNFieldExtractor, org.ejbca.core.model.ra.ExtendedInformationFields, org.cesecore.certificates.endentity.EndEntityInformation, org.ejbca.ui.web.admin.hardtokeninterface.HardTokenInterfaceBean, 
                  org.ejbca.core.model.hardtoken.HardTokenIssuer,org.ejbca.core.model.hardtoken.HardTokenIssuerInformation,org.ejbca.core.model.SecConst,org.cesecore.util.StringTools,org.cesecore.certificates.util.DnComponents,org.apache.commons.lang.time.DateUtils,
                  org.cesecore.certificates.endentity.ExtendedInformation,org.cesecore.certificates.crl.RevokedCertInfo,org.cesecore.ErrorCode,org.ejbca.util.query.*,java.math.BigInteger,org.cesecore.authorization.AuthorizationDeniedException,org.ejbca.core.model.authorization.AccessRulesConstants,
@@ -116,7 +116,7 @@
     int profileid = 0;
     String serialnumber = "";
 
-    profilenames = (String[]) ejbcawebbean.getInformationMemory().getAuthorizedEndEntityProfileNames(AccessRulesConstants.CREATE_END_ENTITY).keySet().toArray(new String[0]);
+    profilenames = (String[]) ejbcawebbean.getAuthorizedEndEntityProfileNames(AccessRulesConstants.CREATE_END_ENTITY).keySet().toArray(new String[0]);
 
     if (profilenames == null || profilenames.length == 0)
         noprofiles = true;
@@ -163,7 +163,7 @@
     String[] lastselectedsubjectdirattrs = null;
     int[] fielddata = null;
 
-    Map<Integer, String> caidtonamemap = ejbcawebbean.getInformationMemory().getCAIdToNameMap();
+    Map<Integer, String> caidtonamemap = ejbcawebbean.getCAIdToNameMap();
 
     RequestHelper.setDefaultCharacterEncoding(request);
 
@@ -725,7 +725,7 @@
     int[] tokenids = RAInterfaceBean.tokenids;
 
     if (globalconfiguration.getIssueHardwareTokens()) {
-        TreeMap<String, Integer> hardtokenprofiles = ejbcawebbean.getInformationMemory().getHardTokenProfiles();
+        TreeMap<String, Integer> hardtokenprofiles = ejbcawebbean.getHardTokenProfiles();
 
         tokentexts = new String[RAInterfaceBean.tokentexts.length + hardtokenprofiles.keySet().size()];
         tokenids = new int[tokentexts.length];
@@ -772,7 +772,7 @@
         }
     }
 
-    Map<Integer, List<Integer>> availablecas = ejbcawebbean.getInformationMemory().getCasAvailableToEndEntity(profileid, AccessRulesConstants.CREATE_END_ENTITY);
+    Map<Integer, List<Integer>> availablecas = rabean.getCasAvailableToEndEntity(profileid, AccessRulesConstants.CREATE_END_ENTITY);
     Collection authcas = null;
 
     pageContext.setAttribute("useradded", useradded);
@@ -782,6 +782,7 @@
   <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script type="text/javascript">
 
   <% if(!noprofiles){ %>
@@ -982,9 +983,9 @@ function checkallfields(){
     if(!checkfieldforipaddess("document.adduser.<%=TEXTFIELD_SUBJECTALTNAME+i%>","<%= ejbcawebbean.getText("ONLYNUMBERALSANDDOTS") + " " + ejbcawebbean.getText(DnComponents.getLanguageConstantFromProfileId(fielddata[EndEntityProfile.FIELDTYPE])) %>"))
       illegalfields++;
            <%  }else{ %> 
-
-    if(!checkfieldforlegaldnchars("document.adduser.<%=TEXTFIELD_SUBJECTALTNAME+i%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") + " " + ejbcawebbean.getText(DnComponents.getLanguageConstantFromProfileId(fielddata[EndEntityProfile.FIELDTYPE])) %>"))
-      illegalfields++;
+             if(!checkfieldforlegaldnchars("document.adduser.<%=TEXTFIELD_SUBJECTALTNAME+i%>","<%= ejbcawebbean.getText("ONLYCHARACTERS") + " " + ejbcawebbean.getText(DnComponents.getLanguageConstantFromProfileId(fielddata[EndEntityProfile.FIELDTYPE])) %>"))
+        	         illegalfields++;
+    
     <%    if(profile.isRequired(fielddata[EndEntityProfile.FIELDTYPE],fielddata[EndEntityProfile.NUMBER])){ %>
     if((document.adduser.<%= TEXTFIELD_SUBJECTALTNAME+i %>.value == "")){
       alert("<%= ejbcawebbean.getText("YOUAREREQUIRED", true) + " " + ejbcawebbean.getText(DnComponents.getLanguageConstantFromProfileId(fielddata[EndEntityProfile.FIELDTYPE]), true)%>");
@@ -1174,7 +1175,10 @@ function checkallfields(){
 <body onload='<% if(usehardtokenissuers) out.write("setAvailableHardTokenIssuers();");
                  if(usekeyrecovery) out.write(" isKeyRecoveryPossible();");%>
                  fillCAField();'>
-
+  
+  <jsp:include page="../adminmenu.jsp" />
+  <div class="main-wrapper">
+  <div class="container">
   <h1><c:out value="<%= ejbcawebbean.getText(\"ADDENDENTITY\") %>"/></h1>
 
   <% if(noprofiles){ %>
@@ -1705,7 +1709,7 @@ function checkallfields(){
     <%	if( profile.getUse(EndEntityProfile.STARTTIME, 0) ) { %>
 		<tr  id="Row<%=(row++)%2%>"> 
 			<td align="right"> 
-				<%= ejbcawebbean.getText("TIMEOFSTART") %> <%= ejbcawebbean.getHelpReference("/userguide.html#Certificate%20Validity") %>
+				<%= ejbcawebbean.getText("TIMEOFSTART") %> <%= ejbcawebbean.getHelpReference("/End_Entity_Profiles.html#Certificate_Validity") %>
 				<p class="help">(<%= ejbcawebbean.getText("DATE_HELP") %> <%= ejbcawebbean.getDateExample()
 				%> <%= ejbcawebbean.getText("OR").toLowerCase() %> <%= ejbcawebbean.getText("DAYS").toLowerCase()
 				%>:<%= ejbcawebbean.getText("HOURS").toLowerCase() %>:<%= ejbcawebbean.getText("MINUTES").toLowerCase() %>)</p>
@@ -1736,7 +1740,7 @@ function checkallfields(){
     <%	if( profile.getUse(EndEntityProfile.ENDTIME, 0) ) { %>
 		<tr  id="Row<%=(row++)%2%>"> 
 			<td align="right"> 
-				<%= ejbcawebbean.getText("TIMEOFEND") %> <%= ejbcawebbean.getHelpReference("/userguide.html#Certificate%20Validity") %>
+				<%= ejbcawebbean.getText("TIMEOFEND") %> <%= ejbcawebbean.getHelpReference("/End_Entity_Profiles.html#Certificate_Validity") %>
 				<p class="help">(<%= ejbcawebbean.getText("DATE_HELP") %> <%= ejbcawebbean.getDateExample() 
 				%> <%= ejbcawebbean.getText("OR").toLowerCase() %> <%= ejbcawebbean.getText("DAYS").toLowerCase()
 				%>:<%= ejbcawebbean.getText("HOURS").toLowerCase() %>:<%= ejbcawebbean.getText("MINUTES").toLowerCase() %>)</p>
@@ -1778,12 +1782,12 @@ function checkallfields(){
         <tr id="Row<%=(row)%2%>">
             <td align="right">
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED\") %>"/>
-                <%= ejbcawebbean.getHelpReference("/userguide.html#Name%20Constraints") %>
+                <%= ejbcawebbean.getHelpReference("/CA_Fields.html#Name_Constraints") %>
                 <p class="help"><c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED_HELP1\") %>"/><br />
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_PERMITTED_HELP2\") %>"/></p>
             </td>
             <td>
-                <textarea name="<%=TEXTAREA_NC_PERMITTED%>" rows="4" cols="38" tabindex="<%=tabindex++%>"><c:if test="${!useradded}"><c:out value="<%= NameConstraint.formatNameConstraintsList(profile.getNameConstraintsPermitted()) %>"/></c:if></textarea>
+                <textarea name="<%=TEXTAREA_NC_PERMITTED%>" rows="4" cols="38" tabindex="<%=tabindex++%>"></textarea>
             </td>
             <td><input type="checkbox" name="<%= CHECKBOX_REQUIRED_NC_PERMITTED %>" value="<%= CHECKBOX_VALUE %>"  disabled="disabled" <% if(profile.isRequired(EndEntityProfile.NAMECONSTRAINTS_PERMITTED,0)) out.write(" CHECKED "); %>></td>
         </tr>
@@ -1792,11 +1796,11 @@ function checkallfields(){
         <tr id="Row<%=(row++)%2%>">
             <td align="right">
                 <c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_EXCLUDED\") %>"/>
-                <%= ejbcawebbean.getHelpReference("/userguide.html#Name%20Constraints") %>
+                <%= ejbcawebbean.getHelpReference("/CA_Fields.html#Name_Constraints") %>
                 <p class="help"><c:out value="<%= ejbcawebbean.getText(\"EXT_PKIX_NC_EXCLUDED_HELP\") %>"/></p>
             </td>
             <td>
-                <textarea name="<%=TEXTAREA_NC_EXCLUDED%>" rows="4" cols="38" tabindex="<%=tabindex++%>"><c:if test="${!useradded}"><c:out value="<%= NameConstraint.formatNameConstraintsList(profile.getNameConstraintsExcluded()) %>"/></c:if></textarea>
+                <textarea name="<%=TEXTAREA_NC_EXCLUDED%>" rows="4" cols="38" tabindex="<%=tabindex++%>"></textarea>
             </td>
             <td><input type="checkbox" name="<%= CHECKBOX_REQUIRED_NC_EXCLUDED %>" value="<%= CHECKBOX_VALUE %>"  disabled="disabled" <% if(profile.isRequired(EndEntityProfile.NAMECONSTRAINTS_EXCLUDED,0)) out.write(" CHECKED "); %>></td>
         </tr>
@@ -1862,7 +1866,7 @@ function checkallfields(){
     <tr  id="Row<%=(row++)%2%>"> 
       <td  align="right"> 
         <c:out value="<%= ejbcawebbean.getText(\"KEYRECOVERABLE\") %>"/>
-        <%= ejbcawebbean.getHelpReference("/adminguide.html#Key%20recovery") %>
+        <%= ejbcawebbean.getHelpReference("/Key_Recovery.html") %>
       </td>
       <td> 
         <input type="checkbox" name="<%=CHECKBOX_KEYRECOVERABLE%>" value="<%=CHECKBOX_VALUE %>" tabindex="<%=tabindex++%>"<% if(profile.getValue(EndEntityProfile.KEYRECOVERABLE,0).equals(EndEntityProfile.TRUE))
@@ -1983,7 +1987,7 @@ function checkallfields(){
 	  <td align="right">
 	  &nbsp;
 	  </td>
-	  <td><input type="submit" name="<%= BUTTON_ADDUSER %>" value='<c:out value="<%= ejbcawebbean.getText(\"ADD\") %>"/>' tabindex="<%=tabindex++%>"
+	  <td class="padding-top"><input type="submit" name="<%= BUTTON_ADDUSER %>" value='<c:out value="<%= ejbcawebbean.getText(\"ADD\") %>"/>' tabindex="<%=tabindex++%>"
 				onClick='return checkallfields()'>
 		  &nbsp;&nbsp;&nbsp;
 		  <input type="reset" name="<%= BUTTON_RESET %>" value='<c:out value="<%= ejbcawebbean.getText(\"RESET\") %>"/>' tabindex="<%=tabindex++%>"></td>
@@ -2003,7 +2007,7 @@ function viewuser(row){
     var username = hiddenusernamefield.value;
     var link = "<%= VIEWUSER_LINK %>?<%= USER_PARAMETER %>="+username;
     link = encodeURI(link);
-    win_popup = window.open(link, 'view_user','height=650,width=750,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup = window.open(link, 'view_user','height=750,width=750,scrollbars=yes,toolbar=no,resizable=1');
     win_popup.focus();
 }
 
@@ -2012,7 +2016,7 @@ function edituser(row){
     var username = hiddenusernamefield.value;
     var link = "<%= EDITUSER_LINK %>?<%= USER_PARAMETER %>="+username;
     link = encodeURI(link);
-    win_popup = window.open(link, 'edit_user','height=650,width=900,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup = window.open(link, 'edit_user','height=750,width=900,scrollbars=yes,toolbar=no,resizable=1');
     win_popup.focus();
 }
 
@@ -2024,54 +2028,55 @@ function edituser(row){
   <% if(addedusers == null || addedusers.length == 0){     %>
   <!-- nothing to do -->
   <% } else{ %>
-  <div class="message info"><c:out value="<%= ejbcawebbean.getText(\"PREVIOUSLYADDEDENDENTITIES\") %>"/></div>
-  <p>
+  <div class="message"><strong><c:out value="<%= ejbcawebbean.getText(\"PREVIOUSLYADDEDENDENTITIES\") %>"/></strong></div>
+  <div>
     <input type="submit" name="<%=BUTTON_RELOAD %>" value='<c:out value="<%= ejbcawebbean.getText(\"RELOAD\") %>"/>'>
-  </p>
-  <table width="100%" border="0" cellspacing="1" cellpadding="0">
+  </div>
+  <table class="results" width="100%" border="0" cellspacing="1" cellpadding="0">
+  <thead>
   <tr> 
-    <td width="10%"><c:out value="<%= ejbcawebbean.getText(\"USERNAME_ABBR\") %>"/>              
-    </td>
-    <td width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_COMMONNAME\") %>"/>
-    </td>
-    <td width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_ORGANIZATIONALUNIT\") %>"/>
-    </td>
-    <td width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_ORGANIZATION\") %>"/>                 
-    </td>
-    <td width="30%"> &nbsp;
-    </td>
+    <th width="20%"><c:out value="<%= ejbcawebbean.getText(\"USERNAME_ABBR\") %>"/></th>
+    <th width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_COMMONNAME\") %>"/></th>
+    <th width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_ORGANIZATIONALUNIT\") %>"/></th>
+    <th width="20%"><c:out value="<%= ejbcawebbean.getText(\"DN_ABBR_ORGANIZATION\") %>"/></th>
+    <th width="20%"><c:out value="<%= ejbcawebbean.getText(\"ACTIONS\") %>"/></th>
   </tr>
+  </thead>
+  
+  <tbody>
     <%   for(int i=0; i < addedusers.length; i++){
             if(addedusers[i] != null){ 
       %>
      
   <tr id="Row<%= i%2 %>"> 
 
-    <td width="15%"><c:out value="<%= addedusers[i].getUsername() %>"/>
+    <td width="20%"><c:out value="<%= addedusers[i].getUsername() %>"/>
        <input type="hidden" name='<%= HIDDEN_USERNAME + i %>' value='<c:out value="<%=java.net.URLEncoder.encode(addedusers[i].getUsername(),\"UTF-8\")%>"/>'>
     </td>
     <td width="20%"><c:out value="<%= addedusers[i].getSubjectDNField(DNFieldExtractor.CN,0)  %>"/></td>
     <td width="20%"><c:out value="<%= addedusers[i].getSubjectDNField(DNFieldExtractor.OU,0) %>"/></td>
     <td width="20%"><c:out value="<%= addedusers[i].getSubjectDNField(DNFieldExtractor.O,0) %>"/></td>
-    <td width="25%">
-        <a style="cursor:pointer;" onclick='viewuser(<%= i %>)'>
-        <u><c:out value="<%= ejbcawebbean.getText(\"VIEWENDENTITY\") %>"/></u></a>
-        &nbsp;
-        <a style="cursor:pointer;" onclick='edituser(<%= i %>)'>
-        <u><c:out value="<%= ejbcawebbean.getText(\"EDITENDENTITY\") %>"/></u></a>
-    </td>
+    <td width="20%" style='white-space: nowrap;'><div class="button-group">
+		<button type='button' onclick='viewuser(<%= i %>)' title='<%= ejbcawebbean.getText("VIEW_ENDENTITY_TITLE") %> <%= ejbcawebbean.getText("POPUP_WINDOW") %>'><c:out value='<%= ejbcawebbean.getText("VIEW") %>' /></button>
+		<button type='button' onclick='edituser(<%= i %>)' title='<%= ejbcawebbean.getText("EDIT_ENDENTITY_TITLE") %> <%= ejbcawebbean.getText("POPUP_WINDOW") %>'><c:out value='<%= ejbcawebbean.getText("EDIT") %>' /></button>
+    </div></td>
+
   </tr>
  <%        }
          }
  %>
+  </tbody>
   </table>
  <%    }
      }%>
   </form>
+  
+  </div> <!-- container -->
 
   <%// Include Footer 
    String footurl =   globalconfiguration .getFootBanner(); %>
    
   <jsp:include page="<%= footurl %>" />
+</div> <!-- main-wrapper -->
 </body>
 </html>

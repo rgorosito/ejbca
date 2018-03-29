@@ -2,8 +2,8 @@
   BaseUserDataSource userdatasourcedata = userdatasourcehelper.userdatasourcedata;
    
 
-  Map authorizedcas = ejbcawebbean.getInformationMemory().getCANames();  
-  Map caidtonamemap = ejbcawebbean.getInformationMemory().getCAIdToNameMap();
+  Map authorizedcas = ejbcawebbean.getCANames();  
+  Map caidtonamemap = ejbcawebbean.getCAIdToNameMap();
     
   int[] userdatasourcetypes = {
                           CustomUserDataSourceContainer.TYPE_CUSTOMUSERDATASOURCECONTAINER};
@@ -111,7 +111,7 @@ function checkallfields(){
          <%= ejbcawebbean.getText("MODIFYABLEFIELDS") %> 
       </td>
       <td width="60%"> 
-        <select name="<%=userdatasourcehelper.SELECT_MODIFYABLEFIELDS%>" size="7" multiple >
+        <select class="select-list" name="<%=userdatasourcehelper.SELECT_MODIFYABLEFIELDS%>" size="7" multiple >
            <% TreeMap modifyableFieldTexts = userdatasourcehelper.getModifyableFieldTexts(); 
               Set modifiableFields = userdatasourcedata.getModifiableFields();
               Iterator iter = modifyableFieldTexts.keySet().iterator(); 
@@ -134,7 +134,7 @@ function checkallfields(){
         <%= ejbcawebbean.getText("APPLICABLECAS") %>
       </td>
       <td width="60%"> 
-        <select name="<%=userdatasourcehelper.SELECT_APPLICABLECAS%>" size="7" multiple >
+        <select class="select-list" name="<%=userdatasourcehelper.SELECT_APPLICABLECAS%>" size="7" multiple >
            <% Collection usedcas = userdatasourcedata.getApplicableCAs(); 
               if(userdatasourcehelper.issuperadministrator){ %>
            <option  value="<%= BaseUserDataSource.ANYCA %>" 

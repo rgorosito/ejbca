@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 import javax.ejb.EJB;
@@ -57,7 +58,6 @@ import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.CryptoTokenRules;
 import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.CAConstants;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.ca.InvalidAlgorithmException;
@@ -67,6 +67,7 @@ import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.ocsp.OcspResponseGeneratorSessionLocal;
 import org.cesecore.certificates.ocsp.cache.OcspSigningCache;
+import org.cesecore.certificates.ocsp.extension.OCSPExtension;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.config.GlobalOcspConfiguration;
 import org.cesecore.config.OcspConfiguration;
@@ -270,6 +271,10 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
             selectedInternalKeyBindingType = getAvailableKeyBindingTypes().get(0);
         }
         return selectedInternalKeyBindingType;
+    }
+
+    public boolean isOcspKeyBinding() {
+        return getSelectedInternalKeyBindingType().equals("OcspKeyBinding");
     }
 
     public String getBackLinkTranslatedText() {
@@ -523,7 +528,7 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
                         caCertificateSerialNumber = CertTools.getSerialNumberAsString(ca.getCACertificate());
                         // Check that the current CA certificate is the issuer of the IKB certificate
                         certificate.verify(ca.getCACertificate().getPublicKey(), BouncyCastleProvider.PROVIDER_NAME);
-                    } catch (CADoesntExistsException | AuthorizationDeniedException | InvalidKeyException | CertificateException | NoSuchAlgorithmException |
+                    } catch (AuthorizationDeniedException | InvalidKeyException | CertificateException | NoSuchAlgorithmException |
                             NoSuchProviderException | SignatureException e) {
                         // The CA is for the purpose of "internal" renewal not available to this administrator.
                         // Try to find the issuer (CA) certificate by other means, trying to get it through CA certificate link from the bound certificate
@@ -732,7 +737,10 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
     private boolean inEditMode = false;
     private Integer currentCertificateAuthority = null;
     private String currentCertificateSerialNumber = null;
+    private String currentTrustEntryDescription  = null;
+    private String currentOcspExtension = null;
     private ListDataModel<InternalKeyBindingTrustEntry>trustedCertificates = null;
+    private ListDataModel<String> ocspExtensions = null;
 
     public Integer getCurrentCertificateAuthority() {
         return currentCertificateAuthority;
@@ -740,6 +748,14 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
 
     public void setCurrentCertificateAuthority(Integer currentCertificateAuthority) {
         this.currentCertificateAuthority = currentCertificateAuthority;
+    }
+
+    public String getCurrentOcspExtension() {
+        return currentOcspExtension;
+    }
+
+    public void setCurrentOcspExtension(String currentOcspExtension) {
+        this.currentOcspExtension = currentOcspExtension;
     }
 
     private void flushSingleViewCache() {
@@ -1150,6 +1166,54 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
         return availableCertificateAuthorities;
     }
 
+    public List<SelectItem> getAvailableOcspExtensions() {
+        final List<SelectItem> ocspExtensionItems = new ArrayList<>();
+        ServiceLoader<OCSPExtension> serviceLoader = ServiceLoader.load(OCSPExtension.class);
+        for (OCSPExtension extension : serviceLoader) {
+            ocspExtensionItems.add(new SelectItem(extension.getOid(), extension.getClass().getSimpleName()));
+        }
+        if (currentOcspExtension == null && !ocspExtensionItems.isEmpty()) {
+            currentOcspExtension = (String) ocspExtensionItems.get(0).getValue();
+        }
+        return ocspExtensionItems;
+    }
+
+    public ListDataModel<String> getOcspExtensions() {
+        if (ocspExtensions == null) {
+            final int internalKeyBindingId = Integer.parseInt(currentInternalKeyBindingId);
+            if (internalKeyBindingId == 0) {
+                ocspExtensions = new ListDataModel<String>(new ArrayList<String>());
+            } else {
+                try {
+                    final InternalKeyBinding internalKeyBinding = internalKeyBindingSession.getInternalKeyBindingReference(
+                            authenticationToken, internalKeyBindingId);
+                    ocspExtensions = new ListDataModel<String>(internalKeyBinding.getOcspExtensions());
+                } catch (AuthorizationDeniedException e) {
+                    FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(e.getMessage()));
+                }
+            }
+        }
+        return ocspExtensions;
+    }
+
+    @SuppressWarnings("unchecked")
+    public void addOcspExtension() {
+        final List<String> ocspExtensionsCurrent = (List<String>) getOcspExtensions().getWrappedData();
+        ocspExtensionsCurrent.add(getCurrentOcspExtension());
+        ocspExtensions.setWrappedData(ocspExtensionsCurrent);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void removeOcspExtension() {
+        final List<String> ocspExtensionsCurrent = (List<String>) getOcspExtensions().getWrappedData();
+        ocspExtensionsCurrent.remove(ocspExtensions.getRowData());
+        ocspExtensions.setWrappedData(ocspExtensionsCurrent);
+    }
+
+    public String getOcspExtensionName() {
+        return ocspExtensions.getRowData();
+    }
+
     public String getCurrentCertificateSerialNumber() {
         return currentCertificateSerialNumber;
     }
@@ -1158,6 +1222,14 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
         this.currentCertificateSerialNumber = currentCertificateSerialNumber;
     }
 
+    public String getCurrentTrustEntryDescription() {
+        return currentTrustEntryDescription;
+    }
+    
+    public void setCurrentTrustEntryDescription(String description) {
+        this.currentTrustEntryDescription = description;
+    }
+    
     public String getTrustedCertificatesCaName() {
         return caSession.getCAIdToNameMap().get(trustedCertificates.getRowData().getCaId());
     }
@@ -1192,10 +1264,10 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
                 .getWrappedData();
         final String currentCertificateSerialNumber = getCurrentCertificateSerialNumber();
         if (currentCertificateSerialNumber == null || currentCertificateSerialNumber.trim().length() == 0) {
-            trustedCertificateReferences.add(new InternalKeyBindingTrustEntry(getCurrentCertificateAuthority(), null));
+            trustedCertificateReferences.add(new InternalKeyBindingTrustEntry(getCurrentCertificateAuthority(), null, currentTrustEntryDescription));
         } else {
             trustedCertificateReferences.add(new InternalKeyBindingTrustEntry(getCurrentCertificateAuthority(), new BigInteger(
-                    currentCertificateSerialNumber.trim(), 16)));
+                    currentCertificateSerialNumber.trim(), 16), currentTrustEntryDescription));
         }
         trustedCertificates.setWrappedData(trustedCertificateReferences);
     }
@@ -1296,6 +1368,9 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
                 }
             }
             internalKeyBinding.setTrustedCertificateReferences((List<InternalKeyBindingTrustEntry>) trustedCertificates.getWrappedData());
+            if (isOcspKeyBinding()) {
+                internalKeyBinding.setOcspExtensions((List<String>) ocspExtensions.getWrappedData());
+            }
             final List<DynamicUiProperty<? extends Serializable>> internalKeyBindingProperties = (List<DynamicUiProperty<? extends Serializable>>) internalKeyBindingPropertyList
                     .getWrappedData();
             for (final DynamicUiProperty<? extends Serializable> property : internalKeyBindingProperties) {
@@ -1317,12 +1392,14 @@ public class InternalKeyBindingMBean extends BaseManagedBean implements Serializ
      * @param cryptoTokenInfo
      * @return path to corresponding icons based on the followings:
      *
-     * Online if Keybinding is enabled, crypto token is active and keybinding exists in the cache
-     * Pending if Keybinding is enabled, crypto token is active, but cache hasn't been refreshed yet (keybinding is not in cache)
-     * Offline if keybindig is disabled or crypto token is offline.
-     *
+     * Online if keybinding is enabled, crypto token is active and keybinding exists in the cache
+     * Pending if keybinding is enabled, crypto token is active, but cache hasn't been refreshed yet (keybinding is not in cache)
+     * Offline if keybinding is disabled, unknown or offline
      */
     private String updateOperationalStatus(final InternalKeyBindingInfo currentKeyBindingInfo, final CryptoTokenInfo cryptoTokenInfo) {
+        if (cryptoTokenInfo == null) {
+            return getEjbcaWebBean().getImagefileInfix("status-ca-offline.png");
+        }
         switch (currentKeyBindingInfo.getStatus()) {
         case ACTIVE:
             if (currentKeyBindingInfo.getImplementationAlias().equals(OcspKeyBinding.IMPLEMENTATION_ALIAS)) {

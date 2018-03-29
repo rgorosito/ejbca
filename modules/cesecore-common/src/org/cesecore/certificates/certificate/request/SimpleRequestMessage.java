@@ -19,7 +19,9 @@ import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -36,7 +38,7 @@ import org.cesecore.util.CeSecoreNameStyle;
  * @version $Id$
  */
 public class SimpleRequestMessage implements RequestMessage {
-    
+        
     private static final Logger log = Logger.getLogger(SimpleRequestMessage.class);
 
     /**
@@ -82,7 +84,11 @@ public class SimpleRequestMessage implements RequestMessage {
     
     private Date validityNotBefore = null;
     private Date validityNotAfter = null;
-   
+
+    private List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+
+    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<Certificate>();
+    
     /**
      * Constructs a new Simple message handler object.
      * @param pubkey the public key to be certified
@@ -287,4 +293,23 @@ public class SimpleRequestMessage implements RequestMessage {
         }
     }
 
+    @Override
+    public List<Certificate> getAdditionalCaCertificates() {
+        return additionalCaCertificates;
+    }
+
+    @Override
+    public void setAdditionalCaCertificates(final List<Certificate> certificates) {
+        this.additionalCaCertificates = certificates;
+    }
+    
+    @Override
+    public List<Certificate> getAdditionalExtraCertsCertificates() {
+        return additionalExtraCertsCertificates;
+    }
+
+    @Override
+    public void setAdditionalExtraCertsCertificates(List<Certificate> additionalExtraCertsCertificates) {
+        this.additionalExtraCertsCertificates = additionalExtraCertsCertificates;
+    }
 } // SimpleRequestMessage

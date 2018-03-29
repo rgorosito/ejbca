@@ -36,26 +36,29 @@
 	static final String TEXTFIELD_HMACPASSWORD						= "textfieldhmacpassword";
 	static final String TEXTFIELD_NESTEDMESSAGETRUSTEDCERTPATH		= "textfieldnestedmessagetrustedcertificatespath";
 	
-	static final String BUTTON_ADD_ALIAS						= "buttonaliasadd";
-	static final String BUTTON_DELETE_ALIAS					 	= "buttondeletealias";
-	static final String BUTTON_EDIT_ALIAS					 	= "buttoneditalias";
-	static final String BUTTON_VIEW_ALIAS						= "buttonviewalias";
-	static final String BUTTON_RENAME_ALIAS					 	= "buttonaliasrename";
-	static final String BUTTON_CLONE_ALIAS						= "buttonaliasclone";
-	static final String BUTTON_SAVE							 	= "buttonsave";
-	static final String BUTTON_CANCEL							= "buttoncancel";
-	static final String BUTTON_RELOAD							= "buttonreload";
-	static final String BUTTON_ADDVENDORCA						= "buttonaddvendorca";
-	static final String BUTTON_REMOVEVENDORCA					= "buttonremovevendorca";
-	static final String BUTTON_ADD_NAMEGENPARAM_DN				= "buttonaddnamegenparamdn";
-	static final String BUTTON_REMOVE_NAMEGENPARAM_DN			= "buttonremovenamegenparamdn";
+	static final String BUTTON_ADD_ALIAS							= "buttonaliasadd";
+	static final String BUTTON_DELETE_ALIAS					 		= "buttondeletealias";
+	static final String BUTTON_EDIT_ALIAS					 		= "buttoneditalias";
+	static final String BUTTON_VIEW_ALIAS							= "buttonviewalias";
+	static final String BUTTON_RENAME_ALIAS					 		= "buttonaliasrename";
+	static final String BUTTON_CLONE_ALIAS							= "buttonaliasclone";
+	static final String BUTTON_SAVE							 		= "buttonsave";
+	static final String BUTTON_CANCEL								= "buttoncancel";
+	static final String BUTTON_RELOAD								= "buttonreload";
+	static final String BUTTON_ADDVENDORCA							= "buttonaddvendorca";
+	static final String BUTTON_ADDRESPONSECAPUBSCA					= "buttonaddresponsecapubsca";
+	static final String BUTTON_ADDRESPONSEEXTRACERTS			    = "buttonaddresponseextracerts";
+	static final String BUTTON_REMOVEVENDORCA						= "buttonremovevendorca";
+	static final String BUTTON_REMOVERESPONSECAPUBSCA				= "buttonremoveresponsecapubsca";
+	static final String BUTTON_REMOVERESPONSEEXTRACERTS				= "buttonremoveresponseextracerts";
+	static final String BUTTON_ADD_NAMEGENPARAM_DN					= "buttonaddnamegenparamdn";
+	static final String BUTTON_REMOVE_NAMEGENPARAM_DN				= "buttonremovenamegenparamdn";
 	
 	static final String RADIO_CMPMODE								= "radiocmpmode";
-	static final String RADIO_NAMEGENSCHEME						= "radionnamegenscheme";
+	static final String RADIO_NAMEGENSCHEME							= "radionnamegenscheme";
 	static final String RADIO_HMACPASSWORD							= "radiohmacpassword";
-
 	
-	static final String CHECKBOX_CMP_VENDORMODE					= "checkcmpvendormode";
+	static final String CHECKBOX_CMP_VENDORMODE						= "checkcmpvendormode";
 	static final String CHECKBOX_CMP_KUR_USEAUTOMATICKEYUPDATE  	= "checkboxcmpuseautomatickeyupdate";
 	static final String CHECKBOX_CMP_KUR_USESAMEKEYS				= "checkboxcmpkurusesamekeys";
 	static final String CHECKBOX_CMP_ALLOWRAVERIFYPOPO				= "checkboxcmpallowraverifypopo";
@@ -64,19 +67,20 @@
 	static final String CHECKBOX_HMAC								= "checkboxhmac";
 	static final String CHECKBOX_EEC								= "checkboxeec";
 	static final String CHECKBOX_REGTOKEN							= "checkboxregtoken";
-	static final String CHECKBOX_DNPART							= "checkboxdnpart";
+	static final String CHECKBOX_DNPART								= "checkboxdnpart";
 	static final String CHECKBOX_OMITVERIFICATIONINECC				= "checkboxomitverificationsinecc";
-
 	
 	static final String LIST_CMPDEFAULTCA					   		= "listcmpdefaultca";
 	static final String LIST_CMPRACAS						   		= "listcmpracas";
 	static final String LIST_CMPRESPONSEPROTECTION		   		    = "listcmpresponseprotection";
 	static final String LIST_CMPEEPROFILES					   		= "listcmpeeprofile";
 	static final String LIST_CMPCERTPROFILES				   		= "listcmpcertprofiles";
-	static final String LIST_ECCCAS								= "listecccas";
+	static final String LIST_ECCCAS									= "listecccas";
 	static final String LIST_DNPARTS								= "listdnparts";
 	static final String LIST_EXTRACTUSERNAMECOMP					= "listextractusernamecomp";
 	static final String LIST_VENDORCA								= "listvendorca";
+	static final String LIST_RESPONSECAPUBSCA						= "listresponsecapubsca";
+	static final String LIST_RESPONSE_EXTRACERTS 				    = "listresponseextracerts";
 	static final String LIST_NAMEGENPARAM_DN						= "listnamegenparamdn";
 		
 	static final String SELECT_ALIASES                       		= "selectaliases";
@@ -122,10 +126,14 @@
   <title><c:out value="<%= gc.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script type="text/javascript" src="<%= gc.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 
 <body>
+<jsp:include page="../adminmenu.jsp" />
+<div class="main-wrapper">
+<div class="container">
 
 <%
 	// Determine action 
@@ -240,7 +248,7 @@
     		       			if((value==null) || (value.length() == 0)) {
     		       				cmpConfigClone.setCMPDefaultCA(alias, "");
     		       			} else {
-    		                	String cadn = cabean.getCAInfo(value).getCAInfo().getSubjectDN();
+    		                	String cadn = cabean.getCASubjectDNNoAuth(value);
     		                	cmpConfigClone.setCMPDefaultCA(alias, cadn);
     		       			}
     		       						
@@ -309,10 +317,15 @@
     			            		}
     			            }
 	    			        cmpConfigClone.setAuthenticationProperties(alias, authmodule, authparam);
-    		
-    			            			
 	    			        
-	    			        
+	    			     	// ra name generation prefix
+		            		value = request.getParameter(TEXTFIELD_CMP_RANAMEGENPREFIX);
+		            		cmpConfigClone.setRANameGenPrefix(alias, value == null ? "" : value);
+		            		
+		            		// ra name generation postfix
+		            		value = request.getParameter(TEXTFIELD_CMP_RANAMEGENPOSTFIX);
+		            		cmpConfigClone.setRANameGenPostfix(alias, value==null ? "" : value);
+		            		
     			            if(!ramode) { // client mode
     			            		// extract username component
     			            		value = request.getParameter(LIST_EXTRACTUSERNAMECOMP);
@@ -327,6 +340,7 @@
     			            				vendormode = true;
     			            		}
     			            		cmpConfigClone.setVendorMode(alias, vendormode);
+    			            		
     			            } else { // ra mode
     			            		// allow verify popo
     			            		value = request.getParameter(CHECKBOX_CMP_ALLOWRAVERIFYPOPO);
@@ -348,14 +362,6 @@
 											}
     			           			}
     			           			
-    			           			// ra name generation prefix
-    			            		value = request.getParameter(TEXTFIELD_CMP_RANAMEGENPREFIX);
-    			            		cmpConfigClone.setRANameGenPrefix(alias, value == null ? "" : value);
-    			            		
-    			            		// ra name generation postfix
-    			            		value = request.getParameter(TEXTFIELD_CMP_RANAMEGENPOSTFIX);
-    			            		cmpConfigClone.setRANameGenPostfix(alias, value==null ? "" : value);
-    			            		
     			            		// ra password generation parameters
     			            		value = request.getParameter(TEXTFIELD_CMP_RAPASSWORDGENPARAM);
     			            		cmpConfigClone.setRAPwdGenParams(alias, value==null ? "random" : value);
@@ -405,42 +411,82 @@
     			            value = request.getParameter(CHECKBOX_OMITVERIFICATIONINECC);
     			            cmpConfigClone.setOmitVerificationsInECC(alias, (value != null));
     			            
-    		       		
-    			            
     			   			// ------------------- BUTTONS -------------------------
     			            
-    			        	if(request.getParameter(BUTTON_ADDVENDORCA) != null) {
-    			        			if(request.getParameter(CHECKBOX_CMP_VENDORMODE) != null) {
-    			        					value = request.getParameter(LIST_VENDORCA);
-    			           					String vendorcas = cmpConfigClone.getVendorCA(alias);
-    			           					if(!StringUtils.contains(vendorcas, value)) {
-    			           							if(StringUtils.isEmpty(vendorcas)) {
-    			           								vendorcas = value;
-    			           							} else {
-    			           								vendorcas += ";" + value;
-    			           							}
-    			           							cmpConfigClone.setVendorCA(alias, vendorcas);
-    			           					}
-    			        			}
-    			        	}
-    			            
-    			        	if(request.getParameter(BUTTON_REMOVEVENDORCA) != null) {
-    			           			value = request.getParameter(LIST_VENDORCA);
-    			           			String vendorcas = cmpConfigClone.getVendorCA(alias);
-    			           			if(StringUtils.contains(vendorcas, value)) {
-    			           					String[] cas = vendorcas.split(";");
-    			           					if(cas.length == 1) {
-    			           							vendorcas = "";
-    			           					} else {
-    			           							if(StringUtils.equals(cas[0], value)) {
-	           											vendorcas = StringUtils.remove(vendorcas, value + ";");
-	           										} else {
-	           											vendorcas = StringUtils.remove(vendorcas, ";" + value);
-	           										}
-    			           					}
-    		           						cmpConfigClone.setVendorCA(alias, vendorcas);
-    			           			}
+    			   			if(request.getParameter(BUTTON_ADDRESPONSECAPUBSCA) != null) {
+		        					value = request.getParameter(LIST_RESPONSECAPUBSCA);
+		        					final String cas = cmpConfigClone.getResponseCaPubsCA(alias);
+		           					List<String> list = new ArrayList<String>();
+		           					if (StringUtils.isNotBlank(cas)) {
+			           					list = (List<String>) new ArrayList<String>(Arrays.asList( cas.split(";")));
+		           					}
+		           					if (!list.contains(value)) {
+		           						list.add(value);
+		           					}
+		           					cmpConfigClone.setResponseCaPubsCA(alias, StringUtils.join(list, ";"));
+				        	}
+    			   			
+    			   			if(request.getParameter(BUTTON_REMOVERESPONSECAPUBSCA) != null) {
+				           			value = request.getParameter(LIST_RESPONSECAPUBSCA);
+				           			final String cas = cmpConfigClone.getResponseCaPubsCA(alias);
+				           			if (StringUtils.isNotBlank(cas)) {
+				           					final List<String> list = new ArrayList<String>((List<String>) Arrays.asList( cas.split(";")));
+				           					if (list.remove(value)) {
+				           							cmpConfigClone.setResponseCaPubsCA(alias, StringUtils.join(list, ";"));
+				           					}
+				           			}
 	    			        }
+    			   			
+    			   			if(request.getParameter(BUTTON_ADDRESPONSEEXTRACERTS) != null) {
+	        					value = request.getParameter(LIST_RESPONSE_EXTRACERTS);
+	        					final String cas = cmpConfigClone.getResponseExtraCertsCA(alias);
+	           					List<String> list = new ArrayList<String>();
+	           					if (StringUtils.isNotBlank(cas)) {
+		           					list = (List<String>) new ArrayList<String>(Arrays.asList( cas.split(";")));
+	           					}
+	           					if (!list.contains(value)) {
+	           						list.add(value);
+	           					}
+	           					cmpConfigClone.setResponseExtraCertsCA(alias, StringUtils.join(list, ";"));
+				        	}
+				   			
+				   			if(request.getParameter(BUTTON_REMOVERESPONSEEXTRACERTS) != null) {
+			           			value = request.getParameter(LIST_RESPONSE_EXTRACERTS);
+			           			final String cas = cmpConfigClone.getResponseExtraCertsCA(alias);
+			           			if (StringUtils.isNotBlank(cas)) {
+			           					final List<String> list = new ArrayList<String>((List<String>) Arrays.asList( cas.split(";")));
+			           					if (list.remove(value)) {
+			           							cmpConfigClone.setResponseExtraCertsCA(alias, StringUtils.join(list, ";"));
+			           					}
+			           			}
+	    			        }
+    			   			
+    			   			if(request.getParameter(CHECKBOX_CMP_VENDORMODE) != null) {
+    			   				
+		    			        	if(request.getParameter(BUTTON_ADDVENDORCA) != null) {
+				        					value = request.getParameter(LIST_VENDORCA);
+				           					final String cas = cmpConfigClone.getVendorCA(alias);
+				           					List<String> list = new ArrayList<String>();
+				           					if (StringUtils.isNotBlank(cas)) {
+					           					list = new ArrayList<String>((List<String>) Arrays.asList( cas.split(";")));
+				           					}
+				           					if (!list.contains(value)) {
+				           						list.add(value);
+				           					}
+				           					cmpConfigClone.setVendorCA(alias, StringUtils.join(list, ";"));
+		    			        	}
+		    			            
+		    			        	if(request.getParameter(BUTTON_REMOVEVENDORCA) != null) {
+			    			        		value = request.getParameter(LIST_VENDORCA);
+			    			        		final String cas = cmpConfigClone.getVendorCA(alias);
+						           			if (StringUtils.isNotBlank(cas)) {
+						           					final List<String> list = new ArrayList<String>((List<String>) Arrays.asList( cas.split(";")));
+						           					if (list.remove(value)) {
+						           							cmpConfigClone.setVendorCA(alias, StringUtils.join(list, ";"));
+						           					}
+						           			}
+			    			        }
+    			   			}
     			            
     				        if(request.getParameter(BUTTON_ADD_NAMEGENPARAM_DN)!= null) {
     				           		if(request.getParameter(RADIO_NAMEGENSCHEME).equals(UsernameGeneratorParams.DN)) {
@@ -513,12 +559,14 @@
 <%}
   if( includefile.equals("cmpaliasespage.jspf")){ %>
    <%@ include file="cmpaliasespage.jspf" %> 
-<%}
-
+<%} %>
+</div> <!-- Container -->
+<%
    // Include Footer 
    String footurl =   gc.getFootBanner(); %>
    
   <jsp:include page="<%= footurl %>" />
 
+</div> <!-- main-wrapper -->
 </body>
 </html>

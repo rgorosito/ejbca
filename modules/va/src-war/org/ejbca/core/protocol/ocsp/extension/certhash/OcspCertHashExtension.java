@@ -27,6 +27,7 @@ import org.bouncycastle.asn1.isismtt.ocsp.CertHash;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Extension;
 import org.cesecore.certificates.ocsp.extension.OCSPExtension;
+import org.cesecore.keybind.InternalKeyBinding;
 
 /**
  * ASN.1 OCSP extension used to return hash values for certificates as part of an OCSP response.
@@ -46,13 +47,18 @@ public class OcspCertHashExtension implements OCSPExtension{
     private static final Logger log = Logger.getLogger(OcspCertHashExtension.class);
     
     @Override
+    public String getOid() {
+        return CERT_HASH_OID;
+    }
+    
+    @Override
     public void init() {
        //Nothing much to do here.      
     }
 
     @Override
     public Map<ASN1ObjectIdentifier, Extension> process(X509Certificate[] requestCertificates, String remoteAddress, String remoteHost,
-            X509Certificate cert, org.bouncycastle.cert.ocsp.CertificateStatus status) {
+            X509Certificate cert, org.bouncycastle.cert.ocsp.CertificateStatus status, InternalKeyBinding internalKeyBinding) {
         MessageDigest md = null;
         try {
             md = MessageDigest.getInstance("SHA256");

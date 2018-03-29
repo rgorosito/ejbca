@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
@@ -31,7 +32,6 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -52,6 +52,7 @@ import javax.faces.validator.ValidatorException;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.apache.myfaces.custom.fileupload.UploadedFile;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -72,6 +73,7 @@ import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.certificates.util.DnComponents;
 import org.cesecore.config.CesecoreConfiguration;
+import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.PrintableStringNameStyle;
@@ -161,7 +163,13 @@ public class EnrollMakeNewRequestBean implements Serializable {
 
     private String selectedAlgorithm; //GENERATED ON SERVER
     private String algorithmFromCsr; //PROVIDED BY USER
+    private UploadedFile uploadFile;
     private String certificateRequest;
+    private String publicKeyModulus;
+    private String publicKeyExponent;
+    private String sha256Fingerprint;
+    private String signature;
+    private String csrFileName;
     private SubjectDn subjectDn;
     private SubjectAlternativeName subjectAlternativeName;
     private SubjectDirectoryAttributes subjectDirectoryAttributes;
@@ -262,10 +270,11 @@ public class EnrollMakeNewRequestBean implements Serializable {
     }
 
     /** @return true if approvals are required as determined by state of dependencies by checking the RA API. */
-    private boolean isApprovalRequired(){
-        // TODO: ECA-5240 will remove the need for making this API call
+    private boolean isApprovalRequired() {
         try {
-            return raMasterApiProxyBean.getApprovalProfileForAction(raAuthenticationBean.getAuthenticationToken(), ApprovalRequestType.ADDEDITENDENTITY, getCAInfo().getCAId(), getAuthorizedCertificateProfiles().get(Integer.parseInt(getSelectedCertificateProfile())).getId()) != null;
+            return raMasterApiProxyBean.getApprovalProfileForAction(raAuthenticationBean.getAuthenticationToken(),
+                    ApprovalRequestType.ADDEDITENDENTITY, getCAInfo().getCAId(),
+                    getAuthorizedCertificateProfiles().get(Integer.parseInt(getSelectedCertificateProfile())).getId()) != null;
         } catch (AuthorizationDeniedException e) {
             throw new IllegalStateException(e);
         }
@@ -357,14 +366,11 @@ public class EnrollMakeNewRequestBean implements Serializable {
                 KeyPairGeneration.PROVIDED_BY_USER.equals(getSelectedKeyPairGenerationEnum());
     }
 
+    boolean uploadCsrDoneRendered = false;
+    
     /** @return true if the the CSR has been uploaded */
     public boolean isUploadCsrDoneRendered() {
-        return algorithmFromCsr!=null;
-    }
-
-    /** @return the provideRequestInfoRendered */
-    public boolean isProvideRequestInfoRendered() {
-        return isKeyAlgorithmAvailable();
+        return this.uploadCsrDoneRendered;
     }
 
     /**
@@ -469,6 +475,11 @@ public class EnrollMakeNewRequestBean implements Serializable {
         return isKeyAlgorithmAvailable();
     }
 
+    /** @return the provideRequestInfoRendered */
+    public boolean isProvideRequestInfoRendered() {
+        return isKeyAlgorithmAvailable();
+    }
+    
     private boolean isKeyAlgorithmAvailable() {
         if (KeyPairGeneration.ON_SERVER.equals(getSelectedKeyPairGenerationEnum()) && StringUtils.isNotEmpty(getSelectedAlgorithm())) {
             return true;
@@ -515,9 +526,28 @@ public class EnrollMakeNewRequestBean implements Serializable {
         // NOOP here. Validators and setters do the real work.
     }
 
+    private boolean renderCsrDetailedInfo = false;
+    
+    public boolean isRenderCsrDetailedInfo() {
+        return renderCsrDetailedInfo;
+    }
+
+    public void setRenderCsrDetailedInfo(boolean renderCsrDetailedInfo) {
+        this.renderCsrDetailedInfo = renderCsrDetailedInfo;
+    }
+
+    public void renderCsrDetailedInfoToggle() {
+        renderCsrDetailedInfo = !renderCsrDetailedInfo;
+    }
+
+    public void renderNextInstance(final FieldInstance fieldInstance){
+        fieldInstance.getNext().setVisible(true);
+    }
+    
     public void renderNonModifiableTemplatesToggle() {
         renderNonModifiableTemplates = !renderNonModifiableTemplates;
     }
+    
     public void renderNonModifiableFieldsToggle() {
         renderNonModifiableFields = !renderNonModifiableFields;
     }
@@ -532,10 +562,12 @@ public class EnrollMakeNewRequestBean implements Serializable {
 
     public void uploadCsrChange() {
         algorithmFromCsr = null;
+        uploadCsrDoneRendered = false;
     }
 
     /** Populate the state of modifiable fields with the CSR that was saved during file upload validation */
     public void uploadCsr() {
+        validateCsr(certificateRequest);
         //If PROVIDED BY USER key generation is selected, try fill Subject DN fields from CSR (Overwrite the fields set by previous CSR upload if any)
         if (getSelectedKeyPairGenerationEnum() != null && KeyPairGeneration.PROVIDED_BY_USER.equals(getSelectedKeyPairGenerationEnum()) && algorithmFromCsr!=null) {
             final PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(getCertificateRequest());
@@ -549,6 +581,8 @@ public class EnrollMakeNewRequestBean implements Serializable {
                 getSubjectAlternativeName().update();
             }
             // Don't make the effort to populate Subject Directory Attribute fields. Too little real world use for that.
+            
+            uploadCsrDoneRendered = true;
         }
     }
 
@@ -981,17 +1015,32 @@ public class EnrollMakeNewRequestBean implements Serializable {
             }
         }
     }
-
-    /** Validate an uploaded CSR and store the extracted key algorithm and CSR for later use. */
-    public final void validateCsr(FacesContext context, UIComponent component, Object value) throws ValidatorException {
-        algorithmFromCsr = null;
-        final String valueStr = value.toString();
-        if (valueStr != null && valueStr.length() > EnrollMakeNewRequestBean.MAX_CSR_LENGTH) {
-            log.info("CSR uploaded was too large: "+valueStr.length());
+    
+    public void actionUpdateCsrInfoFields() {
+        String fileName = uploadFile.getName();
+        
+        csrFileName = fileName;
+        
+        String fileContents;
+        try {
+            fileContents = new String(uploadFile.getBytes());
+        } catch (IOException e) {
             raLocaleBean.addMessageError("enroll_invalid_certificate_request");
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
         }
-        PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(valueStr);
+        
+        validateCsr(fileContents);
+    }
+    
+    /** Validate an uploaded CSR and store the extracted key algorithm and CSR for later use. */
+    public final void validateCsr(String csrValue) throws ValidatorException {
+        algorithmFromCsr = null;
+        if (csrValue != null && csrValue.length() > EnrollMakeNewRequestBean.MAX_CSR_LENGTH) {
+            log.info("CSR uploaded was too large: "+csrValue.length());
+            raLocaleBean.addMessageError("enroll_invalid_certificate_request");
+            throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
+        }
+        PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(csrValue);
         if (pkcs10CertificateRequest == null) {
             raLocaleBean.addMessageError("enroll_invalid_certificate_request");
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_invalid_certificate_request")));
@@ -1002,19 +1051,29 @@ public class EnrollMakeNewRequestBean implements Serializable {
         try {
             final String keySpecification = AlgorithmTools.getKeySpecification(jcaPKCS10CertificationRequest.getPublicKey());
             final String keyAlgorithm = AlgorithmTools.getKeyAlgorithm(jcaPKCS10CertificationRequest.getPublicKey());
+            
             final CertificateProfile certificateProfile = getCertificateProfile();
             if (!certificateProfile.isKeyTypeAllowed(keyAlgorithm, keySpecification)) {
                 raLocaleBean.addMessageError("enroll_key_algorithm_is_not_available", keyAlgorithm + "_" + keySpecification);
                 throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_key_algorithm_is_not_available", keyAlgorithm + "_" + keySpecification)));
             }
             algorithmFromCsr = keyAlgorithm + " " + keySpecification;// Save for later use
-            // For yet unknown reasons, the setter is never when invoked during AJAX request
-            certificateRequest = value.toString();
-        } catch (InvalidKeyException | NoSuchAlgorithmException e) {
-            raLocaleBean.addMessageError("enroll_unknown_key_algorithm");            
+            
+            certificateRequest = csrValue;
+            
+            PublicKey publicKey = jcaPKCS10CertificationRequest.getPublicKey();
+            publicKeyModulus = KeyTools.getKeyModulus(publicKey);
+            
+            publicKeyExponent = KeyTools.getKeyPublicExponent(publicKey);
+            sha256Fingerprint = KeyTools.getSha256Fingerprint(certificateRequest);
+            signature = KeyTools.getCertificateRequestSignature(jcaPKCS10CertificationRequest);
+            
+        } catch (InvalidKeyException | NoSuchAlgorithmException | IOException e) {
+            raLocaleBean.addMessageError("enroll_unknown_key_algorithm");
             throw new ValidatorException(new FacesMessage(raLocaleBean.getMessage("enroll_unknown_key_algorithm")));
         }
     }
+
 
     //-----------------------------------------------------------------------------------------------
     // Getters and setters
@@ -1319,10 +1378,8 @@ public class EnrollMakeNewRequestBean implements Serializable {
                 }
                 if (availableKeyAlgorithms.contains(AlgorithmConstants.KEYALGORITHM_ECDSA)) {
                     final Set<String> ecChoices = new HashSet<>();
-                    final Map<String, List<String>> namedEcCurvesMap = AlgorithmTools.getNamedEcCurvesMap(false);
                     if (certificateProfile.getAvailableEcCurvesAsList().contains(CertificateProfile.ANY_EC_CURVE)) {
-                        final String[] keys = namedEcCurvesMap.keySet().toArray(new String[namedEcCurvesMap.size()]);
-                        for (final String ecNamedCurve : keys) {
+                        for (final String ecNamedCurve : AlgorithmTools.getNamedEcCurvesMap(false).keySet()) {
                             if (CertificateProfile.ANY_EC_CURVE.equals(ecNamedCurve)) {
                                 continue;
                             }
@@ -1337,8 +1394,12 @@ public class EnrollMakeNewRequestBean implements Serializable {
                     final List<String> ecChoicesList = new ArrayList<>(ecChoices);
                     Collections.sort(ecChoicesList);
                     for (final String ecNamedCurve : ecChoicesList) {
+                        if (!AlgorithmTools.isKnownAlias(ecNamedCurve)) {
+                            log.warn("Ignoring unknown curve " + ecNamedCurve + " from being displayed in the RA web.");
+                            continue;
+                        }
                         availableAlgorithmSelectItems.add(new SelectItem(AlgorithmConstants.KEYALGORITHM_ECDSA + "_" + ecNamedCurve, AlgorithmConstants.KEYALGORITHM_ECDSA + " "
-                                + StringTools.getAsStringWithSeparator(" / ", namedEcCurvesMap.get(ecNamedCurve))));
+                                        + StringTools.getAsStringWithSeparator(" / ", AlgorithmTools.getAllCurveAliasesFromAlias(ecNamedCurve))));
                     }
                 }
                 for (final String algName : CesecoreConfiguration.getExtraAlgs()) {
@@ -1559,16 +1620,66 @@ public class EnrollMakeNewRequestBean implements Serializable {
                     " modifiable=" + fieldInstance.isModifiable() + " selectableValues.size=" + (fieldInstance.getSelectableValues()==null?0:fieldInstance.getSelectableValues().size()));
         }
         // For the email fields "used" means use EE email address
-        if (fieldInstance.isUsed() || DnComponents.DNEMAILADDRESS.equals(fieldInstance.getName()) || DnComponents.RFC822NAME.equals(fieldInstance.getName())) {
-            if (isRenderNonModifiableFields()) {
-                return true;
-            }
-            if ((!fieldInstance.isSelectable() && fieldInstance.isModifiable()) || (fieldInstance.isSelectable() && fieldInstance.getSelectableValues().size() > 1)
-                    || (!fieldInstance.isModifiable() && (fieldInstance.getName().equals("RFC822NAME") || fieldInstance.getName().equals("UPN")))) {
-                return true;
+        if (fieldInstance.isVisible()) {
+            if (fieldInstance.isUsed() || DnComponents.DNEMAILADDRESS.equals(fieldInstance.getName()) || DnComponents.RFC822NAME.equals(fieldInstance.getName())) {
+                if (isRenderNonModifiableFields()) {
+                    return true;
+                }
+                if ((!fieldInstance.isSelectable() && fieldInstance.isModifiable()) || (fieldInstance.isSelectable() && fieldInstance.getSelectableValues().size() > 1)
+                        || (!fieldInstance.isModifiable() && (fieldInstance.getName().equals("RFC822NAME") || fieldInstance.getName().equals("UPN")))) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+    
+    public UploadedFile getUploadFile() {
+        return uploadFile;
+    }
+
+    public void setUploadFile(UploadedFile uploadFile) {
+        this.uploadFile = uploadFile;
+    }
+    
+    public String getPublicKeyModulus() {
+        return publicKeyModulus;
+    }
+
+    public void setPublicKeyModulus(String publicKeyModulus) {
+        this.publicKeyModulus = publicKeyModulus;
+    }
+
+    public String getPublicKeyExponent() {
+        return publicKeyExponent;
+    }
+
+    public void setPublicKeyExponent(String publicKeyExponent) {
+        this.publicKeyExponent = publicKeyExponent;
+    }
+
+    public String getSha256Fingerprint() {
+        return sha256Fingerprint;
+    }
+
+    public void setSha256Fingerprint(String sha256Fingerprint) {
+        this.sha256Fingerprint = sha256Fingerprint;
+    }
+    
+    public String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(String signature) {
+        this.signature = signature;
+    }
+
+    public String getCsrFileName() {
+        return csrFileName;
+    }
+
+    public void setCsrFileName(String csrFileName) {
+        this.csrFileName = csrFileName;
     }
 
     /** @return the current certificateRequest if available */
@@ -1654,11 +1765,11 @@ public class EnrollMakeNewRequestBean implements Serializable {
     public void setValidityInputComponent(final UIComponent validityInputComponent) {
         this.validityInputComponent = validityInputComponent;
     }
-    
+
     /**
      * Finds the UPN/RFC822 email and domain in an Ajax event, concatenates them and
      * sets the value of the appropriate FieldInstance.
-     * 
+     *
      * @param event the Ajax event
      */
     public void upnRfc(AjaxBehaviorEvent event) {

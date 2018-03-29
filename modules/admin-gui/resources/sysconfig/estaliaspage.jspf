@@ -1,7 +1,7 @@
-<%@page import="org.ejbca.core.model.authorization.AccessRulesConstants"%>
+<%@page import="org.ejbca.core.model.authorization.AccessRulesConstants, org.apache.commons.lang.math.NumberUtils"%>
 <%
-   java.util.Map<String, Integer> canames = ejbcawebbean.getInformationMemory().getCANames();
-   java.util.TreeMap<String, Integer> vendorcas = ejbcawebbean.getVendorCAOptions();
+   java.util.Map<String, Integer> canames = ejbcawebbean.getCANames();
+   java.util.TreeMap<String, Integer> vendorcas = ejbcawebbean.getCAOptions();
    int row = 0;
 %>
 
@@ -31,7 +31,10 @@ function checkallfields() {
 </script>
 
 <div align="center"> 
-  <h2><c:out value="<%= ejbcawebbean.getText((authorizedToEdit ? \"ESTEDITALIAS\": \"EST_VIEW_ALIAS\")) %>" /></h2>
+  <h2>
+  	<c:out value="<%= ejbcawebbean.getText((authorizedToEdit ? \"ESTEDITALIAS\": \"EST_VIEW_ALIAS\")) %>" />
+  	<%= ejbcawebbean.getHelpReference("/EST.html") %>
+  </h2>
   <h3><c:out value="<%= ejbcawebbean.getText(\"ESTALIAS\")+ \" : \" + alias %>" /></h3>
 </div>
 
@@ -58,19 +61,27 @@ function checkallfields() {
       </td>
       <td width="50%"> 
         <select name="<%=LIST_ESTDEFAULTCA%>" <% if(!authorizedToEdit) { out.write(" disabled "); } %>>
-           <%  String currentCA = estConfigClone.getDefaultCA(alias); %>
-           <option <% if(currentCA.equals("")) { %> selected <% } %>
+           <%  String currentCAID = estConfigClone.getDefaultCAID(alias); 
+          	 // If we had the old type, EJBCA 6.11 of CA, which is the name, convert it to ID
+          	 if (!NumberUtils.isNumber(currentCAID)) {
+          	     if (canames.get(currentCAID) != null) {
+          	         currentCAID = String.valueOf(canames.get(currentCAID));
+          	     }
+          	 }
+           %>
+           <option <% if(currentCAID.equals("")) { %> selected <% } %>
                  	value='<c:out value=""/>'><c:out value="<%= ejbcawebbean.getText(\"ESTDEFAULTCA_DISABLED\") %>"/></option>
            <%         	  
            	for( String caname : canames.keySet() ) {
-           %>     <option <% if(currentCA.equals(caname)) { %> selected <% } %>
-                  value='<c:out value="<%= caname%>"/>'><c:out value="<%= caname %>"/></option> 
+           	      final Integer caid = canames.get(caname);
+           %>     <option <% if(currentCAID.equals(String.valueOf(caid))) { %> selected <% } %>
+                  value='<c:out value="<%= caid%>"/>'><c:out value="<%= caname %>"/></option> 
            <% } %>
         </select>
       </td>
     </tr>
     
-    <% String ceep = null; %>
+    <% String currentEndEntityProfileId = null; %>
     <tr  id="Row<%=row++%2%>"> 
       <td width="50%" align="top"> 
         <h3><c:out value="<%= ejbcawebbean.getText(\"ESTEEPROFILE\") %>"/>
@@ -79,8 +90,7 @@ function checkallfields() {
       </td>
       <td width="50%"> 
         <select name="<%= LIST_ESTEEPROFILES %>" onchange="reload()" <% if(!authorizedToEdit) { out.write("disabled"); } %>>
-          <% String currentEndEntityProfileId = estConfigClone.getEndEntityProfile(alias); %>
-          <% ceep = currentEndEntityProfileId; %>
+          <% currentEndEntityProfileId = String.valueOf(estConfigClone.getEndEntityProfileID(alias)); %>
           <% boolean eepselected = false; %>
           <% 
           	Map<String, String> nameToIdMap = ejbcawebbean.getAuthorizedEEProfilesAndIdsNoKeyId(AccessRulesConstants.CREATE_END_ENTITY);
@@ -92,6 +102,7 @@ function checkallfields() {
           <% } %>
           <% if(!eepselected) { %> <option selected value='<c:out value="-1"/>'><c:out value="Non-existing End Entity Profile with ID: "/><c:out value="<%= currentEndEntityProfileId %>"/></option> <% } %>
         </select>
+       	<input type="submit" name="<%= BUTTON_RELOAD %>" id="<%= BUTTON_RELOAD %>" value="<%= ejbcawebbean.getText("RELOAD") %>" style="display:none">
         <noscript>
 			&nbsp;&nbsp;&nbsp;&nbsp;
 			<input type="submit" name="<%= BUTTON_RELOAD %>" id="<%= BUTTON_RELOAD %>" value="<%= ejbcawebbean.getText("RELOAD") %>">
@@ -108,13 +119,19 @@ function checkallfields() {
       </td>
       <td width="50%"> 
         <select name="<%= LIST_ESTCERTPROFILES %>" <% if(!authorizedToEdit) { out.write("disabled"); } %>>
-          <% String defcp = estConfigClone.getCertProfile(alias); %>
-          <option <% if("ProfileDefault".equals(defcp)){ %> selected <% } %> value='<c:out value="ProfileDefault"/>'><c:out value="<%= ejbcawebbean.getText(\"CMPRA_PROFILEDEFAULT\") %>"/></option>
-          <% 
-          	if(ceep != null) {
-            	for(String cp : ejbcawebbean.getCertificateProfilesNoKeyId(ceep)) {  %>
-            		<option <% if(cp.equals(defcp)){ %> selected <% } %>
-                  		value='<c:out value="<%= cp%>"/>'><c:out value="<%= cp %>"/></option>
+          <% String defcpid = estConfigClone.getCertProfileID(alias);           
+          	 Map<String, String> certificateProfiles = ejbcawebbean.getCertificateProfilesNoKeyId(currentEndEntityProfileId);
+          	 // If we had the old type, EJBCA 6.11 of CP, which is the name, convert it to ID
+          	 if (!NumberUtils.isNumber(defcpid)) {
+          	     if (certificateProfiles.get(defcpid) != null) {
+          	         defcpid = certificateProfiles.get(defcpid);
+          	     }
+          	 }
+           	 if(currentEndEntityProfileId != null) {
+		        for (String cpname : certificateProfiles.keySet()) { 
+		           final String cpid = certificateProfiles.get(cpname); %>
+            		<option <% if(cpid.equals(defcpid)){ %> selected <% } %>
+                  		value='<c:out value="<%= cpid%>"/>'><c:out value="<%= cpname %>"/></option>
           <% 	} 
              }%>
         </select>
@@ -153,17 +170,21 @@ function checkallfields() {
         </h3>
         <p class="help"><c:out value="<%= ejbcawebbean.getText(\"ESTREQUIREPASSWORD_HELP\") %>"/></p>
 	  </td>
-      <td width="50%">        
-        <input type="text" name="<%=TEXTFIELD_EST_REQUIREPASSWORD %>" value='<c:out value="<%= estConfigClone.getPassword(alias) %>"/>' 
+      <td width="50%">
+      <% if(!authorizedToEdit) { // Don't output the actual password in edit mode %>
+        <c:out value="*****" />
+      <% } else { //if(!authorizedToEdit) %>
+        <input type="password" autocomplete="off" name="<%=TEXTFIELD_EST_REQUIREPASSWORD %>" value='<c:out value="<%= estConfigClone.getPassword(alias) %>"/>' 
         	maxlength="150" size="25" title="<%= ejbcawebbean.getText("FORMAT_STRING") %>" <% if(!authorizedToEdit) { out.write(" disabled "); } %>>
+      <% } %>  
       </td>
     </tr>
     
     <tr  id="Row<%=row++%2%>"> 
       <td width="50%" align="top"> 
-        <h3><c:out value="<%= ejbcawebbean.getText(\"ESTALLOWKURWITHSAMEKEY\") %>"/>
-        <%= ejbcawebbean.getHelpReference("/adminguide.html#Key%20Update%20Request%20(kur)") %>
-        </h3>
+        <h3>
+        	<c:out value="<%= ejbcawebbean.getText(\"ESTALLOWKURWITHSAMEKEY\") %>"/>
+     	</h3>
         <p class="help"><c:out value="<%= ejbcawebbean.getText(\"ESTALLOWKURWITHSAMEKEY_HELP\") %>"/></p>
       </td>
       <td width="50%"> 

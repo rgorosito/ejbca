@@ -13,38 +13,30 @@
 
 package org.ejbca.ui.web.admin.keys.validation;
 
-import java.io.IOException;
 import java.io.Serializable;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateParsingException;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import javax.ejb.EJB;
 import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
+import javax.faces.component.html.HtmlPanelGrid;
 import javax.faces.component.html.HtmlSelectOneMenu;
 import javax.faces.context.FacesContext;
-import javax.faces.event.AbortProcessingException;
 import javax.faces.event.AjaxBehaviorEvent;
 import javax.faces.model.SelectItem;
 import javax.faces.validator.ValidatorException;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
-import org.apache.myfaces.custom.fileupload.UploadedFile;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateConstants;
-import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
-import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.validation.ExternalCommandCertificateValidator;
 import org.cesecore.keys.validation.IssuancePhase;
@@ -58,19 +50,21 @@ import org.cesecore.keys.validation.PhasedValidator;
 import org.cesecore.keys.validation.Validator;
 import org.cesecore.keys.validation.ValidatorBase;
 import org.cesecore.keys.validation.ValidatorFactory;
-import org.cesecore.util.CertTools;
-import org.cesecore.util.StringTools;
+import org.cesecore.util.ui.DynamicUiModel;
+import org.cesecore.util.ui.DynamicUiModelAware;
+import org.cesecore.util.ui.DynamicUiModelException;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
+import org.ejbca.ui.psm.jsf.JsfDynamicUiPsmFactory;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
 /**
  * JSF MBean backing the edit key validators page.
- *  
+ *
  * @version $Id$
  */
 // Declarations in faces-config.xml
-//@javax.faces.bean.SessionScoped
+//@javax.faces.bean.ViewScoped
 //@javax.faces.bean.ManagedBean(name="validatorBean")
 public class ValidatorBean extends BaseManagedBean implements Serializable {
 
@@ -89,21 +83,36 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     private KeyValidatorSessionLocal keyValidatorSession;
 
     // Declarations in faces-config.xml
-    // @javax.faces.bean.ManagedProperty(value="#{certProfilesBean}")
+    // @javax.faces.bean.ManagedProperty(value="#{validatorsBean}")
     private ValidatorsBean validatorsBean;
 
-    /** Selected key validator id.*/
-    private int currentValidatorId = -1;
+    /** The validators ID. */
+    private int validatorId;
     
     /** Selected key validator. */
     private Validator validator = null;
 
-    private UploadedFile testExternalCommandCertificateValidatorPath;
-    
-    /** Since this MBean is session scoped we need to reset all the values when needed. */
+    /** Dynamic UI PIM component. */
+    private DynamicUiModel uiModel;
+
+    /** Dynamic UI PSM component. */
+    private HtmlPanelGrid dataGrid;
+
+    /**
+     * Resets the dynamic UI properties PSM.
+     */
     private void reset() {
-        currentValidatorId = -1;
+        setValidatorId(-1);
         validator = null;
+    }
+    
+    /**
+     * Checks if the administrator is authorized the edit key validators.
+     * 
+     * @return true if the administrator is authorized.
+     */
+    public boolean hasEditRights() {
+        return getEjbcaWebBean().isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_EDITVALIDATOR);
     }
 
     /**
@@ -123,65 +132,129 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets the selected key validator id.
-     * @return the id.
+     * Processes the key validation type changed event and renders the concrete validator view. 
+     * 
+     * @param e the event.
+     * @throws DynamicUiModelException if the PSM could not be initialized.
      */
-    public Integer getSelectedKeyValidatorId() {
-        return validatorsBean.getSelectedKeyValidatorId();
+    public void validatorTypeChanged(final AjaxBehaviorEvent e) throws DynamicUiModelException {
+        setValidatorType((String) ((HtmlSelectOneMenu) e.getComponent()).getValue());
+//        FacesContext.getCurrentInstance().renderResponse();
     }
-
+    
+    public String getValidatorType() {
+        return getValidator().getValidatorTypeIdentifier();
+    }
+  
     /**
-     * Gets the selected key validator name.
-     * @return the name.
+     * Sets the selected validator type. This re-creates the entire validator, so only do it if it actually changed type.
+     * @param type the type {@link ValidatorBase#getValidatorTypeIdentifier()}.
      */
-    public String getSelectedKeyValidatorName() {
-        return keyValidatorSession.getKeyValidatorName(getSelectedKeyValidatorId());
+    public void setValidatorType(final String type) {
+        final String oldType = validator.getValidatorTypeIdentifier();
+        if (!oldType.equals(type)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Change key validator type from " + oldType + " to " + type);
+            }
+            setValidator(ValidatorFactory.INSTANCE.getArcheType(type));
+            getValidator().setDataMap(getValidator().getDataMap());
+            getValidator().setProfileId(validatorsBean.getValidatorId());
+            getValidator().setProfileName(validatorsBean.getValidatorName());
+        }
     }
-
+    
     /**
      * Gets the selected validator.
      * @return the  validator.
      */
     public Validator getValidator() {
-        if (currentValidatorId != -1 && validator != null && getSelectedKeyValidatorId().intValue() != currentValidatorId) {
+        // @ViewScoped: If the back link was called it may happen that the same view is rendered again with another validator.
+        final int newId = validatorsBean.getValidatorId();
+        final int oldId = getValidatorId();
+        if (validator != null && oldId != newId) {
             reset();
         }
-        if (validator == null) {
+        if (validator == null && newId != -1) {
             if (log.isDebugEnabled()) {
-                log.debug("Request validator with id " + getSelectedKeyValidatorId());
+                log.debug("Request validator with id " + newId);
             }
-            currentValidatorId = getSelectedKeyValidatorId().intValue();
-            validator = keyValidatorSession.getValidator(currentValidatorId);
+            setValidatorId(newId);         
+            setValidator(keyValidatorSession.getValidator(newId));
+        }
+        // (Re-)initialize dynamic UI PSM.
+        if (validator instanceof DynamicUiModelAware) {
+            if (((DynamicUiModelAware) validator).getDynamicUiModel() == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Request dynamic UI properties for validator with (id=" + validator.getProfileId() + ") with properties " + validator.getDataMap());
+                }
+                ((DynamicUiModelAware) validator).initDynamicUiModel();
+                try {
+                    initGrid(((DynamicUiModelAware) validator).getDynamicUiModel(), validator.getClass().getSimpleName());
+                } catch (DynamicUiModelException e) {
+                    log.warn("Could not initialize dynamic UI PSM: " + e.getMessage(), e);
+                }
+            }
         }
         return validator;
+     }
+    
+     /**
+      * Sets the current validator.
+      * @param validator the validator.
+      */
+     public void setValidator(final Validator validator) {
+         this.validator = validator;
+     }
+
+     /**
+      * Gets the validators ID.
+      * @return the ID.
+      */
+    public int getValidatorId() {
+        return validatorId;
     }
 
     /**
-     * Checks if the administrator is authorized the edit key validators.
-     * 
-     * @return true if the administrator is authorized.
+     * Sets the validators ID.
+     * @param validatorId the ID.
      */
-    public boolean hasEditRights() {
-        return getEjbcaWebBean().isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_EDITVALIDATOR);
+    public void setValidatorId(int validatorId) {
+        this.validatorId = validatorId;
     }
 
     /**
-     * Processes the key validation type changed event and renders the concrete key validator view. 
-     * 
-     * @param e the event.
+     * Gets the dynamic UI properties PSM component as HTML data grid.
+     * @return the data grid.
+     * @throws DynamicUiModelException if the PSM could not be initialized.
      */
-    public void validatorTypeChanged(AjaxBehaviorEvent e) {
-        if (log.isDebugEnabled()) {
-            log.debug("Setting key validator type " + ((HtmlSelectOneMenu) e.getComponent()).getValue());
+    public HtmlPanelGrid getDataGrid() throws DynamicUiModelException {
+        if (dataGrid == null) {
+            dataGrid = new HtmlPanelGrid();
+            dataGrid.setId(getClass().getSimpleName()+"-dataGrid");
+            uiModel = ((DynamicUiModelAware) getValidator()).getDynamicUiModel();
+            initGrid(uiModel, getValidator().getClass().getSimpleName());
         }
-        final String type = (String) ((HtmlSelectOneMenu) e.getComponent()).getValue();
-        validator = ValidatorFactory.INSTANCE.getArcheType(type);
-        validator.setDataMap(getValidator().getDataMap());
-        validator.setProfileId(getSelectedKeyValidatorId());
-        validator.setProfileName(getSelectedKeyValidatorName());
-        FacesContext.getCurrentInstance().renderResponse();
+        return dataGrid;
+    }
+
+    /**
+     * Sets the dynamic UI properties PSM component as HTML data grid.
+     * @param dataGrid the data grid.
+     */
+    public void setDataGrid(final HtmlPanelGrid dataGrid) {
+        this.dataGrid = dataGrid;
     }
     
+    /**
+     * Initializes the dynamic UI model grid panel.
+     * @param pim the PIM.
+     * @param the HTML components ID prefix.
+     * @throws DynamicUiModelException if the PSM could not be created.
+     */
+    private void initGrid(final DynamicUiModel pim, final String prefix) throws DynamicUiModelException {
+        JsfDynamicUiPsmFactory.initGridInstance(dataGrid, pim, prefix);
+    }
+
     /**
      * Checks whether the Validator settings template is set to "Use custom settings".
      * @return true if custom settings are enabled
@@ -192,11 +265,11 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
 
     /**
      * Gets the available key validator types.
-     * 
+     *
      * @return List of the available key validator types
      */
     public List<SelectItem> getAvailableValidators() {
-        final List<Class> excludeClasses = new ArrayList<Class>();
+        final List<Class<?>> excludeClasses = new ArrayList<>();
         if (!((GlobalConfiguration) configurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableExternalScripts()) {
             excludeClasses.add(ExternalCommandCertificateValidator.class);
         }
@@ -225,7 +298,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         }
         return result;
     }
-    
+
     /**
      * Gets a list of select items of the certificate issuance process phases (see {@link IssuancePhase}).
      * @return the list.
@@ -238,7 +311,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         }
         return result;
     }
-    
+
     /**
      * Gets a list of select items of the certificate issuance process phases (see {@link IssuancePhase}).
      * @return the list.
@@ -246,34 +319,11 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     public List<SelectItem> getApplicablePhases() {
         final List<SelectItem> result = new ArrayList<SelectItem>();
         for (Integer index : ((PhasedValidator) getValidator()).getApplicablePhases()) {
-            result.add(new SelectItem(index, getEjbcaWebBean().getText(IssuancePhase.indexOf(index).getLabel())));
+            result.add(new SelectItem(index, getEjbcaWebBean().getText(IssuancePhase.fromIndex(index).getLabel())));
         }
         return result;
     }
 
-    /**
-     * Gets the selected validator type.
-     * 
-     * @return the selected type.
-     */
-    public String getValidatorType() {
-        if(validator != null) {
-            return validator.getValidatorTypeIdentifier();
-        } else {
-            return null;
-        }
-    }
-    
-    public void setValidatorType(String value) {
-        // this re-creates the whole validator, so only do it if it actually changed type
-        if (!validator.getValidatorTypeIdentifier().equals(value)) {
-            validator = ValidatorFactory.INSTANCE.getArcheType(value);
-            validator.setDataMap(getValidator().getDataMap());
-            validator.setProfileId(getSelectedKeyValidatorId());
-            validator.setProfileName(getSelectedKeyValidatorName());
-        }
-    }
-    
     /**
      * Validates the description field, see {@link ValidatorBase#getDescription()}.
      * @param context the faces context.
@@ -408,14 +458,20 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      * @return the navigation outcome defined in faces-config.xml.
      */
     public String save() {
+        final Validator validator = getValidator();
+        if (log.isDebugEnabled()) {
+            log.debug("Try to save validator: " + validator);
+        }
         try {
+            if (validator instanceof DynamicUiModelAware) {
+                ((DynamicUiModelAware) validator).getDynamicUiModel().writeProperties(((ValidatorBase) validator).getRawData());
+            }
             keyValidatorSession.changeKeyValidator(getAdmin(), validator);
-            getEjbcaWebBean().getInformationMemory().keyValidatorsEdited();
             addInfoMessage("VALIDATORSAVED");
             reset();
             return "done";
         } catch (AuthorizationDeniedException e) {
-            addNonTranslatedErrorMessage("Not authorized to edit key validator.");
+            addNonTranslatedErrorMessage("Not authorized to edit validator " + validator.getProfileName());
         } catch (KeyValidatorDoesntExistsException e) {
             // NOPMD: ignore do nothing
         }
@@ -447,39 +503,23 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets the BaseKeyValidator allCertificateProfileIds field.
-     * @return the list
-     */
-    public boolean isAllCertificateProfileIds() {
-        return validator.isAllCertificateProfileIds();
-    }
-
-    /**
-     * Sets the BaseKeyValidator allCcertificateProfileIds field.
-     * @param true or false.
-     */
-    public void setAllCertificateProfileIds(boolean isAll) {
-        validator.setAllCertificateProfileIds(isAll);
-    }
-
-    /**
      * Gets the BaseKeyValidator certificateProfileIds field.
      * @return the list
      */
     public List<Integer> getCertificateProfileIds() {
-        return validator.getCertificateProfileIds();
+        return getValidator().getCertificateProfileIds();
     }
 
     /**
      * Sets the BaseKeyValidator certificateProfileIds field.
-     * @param the list of certificate profile ids.
+     * @param the list of certificate profile IDs.
      */
     public void setCertificateProfileIds(List<String> ids) {
         final List<Integer> list = new ArrayList<Integer>();
         for (String id : ids) {
             list.add(Integer.parseInt(id));
         }
-        validator.setCertificateProfileIds(list);
+        getValidator().setCertificateProfileIds(list);
     }
 
     /**
@@ -489,7 +529,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     public List<SelectItem> getAvailableNotBeforeConditions() {
         return conditionsToSelectItems();
     }
-    
+
     /**
      * Gets a list of select items of the available notAfter conditions.
      * @return the list.
@@ -512,72 +552,6 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     }
 
     /**
-     * Gets the BaseKeyValidator failedAction field.
-     * @return the failed action index.
-     */
-    public Integer getFailedAction() {
-        return validator.getFailedAction();
-    }
-
-    /**
-     * Sets the BaseKeyValidator failedAction field.
-     * @param index the failed action index.
-     */
-    public void setFailedAction(Integer index) {
-        validator.setFailedAction(index);
-    }
-
-    /**
-     * Sets the BaseKeyValidator notApplicableAction field.
-     * @param index the not applicable action index.
-     */
-    public void setNotApplicableAction(Integer index) {
-        validator.setNotApplicableAction(index);
-    }
-
-    /**
-     * Gets the BaseKeyValidator notApplicableAction field.
-     * @return the notApplicableAction action index.
-     */
-    public Integer getNotApplicableAction() {
-        return validator.getNotApplicableAction();
-    }
-
-    /**
-     * Gets a list of available ECC curve key, label pairs.
-     * @return the list.
-     */
-    public Map<String, String> getAvailableEcCurves() {
-        final Map<String, String> result = new TreeMap<String, String>();
-        final Map<String, List<String>> map = AlgorithmTools.getNamedEcCurvesMap(false);
-        final String[] keys = map.keySet().toArray(new String[map.size()]);
-        Arrays.sort(keys);
-        result.put(getEjbcaWebBean().getText("AVAILABLEECDSABYBITS"), CertificateProfile.ANY_EC_CURVE);
-        List<String> curves;
-        for (final String key : keys) {
-            curves = map.get(key);
-            if (log.isDebugEnabled()) {
-                log.debug("Availabe EC curve: " + curves);
-            }
-            result.put(StringTools.getAsStringWithSeparator(" / ", curves), key);
-        }
-        return result;
-    }
-
-    /**
-     * Gets the available key algorithms.
-     * @return the list
-     */
-    public List<SelectItem> getAvailableKeyAlgorithms() {
-        final List<SelectItem> result = new ArrayList<SelectItem>();
-        result.add(new SelectItem("-1", getEjbcaWebBean().getText("ALL")));
-        for (final String current : AlgorithmTools.getAvailableKeyAlgorithms()) {
-            result.add(new SelectItem(current));
-        }
-        return result;
-    }
-
-    /**
      * Transforms date condition enumerations to a list of select items.
      * @return the list.
      */
@@ -588,63 +562,5 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
             result.add(new SelectItem(items[i].getIndex(), getEjbcaWebBean().getText(items[i].getLabel())));
         }
         return result;
-    }
-
-    /**
-     * Processes the key validation base parameter options changed event and renders the concrete key validator view. 
-     * 
-     * @param e the event.
-     */
-    public void validatorTemplateChanged(AjaxBehaviorEvent e) throws AbortProcessingException {
-        if (log.isDebugEnabled()) {
-            log.debug("Setting key validator base parameter option " + ((HtmlSelectOneMenu) e.getComponent()).getValue());
-        }
-        final Integer value = (Integer) ((HtmlSelectOneMenu) e.getComponent()).getValue();
-        final Validator keyValidator = getValidator();
-        keyValidator.setSettingsTemplate(value);
-        keyValidator.setKeyValidatorSettingsTemplate();
-        FacesContext.getCurrentInstance().renderResponse();
-    }
-    
-    public UploadedFile getTestExternalCommandCertificateValidatorPath() {
-        return testExternalCommandCertificateValidatorPath;
-    }
-
-    public void setTestExternalCommandCertificateValidatorPath(final UploadedFile file) {
-    	if (log.isDebugEnabled()) {
-    	    log.debug("Uploaded test certificate file is: " + file);
-    	}
-        if (file != null) {
-            this.testExternalCommandCertificateValidatorPath = file;
-            try {
-                final List<Certificate> certificates = CertTools.getCertsFromPEM(file.getInputStream(), Certificate.class);
-                ((ExternalCommandCertificateValidator) validator).setTestCertificates(certificates);
-                if (log.isDebugEnabled()) {
-                    log.info("Test certificates uploaded: " + certificates);
-                }
-            } catch(IOException e) {
-                log.warn("Could not load file: " + e.getMessage(), e);
-            } catch(CertificateParsingException e) {
-                log.warn("Could not parse certificates: " + e.getMessage(), e);
-            }
-        }
-    }
-    
-    public String testExternalCommandCertificateValidatorAction() throws Exception {
-        if (testExternalCommandCertificateValidatorPath == null) {
-            addErrorMessage("EXTERNALCERTIFICATEVALIDATORTESTPATHMISSING");
-            return "";
-        }
-        final List<String> lines = ((ExternalCommandCertificateValidator) validator).testExternalCommandCertificateValidatorAction();
-        ((ExternalCommandCertificateValidator) validator).setTestStandardAndErrorOut(StringUtils.join(lines, getLineSeparator()));
-        if (log.isDebugEnabled()) {
-            log.debug("Test certificate with external command STOUT/ERROUT:" + System.getProperty("line.separator") + ((ExternalCommandCertificateValidator) validator).getTestStandardAndErrorOut());
-        }
-        FacesContext.getCurrentInstance().renderResponse();
-        return "";
-    }
-    
-    public String getLineSeparator() {
-        return System.getProperty("line.separator");
     }
 }

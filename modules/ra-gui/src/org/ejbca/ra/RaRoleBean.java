@@ -120,21 +120,10 @@ public class RaRoleBean implements Serializable {
             return;
         }
         initialized = true;
-        if (roleId != null || cloneFromRoleId != null) {
-            int roleToFetch = (roleId != null ? roleId : cloneFromRoleId);
-            role = raMasterApiProxyBean.getRole(raAuthenticationBean.getAuthenticationToken(), roleToFetch);
-            name = role.getRoleName();
-            namespace = role.getNameSpace();
-            if (roleId == null) {
-                role.setRoleId(Role.ROLE_ID_UNASSIGNED); // force creation of a new role if we are cloning
-            }
-        } else {
-            role = new Role("", "");
-        }
-
+        
         // Get namespaces
         namespaceOptions = new ArrayList<>();
-        namespaces = raMasterApiProxyBean.getAuthorizedRoleNamespaces(raAuthenticationBean.getAuthenticationToken(), role.getRoleId());
+        namespaces = raMasterApiProxyBean.getAuthorizedRoleNamespaces(raAuthenticationBean.getAuthenticationToken(), roleId != null ? roleId : Role.ROLE_ID_UNASSIGNED);
         Collections.sort(namespaces);
         hasAccessToEmptyNamespace = namespaces.contains("");
         if (hasAccessToEmptyNamespace) {
@@ -145,6 +134,19 @@ public class RaRoleBean implements Serializable {
             if (!namespace.equals("")) {
                 namespaceOptions.add(new SelectItem(namespace, namespace));
             }
+        }
+        
+        // Get role
+        if (roleId != null || cloneFromRoleId != null) {
+            int roleToFetch = (roleId != null ? roleId : cloneFromRoleId);
+            role = raMasterApiProxyBean.getRole(raAuthenticationBean.getAuthenticationToken(), roleToFetch);
+            name = role.getRoleName();
+            namespace = role.getNameSpace();
+            if (roleId == null) {
+                role.setRoleId(Role.ROLE_ID_UNASSIGNED); // force creation of a new role if we are cloning
+            }
+        } else {
+            role = new Role(getDefaultNamespace(), "");
         }
 
         // Get available access rules and their values in this role
@@ -180,6 +182,14 @@ public class RaRoleBean implements Serializable {
         endEntityRules.add(new RuleCheckboxInfo(AccessRulesConstants.REGULAR_REVOKEENDENTITY, "role_page_access_revokeendentity"));
         endEntityRules.add(new RuleCheckboxInfo(AccessRulesConstants.REGULAR_VIEWENDENTITY, "role_page_access_viewendentity"));
         endEntityRules.add(new RuleCheckboxInfo(AccessRulesConstants.REGULAR_VIEWENDENTITYHISTORY, "role_page_access_viewendentityhistory"));
+    }
+    
+    public String getDefaultNamespace() {
+        if (isLimitedToOneNamespace() || namespaces.isEmpty()) { // should never be empty, but better safe than sorry
+            return "";
+        } else {
+            return namespaces.get(0);
+        }
     }
 
     public Integer getRoleId() { return roleId; }
@@ -254,19 +264,27 @@ public class RaRoleBean implements Serializable {
         // so cloning through serialization is OK (and does not require a copy constructor that needs to be maintained).
         final Role roleWithChanges = (Role) SerializationUtils.clone(role);
         // Check and set namespace
-        final String namespaceToUse;
         if (!isLimitedToOneNamespace()) {
+            final String namespaceToUse;
             if (NEW_NAMESPACE_ITEM.equals(namespace)) {
                 if (StringUtils.isBlank(newNamespace)) {
-                    log.debug("Empty namespace entered when 'New namespace' was selected, cannot save role");
+                    log.debug("Empty namespace entered when 'New namespace' was selected. Cannot save role");
                     raLocaleBean.addMessageError("role_page_error_empty_namespace");
                     return "";
                 }
                 namespaceToUse = newNamespace;
             } else {
+                if (!StringUtils.isBlank(newNamespace)) {
+                    log.debug("New namespace name entered when an existing namespace was selected. Cannot save role");
+                    raLocaleBean.addMessageError("role_page_error_new_and_existing_namespace");
+                    return "";
+                }
                 namespaceToUse = namespace;
             }
             roleWithChanges.setNameSpace(namespaceToUse);
+        } else if (role.getRoleId() == Role.ROLE_ID_UNASSIGNED) {
+            // New role, and the admin is only allowed to use one namespace. Set the namespace to the only allowed one
+            roleWithChanges.setNameSpace(namespaces.get(0));
         }
         roleWithChanges.setRoleName(name);
 

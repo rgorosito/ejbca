@@ -37,9 +37,13 @@ org.cesecore.authorization.control.StandardRules
   <title><h:outputText value="#{web.ejbcaWebBean.globalConfiguration.ejbcaTitle}" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <script src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 <body>
+<jsp:include page="../adminmenu.jsp" />
+<div class="main-wrapper">
+<div class="container">
 	<h1>
 		<h:outputText value="#{scepConfigMBean.currentAlias.alias}" />
 	</h1>
@@ -122,10 +126,10 @@ org.cesecore.authorization.control.StandardRules
 
 		<h:outputLabel for="rapwd" value="#{web.text.SCEP_RA_AUTH_PASSWORD}" rendered="#{scepConfigMBean.currentAlias.modeRa}"/>
 		<h:panelGroup id="rapwd" rendered="#{scepConfigMBean.currentAlias.modeRa}">
-	    	<h:inputText  value="#{scepConfigMBean.currentAlias.raAuthPassword}" rendered="#{scepConfigMBean.currentAliasEditMode}">
+	    	<h:inputSecret redisplay="true" autocomplete="off" value="#{scepConfigMBean.currentAlias.raAuthPassword}" rendered="#{scepConfigMBean.currentAliasEditMode}">
 	    		<f:validator validatorId="legalCharsValidator"/>
-	    	</h:inputText>
-	    	<h:outputText value="#{scepConfigMBean.currentAlias.raAuthPassword}" rendered="#{!scepConfigMBean.currentAliasEditMode}"/>
+	    	</h:inputSecret>
+	    	<h:outputText value="*****" rendered="#{!scepConfigMBean.currentAliasEditMode}"/>
 		</h:panelGroup>
 
 		<h:outputLabel for="rascheme" value="#{web.text.SCEP_RA_NAME_GEN_SCHEME}" rendered="#{scepConfigMBean.currentAlias.modeRa}"/>
@@ -187,11 +191,12 @@ org.cesecore.authorization.control.StandardRules
 		</h:panelGroup>
 	</h:panelGrid>
 	</h:form>
-
+</div> <!-- Container -->
 
 	<%	// Include Footer 
 	String footurl = globalconfiguration.getFootBanner(); %>
 	<jsp:include page="<%= footurl %>" />
+</div> <!-- main-wrapper -->
 </body>
 </f:view>
 </html>

@@ -10,6 +10,7 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.ejbca.ui.cli;
 
 import org.ejbca.ui.cli.dbmanager.DBManager;
@@ -41,23 +42,24 @@ public abstract class ClientToolBox {
         return false;
     }
     /**
-     * 
+     *
      * @param args The arguments issued by the user. First argument selects the tool to use.
      */
     public static void main(String[] args) {
         // each new tool must be added to the array
-        final ClientToolBox toolBox[] = { 
-        		new HealthCheckTest(), 
+        final ClientToolBox toolBox[] = {
+        		new HealthCheckTest(),
         		new HSMKeyTool(),
-        		new Ocsp(), 
-        		new EjbcaWsRaCli(), 
-        		new CvcWsRaCli(), 
+        		new Ocsp(),
+        		new EjbcaWsRaCli(),
+        		new CvcWsRaCli(),
         		new CMPTest(),
         		new CMPKeyUpdateStressTest(),
         		new SCEPTest(),
                 new OCSPActivate(),
-                new DBManager(), 
-                new PasswordGenerator()
+                new DBManager(),
+                new PasswordGenerator(),
+                new CaIdGenerator(),
         };
         for ( int i=0; args.length>0 && i<toolBox.length; i++) {
             if ( toolBox[i].executeIfSelected(args) ) {

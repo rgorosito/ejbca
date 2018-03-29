@@ -70,18 +70,15 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
 	private static final  String   DEFAULTOCSPSERVICELOCATORURIPATH = "publicweb/status/ocsp";
 
     // Default name of headbanner in web interface.
-    private static final  String   DEFAULTHEADBANNER             = "head_banner.jsp";
+    public static final  String   DEFAULTHEADBANNER             = "head_banner.jsp";
     // Default name of footbanner page in web interface.
-    private static final  String   DEFAULTFOOTBANNER             = "foot_banner.jsp";
+    public static final  String   DEFAULTFOOTBANNER             = "foot_banner.jsp"; // used from systemconfiguration.jsp
 
     // Default list of nodes in cluster
     private static final Set<String> NODESINCLUSTER_DEFAULT      = new LinkedHashSet<>();
 
     // Title of ra admin web interface.
     private static final  String   DEFAULTEJBCATITLE             = InternalConfiguration.getAppNameCapital() + " Administration";
-
-    // The base of help links
-    public static final String HELPBASEURI = WebConfiguration.getDocBaseUri();
 
     // Default values for AutoEnroll
     private static final  String  AUTOENROLL_DEFAULT_ADSERVER = "dc1.company.local";
@@ -103,27 +100,12 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
 
     // Default CT Logs
     private static final LinkedHashMap<Integer,CTLogInfo> CTLOGS_DEFAULT = new LinkedHashMap<>();
-    /* By default the list is empty but it is possible to add logs here.
-    static {
-        try {
-            // The Base64 data is the public key.
-            final CTLogInfo log = new CTLogInfo(
-                "http://ct.googleapis.com/pilot/ct/v1/",
-                Base64.decode(
-                    ("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfahLEimAoz2t01p3uMziiLOl/fHT\n"+
-                     "DM0YDOhBRuiBARsV4UvxG2LdNgoIGLrtCzWE0J5APC2em4JlvR8EEEFMoA==\n").getBytes("ASCII")));
-            CTLOGS_DEFAULT.put(log.getLogId(), log);
-        } catch (UnsupportedEncodingException e) { } // NOPMD can't do anything here
-    }*/
 
     // Language codes. Observe the order is important
     public static final  int      EN                 = 0;
     public static final  int      SE                 = 1;
 
     // Public constants.
-    public static final  String HEADERFRAME         = "topFrame";  // Name of header browser frame
-    public static final  String MENUFRAME           = "leftFrame"; // Name of menu browser frame
-    public static final  String MAINFRAME           = "mainFrame"; // Name of main browser frame
     public static final  String DOCWINDOW           = "_ejbcaDocWindow"; // Name of browser window used to display help
 
     // Private constants
@@ -193,10 +175,6 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     private static final   String STATEDUMP_LOCKDOWN  = "statedump_lockdown";
 
     private static final   String LANGUAGEFILENAME      =  "languagefilename";
-    private static final   String MAINFILENAME          =  "mainfilename";
-    private static final   String INDEXFILENAME         =  "indexfilename";
-    private static final   String MENUFILENAME          =  "menufilename";
-    private static final   String ERRORPAGE             =  "errorpage";
     private static final   String IECSSFILENAMEPOSTFIX  =  "iecssfilenamepostfix";
     private static final String GOOGLE_CT_POLICY = "google_ct_policy";
     private static final String EXTERNAL_SCRIPTS_WHITELIST = "external_scripts_whitelist";
@@ -209,6 +187,8 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
        super();
 
        setEjbcaTitle(DEFAULTEJBCATITLE);
+       setHeadBanner(DEFAULTHEADBANNER);
+       setFootBanner(DEFAULTFOOTBANNER);
        setEnableEndEntityProfileLimitations(true);  // Still needed for 100% up-time upgrade from before EJBCA 6.3.0
        setEnableAuthenticatedUsersOnly(false);  // Still needed for 100% up-time upgrade from before EJBCA 6.3.0
        setEnableKeyRecovery(false);  // Still needed for 100% up-time upgrade from before EJBCA 6.3.0
@@ -254,15 +234,7 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
        data.put(HARDTOKEN_PATH,tempadminpath+"hardtoken");
 
        data.put(LANGUAGEFILENAME,"languagefile");
-       data.put(MAINFILENAME,"main.jsp");
-       data.put(INDEXFILENAME,"index.jsp");
-       data.put(MENUFILENAME,"adminmenu.jsp");
-       data.put(ERRORPAGE,"errorpage.jsp");
        data.put(IECSSFILENAMEPOSTFIX,"_ie-fixes");
-
-       setHeadBanner(DEFAULTHEADBANNER);
-       setFootBanner(DEFAULTFOOTBANNER);
-
     }
 
     public void initializeAdminWeb() {
@@ -287,9 +259,11 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     	           WebConfiguration.getHostName() + ":" +
     	           (String) data.get(GlobalConfiguration.PRIVATEPORT) + "/" +
     	           InternalConfiguration.getAppNameLower() + "/";
-   }
+    }
 
-    public String getAdminWebPath(){return (String) data.get(ADMINPATH);}
+    public String getAdminWebPath() {
+        return getString(ADMINPATH, "adminweb");
+    }
 
     public String getStandardCRLDistributionPointURI(){
         return getStandardCRLDistributionPointURINoDN() + DEFAULTCRLDISTURIPATHDN;
@@ -351,24 +325,27 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
 
 
     // Methods for manipulating the headbanner filename.
-    public   String getHeadBanner() {return (String) data.get(HEADBANNER);}
-    public   String getHeadBannerFilename(){
-      String returnval = (String) data.get(HEADBANNER);
-      return returnval.substring(returnval.lastIndexOf('/')+1);
-    }
+    public   String getHeadBanner() {return fullHeadBannerPath((String) data.get(HEADBANNER));}
     public   void setHeadBanner(String head){
-      data.put(HEADBANNER, ((String) data.get(ADMINPATH)) + ((String) data.get(BANNERS_PATH)) + "/" + head);
+      data.put(HEADBANNER, fullHeadBannerPath(head));
+    }
+    public boolean isNonDefaultHeadBanner() {
+        return !fullHeadBannerPath(DEFAULTHEADBANNER).equals(data.get(HEADBANNER));
+    }
+    private String fullHeadBannerPath(final String head) {
+        return ((String) data.get(ADMINPATH)) + ((String) data.get(BANNERS_PATH)) + "/" +
+                (StringUtils.isNotBlank(head) ? head.substring(head.lastIndexOf('/')+1) : DEFAULTHEADBANNER);
     }
 
 
     // Methods for manipulating the headbanner filename.
-    public   String getFootBanner() {return (String) data.get(FOOTBANNER);}
-    public   String getFootBannerFilename(){
-      String returnval = (String) data.get(FOOTBANNER);
-      return returnval.substring(returnval.lastIndexOf('/')+1);
-    }
+    public   String getFootBanner() {return fullFootBannerPath((String) data.get(FOOTBANNER));}
     public   void setFootBanner(String foot){
-      data.put(FOOTBANNER, "/" + ((String) data.get(BANNERS_PATH)) + "/" +foot);
+      data.put(FOOTBANNER, fullFootBannerPath(foot));
+    }
+    private String fullFootBannerPath(final String foot) {
+        return "/" + ((String) data.get(BANNERS_PATH)) + "/" +
+                (StringUtils.isNotBlank(foot) ? foot.substring(foot.lastIndexOf('/')+1) : DEFAULTFOOTBANNER);
     }
 
     // Methods for manipulating the title.
@@ -389,10 +366,6 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     public   String getHardTokenPath() {return (String) data.get(HARDTOKEN_PATH);}
 
     public   String getLanguageFilename(){return (String) data.get(LANGUAGEFILENAME);}
-    public   String getMainFilename(){return (String) data.get(MAINFILENAME);}
-    public   String getIndexFilename(){return (String) data.get(INDEXFILENAME);}
-    public   String getMenuFilename(){return (String) data.get(MENUFILENAME);}
-    public   String getErrorPage(){return (String) data.get(ERRORPAGE);}
     public   String getIeCssFilenamePostfix(){return (String) data.get(IECSSFILENAMEPOSTFIX);}
 
     public   String[] getPossibleEntiresPerPage(){return DEFAULTPOSSIBLEENTRIESPERPAGE;}

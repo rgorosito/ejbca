@@ -18,21 +18,22 @@ import java.util.Map;
 /**
  * An enum for revocation reasons, with a numerical database value and a String value for CLI applications.
  * 
+ * Based on RFC 5280 Section 5.3.1
+ * 
  * @version $Id$
- *
  */
 public enum RevocationReasons {
-    NOT_REVOKED(-1, "NOT_REVOKED", "the certificate is not revoked"),
-    UNSPECIFIED(0, "UNSPECIFIED", "unspecified"),
-    KEYCOMPROMISE(1, "KEY_COMPROMISE", "key compromise"),
-    CACOMPROMISE(2, "CA_COMPROMISE", "CA compromise"),
-    AFFILIATIONCHANGED(3, "AFFILIATION_CHANGED", "affiliation changed"),
-    SUPERSEDED(4, "SUPERSEDED", "superseded"),
-    CESSATIONOFOPERATION(5, "CESSATION_OF_OPERATION", "cessation of operation"),
-    CERTIFICATEHOLD(6, "CERTIFICATE_HOLD", "certificate hold"),
-    REMOVEFROMCRL(8, "REMOVE_FROM_CRL", "remove from CRL"),
-    PRIVILEGESWITHDRAWN(9, "PRIVILEGES_WITHDRAWN", "privileges withdrawn"),
-    AACOMPROMISE(10, "AA_COMPROMISE", "AA compromise");
+    NOT_REVOKED(-1, "NOT_REVOKED", "The Certificate Is Not Revoked"),
+    UNSPECIFIED(0, "UNSPECIFIED", "Unspecified"),
+    KEYCOMPROMISE(1, "KEY_COMPROMISE", "Key Compromise"),
+    CACOMPROMISE(2, "CA_COMPROMISE", "CA Compromise"),
+    AFFILIATIONCHANGED(3, "AFFILIATION_CHANGED", "Affiliation Changed"),
+    SUPERSEDED(4, "SUPERSEDED", "Superseded"),
+    CESSATIONOFOPERATION(5, "CESSATION_OF_OPERATION", "Cessation of Operation"),
+    CERTIFICATEHOLD(6, "CERTIFICATE_HOLD", "Certificate Hold"),
+    REMOVEFROMCRL(8, "REMOVE_FROM_CRL", "Remove from CRL"),
+    PRIVILEGESWITHDRAWN(9, "PRIVILEGES_WITHDRAWN", "Privileges Withdrawn"),
+    AACOMPROMISE(10, "AA_COMPROMISE", "AA Compromise");
     
     private final int databaseValue;
     private final String stringValue;

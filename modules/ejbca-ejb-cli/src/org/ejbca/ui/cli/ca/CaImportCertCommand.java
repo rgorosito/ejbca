@@ -238,13 +238,18 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
             }
         }
 
+        CAInfo cainfo = getCAInfo(getAuthenticationToken(), caname);
+        if (cainfo == null) {
+            log.error("CA with name " + caname + " does not exist.");
+            errorString.append("CA with name '" + caname + "' does not exist.\n");
+        }
+
         if (errorString.length() > 0) {
             log.error(errorString.toString());
             return CommandResult.FUNCTIONAL_FAILURE;
         }
 
-        CAInfo cainfo = getCAInfo(getAuthenticationToken(), caname);
-
+        final Certificate cacert = cainfo.getCertificateChain().iterator().next();
         log.info("Trying to add user:");
         log.info("Username: " + username);
         log.info("Password (hashed only): " + password);
@@ -332,7 +337,7 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
         int certificateType = CertificateConstants.CERTTYPE_ENDENTITY;
         try {
             EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateStoreSessionRemote.class).storeCertificateRemote(getAuthenticationToken(), EJBTools.wrap(certificate),
-                    username, fingerprint, CertificateConstants.CERT_ACTIVE, certificateType, certificateprofileid, endentityprofileid, null, new Date().getTime());
+                    username, CertTools.getFingerprintAsString(cacert), CertificateConstants.CERT_ACTIVE, certificateType, certificateprofileid, endentityprofileid, null, new Date().getTime());
             if (status == CertificateConstants.CERT_REVOKED) {
                 try {
                     endEntityManagementSession.revokeCert(getAuthenticationToken(), CertTools.getSerialNumber(certificate), revocationTime, CertTools.getIssuerDN(certificate),
@@ -404,8 +409,6 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
             }
         } catch (AuthorizationDeniedException e) {
             existingCas = "ERROR: CLI user not authorized to fetch available CAs>";
-        } catch (CADoesntExistsException e) {
-            throw new IllegalStateException("CA couldn't be retrieved even though it was just referenced.");
         }
         sb.append("Existing CAs: " + existingCas + "\n");
         String endEntityProfiles = "";

@@ -83,14 +83,13 @@ import org.ejbca.util.query.Query;
 @ViewScoped
 @ManagedBean(name="approvalActionManagedBean")
 public class ApproveActionManagedBean extends BaseManagedBean {
-
     private static final long serialVersionUID = 1940920496104779323L;
     private static final Logger log = Logger.getLogger(ApproveActionManagedBean.class);
     private static final InternalResources intres = InternalResources.getInstance();
 
     private enum Action {
-        APPROVE(intres.getLocalizedMessage("general.approve")), REJECT(intres.getLocalizedMessage("general.reject")), NO_ACTION(
-                intres.getLocalizedMessage("general.noaction"));
+        APPROVE(intres.getLocalizedMessage("general.approve")), 
+        REJECT(intres.getLocalizedMessage("general.reject"));
 
        private static List<SelectItem> selectItems;
        private final String label;
@@ -114,7 +113,6 @@ public class ApproveActionManagedBean extends BaseManagedBean {
        public static List<SelectItem> asSelectItems() {
            return selectItems;
        }
-
     }
 
     @EJB
@@ -136,16 +134,16 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     private EndEntityProfileSessionLocal endEntityProfileSession;
     @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
-    
+
 
 	private String comment = "";
 	private ApprovalDataVOView approvalDataVOView = new ApprovalDataVOView();
 	private HashMap<Integer, String> statustext = null;
 	private Map<Integer, Action> partitionActions;
 
-	ListDataModel<ApprovalPartitionProfileGuiObject> partitionsAuthorizedToView = null;
-	Set<Integer> partitionsAuthorizedToApprove = null;
-	ListDataModel<ApprovalPartitionProfileGuiObject> previousPartitions = null;
+	private ListDataModel<ApprovalPartitionProfileGuiObject> partitionsAuthorizedToView = null;
+	private Set<Integer> partitionsAuthorizedToApprove = null;
+	private ListDataModel<ApprovalPartitionProfileGuiObject> previousPartitions = null;
 
 	public HashMap<Integer, String> getStatusText(){
 	    if(statustext == null){
@@ -205,7 +203,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         if(result != null) {
             return result;
         } else {
-            return Action.NO_ACTION;
+            return Action.APPROVE;
         }
     }
 
@@ -261,8 +259,6 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                             case REJECT:
                                 approvalExecutionSession.reject(admin, approvalDataVOView.getApprovalId(), approval);
                                 isRejected = true;
-                                break;
-                            case NO_ACTION:
                                 break;
                             default:
                                 break;
@@ -353,7 +349,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     		addErrorMessage("AUTHORIZATIONDENIED");
     	}
     }
-    
+
     public String getComment() {
     	return "";
     }
@@ -425,9 +421,11 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                     for (ApprovalPartition approvalPartition : step.getPartitions().values()) {
                         try {
                             if (approvalDataVOView.getApprovalProfile().canViewPartition(getAdmin(), approvalPartition)) {
-                                authorizedPartitions.add(
-                                        new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
-                                                approvalPartition.getPartitionIdentifier(), getPartitionProperties(approvalPartition)));
+                                authorizedPartitions.add(new ApprovalPartitionProfileGuiObject(
+                                        approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
+                                        approvalPartition.getPartitionIdentifier(),
+                                        approvalPartition.getProperty(PartitionedApprovalProfile.PROPERTY_NAME).getValueAsString(),
+                                        getPartitionProperties(approvalPartition)));
                             }
                         } catch (AuthenticationFailedException e) {
                             //We shouldn't have gotten here in the UI with an invalid token
@@ -451,13 +449,20 @@ public class ApproveActionManagedBean extends BaseManagedBean {
         if (partitionsAuthorizedToView == null) {
             List<ApprovalPartitionProfileGuiObject> authorizedPartitions = new ArrayList<>();
             partitionsAuthorizedToApprove = new HashSet<>();
+            //Make sure we're not reading stale data
+            final ApprovalProfile approvalProfile = approvalProfileSession.getApprovalProfile(approvalDataVOView.getApprovalProfile().getProfileId());
             if (getCurrentStep() != null) {
-                for (ApprovalPartition approvalPartition : getCurrentStep().getPartitions().values()) {
+                final ApprovalStep approvalStep = approvalProfile.getStep(getCurrentStep().getStepIdentifier());
+                for (Integer approvalPartitionId : getCurrentStep().getPartitions().keySet()) {
+                    ApprovalPartition approvalPartition = approvalStep.getPartition(approvalPartitionId);
                     try {
                         if (approvalDataVOView.getApprovalProfile().canViewPartition(getAdmin(), approvalPartition)) {
-                            authorizedPartitions
-                                    .add(new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
-                                            approvalPartition.getPartitionIdentifier(), getPartitionProperties(approvalPartition)));
+                            final DynamicUiProperty<? extends Serializable> nameProperty = approvalPartition.getProperty(PartitionedApprovalProfile.PROPERTY_NAME);
+                            authorizedPartitions.add(
+                                    new ApprovalPartitionProfileGuiObject(approvalDataVOView.getApprovalProfile().getApprovalProfileTypeIdentifier(),
+                                            approvalPartition.getPartitionIdentifier(),
+                                            nameProperty != null ? nameProperty.getValueAsString() : "-",
+                                            getPartitionProperties(approvalPartition)));
                         }
                         if (approvalDataVOView.getApprovalProfile().canApprovePartition(getAdmin(), approvalPartition)) {
                             partitionsAuthorizedToApprove.add(approvalPartition.getPartitionIdentifier());
@@ -587,21 +592,21 @@ public class ApproveActionManagedBean extends BaseManagedBean {
     public void updateApprovalRequest(final int uniqueId) {
 
         ApprovalDataVO approvalDataVO = approvalSession.findNonExpiredApprovalRequest(approvalDataVOView.getApprovalId());
-        
+
         if (approvalDataVO == null) {
             log.warn("Approval request already expired or invalid!");
             return;
         }
-        
+
         ApprovalRequest currentApprovalRequest = approvalDataVO.getApprovalRequest();
-        
+
         ApprovalProfile approvalProfileFromRequest = currentApprovalRequest.getApprovalProfile();
         ApprovalProfile approvalProfileFromSession = approvalProfileSession.getApprovalProfile(currentApprovalRequest.getApprovalProfile().getProfileId().intValue());
-        
+
         // Set the updated approval profile in current request.
         currentApprovalRequest.setApprovalProfile(updateApprovalProfile(approvalProfileFromRequest));
         approvalSession.updateApprovalRequest(approvalDataVO.getId(), currentApprovalRequest);
-        
+
         // To update the roles and make authorization possible
         try {
             approvalProfileSession.changeApprovalProfile(getAdmin(), updateApprovalProfile(approvalProfileFromSession));
@@ -611,15 +616,15 @@ public class ApproveActionManagedBean extends BaseManagedBean {
 
         updateApprovalRequestData(uniqueId);
     }
-    
+
     /**
      * Updates the approval profile based on the role changes in session.
-     * 
+     *
      * @param approvalProfile
      * @return
      */
     private ApprovalProfile updateApprovalProfile(final ApprovalProfile approvalProfile) {
-        
+
         for (ApprovalStep approvalStep : approvalProfile.getSteps().values()) {
             for (ApprovalPartition approvalPartition : approvalStep.getPartitions().values()) {
                 for (DynamicUiProperty<? extends Serializable> property : approvalPartition.getPropertyList().values()) {
@@ -643,7 +648,7 @@ public class ApproveActionManagedBean extends BaseManagedBean {
 
                         propertyClone.setPossibleValues(updatedRoleInformation);
                         updateEncodedValues(propertyClone, property);
-                        
+
                         approvalPartition.removeProperty(property.getName());
                         approvalPartition.addProperty(propertyClone);
 
@@ -658,10 +663,10 @@ public class ApproveActionManagedBean extends BaseManagedBean {
                 }
             }
         }
-        
+
         return approvalProfile;
     }
-    
+
      /**
       * Update role members based on latest from role member session.
       *

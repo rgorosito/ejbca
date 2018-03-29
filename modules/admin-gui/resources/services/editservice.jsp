@@ -25,12 +25,17 @@
   <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <meta http-equiv="Content-Type" content="text/html; charset=<%= org.ejbca.config.WebConfiguration.getWebContentEncoding() %>" />
 </head>
 
 
 <f:view>
 <body id="service">
+<jsp:include page="../adminmenu.jsp" />
+
+<div class="main-wrapper">
+<div class="container">
 
 <h2><h:outputText value="#{web.text.EDITSERVICE}" rendered="#{editService.hasEditRights}" /></h2>
 <h2><h:outputText value="#{web.text.VIEWSERVICE}" rendered="#{not editService.hasEditRights}" /></h2>
@@ -50,7 +55,7 @@
 	</h:panelGroup>
 
 	<h:panelGroup>
-		<h:outputText value="#{web.text.SELECTWORKER}"/><f:verbatim> </f:verbatim><%= ejbcawebbean.getHelpReference("/adminguide.html#Services") %>
+		<h:outputText value="#{web.text.SELECTWORKER}"/><f:verbatim> </f:verbatim><%= ejbcawebbean.getHelpReference("/Services.html") %>
 	</h:panelGroup>
 	<h:panelGroup style="white-space: nowrap;">
 		<h:selectOneMenu value="#{editService.serviceConfigurationView.selectedWorker}"
@@ -133,7 +138,7 @@
 		</h:selectManyListbox>
 	</h:panelGroup>
 	<h:panelGroup>
-		<h:outputText value="#{web.text.RUNONALLNODES}"/><f:verbatim> </f:verbatim><%= ejbcawebbean.getHelpReference("/adminguide.html#Run%20on%20all%20Nodes") %>
+		<h:outputText value="#{web.text.RUNONALLNODES}"/><f:verbatim> </f:verbatim><%= ejbcawebbean.getHelpReference("/Services.html#Run_on_all_Nodes") %>
 	</h:panelGroup>
 	<h:panelGroup>
 		<h:selectBooleanCheckbox id="runOnAllNodesCheckbox" value="#{editService.serviceConfigurationView.runOnAllNodes}" disabled="#{not editService.hasEditRights}"/>
@@ -178,6 +183,8 @@ function enableAll(){
 </h:panelGrid>
 </h:form>
 
+</div> <!-- container -->
+</div> <!-- main-wrapper -->
 </body>
 </f:view>
 </html>

@@ -15,6 +15,7 @@ package org.cesecore.certificates.ca;
 import java.security.cert.Certificate;
 import java.util.Collection;
 import java.util.List;
+import java.util.TreeMap;
 
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
@@ -109,6 +110,14 @@ public interface CaSession {
      Collection<String> getAuthorizedCaNames(AuthenticationToken admin);
      
      /**
+      * Like {@link #getAuthorizedCaNames(AuthenticationToken)}, but returns a TreeMap which includes the CA Id as well.
+      * @param admin AuthenticationToken of admin
+      * @return a Collection<String> of available CA names
+      * @see #getAuthorizedCaNames
+      */
+     TreeMap<String,Integer> getAuthorizedCaNamesToIds(AuthenticationToken admin);
+     
+     /**
       * Method returning info objects for all CA's available to the system that the administrator is authorized to. 
       * 
       * Does not log access control to all CAs it checks, because this does not 
@@ -160,11 +169,10 @@ public interface CaSession {
      * 
      * @param admin administrator calling the method
      * @param name human readable name of CA
-     * @return CAInfo value object, never null
-     * @throws CADoesntExistsException if CA with name does not exist
+     * @return CAInfo value object, null if it doesn't exist
      * @throws AuthorizationDeniedException if admin not authorized to CA 
      */
-    CAInfo getCAInfo(AuthenticationToken admin, String name) throws CADoesntExistsException, AuthorizationDeniedException;
+    CAInfo getCAInfo(AuthenticationToken admin, String name) throws AuthorizationDeniedException;
 
     /**
      * Returns a value object containing non-sensitive information about a CA
@@ -172,11 +180,10 @@ public interface CaSession {
      * 
      * @param admin administrator calling the method
      * @param caid numerical unique id of CA
-     * @return CAInfo value object, never null
-     * @throws CADoesntExistsException if CA with caid does not exist
+     * @return CAInfo value object, null if it doesn't exist
      * @throws AuthorizationDeniedException if admin not authorized to CA 
      */
-    CAInfo getCAInfo(AuthenticationToken admin, int caid) throws CADoesntExistsException, AuthorizationDeniedException;
+    CAInfo getCAInfo(AuthenticationToken admin, int caid) throws  AuthorizationDeniedException;
 
     /**
      * Method used to remove a CA from the system. You should first check that

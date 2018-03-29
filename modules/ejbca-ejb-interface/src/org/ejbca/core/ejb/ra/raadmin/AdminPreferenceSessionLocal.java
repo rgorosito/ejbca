@@ -14,11 +14,13 @@ package org.ejbca.core.ejb.ra.raadmin;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.ejb.Local;
 
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.config.RaStyleInfo;
+import org.ejbca.core.model.ra.raadmin.AdminPreference;
 
 /**
  * Local interface for RaAdminSession.
@@ -72,5 +74,13 @@ public interface AdminPreferenceSessionLocal extends AdminPreferenceSession {
      * if no styles are available
      */
     RaStyleInfo getPreferedRaStyleInfo(AuthenticationToken admin);
+    
+    /**
+     * 
+     * @return map containing all admin preferences defined in the current ejbca instance
+     *         and their human readable name as String.
+     *         
+     */
+    Map<String, AdminPreference> getAdminPreferences();
 
 }

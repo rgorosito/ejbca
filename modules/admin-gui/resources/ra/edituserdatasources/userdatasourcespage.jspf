@@ -3,8 +3,7 @@
   
 %>
 
-
-<h1><%= ejbcawebbean.getText("MANAGEUSERDATASOURCES") %> <%= ejbcawebbean.getHelpReference("/adminguide.html#Framework%20for%20External%20User%20Data%20Sources") %></h1>
+<h1><%= ejbcawebbean.getText("MANAGEUSERDATASOURCES") %> <%= ejbcawebbean.getHelpReference("/Framework_for_External_User_Data_Sources.html") %></h1>
 
 <form name="edituserdatasources" method="post"  action="<%= THIS_FILENAME%>">
   <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
@@ -33,7 +32,7 @@
     </tr>
     <tr> 
       <td width="40%">
-        <select name="<%=EditUserDataSourceJSPHelper.SELECT_USERDATASOURCE%>" style="width: 50em" size="15"  >
+        <select class="select-list" name="<%=EditUserDataSourceJSPHelper.SELECT_USERDATASOURCE%>" style="width: 50em" size="15"  >
           <% Iterator iter = userdatasourcenames.keySet().iterator();
              while(iter.hasNext()){
                String userdatasourcename = (String) iter.next(); %>
@@ -74,8 +73,8 @@
       <td width="100%"> 
         <input type="text" name="<%= userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>" size="40" maxlength="255" title="<%= ejbcawebbean.getText("FORMAT_ID_STR") %>">
         <input type="submit" name="<%= userdatasourcehelper.BUTTON_ADD_USERDATASOURCE%>" onClick='return checkfieldforlegalchars("document.edituserdatasources.<%=userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("ADD") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= userdatasourcehelper.BUTTON_RENAME_USERDATASOURCE%>" onClick='return checkfieldforlegalchars("document.edituserdatasources.<%=userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME") %>">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="<%= userdatasourcehelper.BUTTON_CLONE_USERDATASOURCE%>" onClick='return checkfieldforlegalchars("document.edituserdatasources.<%=userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("USESELECTEDASTEMPLATE") %>">
+        <input type="submit" name="<%= userdatasourcehelper.BUTTON_RENAME_USERDATASOURCE%>" onClick='return checkfieldforlegalchars("document.edituserdatasources.<%=userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("RENAME_SELECTED") %>">&nbsp;&nbsp;&nbsp;
+        <input type="submit" name="<%= userdatasourcehelper.BUTTON_CLONE_USERDATASOURCE%>" onClick='return checkfieldforlegalchars("document.edituserdatasources.<%=userdatasourcehelper.TEXTFIELD_USERDATASOURCENAME%>","<%= ejbcawebbean.getText("ONLYCHARACTERS",true) %>")' value="<%= ejbcawebbean.getText("CLONE_SELECTED") %>">
       </td>
     </tr>
   </table>

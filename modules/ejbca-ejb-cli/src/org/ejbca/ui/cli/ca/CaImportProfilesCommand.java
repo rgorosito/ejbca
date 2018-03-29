@@ -27,7 +27,6 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
@@ -84,19 +83,16 @@ public class CaImportProfilesCommand extends BaseCaAdminCommand {
             CAInfo ca;
             try {
                 ca = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).getCAInfo(getAuthenticationToken(), caName);
-            } catch (CADoesntExistsException e) {
-                getLogger().error("CA '" + caName + "' does not exist.");
-                return CommandResult.FUNCTIONAL_FAILURE;
+                if (ca == null) {
+                    getLogger().error("CA '" + caName + "' does not exist.");
+                    return CommandResult.FUNCTIONAL_FAILURE;
+                }
             } catch (AuthorizationDeniedException e) {
                 getLogger().error("CLI user not authorized to CA '" + caName);
                 return CommandResult.AUTHORIZATION_FAILURE;
             }
-            if (ca != null) {
-                caid = ca.getCAId();
-            } else {
-                getLogger().error("CA '" + caName + "' does not exist.");
-                return CommandResult.FUNCTIONAL_FAILURE;
-            }
+            caid = ca.getCAId();
+
         }
         CryptoProviderTools.installBCProvider();
         // Mapping used to translate certificate profile ids when importing end entity profiles. Used when the profile id of a cert profile changes
@@ -193,7 +189,7 @@ public class CaImportProfilesCommand extends BaseCaAdminCommand {
                                         String availableCertProfiles = "";
                                         String defaultCertProfile = eprofile.getValue(EndEntityProfile.DEFAULTCERTPROFILE, 0);
                                         //getLogger().debug("Debug: Org - AVAILCERTPROFILES " + eprofile.getValue(EndEntityProfile.AVAILCERTPROFILES,0) + " DEFAULTCERTPROFILE "+defaultCertProfile);
-                                        for (String currentCertProfile : eprofile.getAvailableCertificateProfileIds()) {
+                                        for (String currentCertProfile : eprofile.getAvailableCertificateProfileIdsAsStrings()) {
                                             Integer currentCertProfileId = Integer.parseInt(currentCertProfile);
                                             Integer replacementCertProfileId = certificateProfileIdMapping.get(currentCertProfileId);
                                             if (replacementCertProfileId != null) {
@@ -240,20 +236,21 @@ public class CaImportProfilesCommand extends BaseCaAdminCommand {
                                         for (String currentCA : cas) {
                                             Integer currentCAInt = Integer.parseInt(currentCA);
                                             // The constant ALLCAS will not be searched for among available CAs
-                                            try {
-                                                if (currentCAInt.intValue() != SecConst.ALLCAS) {
-                                                    EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).getCAInfo(
-                                                            getAuthenticationToken(), currentCAInt);
+                                            if (currentCAInt.intValue() != SecConst.ALLCAS) {
+                                                if (!EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).existsCa(currentCAInt)) {
+                                                    getLogger().warn("CA with id " + currentCA
+                                                            + " was not found and will not be used in end entity profile '" + profilename + "'.");
+                                                    if (defaultCA.equals(currentCA)) {
+                                                        defaultCA = "";
+                                                    }
+                                                } else {
+                                                    availableCAs += (availableCAs.equals("") ? "" : ";") + currentCA; 
                                                 }
-                                                availableCAs += (availableCAs.equals("") ? "" : ";") + currentCA; // No Exception means CA exists
-                                            } catch (CADoesntExistsException e) {
-                                                getLogger().warn(
-                                                        "CA with id " + currentCA + " was not found and will not be used in end entity profile '"
-                                                                + profilename + "'.");
-                                                if (defaultCA.equals(currentCA)) {
-                                                    defaultCA = "";
-                                                }
+                                            } else {
+                                                availableCAs += (availableCAs.equals("") ? "" : ";") + SecConst.ALLCAS;
                                             }
+                                           
+
                                         }
                                         if (availableCAs.equals("")) {
                                             if (caid == null) {
@@ -274,7 +271,7 @@ public class CaImportProfilesCommand extends BaseCaAdminCommand {
                                         }
                                         //getLogger().debug("New - AVAILCAS " + availableCAs + " DEFAULTCA "+defaultCA);
                                         eprofile.setValue(EndEntityProfile.AVAILCAS, 0, availableCAs);
-                                        eprofile.setValue(EndEntityProfile.DEFAULTCA, 0, defaultCA);
+                                        eprofile.setDefaultCA(Integer.parseInt(defaultCA));
                                         try {
                                             EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class).addEndEntityProfile(
                                                     getAuthenticationToken(), profileid, profilename, eprofile);
@@ -295,10 +292,7 @@ public class CaImportProfilesCommand extends BaseCaAdminCommand {
                                         for (Integer currentCA : cas) {
                                             // If the CA is not ANYCA and the CA does not exist, remove it from the profile before import
                                             if (currentCA != CertificateProfile.ANYCA) {
-                                                try {
-                                                    EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).getCAInfo(
-                                                            getAuthenticationToken(), currentCA);
-                                                } catch (CADoesntExistsException e) {
+                                                if (!EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class).existsCa(currentCA)) {
                                                     casToRemove.add(currentCA);
                                                 }
                                             }

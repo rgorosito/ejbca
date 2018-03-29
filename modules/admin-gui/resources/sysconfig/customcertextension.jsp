@@ -40,9 +40,13 @@ org.cesecore.authorization.control.StandardRules
   <script src="<%= globalconfiguration.getAdminWebPath() %>ejbcajslib.js"></script>
 </head>
 <body>
+<jsp:include page="../adminmenu.jsp" />
+
+<div class="main-wrapper">
+<div class="container">
 	<h1>
 		<h:outputText value="#{web.text.CUSTOMCERTEXTENSION}: #{customCertExtensionMBean.currentExtensionGUIInfo.displayName}"/>
-		<%= ejbcawebbean.getHelpReference("/adminguide.html#Custom%20Certificate%20Extensions") %>
+		<%= ejbcawebbean.getHelpReference("/Custom_Certificate_Extensions.html") %>
 	</h1>
 	<div class="message"><h:messages layout="table" errorClass="alert" infoClass="info"/></div>
 	<h:form id="currentCustomCertExtensionForm">
@@ -97,9 +101,11 @@ org.cesecore.authorization.control.StandardRules
 		</h:dataTable>
 	<h:commandButton action="#{customCertExtensionMBean.saveCurrentExtension}" value="#{web.text.SAVE}" rendered="#{customCertExtensionMBean.allowedToEditCustomCertificateExtension}" />
 	</h:form>
+	</div> <!-- Container -->
 	<%	// Include Footer 
 	String footurl = globalconfiguration.getFootBanner(); %>
 	<jsp:include page="<%= footurl %>" />
+</div> <!-- main-wrapper -->
 </body>
 </f:view>
 </html>

@@ -25,6 +25,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.util.Date;
+import java.util.List;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extensions;
@@ -39,7 +40,7 @@ import org.ejbca.core.protocol.cmp.ICrmfRequestMessage;
  *
  */
 public class RequestMessageSubjectDnAdapter implements ICrmfRequestMessage {
-
+  
     private static final long serialVersionUID = -4884813822503768798L;
 
     private final ICrmfRequestMessage original;
@@ -170,7 +171,6 @@ public class RequestMessageSubjectDnAdapter implements ICrmfRequestMessage {
         this.original.setResponseKeyInfo(key, provider);
     }
 
-
 	@Override
 	public int getPbeIterationCount() {
 		return this.original.getPbeIterationCount();
@@ -210,5 +210,21 @@ public class RequestMessageSubjectDnAdapter implements ICrmfRequestMessage {
     @Override
     public KeyPair getServerGenKeyPair() {
         return this.original.getServerGenKeyPair();
+    }
+    @Override
+    public List<Certificate> getAdditionalCaCertificates() {
+        return this.original.getAdditionalCaCertificates();
+    }
+    @Override
+    public void setAdditionalCaCertificates(final List<Certificate> certificates) {
+        this.original.setAdditionalCaCertificates(certificates);
+    }
+    @Override
+    public List<Certificate> getAdditionalExtraCertsCertificates() {
+        return original.getAdditionalExtraCertsCertificates();
+    }
+    @Override
+    public void setAdditionalExtraCertsCertificates(List<Certificate> certificates) {
+        this.original.setAdditionalExtraCertsCertificates(certificates);
     }
 }

@@ -73,7 +73,7 @@
    if(request.getParameter(TOKENSN_PARAMETER) != null){
      if(username != null && reasonstring != null){
        tokensn  = request.getParameter(TOKENSN_PARAMETER);  
-        if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS) 
+        if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLog(AccessRulesConstants.REGULAR_REVOKEENDENTITY) 
           && !rabean.isAllTokenCertificatesRevoked(tokensn, username))   
 	    	try{
 	          rabean.revokeTokenCertificates(tokensn, username, Integer.parseInt(reasonstring));   
@@ -93,7 +93,7 @@
        index=0;
      if(username != null && reasonstring != null){
        token = tokenbean.getHardTokenViewWithIndex(username, index, includePUK);
-        if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS) 
+        if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLog(AccessRulesConstants.REGULAR_REVOKEENDENTITY) 
           && !rabean.isAllTokenCertificatesRevoked(token.getTokenSN(), username))
 	    	try{
 	          rabean.revokeTokenCertificates(token.getTokenSN(), username, Integer.parseInt(reasonstring));  
@@ -223,7 +223,7 @@ function confirmkeyrecovery(){
 function viewcert(){
     var link = "<%= VIEWCERT_LINK %>?<%= USER_PARAMETER %>=<%= java.net.URLEncoder.encode(username,"UTF-8")%>&<%=TOKENSN_PARAMETER %>=<%=token.getTokenSN()%>";
     link = encodeURI(link);
-    win_popup = window.open(link, 'view_cert','height=650,width=600,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup = window.open(link, 'view_cert','height=750,width=750,scrollbars=yes,toolbar=no,resizable=1');
     win_popup.focus();
 }
 
@@ -239,7 +239,7 @@ function viewcopies(link){
 
 <body class="popup" id="viewtoken">
 
-  <h2><%= ejbcawebbean.getText("VIEWHARDTOKEN") %></h2>
+  <h2><%= ejbcawebbean.getText("VIEW_HARDTOKENS_HEADING") %></h2>
 
   <%if(noparameter){%>
   <div class="message alert"><%=ejbcawebbean.getText("YOUMUSTSPECIFYPARAMETER") %></div> 
@@ -308,7 +308,7 @@ function viewcopies(link){
       <tr id="Row<%=(row++)%2%>">
 	<td align="right" width="<%=columnwidth%>"><%= ejbcawebbean.getText("HARDTOKENPROFILE") %></td>        
 	<td><% if(token.getHardTokenProfileId().intValue() != 0){
-                  out.write((String) ejbcawebbean.getInformationMemory().getHardTokenProfileIdToNameMap().get(token.getHardTokenProfileId()));
+                  out.write((String) tokenbean.getHardTokenProfileName(token.getHardTokenProfileId()));
                 }else
                   out.write(ejbcawebbean.getText("NONE"));%>
         </td>
@@ -405,12 +405,9 @@ function viewcopies(link){
     <tr id="Row<%=(row++)%2%>">
       <td align="right" width="<%=columnwidth%>">&nbsp;</td>
       <td>
-        <% try{ 
-             if(ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_CA_VIEW_CERT)){ %>
-        <a style="cursor:pointer;" onclick='viewcert()'><u><%= ejbcawebbean.getText("VIEWCERTIFICATES") %></u> </a>
-        <%   }
-         }catch(AuthorizationDeniedException ade){}
-        %>&nbsp; 
+		<% if(ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWCERTIFICATE)){ %>
+			<button type='button' onclick='viewcert()' title='<%= ejbcawebbean.getText("VIEW_CERTIFICATES_TITLE") %> <%= ejbcawebbean.getText("POPUP_WINDOW") %>'><c:out value='<%= ejbcawebbean.getText("VIEW_CERTIFICATES_TITLE") %>' /></button>
+		<% } %>&nbsp;
        </td>
      </tr> 
      
@@ -425,7 +422,7 @@ function viewcopies(link){
           &nbsp;
           </td>
           <td>
-       <%    if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLog(EjbcaWebBean.AUTHORIZED_RA_REVOKE_RIGHTS) 
+       <%    if(rabean.authorizedToRevokeCert(username) && ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_REVOKEENDENTITY) 
                && !rabean.isAllTokenCertificatesRevoked(token.getTokenSN(),username)){ %>
         <select name="<%=SELECT_REVOKE_REASON %>" >
           <% for(int i=0; i < SecConst.reasontexts.length; i++){ 

@@ -23,7 +23,9 @@ import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -105,7 +107,9 @@ public class UnidFnrHandlerTest {
 	private static class MyIRequestMessage implements ICrmfRequestMessage {
 		private static final long serialVersionUID = -2303591921932083436L;
         final X500Name dn;
-
+        List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+        List<Certificate> additionalExtraCertsCertificates = new ArrayList<Certificate>();
+        
 		MyIRequestMessage(String serialNumber) {
 		    X500NameBuilder nameBuilder = new X500NameBuilder(new CeSecoreNameStyle());
 			nameBuilder.addRDN(CeSecoreNameStyle.SN, serialNumber);
@@ -257,6 +261,23 @@ public class UnidFnrHandlerTest {
         @Override
         public KeyPair getServerGenKeyPair() {
             return null;
+        }
+        
+        @Override
+        public List<Certificate> getAdditionalCaCertificates() {
+            return additionalCaCertificates;
+        }
+        @Override
+        public void setAdditionalCaCertificates(final List<Certificate> certificates) {
+            this.additionalCaCertificates = certificates;
+        }
+        @Override
+        public List<Certificate> getAdditionalExtraCertsCertificates() {
+            return this.additionalExtraCertsCertificates;
+        }
+        @Override
+        public void setAdditionalExtraCertsCertificates(List<Certificate> certificates) {
+            this.additionalExtraCertsCertificates = certificates;
         }
 	}
 }

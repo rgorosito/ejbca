@@ -761,7 +761,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 globalCesecoreConfiguration.setMaximumQueryTimeout(currentConfig.getMaximumQueryTimeout());
                 getEjbcaWebBean().getEjb().getGlobalConfigurationSession().saveConfiguration(getAdmin(), globalCesecoreConfiguration);
 
-
             } catch (AuthorizationDeniedException | InvalidConfigurationException e) {
                 String msg = "Cannot save System Configuration. " + e.getLocalizedMessage();
                 log.info(msg);
@@ -780,6 +779,10 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 log.info(msg);
                 super.addNonTranslatedErrorMessage(msg);
             }
+            
+            // GlobalConfiguration validates and modifies some fields when they are set, so these fields need to be updated.
+            // Also, this ensures that the values shown are those actually stored in the database.
+            flushCache(); // must be done last
         }
     }
 
@@ -1219,7 +1222,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         return globalCustomCssConfiguration;
     }
-
+    
     public void actionImportRaStyle() {
         // Basic checks
         if (raCssFile == null && raLogoFile == null) {
@@ -1230,6 +1233,11 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
             addErrorMessage("STYLENONAME");
             return;
         }
+        if (raStyleNameExists(archiveName)) {
+            addErrorMessage("STYLEEXISTS", archiveName);
+            return;
+        }
+
         try {
             // Authorazation check
             if (!isAllowedToEditSystemConfiguration()) {
@@ -1269,6 +1277,16 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
     }
 
+    private boolean raStyleNameExists(String name) {
+        LinkedHashMap<Integer, RaStyleInfo> storedRaStyles = globalCustomCssConfiguration.getRaStyleInfo();
+        for (Map.Entry<Integer, RaStyleInfo> raStyle : storedRaStyles.entrySet()) {
+            if (raStyle.getValue().getArchiveName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     private void importLogoFromImageFile() throws IOException {
         String contentType = raLogoFile.getContentType();
         if (!contentType.equals("image/jpeg") && !contentType.equals("image/png")) {
@@ -1343,7 +1361,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     public void removeRaStyleInfo() {
         final RaStyleInfo styleToRemove = raStyleInfos.getRowData();
-        // TODO Check if used by any CA / Namespace / Role or whatever we decide to apply it to
         List<RaStyleInfo> raCssInfosList = getRaStyleInfosList();
         raCssInfosList.remove(styleToRemove);
         setRaStyleInfosList(raCssInfosList);
@@ -1604,8 +1621,8 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     /** @return a list of all CA names and caids */
     public List<SelectItem> getAvailableCAs() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
-        Map<Integer, String> caidToName = getEjbcaWebBean().getInformationMemory().getCAIdToNameMap();
+        final List<SelectItem> ret = new ArrayList<>();
+        Map<Integer, String> caidToName = caSession.getCAIdToNameMap();
         List<Integer> allCaIds = caSession.getAllCaIds();
         for(int caid : allCaIds) {
             if (caSession.authorizedToCANoLogging(getAdmin(), caid)) {
@@ -1619,7 +1636,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     }
 
     public List<SelectItem> getAvailableLanguages() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         final String[] availableLanguages = getEjbcaWebBean().getAvailableLanguages();
         final String[] availableLanguagesEnglishNames = getEjbcaWebBean().getLanguagesEnglishNames();
         final String[] availableLanguagesNativeNames = getEjbcaWebBean().getLanguagesNativeNames();

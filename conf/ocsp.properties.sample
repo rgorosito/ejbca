@@ -171,7 +171,7 @@ ocsp.defaultresponder=CN=ManagementCA,O=EJBCA Sample,C=SE
 # If this configuration is set, its value will override the global value in case of certificate with a revoked status.
 #ocsp.999.revoked.maxAge = 100
 
-# Specifies OCSP extension oids that will result in a call to an extension class, 
+# Specifies OCSP request extension oids that will result in a call to an extension class, 
 # separate multiple entries with ';'
 # For any entry that should be always used, preface with '*' (e.g. *2.16.578.1.16.3.2)
 # Leave out if you do not know what this is.
@@ -202,6 +202,16 @@ ocsp.defaultresponder=CN=ManagementCA,O=EJBCA Sample,C=SE
 # Leave out if you do not know what this is.
 # No default value, must be set if the extension is used
 #ocsp.unidcacert=
+
+# Specifies OCSP extension by OID that will result in a call to an extension class.
+# Intended for debugging post EJBCA 6.12.0.
+# All other extension configuration may be selected in the Admin Web for each Ocsp Key Binding.
+#ocsp.alwayssendcustomextension=1.3.36.8.3.13
+
+# Setting this to true will enable unidfnr extension in ejbca.
+# Defalult is false since it is not normally used by many customers.
+# Prior to setting this to true the appropriate data source must be set in JBoss.
+#unidfnr.enabled=false
 
 # Specifies if the OCSP-responder should require signed requests or not.
 # If signature is required, the signature certificate must be issued by a CA handled by the OCSP responder.

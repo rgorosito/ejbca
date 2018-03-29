@@ -132,12 +132,18 @@
 	<property name="mod.statedump.path" location="${mod.path}/statedump" />
 	<property name="mod.statedump-common.lib" location="${mod.dist.path}/statedump-common.jar" />
 	<property name="mod.statedump-ejb.lib" location="${mod.dist.path}/statedump-ejb.jar" />
+	<property name="mod.configdump.dist" location="${ejbca.dist.path}/configdump" />
+	<property name="mod.configdump.lib" location="${mod.configdump.dist}/configdump.jar" />
+	<property name="mod.configdump.path" location="${mod.path}/configdump" />
+	<property name="mod.configdump-common.lib" location="${mod.dist.path}/configdump-common.jar" />
+	<property name="mod.configdump-ejb.lib" location="${mod.dist.path}/configdump-ejb.jar" />
+	<property name="mod.unidfnr.dist" location="${ejbca.dist.path}/unidfnr" />
+	<property name="mod.unidfnr.path" location="${mod.path}/unidfnr" />
+	<property name="mod.unidfnr-ejb.lib" location="${mod.dist.path}/unidfnr-ejb.jar" />
+	<property name="mod.unidfnr-interface.lib" location="${mod.dist.path}/unidfnr-interface.jar" />
 	<property name="mod.cmpclient.dist" location="${ejbca.dist.path}/cmpclient" />
 	<property name="mod.cmpclient.lib" location="${mod.cmpclient.dist}/cmpclient.jar" />
 	<property name="mod.cmpclient.path" location="${mod.path}/cmpclient" />
-	<property name="mod.buildtools.path" location="${mod.path}/buildtools" />
-	<property name="mod.buildtools.build" location="${mod.buildtools.path}/build" />
-	<property name="mod.buildtools.dist" location="${ejbca.dist.path}/buildtools" />
 	<property name="mod.cli-util.dist" location="${mod.dist.path}/" />
 	<property name="mod.cli-util.lib" location="${mod.cli-util.dist}/cli-util.jar" />
 	<property name="mod.cli-util.path" location="${mod.path}/cli-util" />
@@ -161,6 +167,7 @@
 	<property name="mod.caa-cli.lib" location="${mod.dist.caa-cli.dir}/caa-cli.jar" />
     <property name="mod.est-war.path" location="${mod.path}/est" />
     <property name="mod.est.war" location="${mod.dist.path}/est.war" />
+	<property name="mod.webtest.path" location="${mod.path}/ejbca-webtest"/>
 	
     <!-- Variables of global interest -->
     <property name="java.target.version" value="${java.specification.version}"/>
@@ -187,7 +194,7 @@
 	<property name="systemtests.properties.file" location="${ejbca.home}/conf/systemtests.properties"/>
     
 	<!-- Define class-paths of global interest -->
-	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.8.jar"/></path>
+	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.9.jar"/></path>
 
 	<path id="lib.junit.classpath">
 		<fileset dir="${ejbca.home}/lib/ext">
@@ -235,6 +242,7 @@
 	<path id="lib.quickserver.classpath"><fileset dir="${ejbca.home}/lib/quickserver" includes="QuickServer.jar"/></path>
 	<path id="lib.jaxb-namespaceprfixmapper-interfaces.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="jaxb-NamespacePrefixMapper-interfaces-2.0.0.jar"/></path>
 	<path id="lib.json-simple.classpath"><fileset dir="${ejbca.home}/lib" includes="json-simple-*.jar"/></path>
+	<path id="lib.snakeyaml.classpath"><fileset dir="${ejbca.home}/lib" includes="snakeyaml*.jar"/></path>
 	<path id="lib.ninbus-jose-jwt.classpath"><fileset dir="${ejbca.home}/lib/" includes="nimbus-jose-jwt-*.jar"/></path>
 	<path id="lib.json-smart.classpath"><fileset dir="${ejbca.home}/lib/" includes="json-smart-*.jar"/></path>
 	<path id="lib.dnsjava.classpath"><fileset dir="${ejbca.home}/lib" includes="dnsjava-*.jar"/></path>
@@ -271,6 +279,10 @@
 	<path id="lib.jee.classpath">
 		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
 	</path>
+	
+	<path id="lib.servicemanifestbuilder.classpath">
+		<fileset dir="${ejbca.home}/lib/ext" includes="servicemanifestbuilder*.jar"/>
+	</path>
 
 	<path id="lib.servlet.classpath">
 		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
@@ -299,8 +311,8 @@
     	<pathelement location="${mod.ejbca-common-web.lib}"/>
 	</path>
 
-	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-158.jar"/></fileset></path>
-	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-158.jar"/></fileset></path>
+	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-159.jar"/></fileset></path>
+	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-159.jar"/></fileset></path>
 	<path id="lib.bouncycastle.classpath">
 		<path refid="lib.bouncycastle-provonly.classpath"/>
 		<path refid="lib.bouncycastle-mailonly.classpath"/>
@@ -390,6 +402,22 @@
         <available file="${mod.statedump.path}/build.xml" />
     </condition>
 	
+    <condition property="mod.configdump.exists">
+        <available file="${mod.configdump.path}/build.xml" />
+    </condition>
+	
+    <condition property="mod.unidfnr.exists">
+        <available file="${mod.unidfnr.path}/build.xml" />
+    </condition>
+
+    <condition property="mod.unidfnr.enabled">
+      <and>
+	<available file="${mod.unidfnr.path}/build.xml"/>
+	<istrue value="${unidfnr.enabled}"/>
+      </and>
+    </condition>
+
+    
     <condition property="mod.est.exists">
         <available file="${mod.est-war.path}/build.xml" />
     </condition>
@@ -410,4 +438,7 @@
 		<available file="${mod.ct.path}/build.xml" />
     </condition>
 
+	<condition property="mod.webtest.exists">
+		<available file="${mod.webtest.path}/build.xml" />
+	</condition>
 </project>

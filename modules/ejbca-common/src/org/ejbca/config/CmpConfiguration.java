@@ -70,6 +70,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     public static final String CONFIG_RACANAME                = "ra.caname";
     public static final String CONFIG_VENDORCERTIFICATEMODE   = "vendorcertificatemode"; 
     public static final String CONFIG_VENDORCA                = "vendorca";
+    public static final String CONFIG_RESPONSE_CAPUBS_CA       = "response.capubsca";
+    public static final String CONFIG_RESPONSE_EXTRACERTS_CA   = "response.extracertsca";
     public static final String CONFIG_RA_OMITVERIFICATIONSINEEC = "ra.endentitycertificate.omitverifications";
     public static final String CONFIG_RACERT_PATH             = "racertificatepath";
     public static final String CONFIG_ALLOWAUTOMATICKEYUPDATE = "allowautomatickeyupdate";
@@ -89,7 +91,7 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     public static final String CMP_CONFIGURATION_ID = "1";
 
     // Default Values
-    public static final float LATEST_VERSION = 4f;
+    public static final float LATEST_VERSION = 8f;
     public static final String EJBCA_VERSION = InternalConfiguration.getAppVersion();
     
     // Default values
@@ -99,6 +101,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     private static final String DEFAULT_EXTRACT_USERNAME_COMPONENT = "DN";
     private static final String DEFAULT_VENDOR_MODE = "false";
     private static final String DEFAULT_VENDOR_CA = "";
+    private static final String DEFAULT_RESPONSE_CAPUBS_CA = "";
+    private static final String DEFAULT_RESPONSE_EXTRACERTS_CA = "";
     private static final String DEFAULT_KUR_ALLOW_AUTOMATIC_KEYUPDATE = "false";
     private static final String DEFAULT_ALLOW_SERVERGENERATED_KEYS = "false";
     private static final String DEFAULT_KUR_ALLOW_SAME_KEY = "true";
@@ -160,6 +164,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
             data.put(alias + CONFIG_EXTRACTUSERNAMECOMPONENT, DEFAULT_EXTRACT_USERNAME_COMPONENT);
             data.put(alias + CONFIG_VENDORCERTIFICATEMODE, DEFAULT_VENDOR_MODE);
             data.put(alias + CONFIG_VENDORCA, DEFAULT_VENDOR_CA);
+            data.put(alias + CONFIG_RESPONSE_CAPUBS_CA, DEFAULT_RESPONSE_CAPUBS_CA);
+            data.put(alias + CONFIG_RESPONSE_EXTRACERTS_CA, DEFAULT_RESPONSE_EXTRACERTS_CA);
             data.put(alias + CONFIG_ALLOWRAVERIFYPOPO, DEFAULT_ALLOW_RA_VERIFY_POPO);
             data.put(alias + CONFIG_RA_NAMEGENERATIONSCHEME, DEFAULT_RA_USERNAME_GENERATION_SCHEME);
             data.put(alias + CONFIG_RA_NAMEGENERATIONPARAMS, DEFAULT_RA_USERNAME_GENERATION_PARAMS);
@@ -193,6 +199,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
         keys.add(alias + CONFIG_EXTRACTUSERNAMECOMPONENT);
         keys.add(alias + CONFIG_VENDORCERTIFICATEMODE);
         keys.add(alias + CONFIG_VENDORCA);
+        keys.add(alias + CONFIG_RESPONSE_CAPUBS_CA);
+        keys.add(alias + CONFIG_RESPONSE_EXTRACERTS_CA);
         keys.add(alias + CONFIG_ALLOWRAVERIFYPOPO);
         keys.add(alias + CONFIG_RA_NAMEGENERATIONSCHEME);
         keys.add(alias + CONFIG_RA_NAMEGENERATIONPARAMS);
@@ -369,7 +377,6 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
         setValue(key, Boolean.toString(vendormode), alias);
     }
     
-    
     public String getVendorCA(String alias) {
         String key = alias + "." + CONFIG_VENDORCA;
         return getValue(key, alias);
@@ -377,6 +384,54 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     public void setVendorCA(String alias, String vendorCA) {
         String key = alias + "." + CONFIG_VENDORCA;
         setValue(key, vendorCA, alias);
+    }
+    
+    /**
+     * Gets the semicolon separated list of CA IDs, to add the CA certificates to CMP response 'caPubs' field. 
+     * 
+     * @param alias the CMP configuration alias.
+     * @return the semicolon separated list of CA IDs.
+     */
+    public String getResponseCaPubsCA(String alias) {
+        String key = alias + "." + CONFIG_RESPONSE_CAPUBS_CA;
+        return getValue(key, alias);
+    }
+    
+    /**
+     * Sets the semicolon separated list of CA IDs, to add the CA certificates to CMP response 'caPubs' field. 
+     * 
+     * There are no checks performed, if the CAs for that IDs exist.
+     * 
+     * @param alias the CMP configuration alias.
+     * @param caIdString the semicolon separated list of CA IDs.
+     */
+    public void setResponseCaPubsCA(String alias, String caIdString) {
+        String key = alias + "." + CONFIG_RESPONSE_CAPUBS_CA;
+        setValue(key, caIdString, alias);
+    }
+    
+    /**
+     * Sets the semicolon separated list of CA IDs, to add the CA certificates to CMP PKI message response 'extraCerts' field. 
+     * 
+     * @param alias the CMP configuration alias.
+     * @return the semicolon separated list of CA IDs.
+     */
+    public String getResponseExtraCertsCA(String alias) {
+        String key = alias + "." + CONFIG_RESPONSE_EXTRACERTS_CA;
+        return getValue(key, alias);
+    }
+    
+    /**
+     * Sets the semicolon separated list of CA IDs, to add the CA certificates to CMP PKI message response 'extraCerts' field. 
+     * 
+     * There are no checks performed, if the CAs for that IDs exist.
+     * 
+     * @param alias the CMP configuration alias.
+     * @param caIdString the semicolon separated list of CA IDs.
+     */
+    public void setResponseExtraCertsCA(String alias, String caIdString) {
+        String key = alias + "." + CONFIG_RESPONSE_EXTRACERTS_CA;
+        setValue(key, caIdString, alias);
     }
     
     public boolean getAllowRAVerifyPOPO(String alias) {
@@ -807,9 +862,16 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
             Set<String> aliases = getAliasList();
             for (String alias : aliases) {
                 data.put(alias + "." + CONFIG_ALLOWSERVERGENERATEDKEYS, DEFAULT_ALLOW_SERVERGENERATED_KEYS);                
+            
+                if (data.get(alias + "." + CONFIG_RESPONSE_CAPUBS_CA) == null) {
+                    data.put(alias + "." + CONFIG_RESPONSE_CAPUBS_CA, DEFAULT_RESPONSE_CAPUBS_CA);
+                }
+                if (data.get(alias + "." + CONFIG_RESPONSE_EXTRACERTS_CA) == null) {
+                    data.put(alias + "." + CONFIG_RESPONSE_EXTRACERTS_CA, DEFAULT_RESPONSE_EXTRACERTS_CA);
+                }
             }
-            data.put(VERSION,  Float.valueOf(LATEST_VERSION));          
-        }
+            data.put(VERSION,  Float.valueOf(LATEST_VERSION));
+         }
     }
 
     @Override

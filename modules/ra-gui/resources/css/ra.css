@@ -168,6 +168,20 @@
 	margin-bottom: 1em;
 }
 
+.showNextButton {
+	display: inline-block;
+	background: none;
+	border: none;
+	font: inherit;
+	margin: 0;
+	padding: 10px;
+	outline: none;
+	outline-offset: 0;
+	color: #e9af13;
+	cursor: pointer;
+	line-height: inherit;
+}
+
 .toggleMoreButton {
     display: inline-block;
     background: none;
@@ -277,21 +291,14 @@ img.menu_logo {
 .row-odd { background-color: #f2f2f2; }
 
 /* Table for issued certificates when viewing an EE */
-.ra-eeCertTableView {
-    width: 75%;
-    margin: 5px auto 0 0.2em;
-    border: none;
-    font-size: 0.875em;
-}
-
-.ra-eeCertTableSearch {
+.ra-eeCertTable {
     width: 75%;
     margin: 5px auto 0 2.5%;
     border: none;
     font-size: 0.875em;
 }
 
-.ra-eeCertTableView th, .ra-eeCertTableView td, .ra-eeCertTableSearch th, .ra-eeCertTableSearch td {
+.ra-eeCertTable th, .ra-eeCertTable td {
     color: #ffffff;
 }
 
@@ -312,4 +319,14 @@ img.menu_logo {
 
 .ra-endEntityEditSaveCancel {
     height: 40px !important;
+}
+
+.ra-csrDetailsLongText {
+	word-wrap:break-word; 
+	table-layout: fixed;
+	display: inline-table;
+	width:70%;"
+	font-family: monospace;
+	color: #fff;
+	margin-bottom: 15px;
 }

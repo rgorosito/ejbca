@@ -169,7 +169,30 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
         }
         this.extendedUserDataHandler = extendedUserDataHandler;         
     }
-
+    
+    /**
+     * Gets the end entity with that subject DN either 
+     * - by extracting the username by a DN component ({@link CmpConfiguration#getExtractUsernameComponent(String)}
+     * - or by matching its DN exactly.
+     * 
+     * @param dn the end entities DN (must match exactly).
+     * @return the end entity that either has a matching username extracted from the DN, or a subjectDN that matches the dn exactly, or null if no user found.
+     * @throws AuthorizationDeniedException if authorization was denied.
+     */
+    private EndEntityInformation getEndEntityFromCertReqRequest(final String dn) throws AuthorizationDeniedException {
+        String username = getUsernameByDnComponent(dn);
+        EndEntityInformation result = null;
+        if (StringUtils.isNotEmpty(username)) {
+            result = endEntityAccessSession.findUser(admin, username);            
+        }
+        if (result == null) {
+            // ECA-6435 Overwrite the EE DN with the request DN fails here, independent from CertificateProile.setAllowDnOverride, 
+            // if the request DN does not contain the VCs DN component to extract, but fails anyway (see VendorAuthenticationTest.test3GPPModeWithUserFromVendorCertUIDOrRequestFullDN()).
+            result = getEndEntityByDn(dn);
+        }
+        return result;
+    }
+    
     @Override
 	public ResponseMessage handleMessage(final BaseCmpMessage cmpRequestMessage, final boolean authenticated) {
 		if (LOG.isTraceEnabled()) {
@@ -180,9 +203,9 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 			CrmfRequestMessage crmfreq = null;
 			if (cmpRequestMessage instanceof CrmfRequestMessage) {
 				crmfreq = (CrmfRequestMessage) cmpRequestMessage;
-				
-				// If we have usernameGeneratorParams we want to generate usernames automagically for requests
-				// If we are not in RA mode, usernameGeneratorParams will be null
+
+                // If we have usernameGeneratorParams we want to generate usernames automagically for requests
+                // If we are not in RA mode, usernameGeneratorParams will be null
 				if (usernameGenParams != null) {
 					resp = handleRaMessage(crmfreq, authenticated);
 				} else {
@@ -190,24 +213,17 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 					// if extractUsernameComponent is null, we have to find the user from the DN
 					// if not empty the message will find the username itself, in the getUsername method
 					final String dn = crmfreq.getSubjectDN();
-			        final String username = getUsername(dn);
-					final EndEntityInformation endEntityInformation;
-					if (StringUtils.isEmpty(username)) {
-					    endEntityInformation = getUserDataByDN(dn);
-					} else {
-					    endEntityInformation = endEntityAccessSession.findUser(admin, username);
-					}
-
+					final EndEntityInformation endEntityInformation = getEndEntityFromCertReqRequest(crmfreq.getSubjectDN());
 					if (endEntityInformation != null) {
 						if (LOG.isDebugEnabled()) {
 							LOG.debug("Found username: "+endEntityInformation.getUsername());
 						}
-						crmfreq.setUsername(endEntityInformation.getUsername());
-						
+						final String username = endEntityInformation.getUsername();
+						crmfreq.setUsername(username);
 						final VerifyPKIMessage messageVerifyer = new VerifyPKIMessage(null, this.confAlias, admin, caSession, 
 						                endEntityAccessSession, certStoreSession, authorizationSession, endEntityProfileSession, certificateProfileSession,
 						                authenticationProviderSession, endEntityManagementSession, this.cmpConfiguration);
-						ICMPAuthenticationModule authenticationModule = messageVerifyer.getUsedAuthenticationModule(crmfreq.getPKIMessage(),  username,  authenticated);
+						final ICMPAuthenticationModule authenticationModule = messageVerifyer.getUsedAuthenticationModule(crmfreq.getPKIMessage(), username,  authenticated);
 						if(authenticationModule == null) {
 						    String errmsg = messageVerifyer.getErrorMessage();
 						    LOG.info(errmsg);
@@ -349,6 +365,7 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 			final UsernameGenerator gen = UsernameGenerator.getInstance(this.usernameGenParams);
 			// Don't convert this DN to an ordered EJBCA DN string with CertTools.stringToBCDNString because we don't want double escaping of some characters
 			final RequestMessage req =  this.extendedUserDataHandler!=null ? this.extendedUserDataHandler.processRequestMessage(crmfreq, certProfileName, cmpConfiguration.getUnidDataSource(this.confAlias)) : crmfreq;
+
 			final X500Name dnname = req.getRequestX500Name();
 			if (dnname == null) {
 			    final String nullMsg = "Request DN Name can not be null";
@@ -463,7 +480,7 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 		} catch (HandlerException e) {
 			LOG.error(INTRES.getLocalizedMessage("cmp.errorexthandlerexec"), e);
 			resp = CmpMessageHelper.createUnprotectedErrorMessage(crmfreq, FailInfo.BAD_MESSAGE_CHECK, e.getMessage());
-		}
+		} 
 		return resp;
 	}
 	
@@ -626,8 +643,14 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 	    }
 
 	}
-
-    private EndEntityInformation getUserDataByDN(String dn) throws AuthorizationDeniedException {
+    
+    /**
+     * Gets the end entity by the its subject DN.
+     * @param dn the subject DN.
+     * @return the end entity with this DN.
+     * @throws AuthorizationDeniedException if authorization was denied.
+     */
+    private EndEntityInformation getEndEntityByDn(String dn) throws AuthorizationDeniedException {
 	    EndEntityInformation endEntityInformation = null;
 	    if (LOG.isDebugEnabled()) {
 	        LOG.debug("looking for user with dn: "+dn);
@@ -641,15 +664,33 @@ public class CrmfMessageHandler extends BaseCmpMessageHandler implements ICmpMes
 	    }
         return endEntityInformation;
 	}
-	
-	private String getUsername(String dn) {
+
+    /**
+     * Gets the username by the DN component specified in the CMP configuration 'extract username component' 
+     * and adds the RA name generation prefix and postfix.
+     * 
+     * @param dn the DN.
+     * @return the username with RA name generation prefix and postfix.
+     */
+    private String getUsernameByDnComponent(String dn) {
         final String usernameComp = this.cmpConfiguration.getExtractUsernameComponent(this.confAlias);
         if (LOG.isDebugEnabled()) {
             LOG.debug("extractUsernameComponent: "+usernameComp);
         }
         if(StringUtils.isNotEmpty(usernameComp)) {
-            return CertTools.getPartFromDN(dn,usernameComp);
-        }
+            String username = CertTools.getPartFromDN(dn,usernameComp);
+            String fix = cmpConfiguration.getRANameGenPrefix(this.confAlias);
+            if (StringUtils.isNotBlank(fix)) {
+                LOG.info("Preceded RA name prefix '" + fix + "' to username '" + username + "' in CMP vendor mode.");
+                username = fix + username;
+            }
+            fix = cmpConfiguration.getRANameGenPostfix(this.confAlias);
+            if (StringUtils.isNotBlank( cmpConfiguration.getRANameGenPostfix(this.confAlias))) {
+                LOG.info("Attached RA name postfix '" + fix + "' to username '" + username + "' in CMP vendor mode.");
+                username += fix;
+            }
+            return username;
+        }    
         return null;
-	}
+    }
 }

@@ -13,6 +13,7 @@
 
 package org.ejbca.core.ejb.ra.raadmin;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -82,6 +83,25 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
             log.trace("<getAdminPreference()");
         }
         return ret;
+    }
+    
+    @Override
+    public Map<String, AdminPreference> getAdminPreferences() {
+        if (log.isTraceEnabled()) {
+            log.trace(">getAdminPreference()");
+        }        
+        HashMap<String, AdminPreference> adminPreferences = new HashMap<>();
+        final List<AdminPreferencesData> adminPreferencesData = AdminPreferencesData.findAll(entityManager);
+        
+        if (adminPreferencesData != null && !adminPreferencesData.isEmpty()) {
+            for(final AdminPreferencesData adminPreferenceData : adminPreferencesData) {
+                adminPreferences.put(adminPreferenceData.getId(), adminPreferenceData.getAdminPreference());
+            }
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("<getAdminPreference()");
+        }        
+        return adminPreferences;
     }
 
     @Override
@@ -312,8 +332,9 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
 
         Integer currentStyleId = adminPreference.getPreferedRaStyleId();
 
-        if (currentStyleId != null)
+        if (currentStyleId != null) {
             return currentStyleId;
+        }
         return null;
 
     }
@@ -347,8 +368,9 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
 
         Locale currentLocale = adminPreference.getPreferedRaLanguage();
 
-        if (currentLocale != null)
+        if (currentLocale != null) {
             return currentLocale;
+        }
 
         return getDefaultAdminPreference().getPreferedRaLanguage();
     }

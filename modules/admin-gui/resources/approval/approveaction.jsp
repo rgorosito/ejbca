@@ -21,6 +21,7 @@ org.ejbca.core.model.authorization.AccessRulesConstants
   <title><c:out value="<%= globalconfiguration.getEjbcaTitle() %>" /></title>
   <base href="<%= ejbcawebbean.getBaseUrl() %>" />
   <link rel="stylesheet" type="text/css" href="<c:out value='<%=ejbcawebbean.getCssFile() %>' />" />
+  <link rel="shortcut icon" href="<%=ejbcawebbean.getImagefileInfix("favicon.png")%>" type="image/png" />
   <meta http-equiv="Content-Type" content="text/html; charset=<%= org.ejbca.config.WebConfiguration.getWebContentEncoding() %>" />
 </head>
 
@@ -169,7 +170,7 @@ function viewcert(link){
 	<h:panelGroup layout="block" style="padding: 5px 10px" rendered="#{not empty approvalActionManagedBean.previousPartitions}">
 		<h3><h:outputText value="#{web.text.APPROVAL_PROFILE_PARTITION_PREVIOUS }"/></h3>
 		<h:outputText value="#{web.text.APPROVAL_PROFILE_PARTITION_HIDDEN }"  style="font-size: 0.7em;"/>
-		<h:dataTable value="#{approvalActionManagedBean.previousPartitions}" var="partition" style="width: 100%"  rowClasses="Row0,Row1" columnClasses="editColumn1,editColumn2">
+		<h:dataTable styleClass="superTable" value="#{approvalActionManagedBean.previousPartitions}" var="partition" style="width: 100%"  rowClasses="Row0,Row1" columnClasses="editColumn1,editColumn2">
 			<h:column>	
 				<h:dataTable value="#{partition.profilePropertyList}" var="property" headerClass="subheader" columnClasses="editColumn1,editColumn2"
 					 style="width: 100%" rendered="#{not empty partition.profilePropertyList}" styleClass="subTable">
@@ -182,7 +183,7 @@ function viewcert(link){
 				   				<f:converter converterId="stringConverter"/>
 				   			</h:inputText>
 				   			<h:inputTextarea disabled="true" rendered="#{property.type.simpleName eq 'MultiLineString'}" 
-                                value="#{property.value.value}">
+                                value="#{property.value}">
                             	<f:converter converterId="stringConverter"/>
                             </h:inputTextarea>
 				   			<h:inputText disabled="true" rendered="#{property.type.simpleName eq 'Long'}" value="#{property.value}" style="text-align: right;" >
@@ -222,6 +223,7 @@ function viewcert(link){
 		<h:dataTable value="#{approvalActionManagedBean.approvalPartitions}" var="partition" style="width: 100%"  rowClasses="Row0,Row1" columnClasses="editColumn1,editColumn2"
 				footerClass="tableFooter">
 				<h:column>	
+					<h:outputText value="#{partition.partitionName}"/>
 					<h:dataTable value="#{partition.profilePropertyList}" var="property" headerClass="subheader" columnClasses="editColumn1,editColumn2"
 						 style="width: 100%" rendered="#{not empty partition.profilePropertyList}" styleClass="subTable">
 						<h:column>								
@@ -291,19 +293,6 @@ function viewcert(link){
 	</h:panelGroup>	
 
      <h:panelGroup layout="block" style="padding: 5px 10px">
-    	<table border="0" cellpadding="1" width="100%">
-			<col width="20%">
-	  		<col width="80%">
-			<tr>
-				<td>
-					<h:outputText value="#{web.text.APCOMMENT}:"/>
-				</td>
-				<td>
-			        <h:inputTextarea id="comment" rows="2" cols="30" value="#{approvalActionManagedBean.comment}"
-			        	disabled="#{!approvalActionManagedBean.approvable}"/>
-	        	</td>
-	        </tr>
-		</table>
 	 </h:panelGroup>
     <h:panelGroup style="padding: 5px 10px" layout="block">
     	<h:commandButton id="buttonSave" value="#{web.text.APPROVAL_SAVE_STATE}" actionListener="#{approvalActionManagedBean.saveState}"

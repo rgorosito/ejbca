@@ -13,6 +13,7 @@
 package org.cesecore.certificates.certificate.request;
 
 import java.security.cert.Certificate;
+import java.util.List;
 
 import org.cesecore.certificates.certificate.Base64CertData;
 import org.cesecore.certificates.certificate.CertificateData;
@@ -46,4 +47,16 @@ public interface CertificateResponseMessage extends ResponseMessage {
     Base64CertData getBase64CertData();
     
     void setBase64CertData(final Base64CertData base64CertData);
+
+    /**
+     * Adds a list of additional CA certificates to be appended to the user certificates CA certificate returned in the CMP response message caPubs field.
+     * @param certificates the CA certificates to add.
+     */
+    void addAdditionalCaCertificates(final List<Certificate> certificates);
+    
+    /**
+     * Adds a list of additional CA certificates to be appended to the outer PKI message signing CA in its extraCerts field).
+     * @param certificates the CA certificates to add.
+     */
+    void addAdditionalResponseExtraCertsCertificates(final List<Certificate> certificates);
 }

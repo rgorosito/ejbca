@@ -5,21 +5,21 @@
 	cabean.initialize(ejbcawebbean);
 	publisherhelper.initialize(request,ejbcawebbean, cabean);
 	
-	TreeMap publishernames = ejbcawebbean.getInformationMemory().getAuthorizedPublisherNames();
+	TreeMap<String,Integer> publishernames = ejbcawebbean.getAuthorizedPublisherNames();
 	Iterator iter = publishernames.keySet().iterator();
 %>
-
 <div class="status" id="publishqueuestatus" >
-		<h4><%=ejbcawebbean.getText("PUBLISHERQUEUESTATUS")%> <%= ejbcawebbean.getHelpReference("/userguide.html#Publish%20queue%20status") %></h4>
-		<table border="1" cellspacing="2" cellpadding="3" width="100%" class="grid">
+		<h4><%=ejbcawebbean.getText("PUBLISHERQUEUESTATUS")%> <%= ejbcawebbean.getHelpReference("/Admin_GUI_Overview_Page.html#Publisher%20Queue%20Status") %></h4>
+		<table class="grid"><thead>
 		<%	if(ejbcawebbean.getAdminPreference().getFrontpagePublisherQueueStatus()) { %>
 			<tr>
-				<th style="text-align:left;"><%=ejbcawebbean.getText("PUBLISHER")%></th>
+				<th><%=ejbcawebbean.getText("PUBLISHER")%></th>
 				<th><abbr title="<%=ejbcawebbean.getText("QUEUELENGTH")%>"><%=ejbcawebbean.getText("QUEUELENGTH_ABBR")%></abbr></th>
-			</tr>
+			</tr></thead><tbody>
 		<%  if(!iter.hasNext()) { %>
 				<tr>
-					<td colspan="2"><em><%=ejbcawebbean.getText("NOPUBLISHERS")%></em></td>
+					<td class="publisher-name"><%=ejbcawebbean.getText("NOPUBLISHERS")%></td>
+					<td class="publisher-queue">&nbsp;</td>
 				</tr>
 			<% } else {
 				while(iter.hasNext()) {
@@ -27,15 +27,15 @@
 					int queueLength = publisherhelper.getPublisherQueueLength(name);
 			%>
 				<tr>	
-					<td><c:out value="<%=name %>"/></td>
-					<td style="text-align:center;"><%=queueLength %></td>
+					<td class="publisher-name"><c:out value="<%=name %>"/></td>
+					<td class="publisher-queue"><%=queueLength %></td>
 				</tr>
 			<% }
 			} 
 			} else { %>
 				<tr>	
-					<td colspan="2"><%=ejbcawebbean.getText("CANBEENABLED") %></td>
+					<td><%=ejbcawebbean.getText("CANBEENABLED") %></td>
 				</tr>
 		<%  } %>
-		</table>
+		</tbody></table>
 </div>

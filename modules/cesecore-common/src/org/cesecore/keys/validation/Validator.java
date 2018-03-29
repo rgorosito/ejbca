@@ -37,8 +37,9 @@ public interface Validator extends PhasedValidator, CertificateProfileAwareValid
     /**
      * Populates the sub class specific key validator values with template values based on {@link ValidatorBase#getSettingsTemplate()}. 
      * Sub classes only need to implement this method if they support configuration templates.
+     * @param template the validator settings template.
      */
-    void setKeyValidatorSettingsTemplate();
+    void setKeyValidatorSettingsTemplate(KeyValidatorSettingsTemplate template);
     
     /**
      * Gets the failed action index {@see #setFailedAction(int)}.
@@ -84,12 +85,6 @@ public interface Validator extends PhasedValidator, CertificateProfileAwareValid
      * @param type the type {@link KeyValidatorSettingsTemplate}.
      */
     void setSettingsTemplate(Integer option);
-    
-    /**
-     * Gets the XHTML template file in /WEB-INF/ca/editkeyvalidators.
-     * @return the file path.
-     */
-    String getTemplateFile();
     
      /**
       * 

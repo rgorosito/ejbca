@@ -176,10 +176,12 @@ public class RaManageRequestsBean implements Serializable {
             final ApprovalRequestGUIInfo approvalRequestGuiInfo = new ApprovalRequestGUIInfo(reqInfo, raLocaleBean, raAccessBean);
             if (searchRequest.isSearchingWaitingForMe() && approvalRequestGuiInfo.isCanApprove() && !raInfoMap.isEmpty()) {
                 guiInfos.add(approvalRequestGuiInfo);
-            } else if (searchRequest.isSearchingPending() && approvalRequestGuiInfo.isRequestedByMe()) {
+            } else if (searchRequest.isSearchingPending() && (approvalRequestGuiInfo.isRequestedByMe() || approvalRequestGuiInfo.isCanView())) {
                 guiInfos.add(approvalRequestGuiInfo);
             } else if (searchRequest.isSearchingHistorical() && !approvalRequestGuiInfo.isCanApprove()) {
                 guiInfos.add(approvalRequestGuiInfo);                
+            } else if (searchRequest.isSearchingExpired()) {
+                guiInfos.add(approvalRequestGuiInfo);
             }
         }
 
