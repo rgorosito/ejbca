@@ -25,7 +25,6 @@ org.cesecore.certificates.ca.CVCCAInfo,
 org.cesecore.certificates.ca.catoken.CAToken,
 org.cesecore.certificates.ca.CAConstants,
 org.cesecore.certificates.ca.catoken.CATokenConstants,
-org.cesecore.certificates.ca.catoken.CAToken,
 org.cesecore.certificates.certificate.IllegalKeyException,
 org.cesecore.certificates.certificate.request.PKCS10RequestMessage,
 org.cesecore.certificates.certificate.request.RequestMessage,
@@ -36,7 +35,6 @@ org.cesecore.certificates.certificateprofile.CertificatePolicy,
 org.cesecore.certificates.ca.CAExistsException,
 org.cesecore.certificates.ca.CADoesntExistsException,
 org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo,
-org.cesecore.certificates.ca.catoken.CATokenConstants,
 org.cesecore.certificates.util.DNFieldExtractor,
 org.cesecore.certificates.util.DnComponents,
 org.cesecore.keys.token.CryptoToken,
@@ -166,6 +164,7 @@ org.ejbca.ui.web.ParameterException
   static final String CHECKBOX_USECERTREQHISTORY                  = "checkboxusecertreqhistory";
   static final String CHECKBOX_USEUSERSTORAGE                     = "checkboxuseuserstorage";
   static final String CHECKBOX_USECERTIFICATESTORAGE              = "checkboxusecertificatestorage";
+  static final String CHECKBOX_ACCEPTREVOCATIONSNONEXISTINGENTRY = "checkboxacceptrevocationsnonexistingentry";
   static final String CHECKBOX_USEUTF8POLICYTEXT                  = "checkboxuseutf8policytext";
   static final String CHECKBOX_USEPRINTABLESTRINGSUBJECTDN        = "checkboxuseprintablestringsubjectdn";
   static final String CHECKBOX_USELDAPDNORDER                     = "checkboxuseldapdnorder";
@@ -197,6 +196,7 @@ org.ejbca.ui.web.ParameterException
   static final String SELECT_AVAILABLECRLPUBLISHERS               = "selectavailablecrlpublishers";
   static final String SELECT_AVAILABLEVALIDATORS                  = "selectavailablevalidators";
   static final String SELECT_CERTIFICATEPROFILE                   = "selectcertificateprofile";
+  static final String SELECT_DEFAULTCERTPROFILE                   = "selectdefaultcertificateprofile";
   static final String SELECT_SIGNATUREALGORITHM                   = "selectsignaturealgorithm";
   static final String SELECT_APPROVALSETTINGS                     = "approvalsettings";
   static final String SELECT_NUMOFREQUIREDAPPROVALS               = "numofrequiredapprovals";
@@ -345,6 +345,7 @@ org.ejbca.ui.web.ParameterException
                 catype = Integer.parseInt(requestMap.get(HIDDEN_CATYPE));
                 final String subjectdn = requestMap.get(TEXTFIELD_SUBJECTDN);
                 final String certificateProfileIdString = requestMap.get(SELECT_CERTIFICATEPROFILE);
+                final String defaultCertificateProfileIdString = requestMap.get(SELECT_DEFAULTCERTPROFILE);
                 final String signedByString = requestMap.get(SELECT_SIGNEDBY);
                 final String description = requestMap.get(TEXTFIELD_DESCRIPTION);
                 String validityString = requestMap.get(TEXTFIELD_VALIDITY);
@@ -364,6 +365,7 @@ org.ejbca.ui.web.ParameterException
                 final boolean useCertReqHistory = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USECERTREQHISTORY));
                 final boolean useUserStorage = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USEUSERSTORAGE));
                 final boolean useCertificateStorage = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USECERTIFICATESTORAGE));
+                final boolean checkboxAcceptRevocationsNonExistingEntry = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_ACCEPTREVOCATIONSNONEXISTINGENTRY));
                 final String subjectaltname = requestMap.get(TEXTFIELD_SUBJECTALTNAME);
                 final String policyid = requestMap.get(TEXTFIELD_POLICYID);
                 final boolean useauthoritykeyidentifier = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_AUTHORITYKEYIDENTIFIER));
@@ -405,7 +407,7 @@ org.ejbca.ui.web.ParameterException
                 try {
                     illegaldnoraltname = cabean.actionCreateCaMakeRequest(caname, signatureAlgorithmParam,
                      signkeyspec, keySequenceFormatParam, keySequence,
-               		 catype, subjectdn, certificateProfileIdString, signedByString, description, validityString,
+               		 catype, subjectdn, certificateProfileIdString, defaultCertificateProfileIdString, signedByString, description, validityString,
                		 approvals, finishUser, isDoEnforceUniquePublicKeys,
                		 isDoEnforceUniqueDistinguishedName,
                		 isDoEnforceUniqueSubjectDNSerialnumber, useCertReqHistory, useUserStorage, useCertificateStorage,
@@ -558,6 +560,9 @@ org.ejbca.ui.web.ParameterException
                 final boolean useCertReqHistory = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USECERTREQHISTORY));
                 final boolean useUserStorage = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USEUSERSTORAGE));
                 final boolean useCertificateStorage = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_USECERTIFICATESTORAGE));
+                final boolean checkboxAcceptRevocationsNonExistingEntry = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_ACCEPTREVOCATIONSNONEXISTINGENTRY));
+                final String defaultCertificateProfileIdString = requestMap.get(SELECT_DEFAULTCERTPROFILE);
+                int defaultCertprofileId = (defaultCertificateProfileIdString==null ? 0 : Integer.parseInt(defaultCertificateProfileIdString));
                 final String availablePublisherValues = requestMap.get(SELECT_AVAILABLECRLPUBLISHERS);//request.getParameterValues(SELECT_AVAILABLECRLPUBLISHERS);
                 final String availableKeyValidatorValues = requestMap.get(SELECT_AVAILABLEVALIDATORS);
                 final boolean useauthoritykeyidentifier = CHECKBOX_VALUE.equals(requestMap.get(CHECKBOX_AUTHORITYKEYIDENTIFIER));
@@ -604,8 +609,8 @@ org.ejbca.ui.web.ParameterException
             		keySequenceFormatParam, keySequence, signedByString, description, validityString,
             		crlperiod, crlIssueInterval, crlOverlapTime, deltacrlperiod, finishUser,
             		isDoEnforceUniquePublicKeys, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber,
-            		useCertReqHistory, useUserStorage, useCertificateStorage, 
-            		approvals,
+            		useCertReqHistory, useUserStorage, useCertificateStorage, checkboxAcceptRevocationsNonExistingEntry,
+                        defaultCertprofileId, approvals,
             		availablePublisherValues, availableKeyValidatorValues, useauthoritykeyidentifier, authoritykeyidentifiercritical, usecrlnumber,
             		crlnumbercritical, defaultcrldistpoint, defaultcrlissuer, defaultocsplocator, 
             		authorityInformationAccess,
@@ -662,6 +667,7 @@ org.ejbca.ui.web.ParameterException
                     int signedby = (signedByString==null ? 0 : Integer.parseInt(signedByString));
                     if (signedby == caid) { signedby = CAInfo.SELFSIGNED; }
                     cainfo.setCertificateProfileId(certprofileid);
+                    cainfo.setDefaultCertificateProfileId(defaultCertprofileId);
                     cainfo.setSignedBy(signedby);
                     
                     final String subjectaltname = requestMap.get(TEXTFIELD_SUBJECTALTNAME);
@@ -697,6 +703,7 @@ org.ejbca.ui.web.ParameterException
                     int signedby = (signedByString==null ? 0 : Integer.parseInt(signedByString));
                     cainfo.setSignedBy(signedby);
                     cainfo.setCertificateProfileId(certprofileid);
+                    cainfo.setDefaultCertificateProfileId(defaultCertprofileId);
                     try {
                         cadatahandler.initializeCA(cainfo);
                     } catch (CryptoTokenOfflineException ctoe) {

@@ -103,6 +103,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
     protected static final String REVOCATIONREASON = "revokationreason";
     protected static final String REVOCATIONDATE = "revokationdate";
     protected static final String CERTIFICATEPROFILEID = "certificateprofileid";
+    protected static final String DEFAULTCERTIFICATEPROFILEID = "defaultcertificateprofileid";
     protected static final String CRLPERIOD = "crlperiod";
     protected static final String DELTACRLPERIOD = "deltacrlperiod";
     protected static final String CRLISSUEINTERVAL = "crlIssueInterval";
@@ -136,6 +137,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
     private static final String USE_CERTREQ_HISTORY = "useCertreqHistory";
     private static final String USE_USER_STORAGE = "useUserStorage";
     private static final String USE_CERTIFICATE_STORAGE = "useCertificateStorage";
+    private static final String ACCEPT_REVOCATION_NONEXISTING_ENTRY = "acceptRevocationNonExistingEntry";
     private static final String LATESTLINKCERTIFICATE = "latestLinkCertificate";
     private static final String KEEPEXPIREDCERTSONCRL = "keepExpiredCertsOnCRL";
     private static final String APPROVALS = "approvals";
@@ -166,6 +168,9 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         data.put(DESCRIPTION, cainfo.getDescription());
         data.put(REVOCATIONREASON, Integer.valueOf(-1));
         data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
+        if (!cainfo.isUseCertificateStorage()) {
+            data.put(DEFAULTCERTIFICATEPROFILEID, Integer.valueOf(cainfo.getDefaultCertificateProfileId()));
+        }
         setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL());
         setCRLPeriod(cainfo.getCRLPeriod());
         setCRLIssueInterval(cainfo.getCRLIssueInterval());
@@ -181,6 +186,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         setUseCertReqHistory(cainfo.isUseCertReqHistory());
         setUseUserStorage(cainfo.isUseUserStorage());
         setUseCertificateStorage(cainfo.isUseCertificateStorage());
+        setAcceptRevocationNonExistingEntry(cainfo.isAcceptRevocationNonExistingEntry());
 
         ArrayList<Integer> extendedservicetypes = new ArrayList<>();
         for(ExtendedCAServiceInfo next : cainfo.getExtendedCAServiceInfos()) {
@@ -412,6 +418,14 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
 
     public int getCertificateProfileId() {
         return ((Integer) data.get(CERTIFICATEPROFILEID)).intValue();
+    }
+    public int getDefaultCertificateProfileId() {
+        Integer defaultCertificateProfileId = (Integer) data.get(DEFAULTCERTIFICATEPROFILEID);
+        if (defaultCertificateProfileId != null) {
+            return defaultCertificateProfileId.intValue();
+        } else {
+            return -1;
+        }
     }
 
     /** @return the CAs token reference. */
@@ -768,6 +782,16 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         putBoolean(USE_CERTIFICATE_STORAGE, useCertificateStorage);
     }
 
+    private void setAcceptRevocationNonExistingEntry(boolean acceptRevocationNonExistingEntry) {
+        putBoolean(ACCEPT_REVOCATION_NONEXISTING_ENTRY, acceptRevocationNonExistingEntry);
+    }
+
+    /** whether revocations for non existing entry accepted */
+    public boolean isAcceptRevocationNonExistingEntry() {
+        return getBoolean(ACCEPT_REVOCATION_NONEXISTING_ENTRY, false);
+    }
+
+
     /**
      * @return A 1:1 mapping between Approval Action:Approval Profile ID
      */
@@ -865,6 +889,9 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         if (cainfo.getCertificateProfileId() > 0) {
             data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
         }
+        if (cainfo.getDefaultCertificateProfileId() > 0 && !cainfo.isUseCertificateStorage()) {
+            data.put(DEFAULTCERTIFICATEPROFILEID, Integer.valueOf(cainfo.getDefaultCertificateProfileId()));
+        }
         setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL());
 
         if (cainfo.getCAToken() != null) {
@@ -878,6 +905,7 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         setUseCertReqHistory(cainfo.isUseCertReqHistory());
         setUseUserStorage(cainfo.isUseUserStorage());
         setUseCertificateStorage(cainfo.isUseCertificateStorage());
+        setAcceptRevocationNonExistingEntry(cainfo.isAcceptRevocationNonExistingEntry());
         List<Certificate> newcerts = cainfo.getCertificateChain();
         if ((newcerts != null) && (newcerts.size() > 0)) {
             setCertificateChain(newcerts);

@@ -78,6 +78,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     public static final String CONFIG_ALLOWUPDATEWITHSAMEKEY  = "allowupdatewithsamekey";
     public static final String CONFIG_ALLOWSERVERGENERATEDKEYS  = "allowservergenkeys";
     public static final String CONFIG_CERTREQHANDLER_CLASS    = "certreqhandler.class";
+    /** @deprecated since 6.12.0. No longer used, and can no longer be set. The datasource is now hard-coded to be UnidDS */
+    @Deprecated
     public static final String CONFIG_UNIDDATASOURCE          = "uniddatasource";
     
     public static final String PROFILE_USE_KEYID = "KeyId";
@@ -122,7 +124,6 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
     private static final String DEFAULT_RA_OMITVERIFICATIONSINEEC = "false";
     private static final String DEFAULT_RACERT_PATH = "";
     private static final String DEFAULT_CERTREQHANDLER = ""; //"org.ejbca.core.protocol.unid.UnidFnrHandler";
-    private static final String DEFAULT_UNID_DATASOURCE = ""; //"java:/UnidDS";
 
     
     /** Creates a new instance of CmpConfiguration */
@@ -183,7 +184,6 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
             data.put(alias + CONFIG_ALLOWSERVERGENERATEDKEYS, DEFAULT_ALLOW_SERVERGENERATED_KEYS);       
             data.put(alias + CONFIG_ALLOWUPDATEWITHSAMEKEY, DEFAULT_KUR_ALLOW_SAME_KEY);
             data.put(alias + CONFIG_CERTREQHANDLER_CLASS, DEFAULT_CERTREQHANDLER);
-            data.put(alias + CONFIG_UNIDDATASOURCE, DEFAULT_UNID_DATASOURCE);
         }
     }
     
@@ -217,8 +217,7 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
         keys.add(alias + CONFIG_ALLOWAUTOMATICKEYUPDATE);       
         keys.add(alias + CONFIG_ALLOWUPDATEWITHSAMEKEY);
         keys.add(alias + CONFIG_CERTREQHANDLER_CLASS);
-        keys.add(alias + CONFIG_UNIDDATASOURCE);
-        keys.add(alias + CONFIG_ALLOWSERVERGENERATEDKEYS);       
+        keys.add(alias + CONFIG_ALLOWSERVERGENERATEDKEYS);
         return keys;
     }
 
@@ -612,18 +611,6 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
         setValue(key, certReqClass, alias);
     }
     
-    public String getUnidDataSource(String alias) {
-        String key = alias + "." + CONFIG_UNIDDATASOURCE;
-        return getValue(key, alias);
-    }
-    public void setUnidDataSource(String alias, String unidDataSource) {
-        String key = alias + "." + CONFIG_UNIDDATASOURCE;
-        setValue(key, unidDataSource, alias);
-    }
-    
-    
-    
-    
     
     public String getValue(String key, String alias) {
         if(aliasExists(alias)) {
@@ -746,6 +733,8 @@ public class CmpConfiguration extends ConfigurationBase implements Serializable 
         for(String key : getAllAliasKeys(alias)) {
             data.remove(key);
         }
+        // remove old keys from previous versions of EJBCA
+        data.remove(CONFIG_UNIDDATASOURCE);
         aliases.remove(alias);
         data.put(ALIAS_LIST, aliases);
     }

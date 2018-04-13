@@ -256,7 +256,7 @@ public class X509CA extends CA implements Serializable {
             }
         }
         
-        final CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getEncodedValidity(),
+        final CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getDefaultCertificateProfileId(), getEncodedValidity(),
                 getExpireTime(), getCAType(), getSignedBy(), getCertificateChain(), getCAToken(), getDescription(),
                 getRevocationReason(), getRevocationDate(), getPolicies(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(),
                 getDeltaCRLPeriod(), getCRLPublishers(), getValidators(), getUseAuthorityKeyIdentifier(), getAuthorityKeyIdentifierCritical(), getUseCRLNumber(),
@@ -267,7 +267,8 @@ public class X509CA extends CA implements Serializable {
                 getFinishUser(), externalcaserviceinfos, getUseUTF8PolicyText(), getApprovals(),
                 getUsePrintableStringSubjectDN(), getUseLdapDNOrder(), getUseCrlDistributionPointOnCrl(), getCrlDistributionPointOnCrlCritical(),
                 getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(), isDoEnforceUniqueDistinguishedName(),
-                isDoEnforceUniqueSubjectDNSerialnumber(), isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), getCmpRaAuthSecret(), getKeepExpiredCertsOnCRL());
+                isDoEnforceUniqueSubjectDNSerialnumber(), isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), isAcceptRevocationNonExistingEntry(), getCmpRaAuthSecret(),
+                getKeepExpiredCertsOnCRL());
         ((X509CAInfo)info).setExternalCdp(getExternalCdp());
         ((X509CAInfo)info).setNameChanged(getNameChanged());
         //These to settings were deprecated in 6.8.0, but are still set for upgrade reasons

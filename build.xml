@@ -377,13 +377,6 @@
 			replacement-context-root="/ejbca/doc"
 		/>
 		<war-replacement-in-module
-			replacement-tag="!--@doc_legacy.war@-->"
-			replacement-file="${eardd.src}/META-INF/application.xml"
-			replacement-enabled="${doc.war.enabled}"
-			replacement-web-uri="doc_legacy.war"
-			replacement-context-root="/ejbca/doc_legacy"
-		/>
-		<war-replacement-in-module
 			replacement-tag="!--@renew.war@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
 			replacement-enabled="${web.renewalenabled}"
@@ -833,7 +826,7 @@
 		</antcall>
 		<!-- Copy the retrieved documentation from the tmp/docs directory into doc/dist for the sake of this release-->
 		<copy todir="doc/dist">
-		    <fileset dir="tmp/docs" includes="**/*"/>
+		    <fileset dir="tmp/htdocs/docs" includes="**/*"/>
 		</copy>
 		<!-- A small script that converts the version x.y.z to x_y_z to be used in the file. JavaScript does not work under Java 1.5. -->
 		<scriptdef name="convertdot" language="javascript">

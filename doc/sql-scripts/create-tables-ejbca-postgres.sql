@@ -401,6 +401,33 @@ CREATE TABLE UserDataSourceData (
     PRIMARY KEY (id)
 );
 
+CREATE TABLE NoConflictCertificateData (
+    id TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    base64Cert TEXT,
+    cAFingerprint TEXT,
+    certificateProfileId INT4 NOT NULL,
+    endEntityProfileId INT4,
+    expireDate INT8 NOT NULL,
+    issuerDN TEXT NOT NULL,
+    notBefore INT8,
+    revocationDate INT8 NOT NULL,
+    revocationReason INT4 NOT NULL,
+    rowProtection TEXT,
+    rowVersion INT4 NOT NULL,
+    serialNumber TEXT NOT NULL,
+    status INT4 NOT NULL,
+    subjectAltName TEXT,
+    subjectDN TEXT NOT NULL,
+    subjectKeyId TEXT,
+    tag TEXT,
+    type INT4 NOT NULL,
+    updateTime INT8 NOT NULL,
+    username TEXT,
+    timeCreated INT8 NOT NULL,
+    PRIMARY KEY (id)
+);
+
 alter table AccessRulesData add constraint FKABB4C1DFDBBC970 foreign key (AdminGroupData_accessRules) references AdminGroupData;
 
 alter table AdminEntityData add constraint FKD9A99EBCB3A110AD foreign key (AdminGroupData_adminEntities) references AdminGroupData;

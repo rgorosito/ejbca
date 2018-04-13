@@ -76,6 +76,7 @@ public abstract class CAInfo implements Serializable {
     protected int revocationReason;
     protected Date revocationDate;
     protected int certificateprofileid;
+    protected int defaultCertificateProfileId;
     /** Default value 1 day */
     protected long crlperiod = 1 * SimpleTime.MILLISECONDS_PER_DAY;
     /** Default value 0 */
@@ -117,6 +118,7 @@ public abstract class CAInfo implements Serializable {
     protected boolean useCertReqHistory;
     protected boolean useUserStorage;
     protected boolean useCertificateStorage;
+    protected boolean acceptRevocationNonExistingEntry;
 
     public String getSubjectDN() {
         return subjectdn;
@@ -276,6 +278,14 @@ public abstract class CAInfo implements Serializable {
 
     public int getCertificateProfileId() {
         return this.certificateprofileid;
+    }
+
+    public int getDefaultCertificateProfileId() {
+        return defaultCertificateProfileId;
+    }
+
+    public void setDefaultCertificateProfileId(int defaultCertificateProfileId) {
+        this.defaultCertificateProfileId = defaultCertificateProfileId;
     }
 
     public long getCRLPeriod() {
@@ -457,6 +467,16 @@ public abstract class CAInfo implements Serializable {
     /** @param useCertificateStorage true means that the issued certificate should be kept in the database. */
     public void setUseCertificateStorage(boolean useCertificateStorage) {
         this.useCertificateStorage = useCertificateStorage;
+    }
+
+    /** @return true if revocation for non existing entries is accepted */
+    public boolean isAcceptRevocationNonExistingEntry() {
+        return acceptRevocationNonExistingEntry;
+    }
+
+    /** @param acceptRevocationNonExistingEntry true means that revocation for non existing entry is accepted. */
+    public void setAcceptRevocationNonExistingEntry(boolean acceptRevocationNonExistingEntry) {
+        this.acceptRevocationNonExistingEntry = acceptRevocationNonExistingEntry;
     }
 
     /**

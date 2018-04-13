@@ -177,6 +177,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
@@ -562,6 +563,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         revokeCert();
     }
 
+    @Ignore
+    @Test
+    public void test0601RevokeThrowAwayCert () throws Exception {
+        revokeThrowAwayCert();
+    }
+    
     @Test
     public void test061RevokeCertBackdated() throws Exception {
         revokeCertBackdated();
@@ -571,12 +578,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public void test07RevokeToken() throws Exception {
         revokeToken();
     }
-
+    
     @Test
     public void test08CheckRevokeStatus() throws Exception {
         checkRevokeStatus();
     }
-
+    
     @Test
     public void test09Utf8EditUser() throws Exception {
         utf8EditUser();
@@ -1173,9 +1180,11 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
     
     @Test
-    public void test27EjbcaVersion() throws Exception {
-        ejbcaVersion();
-    }
+    public void test27EjbcaVersion() {
+        final String version = ejbcaraws.getEjbcaVersion();
+        // We don't know which specific version we are testing
+        final String expectedSubString = "EJBCA 6.13";
+        assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));    }
 
     @Test
     public void test29ErrorOnEditUser() throws Exception {

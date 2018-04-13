@@ -33,10 +33,11 @@ import org.cesecore.audit.enums.ServiceTypes;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
-import org.cesecore.certificates.certificate.CertificateData;
+import org.cesecore.certificates.certificate.BaseCertificateData;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateRevokeException;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificate.NoConflictCertificateStoreSessionLocal;
 import org.cesecore.certificates.crl.CRLInfo;
 import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.certificates.crl.RevokedCertInfo;
@@ -70,6 +71,8 @@ public class RevocationSessionBean implements RevocationSessionLocal, Revocation
     @EJB
     private CrlStoreSessionLocal crlStoreSession;
     @EJB
+    private NoConflictCertificateStoreSessionLocal noConflictCertificateStoreSession;
+    @EJB
     private PublisherSessionLocal publisherSession;
 
     /** Internal localization of logs and errors */
@@ -101,12 +104,12 @@ public class RevocationSessionBean implements RevocationSessionLocal, Revocation
     @Override
     public void revokeCertificate(final AuthenticationToken admin, final CertificateDataWrapper cdw, final Collection<Integer> publishers,
             Date revocationDate, final int reason, final String userDataDN) throws CertificateRevokeException, AuthorizationDeniedException {
-    	final boolean waschanged = certificateStoreSession.setRevokeStatus(admin, cdw, getRevocationDate(cdw, revocationDate, reason), reason);
+    	final boolean waschanged = noConflictCertificateStoreSession.setRevokeStatus(admin, cdw, getRevocationDate(cdw, revocationDate, reason), reason);
     	// Only publish the revocation if it was actually performed
     	if (waschanged) {
     	    // Since storeSession.findCertificateInfo uses a native query, it does not pick up changes made above
     	    // that is part if the transaction in the EntityManager, so we need to get the object from the EntityManager.
-    	    final CertificateData certificateData = cdw.getCertificateData();
+    	    final BaseCertificateData certificateData = cdw.getBaseCertificateData();
     	    final String username = certificateData.getUsername();
     	    final String password = null;
     		if (!RevokedCertInfo.isRevoked(reason)) {
@@ -133,11 +136,11 @@ public class RevocationSessionBean implements RevocationSessionLocal, Revocation
     /** @return revocationDate as is, or null if unrevoking a certificate that's not on a base CRL in on hold state. */
     private Date getRevocationDate(final CertificateDataWrapper cdw, final Date revocationDate, final int reason) {
         if (revocationDate == null || (reason != RevokedCertInfo.NOT_REVOKED && reason != RevokedCertInfo.REVOCATION_REASON_REMOVEFROMCRL) ||
-                (cdw.getCertificateData().getRevocationReason() != RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD)) {
+                (cdw.getBaseCertificateData().getRevocationReason() != RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD)) {
             return revocationDate; // return unmodified
         }
         
-        final String issuerDN = cdw.getCertificateData().getIssuerDN();
+        final String issuerDN = cdw.getBaseCertificateData().getIssuerDN();
         final CRLInfo baseCrlInfo = crlStoreSession.getLastCRLInfo(issuerDN, false);
         if (baseCrlInfo == null || baseCrlInfo.getCreateDate().before(revocationDate)) { // if not on base CRL
             return null;
