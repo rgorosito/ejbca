@@ -27,6 +27,9 @@ import java.util.Set;
 import javax.persistence.ColumnResult;
 import javax.persistence.Entity;
 import javax.persistence.EntityManager;
+import javax.persistence.PostLoad;
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
 import javax.persistence.Query;
 import javax.persistence.SqlResultSetMapping;
 import javax.persistence.SqlResultSetMappings;
@@ -34,7 +37,6 @@ import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.TypedQuery;
 
-import org.apache.commons.lang.ClassUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.config.CesecoreConfiguration;
@@ -211,23 +213,12 @@ public class CertificateData extends BaseCertificateData implements Serializable
         
     }
     
-    
-    /**
-     * return the current class name
-     *  
-     * @return name (without package info) of the current class
-     */
-    @Override
-    @Transient
-    protected final String getClassName() {
-        return ClassUtils.getShortCanonicalName(this.getClass());
-    }
-    
     /**
      * Fingerprint of certificate
      *
      * @return fingerprint
      */
+    @Override
     public String getFingerprint() {
         return fingerprint;
     }
@@ -246,6 +237,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return issuer dn
      */
+    @Override
     public String getIssuerDN() {
         return issuerDN;
     }
@@ -265,6 +257,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return value as it is stored in the database
      */
+    @Override
     public String getSubjectDN() {
         return subjectDN;
     }
@@ -291,6 +284,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return value as it is stored in the database
      */
+    @Override
     public String getSubjectAltName() {
         return subjectAltName;
     }
@@ -304,6 +298,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return fingerprint
      */
+    @Override
     public String getCaFingerprint() {
         return cAFingerprint;
     }
@@ -324,6 +319,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return status
      */
+    @Override
     public int getStatus() {
         return status;
     }
@@ -342,6 +338,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return user type
      */
+    @Override
     public int getType() {
         return type;
     }
@@ -360,6 +357,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return serial number
      */
+    @Override
     public String getSerialNumber() {
         return serialNumber;
     }
@@ -374,6 +372,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
     }
 
     /** @returns the number of milliseconds since 1970-01-01 00:00:00 GMT until the certificate was issued or null if the information is not known. */
+    @Override
     public Long getNotBefore() {
         return notBefore;
     }
@@ -383,6 +382,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
     }
 
     /** @returns the number of milliseconds since 1970-01-01 00:00:00 GMT until the certificate expires. */
+    @Override
     public long getExpireDate() {
         return expireDate;
     }
@@ -401,6 +401,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return revocation date
      */
+    @Override
     public long getRevocationDate() {
         return revocationDate;
     }
@@ -419,6 +420,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return revocation reason
      */
+    @Override
     public int getRevocationReason() {
         return revocationReason;
     }
@@ -437,6 +439,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return base64 encoded certificate
      */
+    @Override
     public String getBase64Cert() {
         return this.getZzzBase64Cert();
     }
@@ -472,6 +475,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return username
      */
+    @Override
     public String getUsername() {
         return username;
     }
@@ -490,6 +494,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return tag
      */
+    @Override
     public String getTag() {
         return tag;
     }
@@ -508,6 +513,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return certificateProfileId
      */
+    @Override
     public Integer getCertificateProfileId() {
         return certificateProfileId;
     }
@@ -526,6 +532,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
      *
      * @return updateTime
      */
+    @Override
     public Long getUpdateTime() {
         return updateTime;
     }
@@ -541,6 +548,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
     /**
      * The ID of the public key of the certificate
      */
+    @Override
     public String getSubjectKeyId() {
         return subjectKeyId;
     }
@@ -643,6 +651,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
     }
     
     /** @return the end entity profile this certificate was issued under or null if the information is not available. */
+    @Override
     public Integer getEndEntityProfileId() {
         return endEntityProfileId;
     }
@@ -806,12 +815,14 @@ public class CertificateData extends BaseCertificateData implements Serializable
     // Search functions.
     //
 
-    /** @return the found entity instance or null if the entity does not exist */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static CertificateData findByFingerprint(EntityManager entityManager, String fingerprint) {
         return entityManager.find(CertificateData.class, fingerprint);
     }
 
-    /** @return return the query results as a Set. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static Set<String> findUsernamesBySubjectDNAndIssuerDN(EntityManager entityManager, String subjectDN, String issuerDN) {
             final Query query = entityManager.createQuery("SELECT a.username FROM CertificateData a WHERE a.subjectDN=:subjectDN AND a.issuerDN=:issuerDN");
@@ -820,21 +831,24 @@ public class CertificateData extends BaseCertificateData implements Serializable
             return new HashSet<String>(query.getResultList());
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<CertificateData> findBySubjectDN(EntityManager entityManager, String subjectDN) {
         final TypedQuery<CertificateData> query = entityManager.createQuery("SELECT a FROM CertificateData a WHERE a.subjectDN=:subjectDN", CertificateData.class);
         query.setParameter("subjectDN", subjectDN);
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<CertificateData> findBySerialNumber(EntityManager entityManager, String serialNumber) {
         final TypedQuery<CertificateData> query = entityManager.createQuery("SELECT a FROM CertificateData a WHERE a.serialNumber=:serialNumber", CertificateData.class);
         query.setParameter("serialNumber", serialNumber);
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<CertificateData> findByIssuerDNSerialNumber(EntityManager entityManager, String issuerDN, String serialNumber) {
         final TypedQuery<CertificateData> query = entityManager.createQuery("SELECT a FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber", CertificateData.class);
         query.setParameter("issuerDN", issuerDN);
@@ -842,7 +856,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static CertificateInfo findFirstCertificateInfo(EntityManager entityManager, String issuerDN, String serialNumber) {
         CertificateInfo ret = null;
         final Query query = entityManager
@@ -895,7 +910,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return ret;
     }
 
-    /** @return the last found username or null if none was found */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static String findLastUsernameByIssuerDNSerialNumber(EntityManager entityManager, String issuerDN, String serialNumber) {
         final Query query = entityManager
                 .createQuery("SELECT a.username FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber");
@@ -905,7 +921,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return QueryResultWrapper.getLastResult(query);
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByUsernameOrdered(EntityManager entityManager, String username) {
         final Query query = entityManager
@@ -914,7 +931,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByUsernameAndStatus(EntityManager entityManager, String username, int status) {
         final Query query = entityManager
@@ -924,7 +942,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByUsernameAndStatusAfterExpireDate(EntityManager entityManager, String username, int status, long afterExpireDate) {
         final Query query = entityManager
@@ -935,8 +954,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
-    // TODO: When only JPA is used, check if we can refactor this method to SELECT DISTINCT a.username FROM ...
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static Set<String> findUsernamesByIssuerDNAndSubjectKeyId(EntityManager entityManager, String issuerDN, String subjectKeyId) {
         final Query query = entityManager.createQuery("SELECT a.username FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.subjectKeyId=:subjectKeyId");
@@ -945,6 +964,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return new HashSet<String>(query.getResultList());
     }
 
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static final String findUsernameByIssuerDnAndSerialNumber(EntityManager entityManager, String issuerDn, String serialNumber) {
         final Query query = entityManager.createQuery("SELECT a.username FROM CertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber");
         query.setParameter("issuerDN", issuerDn);
@@ -952,7 +973,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return (String) query.getSingleResult();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static Set<String> findUsernamesBySubjectKeyIdOrDnAndIssuer(EntityManager entityManager, String issuerDN, String subjectKeyId, String subjectDN) {
         final Query query = entityManager.createQuery("SELECT a.username FROM CertificateData a WHERE (a.subjectKeyId=:subjectKeyId OR a.subjectDN=:subjectDN) AND a.issuerDN=:issuerDN");
@@ -962,7 +984,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return new HashSet<String>(query.getResultList());
     }
 
-    /** @return return the query results as a List<String>. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<String> findFingerprintsByIssuerDN(EntityManager entityManager, String issuerDN) {
         final Query query = entityManager.createQuery("SELECT a.fingerprint FROM CertificateData a WHERE a.issuerDN=:issuerDN");
@@ -970,15 +993,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /**
-     * Get next batchSize row ordered by fingerprint
-     *
-     * @param entityManager
-     * @param certificateProfileId
-     * @param currentFingerprint
-     * @param batchSize
-     * @return
-     */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> getNextBatch(EntityManager entityManager, int certificateProfileId, String currentFingerprint, int batchSize) {
         final Query query = entityManager
@@ -989,15 +1005,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /**
-     * Get next batchSize row ordered by fingerprint
-     *
-     * @param entityManager
-     * @param certificateProfileId
-     * @param currentFingerprint
-     * @param batchSize
-     * @return
-     */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> getNextBatch(EntityManager entityManager, String currentFingerprint, int batchSize) {
         final Query query = entityManager
@@ -1007,7 +1016,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return the number of entries with the given parameter */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static long getCount(EntityManager entityManager, int certificateProfileId) {
         final Query countQuery = entityManager
                 .createQuery("SELECT COUNT(a) FROM CertificateData a WHERE a.certificateProfileId=:certificateProfileId");
@@ -1015,20 +1025,23 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return ((Long) countQuery.getSingleResult()).longValue(); // Always returns a result
     }
 
-    /** @return the number of entries with the given parameter */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static long getCount(EntityManager entityManager) {
         final Query countQuery = entityManager.createQuery("SELECT COUNT(a) FROM CertificateData a");
         return ((Long) countQuery.getSingleResult()).longValue(); // Always returns a result
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<Integer> getUsedCertificateProfileIds(EntityManager entityManager) {
         final Query query = entityManager.createQuery("SELECT DISTINCT a.certificateProfileId FROM CertificateData a ORDER BY a.certificateProfileId");
         return query.getResultList();
     }
 
-    /** @return return the query results as a Collection<RevokedCertInfo>. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static Collection<RevokedCertInfo> getRevokedCertInfos(EntityManager entityManager, String issuerDN, long lastbasecrldate) {
         Query query;
         if (lastbasecrldate > 0) {
@@ -1081,7 +1094,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return revokedCertInfos;
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByExpireDateWithLimit(EntityManager entityManager, long expireDate, int maxNumberOfResults) {
         final Query query = entityManager
@@ -1093,7 +1107,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByExpireDateAndIssuerWithLimit(EntityManager entityManager, long expireDate, String issuerDN, int maxNumberOfResults) {
         final Query query = entityManager
@@ -1106,7 +1121,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<CertificateData> findByExpireDateAndTypeWithLimit(EntityManager entityManager, long expireDate, int certificateType, int maxNumberOfResults) {
         final Query query = entityManager
@@ -1119,6 +1135,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<String> findUsernamesByExpireTimeWithLimit(EntityManager entityManager, long minExpireTime, long maxExpireTime, int maxResults) {
         // TODO: Would it be more effective to drop the NOT NULL of this query and remove it from the result?
@@ -1132,12 +1150,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return query.getResultList();
     }
 
-    /**
-     * Get a list of {@link Certificate} from a list of list of {@link CertificateData}.
-     * @param cdl
-     * @param entityManager
-     * @return The resulting list.
-     */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<Certificate> getCertificateList(List<CertificateData> cdl, EntityManager entityManager) {
         final List<Certificate> cl = new LinkedList<Certificate>();
         for ( CertificateData cd : cdl) {
@@ -1149,6 +1163,9 @@ public class CertificateData extends BaseCertificateData implements Serializable
         }
         return cl;
     }
+    
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<Certificate> findCertificatesByIssuerDnAndSerialNumbers(EntityManager entityManager, String issuerDN,
             Collection<BigInteger> serialNumbers) {
@@ -1170,7 +1187,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return getCertificateList(query.getResultList(), entityManager);
     }
 
-    /** @return the CertificateInfo representation (all fields except the actual cert) or null if no such fingerprint exists. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static CertificateInfo getCertificateInfo(EntityManager entityManager, String fingerprint) {
         CertificateInfo ret = null;
         final Query query = entityManager.createNativeQuery(
@@ -1222,8 +1240,9 @@ public class CertificateData extends BaseCertificateData implements Serializable
         }
         return ret;
     }
-    /**
-     * @return a List<Certificate> of SecConst.CERT_ACTIVE and CERT_NOTIFIEDABOUTEXPIRATION certs that have one of the specified types. */
+    
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<Certificate> findActiveCertificatesByType(EntityManager entityManager, Collection<Integer> certificateTypes) {
         // Derby: Columns of type 'LONG VARCHAR' may not be used in CREATE INDEX, ORDER BY, GROUP BY, UNION, INTERSECT, EXCEPT or DISTINCT statements
@@ -1237,10 +1256,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return getCertificateList( query.getResultList(), entityManager );
     }
 
-    /**
-     * @return a List<Certificate> of SecConst.CERT_ACTIVE and CERT_NOTIFIEDABOUTEXPIRATION certs that have one of the specified types for the given
-     *         issuer.
-     */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<Certificate> findActiveCertificatesByTypeAndIssuer(EntityManager entityManager, final Collection<Integer> certificateTypes, String issuerDN) {
         // Derby: Columns of type 'LONG VARCHAR' may not be used in CREATE INDEX, ORDER BY, GROUP BY, UNION, INTERSECT, EXCEPT or DISTINCT statements
@@ -1255,32 +1272,8 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return getCertificateList(query.getResultList(), entityManager);
     }
 
-    /**
-     * Fetch a List of all certificate fingerprints and corresponding username
-     *
-     * We want to accomplish two things:
-     *
-     * 1. Notify for expirations within the service window
-     * 2. Notify _once_ for expirations that occurred before the service window like flagging certificates that have a shorter
-     * life-span than the threshold (pathologic test-case...)
-     *
-     * The first is checked by:
-     *
-     * notify = currRunTimestamp + thresHold <= ExpireDate < nextRunTimestamp + thresHold
-     *          AND (status = ACTIVE OR status = NOTIFIEDABOUTEXPIRATION)
-     *
-     * The second can be checked by:
-     *
-     * notify = currRunTimestamp + thresHold > ExpireDate AND status = ACTIVE
-     *
-     * @param cas A list of CAs that the sought certificates should be issued from
-     * @param certificateProfiles A list if certificateprofiles to sort from. Will be ignored if left empty.
-     * @param activeNotifiedExpireDateMin The minimal date for expiration notification
-     * @param activeNotifiedExpireDateMax The maxmimal date for expiration notification
-     * @param activeExpireDateMin the current rune timestamp + the threshold
-     *
-     * @return [0] = (String) fingerprint, [1] = (String) username
-     */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static List<Object[]> findExpirationInfo(EntityManager entityManager, Collection<String> cas, Collection<Integer> certificateProfiles,
             long activeNotifiedExpireDateMin, long activeNotifiedExpireDateMax, long activeExpireDateMin) {
@@ -1349,6 +1342,31 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return build.toString();
     }
 
+    @Transient
+    @Override
+    protected int getProtectVersion() {
+        return 3;
+    }
+
+    @PrePersist
+    @PreUpdate
+    @Override
+    protected void protectData() {
+        super.protectData();
+    }
+
+    @PostLoad
+    @Override
+    protected void verifyData() {
+        super.verifyData();
+    }
+
+    @Override
+    @Transient
+    protected String getRowId() {
+        return getFingerprint();
+    }
+    
     //
     // End Database integrity protection methods
     //

@@ -32,16 +32,23 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
-import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.RevocationReasons;
+import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.CertTools;
 
 /**
+ * These methods call CertificateStoreSession for certificates that are plain CertificateData entities.
+ * See {@link CertificateStoreSession} for method descriptions.
+ * 
+ * <p>For NoConflictCertificateData the methods perform additional logic to check that it gets the most recent
+ * entry if there's more than one (taking permanent revocations into account), and for updates it
+ * appends new entries instead of updating existing ones. 
+ * 
  * @version $Id$
  */
-@Stateless(mappedName = JndiConstants.APP_JNDI_PREFIX + "CertificateStoreSessionRemote")
+@Stateless(mappedName = JndiConstants.APP_JNDI_PREFIX + "NoConflictCertificateStoreSessionRemote")
 @TransactionAttribute(TransactionAttributeType.SUPPORTS)
 public class NoConflictCertificateStoreSessionBean implements NoConflictCertificateStoreSessionRemote, NoConflictCertificateStoreSessionLocal {
 
@@ -54,10 +61,40 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
     private CaSessionLocal caSession;
     @EJB
     private CertificateStoreSessionLocal certificateStoreSession;
+    @EJB
+    private NoConflictCertificateDataSessionLocal noConflictCertificateDataSession;
+    
+    /**
+     * Returns true if the CA allows revocation of non-existing certificates.
+     * @param issuerDN Subject DN of CA.
+     */
+    private boolean canRevokeNonExisting(final String issuerDN) {
+        final int caid = issuerDN.hashCode();
+        final CAInfo cainfo = caSession.getCAInfoInternal(caid);
+        return canRevokeNonExisting(cainfo, issuerDN);
+    }
+
+    /**
+     * Returns true if the CA allows revocation of non-existing certificates.
+     * @param cainfo CA
+     * @param issuerDN Subject DN of CA, for safety check against CAId collisions.
+     */
+    private boolean canRevokeNonExisting(final CAInfo cainfo, final String issuerDN) {
+        if (cainfo == null || !cainfo.getSubjectDN().equals(issuerDN) || !cainfo.isAcceptRevocationNonExistingEntry()) {
+            return false;
+        }
+        // XXX this option can be set in the certificate profile as well! does it make sense to have mixed locations? it would make CRL generation more complex!
+        if (cainfo.isUseCertificateStorage()) {
+            if (log.isDebugEnabled()) {
+                log.debug("CA '" + cainfo.getName() + "' is misconfigured. Revocation of non-existing certificates is currently only supported for 'throw away CAs'.");
+            }
+            return false;
+        }
+        return true;
+    }
 
     @Override
     public CertificateDataWrapper getCertificateDataByIssuerAndSerno(final String issuerdn, final BigInteger certserno) {
-        // TODO should it be allowed to have a certificate in both tables? (in that case we should probably take the revocation information from the most recent one in NoConflictCertificateData)
         CertificateDataWrapper cdw = certificateStoreSession.getCertificateDataByIssuerAndSerno(issuerdn, certserno);
         if (cdw != null) {
             // Full certificate is available, return it
@@ -67,11 +104,11 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
         // Throw away CA or missing certificate
         final int caid = issuerdn.hashCode();
         final CAInfo cainfo = caSession.getCAInfoInternal(caid);
-        if (cainfo == null || !cainfo.getSubjectDN().equals(issuerdn) || cainfo.isUseCertificateStorage()) {
+        if (!canRevokeNonExisting(cainfo, issuerdn)) {
             if (cainfo == null && log.isDebugEnabled()) {
                 log.debug("Tried to look up certificate " + certserno.toString(16) +", but neither certificate nor CA was found. CA Id: " + caid + ". Issuer DN: '" + issuerdn + "'");
             }
-            return null; // Certificate is non-existent
+            return null;
         }
         final NoConflictCertificateData certificateData = getLimitedNoConflictCertDataRow(cainfo, certserno);
         return new CertificateDataWrapper(certificateData);
@@ -85,7 +122,7 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
         // First, try to look up in CertificateData
         final String dn = CertTools.stringToBCDNString(issuerDN);
         CertificateStatus status = certificateStoreSession.getStatus(issuerDN, serno);
-        if (status != CertificateStatus.NOT_AVAILABLE) {
+        if (!canRevokeNonExisting(issuerDN) || status != CertificateStatus.NOT_AVAILABLE) {
             log.trace("<getStatus()");
             return status;
         }
@@ -95,7 +132,8 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
             if (log.isTraceEnabled()) {
                 log.trace("<getStatus() did not find certificate with dn " + dn + " and serno " + serno.toString(16));
             }
-            return CertificateStatus.NOT_AVAILABLE;
+            // For throw-away CAs that allow revocation of non-existing certificates, we pretend that non-existing is OK
+            return CertificateStatus.OK;
         }
         status = CertificateStatusHelper.getCertificateStatus(noConflictCert);
         if (log.isTraceEnabled()) {
@@ -104,17 +142,52 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
         return status;
         
     }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public CertificateDataWrapper getCertificateData(final String fingerprint) {
+        CertificateDataWrapper cdw = certificateStoreSession.getCertificateData(fingerprint);
+        if (cdw != null) {
+            return cdw;
+        }
+        // If not found, take most recent certificate from NoConflictCertificateData
+        final Collection<NoConflictCertificateData> certDatas = noConflictCertificateDataSession.findByFingerprint(fingerprint);
+        return new CertificateDataWrapper(filterMostRecentCertData(certDatas));
+    }
+    
+    @Override
+    public Collection<RevokedCertInfo> listRevokedCertInfo(String issuerdn, long lastbasecrldate) {
+        if (log.isTraceEnabled()) {
+            log.trace(">listRevokedCertInfo()");
+        }
+        final Collection<RevokedCertInfo> revokedFromCertData = certificateStoreSession.listRevokedCertInfo(issuerdn, lastbasecrldate);
+        // XXX the method below is a bit complex. factor out to base class?
+        //return CertificateData.getRevokedCertInfos(entityManager, CertTools.stringToBCDNString(StringTools.strip(issuerdn)), lastbasecrldate);
+        // Merge revokedFromCertData and revokedFromNoConflictCertData
+        // TODO
+        return revokedFromCertData;
+    }
     
     /**
      * Locates the most recent entry in NoConflictCertificateData for a given issuerdn/serial number combination.
-     * Permanent revocations always take precedence over other updates, the first one wins.
-     * Otherwise, the most recent update wins.
      * @param issuerdn Issuer DN
      * @param serno Certificate serial number
      * @return NoConflictCertificateData entry, or null if not found. Entity is append-only, so do not modify it.
      */
     private NoConflictCertificateData findMostRecentCertData(final String issuerdn, final BigInteger serno) {
-        final Collection<NoConflictCertificateData> certDatas = NoConflictCertificateData.findByIssuerDNSerialNumber(entityManager, issuerdn, serno.toString());
+        final Collection<NoConflictCertificateData> certDatas = noConflictCertificateDataSession.findByIssuerDNSerialNumber(issuerdn, serno.toString());
+        return filterMostRecentCertData(certDatas);
+    }
+    
+    /**
+     * Filters out the most recent entry in NoConflictCertificateData for a given issuerdn/serial number combination.
+     * Permanent revocations always take precedence over other updates, the first one wins.
+     * Otherwise, the most recent update wins.
+     * @param certDatas Collection of NoConflictCertificateData to filter.
+     * @param serno Certificate serial number
+     * @return NoConflictCertificateData entry, or null if not found. Entity is append-only, so do not modify it.
+     */
+    private NoConflictCertificateData filterMostRecentCertData(final Collection<NoConflictCertificateData> certDatas) {
         if (CollectionUtils.isEmpty(certDatas)) {
             log.trace("<findMostRecentCertData(): no certificates found");
             return null;
@@ -145,14 +218,22 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
     }
 
     @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public boolean setRevokeStatus(final AuthenticationToken admin, final CertificateDataWrapper cdw, final Date revokedDate, final int reason)
             throws CertificateRevokeException, AuthorizationDeniedException {
         if (cdw.getBaseCertificateData() instanceof NoConflictCertificateData) {
-            if (entityManager.contains(cdw.getBase64CertData())) {
+            if (entityManager.contains(cdw.getBaseCertificateData())) {
                 throw new IllegalStateException("Cannot update existing row in NoConflictCertificateData. It is append-only.");
             }
         }
         return certificateStoreSession.setRevokeStatus(admin, cdw, revokedDate, reason);
+    }
+    
+    @Override
+    public boolean setStatus(AuthenticationToken admin, String fingerprint, int status) throws AuthorizationDeniedException {
+        // TODO
+        // TODO move last
+        return certificateStoreSession.setStatus(admin, fingerprint, status);
     }
     
     /**
@@ -177,7 +258,7 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
             certificateData.setIssuerDN(cainfo.getSubjectDN());
             certificateData.setSubjectDN("CN=limited");
             certificateData.setUsername(null);
-            certificateData.setCertificateProfileId(CertificateProfileConstants.NO_CERTIFICATE_PROFILE); // TODO Should be configurable per CA (ECA-6743)
+            certificateData.setCertificateProfileId(cainfo.getDefaultCertificateProfileId());
             certificateData.setStatus(CertificateConstants.CERT_ACTIVE);
             certificateData.setRevocationReason(RevocationReasons.NOT_REVOKED.getDatabaseValue());
             certificateData.setRevocationDate(-1L);
@@ -190,7 +271,8 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
         return certificateData;
     }
     
-    private static String generateDummyFingerprint(final String issuerdn, final BigInteger certserno) {
+    @Override
+    public String generateDummyFingerprint(final String issuerdn, final BigInteger certserno) {
         final byte[] fingerprintBytes = CertTools.generateSHA1Fingerprint((certserno.toString()+';'+issuerdn).getBytes(StandardCharsets.UTF_8));
         return new String(Hex.encode(fingerprintBytes));
     }

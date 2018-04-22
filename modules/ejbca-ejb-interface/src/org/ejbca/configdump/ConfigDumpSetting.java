@@ -44,6 +44,7 @@ public class ConfigDumpSetting implements Serializable {
     private boolean ignoreErrors;
     private boolean ignoreWarnings;
 
+    
     public List<ConfigdumpPattern> getIncludedAnyType() {
         return includedAnyType;
     }

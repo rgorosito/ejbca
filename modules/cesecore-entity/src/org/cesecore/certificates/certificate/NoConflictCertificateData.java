@@ -13,28 +13,23 @@
 package org.cesecore.certificates.certificate;
 
 import java.io.Serializable;
-import java.security.PublicKey;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 
 import javax.persistence.ColumnResult;
 import javax.persistence.Entity;
 import javax.persistence.EntityManager;
+import javax.persistence.PostLoad;
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
 import javax.persistence.SqlResultSetMapping;
 import javax.persistence.SqlResultSetMappings;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.TypedQuery;
 
-import org.apache.commons.lang.ClassUtils;
 import org.apache.log4j.Logger;
-import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.dbprotection.ProtectionStringBuilder;
-import org.cesecore.keys.util.KeyTools;
-import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
 
@@ -90,98 +85,8 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     private String subjectKeyId;
     private int rowVersion = 0;
     private String rowProtection;
-    private long timeCreated = 0;
     
-    /**
-     * Entity holding info about a certificate. Create by sending in the certificate, which extracts (from the cert) fingerprint (primary key),
-     * subjectDN, issuerDN, serial number, expiration date. Status, Type, CAFingerprint, revocationDate and revocationReason are set to default values
-     * (CERT_UNASSIGNED, USER_INVALID, null, null and REVOCATION_REASON_UNSPECIFIED) and should be set using the respective set-methods.
-     *
-     * NOTE! Never use this constructor without considering the useBase64CertTable below!
-     *
-     * @param certificate the (X509)Certificate to be stored in the database. If the property "database.useSeparateCertificateTable" is true then it should be null.
-     * @param enrichedpubkey possibly an EC public key enriched with the full set of parameters, if the public key in the certificate does not have
-     *            parameters. Can be null if RSA or certificate public key contains all parameters.
-     * @param username the username in UserData to map the certificate to
-     * @param cafp CA certificate fingerprint, can be null
-     * @param status status of the certificate, active, revoked etcc, i.e. CertificateConstants.CERT_ACTIVE etc
-     * @param type the user type the certificate belongs to, i.e. EndEntityTypes.USER_ENDUSER etc
-     * @param certprofileid certificate profile id, can be 0 for "no profile"
-     * @param endEntityProfileId end entity profile id, can be 0 for "no profile"
-     * @param tag a custom tag to map the certificate to any custom defined tag
-     * @param updatetime the time the certificate was updated in the database, i.e. System.currentTimeMillis().
-     * @param storeCertificate true if the certificate should be stored in this table in the base&4Cert column, false if certificate data isn't to be stored in this table. 
-     *          NOTE: If false and the data should be stored in Base64CertData then the caller must store the certificate in Base64CertData as well.
-     * @param storeSubjectAltName true if the subjectAltName column should be populated with the Subject Alternative Name of the certificate
-     */
-    public NoConflictCertificateData(Certificate certificate, PublicKey enrichedpubkey, 
-            String username, String cafp, int status, int type, int certprofileid, int endEntityProfileId,
-            String tag, long updatetime, boolean storeCertificate, boolean storeSubjectAltName) {
-        
-        // Extract all fields to store with the certificate.
-        try {
-            if (storeCertificate ) {
-                setBase64Cert(new String(Base64.encode(certificate.getEncoded())));
-            }
-
-            String uuid = UUID.randomUUID().toString();
-            setId(uuid);
-            
-            long currentTimeMillis = System.currentTimeMillis();
-            setTimeCreated(currentTimeMillis);
-            
-            String fp = CertTools.getFingerprintAsString(certificate);
-            setFingerprint(fp);
-
-            // Make sure names are always looking the same
-            setSubjectDN(CertTools.getSubjectDN(certificate));
-            setIssuerDN(CertTools.getIssuerDN(certificate));
-            if (storeSubjectAltName) {
-                setSubjectAltName(CertTools.getSubjectAlternativeName(certificate));
-            }
-            if (log.isDebugEnabled()) {
-                log.debug("Creating NoConflictCertificateData, subjectDN=" + getSubjectDnNeverNull() + ", subjectAltName=" + getSubjectAltNameNeverNull() + ", issuer=" + getIssuerDN() + ", fingerprint=" + fp+", storeSubjectAltName="+storeSubjectAltName);
-            }
-            setSerialNumber(CertTools.getSerialNumber(certificate).toString());
-
-            setUsername(username);
-            // Values for status and type
-            setStatus(status);
-            setType(type);
-            setCaFingerprint(cafp);
-            final Date notBefore = CertTools.getNotBefore(certificate);
-            if (notBefore==null) {
-                setNotBefore(null);
-            } else {
-                setNotBefore(notBefore.getTime());
-            }
-            setExpireDate(CertTools.getNotAfter(certificate));
-            setRevocationDate(-1L);
-            setRevocationReason(RevokedCertInfo.NOT_REVOKED);
-            setUpdateTime(updatetime); // (new Date().getTime());
-            setCertificateProfileId(certprofileid);
-            setEndEntityProfileId(Integer.valueOf(endEntityProfileId));
-            // Create a key identifier
-            PublicKey pubk = certificate.getPublicKey();
-            if (enrichedpubkey != null) {
-                pubk = enrichedpubkey;
-            }
-            // Creating the KeyId may just throw an exception, we will log this but store the cert and ignore the error
-            String keyId = null;
-            try {
-                keyId = new String(Base64.encode(KeyTools.createSubjectKeyId(pubk).getKeyIdentifier(), false));
-            } catch (Exception e) {
-                log.warn("Error creating subjectKeyId for certificate with fingerprint '" + fp + ": ", e);
-            }
-            setSubjectKeyId(keyId);
-            setTag(tag);
-        } catch (CertificateEncodingException cee) {
-            final String msg = "Can't extract DER encoded certificate information.";
-            log.error(msg, cee);
-            throw new RuntimeException(msg);
-        }
-    }
-
+    
     /**
      * Copy Constructor
      */
@@ -208,23 +113,10 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         setTag(copy.getTag());
         setRowVersion(copy.getRowVersion());
         setRowProtection(copy.getRowProtection());
-        setTimeCreated(copy.getTimeCreated());
     }
 
     public NoConflictCertificateData() {
         
-    }
-
-
-    /**
-     * return the current class name
-     *  
-     * @return name (without package info) of the current class
-     */
-    @Override
-    @Transient
-    protected final String getClassName() {
-        return ClassUtils.getShortCanonicalName(this.getClass());
     }
     
     /**
@@ -249,6 +141,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return fingerprint
      */
+    @Override
     public String getFingerprint() {
         return fingerprint;
     }
@@ -267,6 +160,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return issuer dn
      */
+    @Override
     public String getIssuerDN() {
         return issuerDN;
     }
@@ -286,6 +180,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return value as it is stored in the database
      */
+    @Override
     public String getSubjectDN() {
         return subjectDN;
     }
@@ -312,6 +207,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return value as it is stored in the database
      */
+    @Override
     public String getSubjectAltName() {
         return subjectAltName;
     }
@@ -324,6 +220,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return fingerprint
      */
+    @Override
     public String getCaFingerprint() {
         return cAFingerprint;
     }
@@ -344,6 +241,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return status
      */
+    @Override
     public int getStatus() {
         return status;
     }
@@ -353,6 +251,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @param status status
      */
+    @Override
     public void setStatus(int status) {
         this.status = status;
     }
@@ -362,6 +261,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return user type
      */
+    @Override
     public int getType() {
         return type;
     }
@@ -380,6 +280,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return serial number
      */
+    @Override
     public String getSerialNumber() {
         return serialNumber;
     }
@@ -394,6 +295,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     }
 
     /** @returns the number of milliseconds since 1970-01-01 00:00:00 GMT until the certificate was issued or null if the information is not known. */
+    @Override
     public Long getNotBefore() {
         return notBefore;
     }
@@ -402,6 +304,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     }
 
     /** @returns the number of milliseconds since 1970-01-01 00:00:00 GMT until the certificate expires. */
+    @Override
     public long getExpireDate() {
         return expireDate;
     }
@@ -420,6 +323,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return revocation date
      */
+    @Override
     public long getRevocationDate() {
         return revocationDate;
     }
@@ -438,6 +342,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return revocation reason
      */
+    @Override
     public int getRevocationReason() {
         return revocationReason;
     }
@@ -491,6 +396,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return username
      */
+    @Override
     public String getUsername() {
         return username;
     }
@@ -509,6 +415,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return tag
      */
+    @Override
     public String getTag() {
         return tag;
     }
@@ -527,6 +434,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return certificateProfileId
      */
+    @Override
     public Integer getCertificateProfileId() {
         return certificateProfileId;
     }
@@ -545,6 +453,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
      *
      * @return updateTime
      */
+    @Override
     public Long getUpdateTime() {
         return updateTime;
     }
@@ -560,6 +469,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     /**
      * The ID of the public key of the certificate
      */
+    @Override
     public String getSubjectKeyId() {
         return subjectKeyId;
     }
@@ -605,23 +515,6 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         this.rowProtection = zzzRowProtection;
     }
     
-    /**
-     * entry's creation timestamp
-     * 
-     * @return timeCreated
-     */
-    public long getTimeCreated() {
-        return timeCreated;
-    }
-
-    /**
-     * entry's creation timestamp
-     * 
-     * @param timeCreated
-     */
-    public void setTimeCreated(long timeCreated) {
-        this.timeCreated = timeCreated;
-    }
 
     /**
      * DN of issuer of certificate
@@ -672,6 +565,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     }
     
     /** @return the end entity profile this certificate was issued under or null if the information is not available. */
+    @Override
     public Integer getEndEntityProfileId() {
         return endEntityProfileId;
     }
@@ -714,9 +608,6 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     private boolean equalsNonSensitive(NoConflictCertificateData certificateData, boolean strictStatus) {
         
         if (!id.equals(certificateData.id)) {
-            return false;
-        }
-        if (timeCreated != certificateData.timeCreated) {
             return false;
         }
         if (!issuerDN.equals(certificateData.issuerDN)) {
@@ -837,7 +728,6 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         updateTime = certificateData.updateTime;
         base64Cert = inclusionMode ? null : certificateData.base64Cert;
         id = certificateData.id;
-        timeCreated = certificateData.timeCreated;
     }
 
     
@@ -845,15 +735,24 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     //
     // Search functions.
     //
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
+    public static List<NoConflictCertificateData> findByFingerprint(EntityManager entityManager, String fingerprint) {
+        final TypedQuery<NoConflictCertificateData> query = entityManager.createQuery("SELECT a FROM NoConflictCertificateData a WHERE a.fingerprint=:fingerprint", NoConflictCertificateData.class);
+        query.setParameter("fingerprint", fingerprint);
+        return query.getResultList();
+    }
     
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<NoConflictCertificateData> findBySerialNumber(EntityManager entityManager, String serialNumber) {
         final TypedQuery<NoConflictCertificateData> query = entityManager.createQuery("SELECT a FROM NoConflictCertificateData a WHERE a.serialNumber=:serialNumber", NoConflictCertificateData.class);
         query.setParameter("serialNumber", serialNumber);
         return query.getResultList();
     }
     
-    /** @return return the query results as a List. */
+    /** @deprecated Since 6.13.0. Use method in CertificateDataSession instead */
+    @Deprecated
     public static List<NoConflictCertificateData> findByIssuerDNSerialNumber(EntityManager entityManager, String issuerDN, String serialNumber) {
         String sql = "SELECT a FROM NoConflictCertificateData a WHERE a.issuerDN=:issuerDN AND a.serialNumber=:serialNumber";
         final TypedQuery<NoConflictCertificateData> query = entityManager.createQuery(sql, NoConflictCertificateData.class);
@@ -902,6 +801,31 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
             }
         }
         return build.toString();
+    }
+
+    @Transient
+    @Override
+    protected int getProtectVersion() {
+        return 3;
+    }
+
+    @PrePersist
+    @PreUpdate
+    @Override
+    protected void protectData() {
+        super.protectData();
+    }
+
+    @PostLoad
+    @Override
+    protected void verifyData() {
+        super.verifyData();
+    }
+
+    @Override
+    @Transient
+    protected String getRowId() {
+        return getFingerprint();
     }
     
     //

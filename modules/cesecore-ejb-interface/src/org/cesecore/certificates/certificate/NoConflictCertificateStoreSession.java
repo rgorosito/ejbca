@@ -13,25 +13,43 @@
 package org.cesecore.certificates.certificate;
 
 import java.math.BigInteger;
-import java.util.Date;
-
-import javax.ejb.Remote;
+import java.util.Collection;
 
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.crl.RevokedCertInfo;
 
 /**
- * Remote interface for NoConflictCertificateStoreSession.
+ * Interface for NoConflictCertificateStoreSession.
+ * 
+ * These methods call CertificateStoreSession for certificates that are plain CertificateData entities.
+ * See {@link CertificateStoreSession} for method descriptions.
+ * 
+ * <p>For NoConflictCertificateData the methods perform additional logic to check that it gets the most recent
+ * entry if there's more than one (taking permanent revocations into account), and for updates it
+ * appends new entries instead of updating existing ones. 
  * 
  * @version $Id$
  */
-@Remote
 public interface NoConflictCertificateStoreSession  {
 
+    /** @see CertificateStoreSession#getStatus */
     CertificateStatus getStatus(String issuerDN, BigInteger serno);
     
+    /** @see CertificateStoreSession#getCertificateDataByIssuerAndSerno */
     CertificateDataWrapper getCertificateDataByIssuerAndSerno(String issuerdn, BigInteger certserno);
+
+    /**
+     * EJBCA expects all certificate entities to have a fingerprint.
+     * This method generates a dummy fingerprint, to be used in NoConflictCertificateData and for associated publisher queue entries.
+     * @return Hex encoded fingerprint. It is unique per issuerdn/serial.
+     */
+    String generateDummyFingerprint(String issuerdn, BigInteger certserno);
+
+    /** @see CertificateStoreSession#listRevokedCertInfo */
+    Collection<RevokedCertInfo> listRevokedCertInfo(String issuerdn, long lastbasecrldate);
     
-    boolean setRevokeStatus(AuthenticationToken admin, CertificateDataWrapper cdw, Date revokedDate, int reason) throws CertificateRevokeException, AuthorizationDeniedException;
-    
+    /** @see CertificateStoreSession#setStatus */
+    boolean setStatus(AuthenticationToken admin, String fingerprint, int status) throws AuthorizationDeniedException;
+
 }
