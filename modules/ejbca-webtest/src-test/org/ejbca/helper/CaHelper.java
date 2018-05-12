@@ -30,9 +30,11 @@ import org.openqa.selenium.support.ui.Select;
  * @version $Id$
  *
  */
-public class CaHelper {
+public final class CaHelper {
 
-    private CaHelper() {}
+    private CaHelper() {
+        throw new AssertionError("Cannot instantiate class");
+    }
     
     /**
      * Opens the 'Certificate Authorities' page.
@@ -82,11 +84,23 @@ public class CaHelper {
      * @param webDriver
      */
     public static void save(WebDriver webDriver) {
-        webDriver.findElement(By.xpath("//input[@name='buttoncreate']")).click();
+        webDriver.findElement(By.xpath("//input[@name='buttoncreate' or @name='buttonsave']")).click();
+    }
+
+    /**
+     * Sets the CA's Subject DN.
+     * 
+     * @param webDriver the WebDriver to use
+     * @param subjectDn the Subject DN to set
+     */
+    public static void setSubjectDn(WebDriver webDriver, String subjectDn) {
+        WebElement dnInput = webDriver.findElement(By.id("textfieldsubjectdn"));
+        dnInput.clear();
+        dnInput.sendKeys(subjectDn);
     }
     
     /**
-     * Sets the CA validity
+     * Sets the CA's validity.
      * 
      * @param webDriver the WebDriver to use
      * @param validityString (*y *mo *d *h *m *s) or end date of the certificate. E.g. '1y'
@@ -111,5 +125,4 @@ public class CaHelper {
             fail(caName + " was not found in the List of Certificate Authorities");
         }
     }
-    
 }

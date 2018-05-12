@@ -47,6 +47,7 @@ import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenAuthenticationFailedException;
 import org.cesecore.keys.token.CryptoTokenFactory;
 import org.cesecore.keys.token.CryptoTokenInfo;
+import org.cesecore.keys.token.CryptoTokenManagementSession;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.KeyPairInfo;
@@ -136,6 +137,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         private boolean active = false;
         private boolean referenced = false;
         private String keyPlaceholders;
+        private boolean allowExplicitParameters = false;
         
         private CurrentCryptoTokenGuiInfo() {}
         
@@ -170,6 +172,14 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         public void setReferenced(boolean referenced) { this.referenced = referenced; }
         public String getKeyPlaceholders() { return keyPlaceholders; }
         public void setKeyPlaceholders(String keyTemplates) { this.keyPlaceholders = keyTemplates; }
+
+        public boolean isAllowExplicitParameters() {
+            return allowExplicitParameters;
+        }
+
+        public void setAllowExplicitParameters(boolean allowExplicitParameters) {
+            this.allowExplicitParameters = allowExplicitParameters;
+        }
 
         public String getP11LibraryAlias() { return CryptoTokenMBean.this.getP11LibraryAlias(p11Library); }
         public String getP11AttributeFileAlias() { return CryptoTokenMBean.this.getP11AttributeFileAlias(p11AttributeFile); }
@@ -241,9 +251,9 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(CryptoTokenMBean.class);
 
-    private List<CryptoTokenGuiInfo> cryptoTokenGuiInfos = new ArrayList<CryptoTokenGuiInfo>();
+    private List<CryptoTokenGuiInfo> cryptoTokenGuiInfos = new ArrayList<>();
     private ListDataModel<CryptoTokenGuiInfo> cryptoTokenGuiList = null;
-    private List<KeyPairGuiInfo> keyPairGuiInfos = new ArrayList<KeyPairGuiInfo>();
+    private List<KeyPairGuiInfo> keyPairGuiInfos = new ArrayList<>();
     private ListDataModel<KeyPairGuiInfo> keyPairGuiList = null;
     private String keyPairGuiListError = null;
     private int currentCryptoTokenId = 0;
@@ -276,7 +286,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     
     /** @return a List of all CryptoToken Identifiers referenced by CAs. */
     private List<Integer> getReferencedCryptoTokenIds() {
-        final List<Integer> ret = new ArrayList<Integer>();
+        final List<Integer> ret = new ArrayList<>();
         // Add all CryptoToken ids referenced by CAs
         for (int caId : caSession.getAllCaIds()) {
             final CAInfo cainfo = caSession.getCAInfoInternal(caId);
@@ -296,10 +306,10 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     }
     
     /** Build a list sorted by name from the authorized cryptoTokens that can be presented to the user */
-    public ListDataModel<CryptoTokenGuiInfo> getCryptoTokenGuiList() throws AuthorizationDeniedException {
+    public ListDataModel<CryptoTokenGuiInfo> getCryptoTokenGuiList() {
         if (cryptoTokenGuiList==null) {
             final List<Integer> referencedCryptoTokenIds = getReferencedCryptoTokenIds();
-            final List<CryptoTokenGuiInfo> list = new ArrayList<CryptoTokenGuiInfo>();
+            final List<CryptoTokenGuiInfo> list = new ArrayList<>();
             for (final CryptoTokenInfo cryptoTokenInfo : cryptoTokenManagementSession.getCryptoTokenInfos(authenticationToken)) {
                 final String p11LibraryAlias = getP11LibraryAlias(cryptoTokenInfo.getP11Library());
                 final boolean allowedActivation = authorizationSession.isAuthorizedNoLogging(authenticationToken, CryptoTokenRules.ACTIVATE + "/" + cryptoTokenInfo.getCryptoTokenId().toString());
@@ -314,7 +324,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 });
             }
             cryptoTokenGuiInfos = list;
-            cryptoTokenGuiList = new ListDataModel<CryptoTokenGuiInfo>(cryptoTokenGuiInfos);
+            cryptoTokenGuiList = new ListDataModel<>(cryptoTokenGuiInfos);
         }
         // If show the list, then we are on the main page and want to flush the two caches
         flushCurrent();
@@ -325,7 +335,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     /** Invoked when admin requests a CryptoToken activation. */
     public void activateCryptoToken() throws AuthorizationDeniedException {
         if (cryptoTokenGuiList!=null) {
-            final CryptoTokenGuiInfo current = (CryptoTokenGuiInfo) cryptoTokenGuiList.getRowData();
+            final CryptoTokenGuiInfo current = cryptoTokenGuiList.getRowData();
             try {
                 cryptoTokenManagementSession.activate(authenticationToken, current.getCryptoTokenId(), current.getAuthenticationCode().toCharArray());
             } catch (CryptoTokenOfflineException e) {
@@ -346,7 +356,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     /** Invoked when admin requests a CryptoToken deactivation. */
     public void deactivateCryptoToken() throws AuthorizationDeniedException {
         if (cryptoTokenGuiList!=null) {
-            final CryptoTokenGuiInfo rowData = (CryptoTokenGuiInfo) cryptoTokenGuiList.getRowData();
+            final CryptoTokenGuiInfo rowData = cryptoTokenGuiList.getRowData();
             cryptoTokenManagementSession.deactivate(authenticationToken, rowData.getCryptoTokenId());
             flushCaches();
         }
@@ -355,7 +365,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     /** Invoked when admin requests a CryptoToken deletion. */
     public void deleteCryptoToken() throws AuthorizationDeniedException {
         if (cryptoTokenGuiList!=null) {
-            final CryptoTokenGuiInfo rowData = (CryptoTokenGuiInfo) cryptoTokenGuiList.getRowData();
+            final CryptoTokenGuiInfo rowData = cryptoTokenGuiList.getRowData();
             cryptoTokenManagementSession.deleteCryptoToken(authenticationToken, rowData.getCryptoTokenId());
             flushCaches();
         }
@@ -424,6 +434,9 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 if (getCurrentCryptoToken().getKeyPlaceholders() != null) {
                     properties.setProperty(CryptoToken.KEYPLACEHOLDERS_PROPERTY, getCurrentCryptoToken().getKeyPlaceholders());
                 }
+                if (getCurrentCryptoToken().isAllowExplicitParameters()) {
+                    properties.setProperty(CryptoToken.EXPLICIT_ECC_PUBLICKEY_PARAMETERS, String.valueOf(getCurrentCryptoToken().isAllowExplicitParameters()));
+                }
                 
                 final char[] secret = getCurrentCryptoToken().getSecret1().toCharArray();
                 final String name = getCurrentCryptoToken().getName();
@@ -443,7 +456,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                             BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
                         } else {
                             // Indicate that we want to reuse current auto-pin if present
-                            properties.put(CryptoTokenManagementSessionLocal.KEEP_AUTO_ACTIVATION_PIN, Boolean.TRUE.toString());
+                            properties.put(CryptoTokenManagementSession.KEEP_AUTO_ACTIVATION_PIN, Boolean.TRUE.toString());
                         }
                     }
                     cryptoTokenManagementSession.saveCryptoToken(authenticationToken, getCurrentCryptoTokenId(), name, properties, secret);
@@ -484,7 +497,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     
     /** @return a list of library SelectItems sort by display name for detected P11 libraries. */
     public List<SelectItem> getAvailableCryptoTokenP11Libraries() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         for (Entry<String, WebConfiguration.P11LibraryInfo> entry : WebConfiguration.getAvailableP11LibraryToAliasMap().entrySet()) {
             ret.add(new SelectItem(entry.getKey(), entry.getValue().getAlias()));
         }
@@ -513,7 +526,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
     /** @return a list of library SelectItems sort by display name for detected P11 libraries. */
     public List<SelectItem> getAvailableCryptoTokenP11AttributeFiles() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         ret.add(new SelectItem("default", "Default"));
         for (Entry<String, String> entry: WebConfiguration.getAvailableP11AttributeFiles().entrySet()) {
             ret.add(new SelectItem(entry.getKey(), entry.getValue()));
@@ -529,7 +542,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     }
     
     public List<SelectItem> getAvailableCryptoTokenP11SlotLabelTypes() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         for (Pkcs11SlotLabelType type : Pkcs11SlotLabelType.values()) {
             if (type.equals(Pkcs11SlotLabelType.SUN_FILE)) {
                 // jeklund doesn't believe that this is used anywhere, but he might be wrong
@@ -543,7 +556,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
     /** Tries to retrieve the list of PKCS#11 slots (including token labels) using the Sun PKCS#11 Wrapper */
     public List<SelectItem> getAvailableCryptoTokenP11SlotTokenLabels() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         try {
             final File p11Library = new File(currentCryptoToken.getP11Library());
             SlotList allowedSlots = getP11SlotList();
@@ -585,7 +598,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
     /** @return a list of usable CryptoToken types */
     public List<SelectItem> getAvailableCryptoTokenTypes() {
-        final List<SelectItem> ret = new ArrayList<SelectItem>();
+        final List<SelectItem> ret = new ArrayList<>();
         final Collection<AvailableCryptoToken> availableCryptoTokens = CryptoTokenFactory.instance().getAvailableCryptoTokens();
         for (AvailableCryptoToken availableCryptoToken : availableCryptoTokens) {
             if (availableCryptoToken.getClassPath().equals(NullCryptoToken.class.getName())) {
@@ -656,6 +669,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                     currentCryptoToken.setName(cryptoTokenInfo.getName());
                     currentCryptoToken.setType(cryptoTokenInfo.getType());
                     currentCryptoToken.setKeyPlaceholders(cryptoTokenInfo.getCryptoTokenProperties().getProperty(CryptoToken.KEYPLACEHOLDERS_PROPERTY, ""));
+                    currentCryptoToken.setAllowExplicitParameters(cryptoTokenInfo.isAllowExplicitParameters());
+
                     if (cryptoTokenInfo.getType().equals(PKCS11CryptoToken.class.getSimpleName())) {
                         currentCryptoToken.setP11AttributeFile(cryptoTokenInfo.getP11AttributeFile());
                         currentCryptoToken.setP11Library(cryptoTokenInfo.getP11Library());
@@ -693,7 +708,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     
     /** @return a List of available (but not necessarily supported by the underlying CryptoToken) key specs */
     public List<SelectItem> getAvailableKeySpecs() {
-        final List<SelectItem> availableKeySpecs = new ArrayList<SelectItem>();
+        final List<SelectItem> availableKeySpecs = new ArrayList<>();
         final int[] SIZES_RSA = {1024, 1536, 2048, 3072, 4096, 6144, 8192};
         final int[] SIZES_DSA = {1024};
         for (int size : SIZES_RSA) {
@@ -767,7 +782,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     /** @return a list of all the keys in the current CryptoToken. */
     public ListDataModel<KeyPairGuiInfo> getKeyPairGuiList() throws AuthorizationDeniedException {
         if (keyPairGuiList==null) {
-            final List<KeyPairGuiInfo> ret = new ArrayList<KeyPairGuiInfo>();
+            final List<KeyPairGuiInfo> ret = new ArrayList<>();
             if (getCurrentCryptoToken().isActive()) {
                 // Add existing key pairs
                 try {
@@ -792,7 +807,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 }
             });
             keyPairGuiInfos = ret;
-            keyPairGuiList = new ListDataModel<KeyPairGuiInfo>(keyPairGuiInfos);
+            keyPairGuiList = new ListDataModel<>(keyPairGuiInfos);
         }
         return keyPairGuiList;
     }
@@ -832,7 +847,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         if (log.isTraceEnabled()) {
             log.trace(">generateFromTemplate");
         }
-        final KeyPairGuiInfo keyPairGuiInfo = (KeyPairGuiInfo) keyPairGuiList.getRowData();
+        final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
         final String alias = keyPairGuiInfo.getAlias();
         final String keyspec = KeyTools.keyalgspecToKeyspec(keyPairGuiInfo.getKeyAlgorithm(), keyPairGuiInfo.getRawKeySpec());
         try {
@@ -856,7 +871,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     
     /** Invoked when admin requests a test of a key pair. */
     public void testKeyPair() {
-        final KeyPairGuiInfo keyPairGuiInfo = (KeyPairGuiInfo) keyPairGuiList.getRowData();
+        final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
         final String alias = keyPairGuiInfo.getAlias();
         try {
             cryptoTokenManagementSession.testKeyPair(getAdmin(), getCurrentCryptoTokenId(), alias);
@@ -868,7 +883,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     
     /** Invoked when admin requests the removal of a key pair. */
     public void removeKeyPair() {
-        final KeyPairGuiInfo keyPairGuiInfo = (KeyPairGuiInfo) keyPairGuiList.getRowData();
+        final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
         final String alias = keyPairGuiInfo.getAlias();
         try {
             if (!keyPairGuiInfo.isPlaceholder()) {

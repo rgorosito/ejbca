@@ -35,7 +35,9 @@ public final class EndEntityProfileHelper {
 
     private static final String endEntityProfileSaveMessage = "End Entity Profile saved.";
 
-    private EndEntityProfileHelper() {}
+    private EndEntityProfileHelper() {
+        throw new AssertionError("Cannot instantiate class");
+    }
 
     /**
      * Opens the 'Manage End Entity Profiles' page.
@@ -170,6 +172,16 @@ public final class EndEntityProfileHelper {
                 fail("The End Entity Profile was not successfully saved");
             }
         }
+    }
+
+    /**
+     * Clicks the Cancel button when editing an End Entity Profile.
+     * 
+     * @param webDriver the WebDriver to use
+     * @param assertSuccess true if an assertion should be made that the save was successful
+     */
+    public static void cancel(WebDriver webDriver) {
+        webDriver.findElement(By.xpath("//input[@name='buttoncancel']")).click();
     }
 
     /**

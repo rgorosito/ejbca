@@ -118,6 +118,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jce.X509KeyUsage;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.SystemTestsConfiguration;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
@@ -778,8 +779,8 @@ public abstract class CmpTestCase extends CaTestCase {
         assertEquals(4, header.getSender().getTagNo());
         
         X500Name expissuer = new X500Name(issuerDN);
-        X500Name actissuer = new X500Name(header.getSender().getName().toString());     
-        assertEquals(expissuer, actissuer);
+        X500Name actissuer = new X500Name(header.getSender().getName().toString());
+        assertEquals("The sender in the response is not the expected", expissuer, actissuer);
         if (signed) {
             // Verify the signature
             byte[] protBytes = CmpMessageHelper.getProtectedBytes(respObject);
@@ -793,6 +794,14 @@ public abstract class CmpTestCase extends CaTestCase {
                 log.debug(e.getMessage(), e);
                 fail(e.getMessage());
             }
+            // Check that the senderKID is also set when the response is signed
+            // The sender Key ID is there so the signer (CA) can have multiple certificates out there
+            // with the same DN but different keys
+            ASN1OctetString str = header.getSenderKID();
+            assertNotNull("senderKID should not be null when response is signed from the CA", str);
+            final byte[] senderKID = header.getSenderKID().getOctets();
+            final byte[] verifyKID = CertTools.getSubjectKeyId(cacert);
+            assertEquals("senderKID in the response is not the expected as in the certificate we plan to verify with.", Hex.toHexString(verifyKID), Hex.toHexString(senderKID));
         }
         if (pbe) {
             String keyId;

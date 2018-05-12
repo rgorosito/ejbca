@@ -167,7 +167,10 @@
 	<property name="mod.caa-cli.lib" location="${mod.dist.caa-cli.dir}/caa-cli.jar" />
     <property name="mod.est-war.path" location="${mod.path}/est" />
     <property name="mod.est.war" location="${mod.dist.path}/est.war" />
-	<property name="mod.webtest.path" location="${mod.path}/ejbca-webtest"/>
+    <property name="mod.webtest.path" location="${mod.path}/ejbca-webtest"/>
+    <property name="mod.ejbca-rest-api.path" location="${mod.path}/ejbca-rest-api" />
+    <property name="mod.ejbca-rest-api.war" location="${mod.dist.path}/ejbca-rest-api.war" />
+
 	
     <!-- Variables of global interest -->
     <property name="java.target.version" value="${java.specification.version}"/>
@@ -240,7 +243,6 @@
 		<fileset dir="${ejbca.home}/lib/xstream" includes="xpp3_min-*.jar"/>
 	</path>
 	<path id="lib.quickserver.classpath"><fileset dir="${ejbca.home}/lib/quickserver" includes="QuickServer.jar"/></path>
-	<path id="lib.jaxb-namespaceprfixmapper-interfaces.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="jaxb-NamespacePrefixMapper-interfaces-2.0.0.jar"/></path>
 	<path id="lib.json-simple.classpath"><fileset dir="${ejbca.home}/lib" includes="json-simple-*.jar"/></path>
 	<path id="lib.snakeyaml.classpath"><fileset dir="${ejbca.home}/lib" includes="snakeyaml*.jar"/></path>
 	<path id="lib.ninbus-jose-jwt.classpath"><fileset dir="${ejbca.home}/lib/" includes="nimbus-jose-jwt-*.jar"/></path>
@@ -441,4 +443,5 @@
 	<condition property="mod.webtest.exists">
 		<available file="${mod.webtest.path}/build.xml" />
 	</condition>
+
 </project>

@@ -48,6 +48,7 @@ import org.cesecore.certificates.certificate.certextensions.CertificateExtension
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
 import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
+import org.cesecore.certificates.certificateprofile.CertificateProfileDoesNotExistException;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.config.RaStyleInfo;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
@@ -56,6 +57,7 @@ import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.member.RoleMember;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
+import org.ejbca.core.ejb.dto.CertRevocationDto;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.model.approval.AdminAlreadyApprovedRequestException;
@@ -473,6 +475,29 @@ public interface RaMasterApi {
             throws AuthorizationDeniedException, NoSuchEndEntityException, ApprovalException, WaitingForApprovalException,
             RevokeBackDateNotAllowedForProfileException, AlreadyRevokedException, CADoesntExistsException;
 
+    /**
+     * Request status change of a certificate (revoke or reactivate). 
+     * Requires authorization to CA, EEP for the certificate and '/ra_functionality/revoke_end_entity'.
+     * Difference with normal RevokeCertCommand is that 
+     * this one here allows to include reason, certificateProfileId and revocationdate as input parameters wrapped into CertRevocationDto dto class
+     * 
+     * @param authenticationToken of the requesting administrator or client
+     * @param certRevocationDto wrapper objects for input parameters for the revoke
+     * 
+     * @throws AuthorizationDeniedException
+     * @throws NoSuchEndEntityException if certificate to revoke can not be found
+     * @throws ApprovalException if revocation has been requested and is waiting for approval.
+     * @throws WaitingForApprovalException
+     * @throws RevokeBackDateNotAllowedForProfileException
+     * @throws AlreadyRevokedException
+     * @throws CADoesntExistsException in addition to the above throws if the CA (from issuerdn) is not handled by this instance, fail-fast
+     * @throws CertificateProfileDoesNotExistException if no profile was found with certRevocationDto.certificateProfileId input parameter.
+     */
+    void revokeCertWithMetadata(AuthenticationToken authenticationToken, CertRevocationDto certRevocationDto)
+            throws AuthorizationDeniedException, NoSuchEndEntityException, ApprovalException, WaitingForApprovalException,
+            RevokeBackDateNotAllowedForProfileException, AlreadyRevokedException, CADoesntExistsException, IllegalArgumentException, 
+            CertificateProfileDoesNotExistException;
+    
     /** 
      * @see CertificateStoreSession#getStatus(String, BigInteger)
      * @throws CADoesntExistsException in addition to the above throws if the CA (from issuerdn) is not handled by this instance, fail-fast 

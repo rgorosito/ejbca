@@ -54,6 +54,7 @@ import java.util.TimeZone;
 import javax.ejb.RemoveException;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 import org.apache.log4j.Logger;
@@ -177,7 +178,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
@@ -816,8 +816,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 Approval rejection = new Approval("", AccumulativeApprovalProfile.FIXED_STEP_ID, partitionId);
                 rejection.setApprovalAdmin(false, approvingAdminToken);
                 approvalExecutionSession.reject(approvingAdminToken, approvalRequest.generateApprovalId(), rejection);
-                assertEquals("Approval status should be ApprovalDataVO.STATUS_REJECTED (-1)", ApprovalDataVO.STATUS_REJECTED,
-                        ejbcaraws.getRemainingNumberOfApprovals(approvalId));
+                assertEquals("Approval status should be -1", -1, ejbcaraws.getRemainingNumberOfApprovals(approvalId));
             } finally {
                 try {
                     endEntityManagementSession.deleteUser(intAdmin, username);
@@ -1182,7 +1181,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public void test27EjbcaVersion() {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 6.13";
+        final String expectedSubString = "EJBCA 6.14";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));    }
 
     @Test
@@ -2321,8 +2320,22 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         X509Certificate cert = (X509Certificate) keyStore.getCertificate(alias);
         
         String resultingSubjectDN = cert.getSubjectDN().toString();
-        assertEquals(requestedSubjectDN + " was transformed into " + resultingSubjectDN + " (not the expected " + expectedSubjectDN + ")", expectedSubjectDN,
-                resultingSubjectDN);
+        // on RedHat 6.4 with OpenJDK-8 64-Bit '\r' symbol is automatically replaced with '\n'. So try to check again, if difference between expected and actual
+        // is in that symbol then test succeeds, otherwise test fails
+        try {
+            assertEquals(requestedSubjectDN + " was transformed into " + resultingSubjectDN + " (not the expected " + expectedSubjectDN + ")", expectedSubjectDN,
+                    resultingSubjectDN);
+        } catch (AssertionError e){
+            log.info(requestedSubjectDN + " was transformed into '" + resultingSubjectDN + "' (not the expected '" + expectedSubjectDN + "'). Re-checking if it was a \\r replaced by \\n that happens on some platforms.");
+            expectedSubjectDN = StringEscapeUtils.escapeJava(expectedSubjectDN);
+            requestedSubjectDN = StringEscapeUtils.escapeJava(requestedSubjectDN);
+            resultingSubjectDN = StringEscapeUtils.escapeJava(resultingSubjectDN);
+            resultingSubjectDN = resultingSubjectDN.replace("\\r", "\\n");
+            expectedSubjectDN = expectedSubjectDN.replace("\\r", "\\n");
+            assertEquals(requestedSubjectDN + " was transformed into '" + resultingSubjectDN + "' (not the expected '" + expectedSubjectDN + "')" , expectedSubjectDN,
+                    resultingSubjectDN);
+        }
+
         try {
             endEntityManagementSession.deleteUser(intAdmin, userName);
         } catch (NoSuchEndEntityException e) {

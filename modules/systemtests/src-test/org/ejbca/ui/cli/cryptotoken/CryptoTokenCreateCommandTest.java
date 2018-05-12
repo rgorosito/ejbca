@@ -12,10 +12,14 @@
  *************************************************************************/
 package org.ejbca.ui.cli.cryptotoken;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.keys.token.CryptoToken;
+import org.cesecore.keys.token.CryptoTokenInfo;
 import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
@@ -60,4 +64,27 @@ public class CryptoTokenCreateCommandTest {
         assertNotNull("No crypto token was created.", cryptoTokenManagementSession.getIdFromName(CRYPTOTOKEN_NAME));
     }
 
+    @Test
+    public void testCreateCommandWithUseExplixcitParamethers() throws AuthorizationDeniedException {
+        String[] args = new String[] { CRYPTOTOKEN_NAME, "foo123", "true", SoftCryptoToken.class.getSimpleName(), "true", "--explicitkeyparams=true" };
+        command.execute(args);
+        CryptoTokenInfo cryptoTokenInfo = cryptoTokenManagementSession.getCryptoTokenInfo(authenticationToken, cryptoTokenManagementSession.getIdFromName(CRYPTOTOKEN_NAME));
+        assertTrue("explicit.ecc.publickey.parameters is wrong on crypto token", cryptoTokenInfo.isAllowExplicitParameters());
+    }
+
+    @Test
+    public void testCreateCommandWithUseExplixcitParamethersFalse() throws AuthorizationDeniedException {
+        String[] args = new String[] { CRYPTOTOKEN_NAME, "foo123", "true", SoftCryptoToken.class.getSimpleName(), "true", "--explicitkeyparams=false" };
+        command.execute(args);
+        CryptoTokenInfo cryptoTokenInfo = cryptoTokenManagementSession.getCryptoTokenInfo(authenticationToken, cryptoTokenManagementSession.getIdFromName(CRYPTOTOKEN_NAME));
+        assertFalse("explicit.ecc.publickey.parameters is wrong on crypto token", cryptoTokenInfo.isAllowExplicitParameters());
+    }
+
+    @Test
+    public void testCreateCommandUseExplixcitParamethersDefaultFalse() throws AuthorizationDeniedException {
+        String[] args = new String[] { CRYPTOTOKEN_NAME, "foo123", "true", SoftCryptoToken.class.getSimpleName(), "true"};
+        command.execute(args);
+        CryptoTokenInfo cryptoTokenInfo = cryptoTokenManagementSession.getCryptoTokenInfo(authenticationToken, cryptoTokenManagementSession.getIdFromName(CRYPTOTOKEN_NAME));
+        assertFalse("explicit.ecc.publickey.parameters is wrong on crypto token", cryptoTokenInfo.isAllowExplicitParameters());
+    }
 }

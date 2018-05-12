@@ -90,6 +90,8 @@ public abstract class CAInfo implements Serializable {
     protected boolean keepExpiredCertsOnCRL = false;
     protected boolean finishuser;
     protected Collection<ExtendedCAServiceInfo> extendedcaserviceinfos;
+    protected boolean useNoConflictCertificateData = false; // By Default we use normal certificate data table.
+    
     /**
      * @deprecated since 6.8.0, where approval settings and profiles became interlinked.
      */
@@ -437,6 +439,20 @@ public abstract class CAInfo implements Serializable {
         this.approvalSettings = approvalSettings;
     }
 
+    /**
+     * @return true if the NoConflictCertificateData used.
+     */
+    public boolean isUseNoConflictCertificateData() {
+        return this.useNoConflictCertificateData;
+    }
+
+    /**
+     * @param useNoConflictCertificateData true means that the NoConflictCertificateData will be used instead of CertificateData.
+     */
+    public void setUseNoConflictCertificateData(final boolean useNoConflictCertificateData) {
+        this.useNoConflictCertificateData = useNoConflictCertificateData;
+    }
+    
     /**
      * @return true if the UserData used to issue a certificate should be kept in the database.
      */

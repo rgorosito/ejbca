@@ -21,6 +21,7 @@ import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAExistsException;
 import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.SignRequestException;
+import org.cesecore.certificates.certificateprofile.CertificateProfileDoesNotExistException;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.model.approval.ApprovalException;
@@ -574,11 +575,29 @@ public interface IEjbcaWS {
 	 * @throws WaitingForApprovalException
 	 * @throws AlreadyRevokedException
 	 */
-	void revokeCert(String issuerDN, String certificateSN,
-			int reason) throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException,
-			EjbcaException, ApprovalException, WaitingForApprovalException,
-			AlreadyRevokedException;
-
+	void revokeCert(String issuerDN, String certificateSN, int reason) throws CADoesntExistsException, AuthorizationDeniedException, 
+	        NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException, AlreadyRevokedException;
+	
+	 /**
+     * Revokes a user certificate. Allows to specify column values via metadata input param.
+     * Metadata is a list of key-value pairs, keys can be for example: certificateProfileId, reason, revocationdate
+     * 
+     * @throws CADoesntExistsException if a referenced CA does not exist
+     * @throws AuthorizationDeniedException if client isn't authorized.
+     * @throws NotFoundException if certificate doesn't exist
+     * @throws EjbcaException internal error
+     * @throws ApprovalException There already exists an approval request for this task
+     * @throws WaitingForApprovalException If request has bean added to list of tasks to be approved
+     * @throws AlreadyRevokedException The certificate was already revoked, or you tried to unrevoke a permanently revoked certificate
+     * @throws RevokeBackDateNotAllowedForProfileException if back date is not allowed in the certificate profile
+     * @throws DateNotValidException if the date is not a valid ISO 8601 string or if it is in the future.
+	 * @throws CertificateProfileDoesNotExistException if no profile was found with certRevocationDto.certificateProfileId input parameter.
+     */
+	void revokeCertWithMetadata(String issuerDN, String certificateSN, List<KeyValuePair> metadata)
+            throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException, EjbcaException, ApprovalException,
+            WaitingForApprovalException, AlreadyRevokedException, RevokeBackDateNotAllowedForProfileException, DateNotValidException, 
+            CertificateProfileDoesNotExistException;
+	
 	/**
 	 * Revokes all of a user's certificates.
 	 *
@@ -918,10 +937,10 @@ public interface IEjbcaWS {
 	/**
 	 *
 	 * @param requestId the ID of an approval request
-	 * @return the number of remaining approvals required, or STATUS_REJECTED (-1) if request was rejected
+     * @return the remaining number of approvals for this request (with 0 meaning that the request has passed) or -1 if the request has been denied
 	 * @throws ApprovalException if a request of the given ID didn't exist
 	 * @throws AuthorizationDeniedException if the current requester wasn't authorized.
-	 * @throws ApprovalRequestExpiredException if sought approval request has expired
+     * @throws ApprovalRequestExpiredException if approval request was expired before having a definite status
 	 *
 	 */
 	int getRemainingNumberOfApprovals(int requestId) throws ApprovalException, AuthorizationDeniedException, ApprovalRequestExpiredException;

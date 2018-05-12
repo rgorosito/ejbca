@@ -42,7 +42,9 @@ public final class AuditLogHelper {
     private static String filterTime;
     static { resetFilterTime(); }
 
-    private AuditLogHelper() {}
+    private AuditLogHelper() {
+        throw new AssertionError("Cannot instantiate class");
+    }
 
     /**
      * Resets the time to filter the Audit Log with. Only entries after the
@@ -73,6 +75,10 @@ public final class AuditLogHelper {
         clearConditions(webDriver);
         addCondition(webDriver, "Event", "Not equals", "Access Control");
         addCondition(webDriver, "Time", "Greater than", filterTime);
+
+        // Set 'Displaying results' and 'Entries per page' to standard values
+        setDisplayingResults(webDriver, 1);
+        setEntriesPerPage(webDriver, 40);
         reload(webDriver);
     }
 
@@ -82,10 +88,11 @@ public final class AuditLogHelper {
      * @param webDriver the WebDriver to use
      * @param event the event to assert, e.g. "Certificate Profile Edit"
      * @param outcome the expected outcome, e.g. "Success" (or null to skip check)
+     * @param ca the expected Certificate Authority, e.g. "ManagementCA" (or null to skip check)
      * @param details a list of strings which all should exist in the 'Details' field (order doesn't matter),
      *                e.g. ["Edited certificateprofile", "added:usecustomdnorderldap=false"] (or null to skip check)
      */
-    public static void assertEntry(WebDriver webDriver, String event, String outcome, List<String> details) {
+    public static void assertEntry(WebDriver webDriver, String event, String outcome, String ca, List<String> details) {
         try {
             // Find the row which has the event parameter as its 'Event' value
             WebElement row = webDriver.findElement(By.xpath("//tr[td[2]/text()='" + event + "']"));
@@ -93,6 +100,11 @@ public final class AuditLogHelper {
                 // Assert expected value of 'Outcome' field
                 assertEquals("Unexpected outcome for event " + event,
                         outcome, row.findElement(By.xpath("td[3]")).getText());
+            }
+            if (ca != null) {
+                // Assert expected value of 'Certificate Authority' field
+                assertEquals("Unexpected CA for event " + event,
+                        ca, row.findElement(By.xpath("td[6]")).getText());
             }
             if (details != null) {
                 // Extract value of 'Details' field, it is either a td element with text as its value
@@ -152,6 +164,39 @@ public final class AuditLogHelper {
 
         // Apply the condition
         webDriver.findElement(By.xpath("//input[contains(@src, 'success') and @type='image']")).click();
+    }
+
+    /**
+     * Sets the 'Displaying results' field.
+     * 
+     * @param webDriver the WebDriver to use
+     * @param displayingResults the number to be entered
+     */
+    public static void setDisplayingResults(WebDriver webDriver, int displayingResults) {
+        WebElement input = webDriver.findElement(By.id("search2:startIndex2"));
+        input.clear();
+        input.sendKeys(Integer.toString(displayingResults));
+    }
+
+    /**
+     * Sets the 'Entries per page' field.
+     * 
+     * @param webDriver the WebDriver to use
+     * @param entriesPerPage the number to be entered
+     */
+    public static void setEntriesPerPage(WebDriver webDriver, int entriesPerPage) {
+        WebElement input = webDriver.findElement(By.id("search2:maxResults"));
+        input.clear();
+        input.sendKeys(Integer.toString(entriesPerPage));
+    }
+
+    /**
+     * Returns the number of entries currently displayed in the Audit Log.
+     * 
+     * @param webDriver the WebDriver to use
+     */
+    public static int entryCount(WebDriver webDriver) {
+        return webDriver.findElements(By.xpath("//table[caption[text()='Search results']]/tbody/tr")).size();
     }
 
     /**

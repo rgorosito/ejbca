@@ -104,6 +104,7 @@ import org.ejbca.core.model.ra.raadmin.AdminPreference;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.core.model.util.EnterpriseEjbLocalHelper;
+import org.ejbca.ui.web.RequestHelper;
 import org.ejbca.util.HTMLTools;
 
 /**
@@ -204,7 +205,8 @@ public class EjbcaWebBean implements Serializable {
                 // Only log this if we are not initialized, i.e. if we entered here because session authentication parameters changed
                 log.debug("TLS session authentication changed withing the HTTP Session, re-authenticating admin. Old TLS session ID: "+authenticationTokenTlsSessionId+", new TLS session ID: "+currentTlsSessionId+", old cert fp: "+certificatefingerprint+", new cert fp: "+fingerprint);
             }
-            requestServerName = getRequestServerName(request);
+            final String requestURL = request.getRequestURL().toString();
+            requestServerName = RequestHelper.getRequestServerName(requestURL);
             if (log.isDebugEnabled()) {
                 log.debug("requestServerName: "+requestServerName);
             }
@@ -294,26 +296,6 @@ public class EjbcaWebBean implements Serializable {
         }
 
         return globalconfiguration;
-    }
-
-    /**
-     * Method that returns the servername including port, extracted from the HTTPServlet Request, no protocol or application path is returned
-     *
-     * @return the server name and port requested, i.e. localhost:8443
-     */
-    private String getRequestServerName(HttpServletRequest request) {
-        String requestURL = request.getRequestURL().toString();
-        // Remove https://
-        requestURL = requestURL.substring(8);
-        int firstSlash = requestURL.indexOf("/");
-        // Remove application path
-        requestURL = requestURL.substring(0, firstSlash);
-        // Escape in order to be sure not to have any XSS
-        requestURL = HTMLTools.htmlescape(requestURL);
-        if (log.isDebugEnabled()) {
-            log.debug("requestServerName: " + requestURL);
-        }
-        return requestURL;
     }
 
     public GlobalConfiguration initialize_errorpage(HttpServletRequest request) throws Exception {
@@ -421,24 +403,7 @@ public class EjbcaWebBean implements Serializable {
             addAdminPreference(currentadminpreference);
         }
     }
-
-    /**
-     * Checks if the admin have authorization to view the resource Does not return false if not authorized, instead throws an
-     * AuthorizationDeniedException.
-     *
-     * @deprecated Don't use as is in a new admin GUI, refactor to return true or false instead (if we re-use this class at all)
-     *
-     * @return true if is authorized to resource, throws AuthorizationDeniedException if not authorized, never returns false.
-     * @throws AuthorizationDeniedException is not authorized to resource
-     */
-    @Deprecated
-    public boolean isAuthorized(String... resources) throws AuthorizationDeniedException {
-        if (!authorizationSession.isAuthorized(administrator, resources)) {
-            throw new AuthorizationDeniedException("Not authorized to " + Arrays.toString(resources));
-        }
-        return true;
-    }
-
+    
     /**
      * Checks if the admin have authorization to view the resource without performing any logging. Used by menu page Does not return false if not
      * authorized, instead throws an AuthorizationDeniedException.
@@ -449,7 +414,7 @@ public class EjbcaWebBean implements Serializable {
      * @throws AuthorizationDeniedException is not authorized to resource
      */
     @Deprecated
-    public boolean isAuthorizedNoLog(String... resources) throws AuthorizationDeniedException {
+    public boolean isAuthorizedNoLog(String... resources) throws AuthorizationDeniedException { // still used by JSP code (viewcertificate.jsp and viewtoken.jsp)
         if (!authorizationSession.isAuthorizedNoLogging(administrator, resources)) {
             throw new AuthorizationDeniedException("Not authorized to " + Arrays.toString(resources));
         }
@@ -458,8 +423,7 @@ public class EjbcaWebBean implements Serializable {
 
     /**
      * Checks if the admin have authorization to view the resource without performing any logging. Will simply return a boolean,
-     * no other information
-     *
+     * does not throw exception.
      *
      * @return true if is authorized to resource, false if not
      */
@@ -1445,7 +1409,7 @@ public class EjbcaWebBean implements Serializable {
      */
     public String getCaNamesString(final String idString) throws NumberFormatException, AuthorizationDeniedException {
         final TreeMap<String, Integer> availableCas = getCAOptions();
-        final List<String> result = new ArrayList<String>();
+        final List<String> result = new ArrayList<>();
         if (StringUtils.isNotBlank(idString)) {
             for (String id : idString.split(";")) {
                 if (availableCas.containsValue(Integer.valueOf(id))) {
