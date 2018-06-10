@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
-import java.security.KeyStore.PasswordProtection;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -25,8 +24,6 @@ import java.security.Provider;
 import java.security.cert.CertificateException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Properties;
-
-import javax.security.auth.DestroyFailedException;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -143,10 +140,8 @@ public class PKCS11CryptoToken extends BaseCryptoToken implements P11SlotUser {
 
     private KeyStore createKeyStore(final char[] authCode) throws NoSuchAlgorithmException, CertificateException, UnsupportedEncodingException,
             IOException, KeyStoreException {
-        final PasswordProtection pwp = new PasswordProtection(authCode);
-        Provider provider = this.p11slot.getProvider();
-        final KeyStore.Builder builder = KeyStore.Builder.newInstance("PKCS11", provider, pwp);
-        final KeyStore keyStore = builder.getKeyStore();
+        final Provider provider = this.p11slot.getProvider();
+        final KeyStore keyStore = KeyStore.getInstance( "PKCS11", provider );
         log.debug("Loading key from slot '" + this.sSlotLabel + "' using pin.");
         // See ECA-1395 for an explanation of this special handling for the IAIK provider.
         // If the application uses several instances of the IAIKPkcs11 provider, it has two options to get an initialized key store. First, it can get
@@ -170,14 +165,8 @@ public class PKCS11CryptoToken extends BaseCryptoToken implements P11SlotUser {
         if (provider.getClass().getName().equals(Pkcs11SlotLabel.IAIK_PKCS11_CLASS)) {
             keyStore.load(new ByteArrayInputStream(getSignProviderName().getBytes("UTF-8")), authCode);
         } else {
-            // For the Sun provider this works fine to initialize the provider using previously provided protection parameters.
-            keyStore.load(null, null);
-        }
-        try {
-            pwp.destroy();
-        } catch (DestroyFailedException e) {
-            // Log but otherwise ignore
-            log.info("Detroy failed: ", e);
+            // For the Sun provider no provider name is used.
+            keyStore.load(null, authCode);
         }
         return keyStore;
     }

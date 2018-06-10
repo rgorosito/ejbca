@@ -124,6 +124,13 @@ httpsserver.dn=CN=${httpsserver.hostname},O=EJBCA Sample,C=SE
 #web.docbaseuri=internal
 #web.docbaseuri=https://www.ejbca.org
 
+# Enforce secure authentication by client TLS certificate to access the Admin GUI.
+# WARNING: Disabling this is a really good way to get completely pwnd/hacked/compromised and render any support contract invalid.
+# Note that this is different from web.reqcertindb, which still requires a client certificate by a trusted CA.
+# This property disables the client certificate check entirely.
+# Default: true
+#web.reqcert=true
+
 # Require administrator certificates to be available in database for revocation
 # checks. Set this to false, if you want to be able to use admin certificates
 # issued by external CAs.
@@ -263,6 +270,9 @@ httpsserver.dn=CN=${httpsserver.hostname},O=EJBCA Sample,C=SE
 #cryptotoken.p11.lib.111.file=/opt/Utimaco/Linux/x86_64/Crypto_APIs/PKCS11_R2/lib/libcs_pkcs11_R2.so
 #cryptotoken.p11.lib.112.name=Utimaco R2
 #cryptotoken.p11.lib.112.file=/etc/utimaco/libcs_pkcs11_R2.so
+#cryptotoken.p11.lib.113.name=Cavium Nitrox III
+#cryptotoken.p11.lib.113.file=/home/liquidsec_bin/lib/libliquidsec_pkcs11.so
+
 #
 # You can add your own values with an available number, or override numbers from defaults...
 #cryptotoken.p11.lib.255.name=P11 Proxy

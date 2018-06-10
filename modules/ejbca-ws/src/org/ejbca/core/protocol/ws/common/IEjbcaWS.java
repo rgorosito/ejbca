@@ -38,7 +38,6 @@ import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
 import org.ejbca.core.model.ra.userdatasource.MultipleMatchException;
 import org.ejbca.core.model.ra.userdatasource.UserDataSourceException;
-import org.ejbca.core.protocol.ws.DateNotValidException;
 import org.ejbca.core.protocol.ws.UnknownProfileTypeException;
 import org.ejbca.core.protocol.ws.objects.Certificate;
 import org.ejbca.core.protocol.ws.objects.CertificateResponse;
@@ -51,6 +50,7 @@ import org.ejbca.core.protocol.ws.objects.TokenCertificateResponseWS;
 import org.ejbca.core.protocol.ws.objects.UserDataSourceVOWS;
 import org.ejbca.core.protocol.ws.objects.UserDataVOWS;
 import org.ejbca.core.protocol.ws.objects.UserMatch;
+import org.ejbca.ui.web.protocol.DateNotValidException;
 import org.ejbca.util.KeyValuePair;
 import org.ejbca.util.query.IllegalQueryException;
 
@@ -470,10 +470,8 @@ public interface IEjbcaWS {
 	 * @throws EjbcaException
 	 * @throws CesecoreException
 	 */
-	CertificateResponse pkcs10Request(String username, String password,
-			String pkcs10, String hardTokenSN, String responseType)
-			throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException,
-			EjbcaException, CesecoreException;
+    CertificateResponse pkcs10Request(String username, String password, String pkcs10, String hardTokenSN, String responseType)
+            throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException, EjbcaException, CesecoreException;
 
 	/**
 	 * Creates a server-generated keystore.
@@ -760,7 +758,7 @@ public interface IEjbcaWS {
 	 * Authorization requirements: a valid client certificate
 	 *
 	 * @param resource the access rule to test
-	 * @return true if the user is authorized to the resource otherwise false.
+	 * @return true if the user is authorized to the resource otherwise false. If the request was proxied to a CA instance, and the request fails, false is returned.
 	 * @throws EjbcaException
 	 * @see RevokeStatus
 	 */
@@ -912,7 +910,7 @@ public interface IEjbcaWS {
 	 * @param serialNumberInHex of the certificate to republish
 	 * @param issuerDN of the certificate to republish
 	 * @throws CADoesntExistsException if a referenced CA does not exist
-	 * @throws AuthorizationDeniedException if the administratior isn't authorized to republish
+	 * @throws AuthorizationDeniedException if the administrator isn't authorized to republish
 	 * @throws PublisherException if something went wrong during publication
 	 * @throws EjbcaException if other error occured on the server side.
 	 */
@@ -926,7 +924,7 @@ public interface IEjbcaWS {
 	 * Authorization requirements: A valid certificate
 	 *
 	 * @param approvalId unique id for the action
-	 * @return the number of approvals left, 0 if approved otherwise is the ApprovalDataVO.STATUS constants returned indicating the status.
+	 * @return the number of approvals left, 0 if approved otherwise is the ApprovalDataVO.STATUS constants returned indicating the status. If the request was proxied to a CA instance, and the request fails for technical reasons -9 is returned.
 	 * @throws ApprovalException if approvalId does not exist
 	 * @throws ApprovalRequestExpiredException Throws this exception one time if one of the approvals have expired, once notified it won't throw it anymore.
 	 * @throws EjbcaException if error occurred server side
@@ -937,7 +935,7 @@ public interface IEjbcaWS {
 	/**
 	 *
 	 * @param requestId the ID of an approval request
-     * @return the remaining number of approvals for this request (with 0 meaning that the request has passed) or -1 if the request has been denied
+     * @return the remaining number of approvals for this request (with 0 meaning that the request has passed) or -1 if the request has been denied. If the request was proxied to a CA instance, and the request fails for technical reasons -9 is returned.
 	 * @throws ApprovalException if a request of the given ID didn't exist
 	 * @throws AuthorizationDeniedException if the current requester wasn't authorized.
      * @throws ApprovalRequestExpiredException if approval request was expired before having a definite status
@@ -1184,6 +1182,7 @@ public interface IEjbcaWS {
 	KeyStore softTokenRequest(UserDataVOWS userData, String hardTokenSN, String keyspec, String keyalg)
 	throws CADoesntExistsException, AuthorizationDeniedException, NotFoundException, UserDoesntFullfillEndEntityProfile,
 	ApprovalException, WaitingForApprovalException, EjbcaException;
+	
 	/**
 	 * Generates a certificate for a user.
 	 * If the user is not already present in the database it will be added otherwise it will be overwritten.<br>
@@ -1198,7 +1197,12 @@ public interface IEjbcaWS {
 	 * When the requestType is PUBLICKEY the requestData should be an
 	 * SubjectPublicKeyInfo structure either base64 encoded or in PEM format.
 	 *
-	 * <p>If the CA does not exist on the local system, then the request will be forwarded to upstream peer systems (if any).
+	 * <p>If the CA does not exist on the local system, then the request will be forwarded to upstream peer systems (if any).</p>
+	 * 
+	 * Using this call to create end entities on CAs/Certificate Profiles with approval restrictions is not possible. If such a usecase is desired,
+	 * use org.ejbca.core.protocol.ws.common.IEjbcaWS.editUser(UserDataVOWS) in conjunction with 
+	 * org.ejbca.core.protocol.ws.common.IEjbcaWS.getRemainingNumberOfApprovals(int) and 
+	 * org.ejbca.core.protocol.ws.common.IEjbcaWS.pkcs10Request(String, String, String, String, String) instead. 
 	 *
 	 * @param userData the user
 	 * @param requestData the PKCS10/CRMF/SPKAC/PUBLICKEY request in base64
@@ -1214,8 +1218,8 @@ public interface IEjbcaWS {
 	 * @throws AuthorizationDeniedException if client isn't authorized to request
 	 * @throws NotFoundException if user cannot be found
 	 * @throws UserDoesntFullfillEndEntityProfile
-	 * @throws ApprovalException
-	 * @throws WaitingForApprovalException
+	 * @throws ApprovalException thrown if a end needs to be created as part of this request, but that action requires approvals.
+	 * @throws WaitingForApprovalException never thrown, but remains for legacy reasons
 	 * @throws EjbcaException
 	 * @see #editUser(UserDataVOWS)
 	 */
@@ -1226,9 +1230,14 @@ public interface IEjbcaWS {
 
     /**
      * Returns the length of a publisher queue.
+     * 
+     * If the request is proxied from the RA to CA instances, the result of the first queue found is returned, 
+     * to not to count the queue length multiple times on a cluster environment. Therefore the method MUST NOT be 
+     * called for deployment scenarios, where the request is proxied to multiple different CA instances not sharing 
+     * the same data store.
      *
      * @param name of the queue
-     * @return the length or -4 if the publisher does not exist
+     * @return the length or -4 if the publisher does not exist.
      * @throws EjbcaException
      */
     int getPublisherQueueLength(String name) throws EjbcaException;

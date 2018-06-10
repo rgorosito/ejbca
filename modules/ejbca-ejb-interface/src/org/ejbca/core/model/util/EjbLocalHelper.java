@@ -64,6 +64,7 @@ import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.AdminPreferenceSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.ejb.ra.userdatasource.UserDataSourceSessionLocal;
+import org.ejbca.core.ejb.rest.EjbcaRestHelperSessionLocal;
 import org.ejbca.core.ejb.services.ServiceSessionLocal;
 import org.ejbca.core.ejb.unidfnr.UnidfnrSession;
 import org.ejbca.core.ejb.unidfnr.UnidfnrSessionLocal;
@@ -133,6 +134,7 @@ public class EjbLocalHelper implements EjbBridgeSessionLocal {
 		return ret;
 	}
 
+    @Override public AdminPreferenceSessionLocal getAdminPreferenceSession() { return getEjbLocal().getAdminPreferenceSession(); }
 	@Override public ApprovalExecutionSessionLocal getApprovalExecutionSession() { return getEjbLocal().getApprovalExecutionSession(); }
 	@Override public ApprovalSessionLocal getApprovalSession() { return getEjbLocal().getApprovalSession(); }
 	@Override public ApprovalProfileSessionLocal getApprovalProfileSession() { return getEjbLocal().getApprovalProfileSession(); }
@@ -149,6 +151,7 @@ public class EjbLocalHelper implements EjbBridgeSessionLocal {
 	@Override public CrlCreateSessionLocal getCrlCreateSession() { return getEjbLocal().getCrlCreateSession(); }
 	@Override public CrlStoreSessionLocal getCrlStoreSession() { return getEjbLocal().getCrlStoreSession(); }
     @Override public EjbcaAuditorSessionLocal getEjbcaAuditorSession() { return getEjbLocal().getEjbcaAuditorSession(); }
+    @Override public EjbcaRestHelperSessionLocal getEjbcaRestHelperSession() { return getEjbLocal().getEjbcaRestHelperSession(); }
     @Override public EjbcaWSHelperSessionLocal getEjbcaWSHelperSession() { return getEjbLocal().getEjbcaWSHelperSession(); }
 	@Override public EndEntityAccessSessionLocal getEndEntityAccessSession() { return getEjbLocal().getEndEntityAccessSession(); }
 	@Override public EndEntityAuthenticationSessionLocal getEndEntityAuthenticationSession() { return getEjbLocal().getEndEntityAuthenticationSession(); }
@@ -160,7 +163,6 @@ public class EjbLocalHelper implements EjbBridgeSessionLocal {
 	@Override public KeyValidatorSessionLocal getKeyValidatorSession() { return getEjbLocal().getKeyValidatorSession(); }
 	@Override public BlacklistSessionLocal getBlacklistSession() { return getEjbLocal().getBlacklistSession(); }
     @Override public EndEntityManagementSessionLocal getEndEntityManagementSession() { return getEjbLocal().getEndEntityManagementSession(); }
-	@Override public AdminPreferenceSessionLocal getRaAdminSession() { return getEjbLocal().getRaAdminSession(); }
 	@Override public PublisherQueueSessionLocal getPublisherQueueSession() { return getEjbLocal().getPublisherQueueSession(); }
 	@Override public PublisherSessionLocal getPublisherSession() { return getEjbLocal().getPublisherSession(); }
     @Override public RaMasterApiProxyBeanLocal getRaMasterApiProxyBean() { return getEjbLocal().getRaMasterApiProxyBean(); }

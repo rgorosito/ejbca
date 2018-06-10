@@ -9,7 +9,7 @@
  *                                                                       *
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
- *************************************************************************/ 
+ *************************************************************************/
 package org.cesecore.util;
 
 import static org.junit.Assert.assertEquals;
@@ -34,13 +34,11 @@ import javax.crypto.NoSuchPaddingException;
 
 import org.apache.log4j.Logger;
 import org.cesecore.config.ConfigurationHolder;
-import org.cesecore.util.CryptoProviderTools;
-import org.cesecore.util.StringTools;
 import org.junit.Test;
 
 /**
  * Tests the StringTools class .
- * 
+ *
  * @version $Id$
  */
 public class StringToolsTest {
@@ -48,7 +46,7 @@ public class StringToolsTest {
 
     /**
      * tests stripping whitespace
-     * 
+     *
      * @throws Exception
      *             error
      */
@@ -222,27 +220,49 @@ public class StringToolsTest {
         assertNotNull(oct);
         assertEquals(0, oct.length);
     }
-    
+
     @Test
-    public void testFullQualifiedDomainName() {
-        assertTrue(StringTools.isFullQualifiedDomainName("a.b.cc"));
-        assertTrue(StringTools.isFullQualifiedDomainName("b.cc"));
-        assertFalse(StringTools.isFullQualifiedDomainName("cc"));
-        assertFalse(StringTools.isFullQualifiedDomainName("cc."));
-        assertFalse(StringTools.isFullQualifiedDomainName("b.cc."));
-        assertFalse(StringTools.isFullQualifiedDomainName("a.b.cc."));
-        assertFalse(StringTools.isFullQualifiedDomainName("*.b.cc"));
-        assertFalse(StringTools.isFullQualifiedDomainName("*.b.cc."));
-        assertFalse(StringTools.isFullQualifiedDomainName("c"));
-        assertFalse(StringTools.isFullQualifiedDomainName("c."));
-        assertFalse(StringTools.isFullQualifiedDomainName("b.c"));
-        assertFalse(StringTools.isFullQualifiedDomainName("b.c."));
-        assertFalse(StringTools.isFullQualifiedDomainName("a.b.c"));
-        assertFalse(StringTools.isFullQualifiedDomainName("a.b.c."));
-        assertFalse(StringTools.isFullQualifiedDomainName("*.b.c"));
-        assertFalse(StringTools.isFullQualifiedDomainName("*.b.c."));
-        assertFalse(StringTools.isFullQualifiedDomainName("*.c"));
-        assertTrue(StringTools.isFullQualifiedDomainName("a.b.c.d.e.g.h.i.j.k.ll"));
+    public void testIsValidSanDnsName() {
+        assertTrue(StringTools.isValidSanDnsName("a.b.cc"));
+        assertTrue(StringTools.isValidSanDnsName("b.cc"));
+        assertFalse(StringTools.isValidSanDnsName("b.cc."));
+        assertFalse(StringTools.isValidSanDnsName("a.b.cc."));
+        assertFalse(StringTools.isValidSanDnsName("*.b.cc."));
+        assertFalse(StringTools.isValidSanDnsName("c."));
+        assertFalse(StringTools.isValidSanDnsName("b.c."));
+        assertFalse(StringTools.isValidSanDnsName("a.b.c."));
+        assertFalse(StringTools.isValidSanDnsName("*.b.c."));
+
+        assertFalse(StringTools.isValidSanDnsName(".primekey.com"));
+        assertFalse(StringTools.isValidSanDnsName("primekey..com"));
+        assertFalse(StringTools.isValidSanDnsName("sub.*.primekey.com"));
+        assertFalse(StringTools.isValidSanDnsName("-primekey.com"));
+        assertFalse(StringTools.isValidSanDnsName("primekey-.com"));
+        assertFalse(StringTools.isValidSanDnsName("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.com"));
+        assertFalse(StringTools.isValidSanDnsName("x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."
+                + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x." + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."
+                + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x." + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.com"));
+        assertFalse(StringTools.isValidSanDnsName("pr#mekey.com"));
+        assertFalse(StringTools.isValidSanDnsName(" primekey.com"));
+        assertFalse(StringTools.isValidSanDnsName("primekey.com "));
+        assertFalse(StringTools.isValidSanDnsName("*.*.b.c"));
+
+        assertTrue(StringTools.isValidSanDnsName("a.b.c.d.e.g.h.i.j.k.ll"));
+        assertTrue(StringTools.isValidSanDnsName("*.b.cc"));
+        assertTrue(StringTools.isValidSanDnsName("r3.com"));
+        assertTrue(StringTools.isValidSanDnsName("com.r3"));
+        assertTrue(StringTools.isValidSanDnsName("primekey-solutions.com"));
+        assertTrue(StringTools.isValidSanDnsName("primekey.tech-solutions"));
+        assertTrue(StringTools.isValidSanDnsName("3d.primekey.com"));
+        assertTrue(StringTools.isValidSanDnsName("sub-test.primekey.com"));
+        assertTrue(StringTools.isValidSanDnsName("UPPERCASE.COM"));
+        assertTrue(StringTools.isValidSanDnsName("M1XeD.CaSE.C0M"));
+        assertTrue(StringTools.isValidSanDnsName("xn--4pf93sJb.com"));
+        assertTrue(StringTools.isValidSanDnsName("lab.primekey"));
+        assertTrue(StringTools.isValidSanDnsName("x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."
+                + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x." + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."
+                + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x." + "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.com"));
+        assertTrue(StringTools.isValidSanDnsName("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.com"));
     }
 
     @Test
@@ -286,19 +306,19 @@ public class StringToolsTest {
     	assertNotNull(res);
     	assertEquals("Failed to find the administrator certificate serialnumber", res[0],"0000AAAA");
     	assertEquals("Failed to find the administrator certificate issuerDN", res[1], "CN=foo,O=foo,C=SE");
-    	
+
     	certdata = "0000AAAA,CN=foo,O=foo,C=SE";
     	res = StringTools.parseCertData(certdata);
     	assertNotNull(res);
     	assertEquals("Failed to find the client certificate serialnumber", res[0], "0000AAAA");
     	assertEquals("Failed to find the client certificate issuerDN", res[1], "CN=foo,O=foo,C=SE");
-    	
+
     	certdata = "0000AAAA, CN=foo,O=foo,C=SE";
     	res = StringTools.parseCertData(certdata);
     	assertNotNull(res);
     	assertEquals("Failed to find the client certificate serialnumber", res[0], "0000AAAA");
     	assertEquals("Failed to find the client certificate issuerDN", res[1], "CN=foo,O=foo,C=SE");
-    	
+
         certdata = "0000AAAA, CN=foo,SN=123456,O=foo,C=SE";
         res = StringTools.parseCertData(certdata);
         assertNotNull(res);
@@ -310,7 +330,7 @@ public class StringToolsTest {
         assertNotNull(res);
         assertEquals("Failed to find the client certificate serialnumber", res[0], "0000AAAA");
         assertEquals("Failed to find the client certificate issuerDN", "E=ca.intern@primek-y.se,CN=foo,SN=123456,O=foo,C=SE", res[1]);
-        
+
         certdata = "AAAAFFFF, 1.2.3.4.5=Test,CN=foo,1.2.345678=Hello,O=foo,ORGANIZATIONIDENTIFIER=OrgIdent,C=SE";
         res = StringTools.parseCertData(certdata);
         assertNotNull(res);
@@ -357,7 +377,7 @@ public class StringToolsTest {
         assertEquals("\u00E5\u00E4\u00F6\u00FC\u00E8", StringTools.getBase64String(StringTools.putBase64String("åäöüè", true)));
 		assertEquals("\u00E5\u00E4\u00F6\u00FC\u00E8", StringTools.getBase64String(StringTools.putBase64String("åäöüè", false)));
 	}
-	
+
 	@Test
 	public void testStripXss() {
 		final String str = "foo<tag>tag</tag>!";
@@ -377,7 +397,7 @@ public class StringToolsTest {
         assertEquals(null, StringTools.getCleanXForwardedFor(null));
         assertEquals("??c?????a?e????a?e???????????????", StringTools.getCleanXForwardedFor("<script>alert(\"alert!\");</stript>"));
     }
-    
+
     @Test
     public void testPasswordEncryptionAndObfuscation() throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException, InvalidKeySpecException {
         // First test with legacy encryption, using default pwd
@@ -471,7 +491,7 @@ public class StringToolsTest {
             }
             pwd = StringTools.pbeDecryptStringWithSha256Aes192(pbe, "zeG6qE2zV7BddqHc".toCharArray());
             assertEquals("Encrypted/decrypted password does not match", "customEncryptionKey", pwd);
-            
+
             pwd = StringTools.pbeDecryptStringWithSha256Aes192("encv1:61ea7d4ce0564370246f219b7ab7533f8066c4d0a58950e45dd1d34497f98e08:100:3a3e10a382d4c504fc4b7900be204bcc"
                     , "1POTQK7ofSGTPsOOXwIo2Z0jfXsADtXx".toCharArray());
             assertEquals("Encrypted/decrypted password (from 6.8.0) with 100 rounds does not match", "foo123", pwd);
@@ -485,7 +505,7 @@ public class StringToolsTest {
 
         ConfigurationHolder.restoreConfiguration();
     }
-    
+
     @Test
     public void testIsAlphaOrAsciiPrintable() {
         assertTrue(StringTools.isAlphaOrAsciiPrintable("foobar123"));
@@ -494,5 +514,26 @@ public class StringToolsTest {
         assertFalse(StringTools.isAlphaOrAsciiPrintable("foobar123\r"));
         assertFalse(StringTools.isAlphaOrAsciiPrintable("foobar123\0"));
         assertFalse(StringTools.isAlphaOrAsciiPrintable("foobar123\n"));
+    }
+
+    @Test
+    public void testIsLesserThan() {
+        assertFalse(StringTools.isLesserThan("6.0.1", "6.0.1"));
+        assertFalse(StringTools.isLesserThan("6.0.1", "6.0.0"));
+        assertFalse(StringTools.isLesserThan("6.0.1", "5.3.4"));
+        assertFalse(StringTools.isLesserThan("5.0", "5.0"));
+        assertFalse(StringTools.isLesserThan("5.0", "5.0.0"));
+        assertFalse(StringTools.isLesserThan("5.0.0", "5.0"));
+        assertFalse(StringTools.isLesserThan("5.0.0.0", "5.0"));
+        assertFalse(StringTools.isLesserThan("5.0", "5.0.0.0"));
+        assertFalse(StringTools.isLesserThan("6.0.1", "6.0"));
+        assertFalse(StringTools.isLesserThan("6.14.0", "6.13.0.14"));
+        assertFalse(StringTools.isLesserThan("6.14.0", "6.14.0.Alpha1"));
+        assertFalse(StringTools.isLesserThan("6.14.0.junk.0", "6.14.0.junk.0")); // incorrect syntax, but shouldn't crash
+
+        assertTrue(StringTools.isLesserThan("6.0.1", "6.3.0"));
+        assertTrue(StringTools.isLesserThan("6.0.1", "6.3.0"));
+        assertTrue(StringTools.isLesserThan("6.0", "6.0.1"));
+        assertTrue(StringTools.isLesserThan("6.13.0.14", "6.14.0"));
     }
 }

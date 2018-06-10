@@ -249,8 +249,8 @@ public abstract class CA extends UpgradeableDataHashMap implements Serializable 
         return cainfo.getSubjectDN();
     }
 
-    public void setSubjectDN(String subjectdn) {
-        cainfo.subjectdn = subjectdn;
+    public void setSubjectDN(String subjectDn) {
+        cainfo.subjectdn = subjectDn;
     }
 
     public int getCAId() {

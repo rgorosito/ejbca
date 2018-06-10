@@ -516,13 +516,28 @@
                 <include name="json-simple-*.jar" />
             	<include name="snakeyaml-*.jar" />
             	<include name="dns*.jar" />
+                <include name="guava-*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/ct" erroronmissingdir="false">
                 <!-- Certificate Transparency -->
                 <include name="ctlog-jdk7-*.jar" />
                 <include name="protobuf-java-*.jar" />
-                <include name="guava-*.jar" />
             </zipfileset>
+			<zipfileset prefix="lib" dir="${lib}/ext/swagger" erroronmissingdir="false">
+				<include name="*.jar"/>
+				<exclude name="*-javadoc.jar"/>
+				<exclude name="*-sources.jar"/>
+			</zipfileset>
+			<zipfileset prefix="lib" dir="${lib}/ext/jackson2" erroronmissingdir="false">
+				<include name="*.jar"/>
+				<exclude name="*-javadoc.jar"/>
+				<exclude name="*-sources.jar"/>
+			</zipfileset>
+			<!-- JAX-RS and Jackson2 provider to support old application servers -->
+			<zipfileset prefix="lib" dir="${lib}/ext/resteasy-jaxrs-lib" erroronmissingdir="false">
+				<include name="resteasy-jackson2-provider-3.0.1.Final.jar"/>
+				<include name="jaxrs-api-3.0.1.Final.jar"/>
+			</zipfileset>
             <zipfileset prefix="lib" dir="${lib}/batik" includes="*.jar" excludes="${bundle-xerces-exclude}"/>
             <fileset dir="${dist.dir}" includes="doc*.war"/>
             <fileset dir="${ejbca.home}/modules/dist">

@@ -35,25 +35,29 @@
         <path refid="lib.json-smart.classpath"/>
         <path refid="lib.ninbus-jose-jwt.classpath"/>
 		<path refid="lib.ldap.classpath"/>
+		<path refid="lib.swagger.classpath"/>
+		<path refid="lib.jackson2.classpath"/>
 		<path location="${mod.ejbca-entity.lib}"/>
         <path location="${mod.cesecore-entity.lib}"/>
         <path location="${mod.cesecore-common.lib}"/>
         <path location="${mod.cesecore-ejb-interface.lib}"/>
+		<path location="${mod.ejbca-ws.lib}"/>
 	</path>
 
 	<path id="compile-test.classpath">
 		<path refid="compile.classpath"/>
 		<path refid="lib.junit.classpath"/>
 		<path location="${build.dir}/WEB-INF/classes"/>
-	    <path location="${systemtest-ejb.jar}"/>
 		<path location="${this.dir}/../dist/systemtests-interfaces.jar"/>
 		<path location="${mod.ejbca-ejb.lib}"/>
+		<path refid="lib.test.classpath"/>
+		<path refid="lib.resteasy-jaxrs.classpath"/>
 	</path>
 
 	<path id="test.classpath">
 		<path refid="compile-test.classpath"/>
 		<path refid="lib.jee-client.classpath"/>
-		<pathelement path="${clover.jar}"/>
+		<path location="${build-test.dir}"/>
 	</path>
 
     <target name="clean" description="Clean up this module">
@@ -64,8 +68,10 @@
 
     <target name="build" description="Build this module" depends="compile">
     	<copy file="${this.dir}/resources/WEB-INF/web.xml" tofile="${build.dir}/WEB-INF/web.xml"/>
-        <war destfile="${mod.ejbca-rest-api.war}" webxml="${build.dir}/WEB-INF/web.xml" basedir="${build.dir}">
-        </war>
+    	<copy todir="${build.dir}/swagger-ui-dist">
+    		<fileset dir="${this.dir}/swagger-ui-dist"/>
+    	</copy>
+        <war destfile="${mod.ejbca-rest-api.war}" webxml="${build.dir}/WEB-INF/web.xml" basedir="${build.dir}"/>
     </target>
 
 	<target name="compile" depends="with.clover,setup">
@@ -89,18 +95,42 @@
 		<copy file="${internal.properties.file}" todir="${build-test.dir}" failonerror="true"/>
 	</target>
 
-	<target name="test" depends="compile-tests" description="Run tests for this module">
-	    <antcall target="showtime"/>
-		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}">
+	<target name="test:unit" depends="compile-tests" description="Run unit tests for this module">
+		<antcall target="showtime"/>
+		<condition property="remoteDebugJvmArgs"
+				value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8787"
+				else="-ea">
+			<istrue value="${remoteDebug}"/>
+		</condition>
+		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}" fork="true">
 			<classpath>
 				<path refid="test.classpath"/>
-				<path location="${build-test.dir}" />
 			</classpath>
 			<formatter type="xml" />
 			<batchtest fork="yes" todir="${reports.dir}">
-				<fileset dir="${build-test.dir}" includes="**/*Test.class">
-				</fileset>
+				<fileset dir="${build-test.dir}" includes="**/*UnitTest.class"/>
 			</batchtest>
+			<jvmarg value="${remoteDebugJvmArgs}"/>
+		</junit>
+		<antcall target="showtime"/>
+	</target>
+
+	<target name="test:system" depends="compile-tests" description="Run system tests for this module">
+		<antcall target="showtime"/>
+		<condition property="remoteDebugJvmArgs"
+				value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8787"
+				else="-ea">
+			<istrue value="${remoteDebug}"/>
+		</condition>
+		<junit printsummary="yes" haltonfailure="no" dir="${this.dir}" fork="true">
+			<classpath>
+				<path refid="test.classpath"/>
+			</classpath>
+			<formatter type="xml" />
+			<batchtest fork="yes" todir="${reports.dir}">
+				<fileset dir="${build-test.dir}" includes="**/*SystemTest.class"/>
+			</batchtest>
+			<jvmarg value="${remoteDebugJvmArgs}"/>
 		</junit>
 		<antcall target="showtime"/>
 	</target>
@@ -110,8 +140,6 @@
 		<junit printsummary="yes" haltonfailure="no" >
 			<classpath>
         		<path refid="test.classpath"/>
-				<path location="${build-test.dir}" />
-				<pathelement path="${clover.jar}"/>
 			</classpath>
 			<formatter type="xml" />
 			<batchtest fork="yes" todir="${reports.dir}">
