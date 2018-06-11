@@ -11,27 +11,16 @@
  *                                                                       *
  *************************************************************************/
 
-package org.ejbca.core.protocol.ws;
+package org.ejbca.core.ejb.rest;
 
-import javax.xml.ws.WebFault;
-
-import org.cesecore.ErrorCode;
-import org.ejbca.core.EjbcaException;
+import javax.ejb.Remote;
 
 /**
- * Thrown when a string is not a valid date
+ * 
  * @version $Id$
  *
  */
-@WebFault
-public class DateNotValidException extends EjbcaException {
+@Remote
+public interface EjbcaRestHelperSessionRemote extends EjbcaRestHelperSession {
 
-	private static final long serialVersionUID = -4557881537494914234L;
-
-	/**
-	 * @param message with more information what is wrong
-	 */
-	public DateNotValidException(String m) {
-		super(ErrorCode.DATE_NOT_VALID, m);
-	}
 }

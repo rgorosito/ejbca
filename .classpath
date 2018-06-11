@@ -50,6 +50,8 @@
 	<classpathentry kind="src" path="modules/ejbca-entity/src-cli"/>
 	<classpathentry kind="src" path="modules/ejbca-entity/src-test"/>
 	<classpathentry kind="src" path="modules/ejbca-renew-war/src"/>
+	<classpathentry kind="src" path="modules/ejbca-rest-api/src"/>
+	<classpathentry kind="src" path="modules/ejbca-rest-api/src-test"/>
 	<classpathentry kind="src" path="modules/ejbca-scep-war/src"/>
 	<classpathentry kind="src" path="modules/ejbca-webdist-war/src"/>
 	<classpathentry kind="src" path="modules/ejbca-webtest/src-test"/>
@@ -89,6 +91,7 @@
 	<classpathentry kind="src" path="modules/systemtests/src-interface"/>
 	<classpathentry kind="src" path="modules/systemtests/resources"/>
 	<classpathentry kind="src" path="modules/systemtests/src"/>
+	<classpathentry kind="src" path="modules/unidfnr/src-ejb"/>
 	<classpathentry kind="src" path="modules/unidfnr/src-test"/>
 	<classpathentry kind="src" path="modules/va/publisher/src"/>
 	<classpathentry kind="src" path="modules/va/publisher/src-test"/>
@@ -96,9 +99,6 @@
 	<classpathentry kind="src" path="modules/validationtool/src"/>
 	<classpathentry kind="src" path="modules/validationtool/test"/>
 	<classpathentry kind="src" path="src/java"/>
-	<classpathentry kind="src" path="modules/unidfnr/src-ejb"/>
-	<classpathentry kind="src" path="modules/ejbca-rest-api/src"/>
-	<classpathentry kind="src" path="modules/ejbca-rest-api/src-test"/>
 	<classpathentry kind="lib" path="lib/xstream/xmlpull-1.1.3.1.jar"/>
 	<classpathentry kind="lib" path="lib/xstream/xpp3_min-1.1.4c.jar"/>
 	<classpathentry kind="lib" path="modules/batchenrollment-gui/lib/swing-app-framework/appframework-1.0.3.jar"/>
@@ -129,9 +129,11 @@
 	<classpathentry kind="lib" path="lib/hibernate/dom4j-1.6.1.jar"/>
 	<classpathentry kind="lib" path="lib/hibernate/hibernate-commons-annotations-4.0.1.Final.jar"/>
 	<classpathentry kind="lib" path="lib/ext/junit-4.11.jar"/>
-	<classpathentry kind="lib" path="lib/ext/easymock/easymock-3.0.jar"/>
 	<classpathentry kind="lib" path="lib/ext/easymock/cglib-nodep-2.2.jar"/>
 	<classpathentry kind="lib" path="lib/ext/easymock/objenesis-1.2.jar"/>
+	<classpathentry kind="lib" path="lib/ext/test/easymock-3.6.jar"/>
+	<classpathentry kind="lib" path="lib/ext/resteasy-jaxrs-lib/resteasy-jaxrs-2.3.7.Final.jar"/>
+	<classpathentry kind="lib" path="lib/ext/resteasy-jaxrs-lib/tjws-2.3.7.Final.jar"/>
 	<classpathentry kind="lib" path="lib/ext/webtest/selenium-firefox-driver-3.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/ext/webtest/selenium-java-3.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/ext/webtest/selenium-support-3.7.1.jar"/>
@@ -166,7 +168,6 @@
 	<classpathentry kind="lib" path="lib/commons-logging-1.2.jar"/>
 	<classpathentry kind="lib" path="lib/ct/ctlog-jdk7-git20161207.jar"/>
 	<classpathentry kind="lib" path="lib/ct/protobuf-java-3.4.0.jar"/>
-	<classpathentry kind="lib" path="lib/ct/guava-20.0.jar"/>
 	<classpathentry kind="lib" path="lib/ext/commons-httpclient-3.1.jar"/>
 	<classpathentry kind="lib" path="lib/ext/slf4j-api-1.7.25.jar"/>
 	<classpathentry kind="lib" path="lib/ext/slf4j-log4j12-1.7.25.jar"/>
@@ -180,5 +181,15 @@
 	<classpathentry kind="lib" path="lib/bcpkix-jdk15on-159.jar"/>
 	<classpathentry kind="lib" path="lib/bcprov-jdk15on-159.jar"/>
 	<classpathentry kind="lib" path="lib/snakeyaml-1.19.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/commons-lang3-3.2.1.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/reflections-0.9.11.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/swagger-annotations-1.5.20.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/swagger-core-1.5.20.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/swagger-jaxrs-1.5.20.jar"/>
+	<classpathentry kind="lib" path="lib/ext/swagger/swagger-models-1.5.20.jar"/>
+	<classpathentry kind="lib" path="lib/guava-20.0.jar"/>
+	<classpathentry kind="lib" path="lib/ext/jackson2/jackson-dataformat-yaml-2.2.1.jar"/>
+	<classpathentry kind="lib" path="lib/ext/jackson2/jackson-core-2.3.0.jar"/>
+	<classpathentry kind="lib" path="lib/ext/jackson2/jackson-databind-2.4.4.jar"/>
 	<classpathentry kind="output" path="out/classes"/>
 </classpath>

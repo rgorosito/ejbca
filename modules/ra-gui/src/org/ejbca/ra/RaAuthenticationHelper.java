@@ -10,13 +10,12 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
+
 package org.ejbca.ra;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
-import java.util.HashSet;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -24,9 +23,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.util.encoders.Hex;
-import org.cesecore.authentication.tokens.AuthenticationSubject;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.authentication.tokens.PublicAccessAuthenticationToken;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
 
@@ -87,15 +84,14 @@ public class RaAuthenticationHelper implements Serializable {
                 }
                 // No need to perform re-authentication if the client certificate was the same
                 if (authenticationToken==null) {
-                    final AuthenticationSubject subject = new AuthenticationSubject(null, new HashSet<X509Certificate>( Arrays.asList(new X509Certificate[]{ x509Certificate })));
-                    authenticationToken = webAuthenticationProviderSession.authenticate(subject);
+                    authenticationToken = webAuthenticationProviderSession.authenticateUsingClientCertificate(x509Certificate);
                 }
                 x509AuthenticationTokenFingerprint = authenticationToken==null ? null : fingerprint;
             }
             if (authenticationToken == null) {
                 // Instead of checking httpServletRequest.isSecure() (connection deemed secure by container), we check if a TLS session is present
                 final boolean confidentialTransport = currentTlsSessionId!=null;
-                authenticationToken = new PublicAccessAuthenticationToken("Public access from " + httpServletRequest.getRemoteAddr(), confidentialTransport);
+                authenticationToken = webAuthenticationProviderSession.authenticateUsingNothing(httpServletRequest.getRemoteAddr(), confidentialTransport);
             }
         }
         resetUnwantedHttpHeaders(httpServletRequest, httpServletResponse);

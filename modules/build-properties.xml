@@ -214,8 +214,43 @@
 		<fileset dir="${ejbca.home}/lib/ext/easymock">
 			<include name="*.jar"/>
 		</fileset>
+		<!-- TODO To support legacy references, use lib.test.classpath instead of lib.easymock.classpath -->
+		<fileset dir="${ejbca.home}/lib/ext/test">
+			<include name="easymock-3.6.jar"/>
+		</fileset>
 	</path>
 
+	<path id="lib.test.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/test">
+			<include name="*.jar"/>
+			<exclude name="*-javadoc.jar"/>
+			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
+
+	<path id="lib.resteasy-jaxrs.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/resteasy-jaxrs-lib">
+			<include name="*.jar"/>
+			<exclude name="*-javadoc.jar"/>
+			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
+
+	<path id="lib.swagger.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/swagger">
+			<include name="*.jar"/>
+			<exclude name="*-javadoc.jar"/>
+			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
+
+	<path id="lib.jackson2.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/jackson2">
+			<include name="*.jar"/>
+			<exclude name="*-javadoc.jar"/>
+			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
 	<path id="lib.log4j.classpath"><fileset dir="${ejbca.home}/lib" includes="log4j*.jar"/></path>
 	<path id="lib.slf4jlog4j.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="slf4j-log4j*.jar"/></path>
 	<path id="lib.slf4japi.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="slf4j-api*.jar"/></path>
@@ -249,7 +284,7 @@
 	<path id="lib.json-smart.classpath"><fileset dir="${ejbca.home}/lib/" includes="json-smart-*.jar"/></path>
 	<path id="lib.dnsjava.classpath"><fileset dir="${ejbca.home}/lib" includes="dnsjava-*.jar"/></path>
 	<path id="lib.dnssecjava.classpath"><fileset dir="${ejbca.home}/lib" includes="dnssecjava-*.jar"/></path>
-	<path id="lib.guava.classpath"><fileset dir="${ejbca.home}/lib/ct" includes="guava-*.jar"/></path>
+	<path id="lib.guava.classpath"><fileset dir="${ejbca.home}/lib" includes="guava-*.jar"/></path>
 	<path id="lib.utils.classpath">
 		<fileset dir="${ejbca.home}/lib">
 			<include name="commons-*.jar"/>
@@ -304,6 +339,10 @@
 		<path refid="lib.cert-cvc.classpath"/>
 		<path refid="lib.cesecore-common.classpath"/>
     	<path location="${mod.ejbca-common.lib}"/>
+	</path>
+
+	<path id="lib.ejbca-ws.classpath">
+		<path location="${mod.ejbca-ws.lib}"/>
 	</path>
 
 	<path id="lib.ejbca-common-web.classpath">

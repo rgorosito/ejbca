@@ -13,6 +13,7 @@
 package org.cesecore.util;
 
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -49,6 +50,8 @@ import org.bouncycastle.util.encoders.DecoderException;
 import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.config.ConfigurationHolder;
+
+import com.google.common.net.InternetDomainName;
 
 /**
  * This class implements some utility functions that are useful when handling Strings.
@@ -176,7 +179,7 @@ public final class StringTools {
         // Also, there's no need to unescape anything here.
         return stripWithEscapesDisallowed(str, stripFilenameChars);
     }
-    
+
     /**
      * Strips characters that are not allowed in filenames, and replaces spaces with underscores
      * @param str the string whose contents will be stripped.
@@ -185,7 +188,7 @@ public final class StringTools {
     public static String stripFilenameReplaceSpaces(final String str) {
         return stripFilename(str.replace(' ', '_'));
     }
-    
+
     /**
      * Removes all characters in stripThis from the given string
      * @param str original string, to be stripped.
@@ -421,10 +424,40 @@ public final class StringTools {
       return m2.matches();
     }
 
-    /** @return true if this looks like fully qualified domain name (without the trailing dot). Wildcards are not accepted. */
-    public static boolean isFullQualifiedDomainName(String value) {
-        // Will not capture last dot if present
-        return Pattern.matches("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\\.)+[a-zA-Z]{2,63}$)", value);
+    /**
+     * Check if a string constitutes a valid hostname for the dNSName attribute of the Subject
+     * Alternative Name X.509 certificate extension. This method does NOT check if the hostname
+     * can be resolved to an IP address, is registered with ICANN ect. Instead, the following
+     * checks are performed:
+     * <ul>
+     * <li>Any leading wildcard is stripped.</li>
+     * <li>The DNS name is not allowed to end with a dot.</li>
+     * <li>The input most be a syntactically valid hostname as per RFC 2181 and RFC 3490.</li>
+     * <li>T̶h̶e̶ ̶d̶o̶m̶a̶i̶n̶ ̶n̶a̶m̶e̶ ̶m̶u̶s̶t̶ ̶n̶o̶t̶ ̶b̶e̶ ̶a̶ ̶r̶e̶g̶i̶s̶t̶r̶y̶ ̶s̶u̶f̶f̶i̶x̶.</li>
+     * <li>T̶h̶e̶ ̶d̶o̶m̶a̶i̶n̶ ̶n̶a̶m̶e̶ ̶m̶u̶s̶t̶ ̶n̶o̶t̶ ̶b̶e̶ ̶a̶ ̶t̶o̶p̶-̶l̶e̶v̶e̶l̶ ̶d̶o̶m̶a̶i̶n̶.</li>
+     * </ul>
+     * This implementation is null-safe and relies on Guava's <code>InternetDomainName</code>
+     * implementation for hostname validation a̶n̶d̶ ̶i̶d̶e̶n̶t̶i̶f̶i̶c̶a̶t̶i̶o̶n̶ ̶o̶f̶ ̶r̶e̶g̶i̶s̶t̶r̶y̶ ̶s̶u̶f̶f̶i̶c̶e̶s̶ ̶a̶n̶d̶ ̶T̶L̶D̶s̶.
+     * <p>
+     * Identification of TLDs and registry suffices are currently not supported because this
+     * functionality requires a newer version of the Guava library.
+     * @param dnsName the DNS name to check
+     * @return true if the input is valid SAN dNSName attribute value
+     */
+    public static boolean isValidSanDnsName(String dnsName) {
+        if (dnsName == null) {
+            return false;
+        }
+        // FQDN ending with a dot is accepted by Guava, so we need to check for that separately
+        if (dnsName.endsWith(".")) {
+            return false;
+        }
+        // Strip any leading wildcard
+        dnsName = dnsName.startsWith("*.") ? dnsName.substring(2) : dnsName;
+        return InternetDomainName.isValid(dnsName);
+        // TODO Once we get Guava >=23.4 (requires Java 8)
+        //final InternetDomainName internetDomainName = InternetDomainName.from(dnsName);
+        //return !internetDomainName.isRegistrySuffix() && !internetDomainName.isTopLevelDomain();
     }
 
     /**
@@ -485,6 +518,18 @@ public final class StringTools {
             return n;
         }
         return s;
+    }
+
+    /**
+     * Converts hexadecimal string to BigInteger. Hex prefix (0x) is ignored
+     * @param hexString HEX value with or without '0x' prefix
+     * @return BigInteger value
+     */
+    public static BigInteger getBigIntegerFromHexString(String hexString) {
+        if (hexString.startsWith("0x") || hexString.startsWith("0X")) {
+            hexString = hexString.substring(2, hexString.length());
+        }
+        return new BigInteger(hexString, 16);
     }
 
     /** Obfuscates a String if it does not already start with "OBF:"
@@ -1046,4 +1091,64 @@ public final class StringTools {
         }
         return true;
     }
+
+    /** Takes two versions and compares the first and the second versions to each other
+     * Compares the max amount of numbers on both. So 6.1.2.3,6.1.2 will try to compare 4 numbers, adding a 0, i.e. 6.1.2.3,6.1.2.0
+     *
+     * @param first a version number
+     * @param second a version number
+     * @return true of the first version is lower (1.0 < 2.0) than the second, false otherwise.
+     **/
+    public static boolean isLesserThan(final String first, final String second) {
+        if (log.isTraceEnabled()) {
+            log.trace("isLesserThan("+first+", "+second+")");
+        }
+        final String delimiter = "\\.";
+        if (first == null) {
+            if (second != null) {
+                return true;    // No version is before a specified version
+            }
+            throw new IllegalArgumentException("First version argument may not be null");
+        }
+        if (second == null) {
+            throw new IllegalArgumentException("Second version argument may not be null");
+        }
+        String[] firstSplit = first.split(delimiter);
+        String[] secondSplit = second.split(delimiter);
+        for (int i = 0; i < Math.max(firstSplit.length, secondSplit.length); i++) {
+            String firstString;
+            String secondString;
+            if (i >= firstSplit.length) {
+                //We've gotten this far and passed the number of digits in first, so treat next first as a 0
+                firstString = "0";
+                secondString = secondSplit[i].replaceAll("[^0-9].*", "");
+            } else if (i >= secondSplit.length) {
+                //We've gotten this far and passed the number of digits in second, so treat next second as a 0
+                firstString = firstSplit[i].replaceAll("[^0-9].*", "");    // Remove trailing Beta2, _alpha1 etc
+                secondString = "0";
+            } else {
+                firstString = firstSplit[i].replaceAll("[^0-9].*", "");    // Remove trailing Beta2, _alpha1 etc
+                secondString = secondSplit[i].replaceAll("[^0-9].*", "");
+            }
+            if (firstString.isEmpty()) {
+                firstString = "0";  // Treat ".x" as ".0"
+            }
+            if (secondString.isEmpty()) {
+                secondString = "0";
+            }
+            if (StringUtils.isNumeric(firstString) && StringUtils.isNumeric(secondString)) {
+                final int firstNumber = Integer.valueOf(firstString);
+                final int secondNumber = Integer.valueOf(secondString);
+                if (firstNumber != secondNumber) {
+                    return firstNumber < secondNumber;
+                }
+            } else {
+                throw new IllegalArgumentException("Unable to parse version numbers.");
+            }
+        }
+        //Versions must be the same then
+        return false;
+    }
+
+
 }

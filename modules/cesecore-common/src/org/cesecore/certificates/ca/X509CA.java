@@ -240,7 +240,7 @@ public class X509CA extends CA implements Serializable {
      * Constructor used when retrieving existing X509CA from database.
      */
     @SuppressWarnings("deprecation")
-    public X509CA(final HashMap<Object, Object> data, final int caId, final String subjectDN, final String name, final int status,
+    public X509CA(final HashMap<Object, Object> data, final int caId, final String subjectDn, final String name, final int status,
             final Date updateTime, final Date expireTime) {
         super(data);
         setExpireTime(expireTime); // Make sure the internal state is synched with the database column. Required for upgrades from EJBCA 3.5.6 or
@@ -256,20 +256,62 @@ public class X509CA extends CA implements Serializable {
                 }
             }
         }
-        
-        final CAInfo info = new X509CAInfo(subjectDN, name, status, updateTime, getSubjectAltName(), getCertificateProfileId(), getDefaultCertificateProfileId(), isUseNoConflictCertificateData(), getEncodedValidity(),
-                getExpireTime(), getCAType(), getSignedBy(), getCertificateChain(), getCAToken(), getDescription(),
-                getRevocationReason(), getRevocationDate(), getPolicies(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(),
-                getDeltaCRLPeriod(), getCRLPublishers(), getValidators(), getUseAuthorityKeyIdentifier(), getAuthorityKeyIdentifierCritical(), getUseCRLNumber(),
-                getCRLNumberCritical(), getDefaultCRLDistPoint(), getDefaultCRLIssuer(), getDefaultOCSPServiceLocator(), 
-                getAuthorityInformationAccess(), 
-                getCertificateAiaDefaultCaIssuerUri(),
-                getNameConstraintsPermitted(), getNameConstraintsExcluded(), getCADefinedFreshestCRL(),
-                getFinishUser(), externalcaserviceinfos, getUseUTF8PolicyText(), getApprovals(),
-                getUsePrintableStringSubjectDN(), getUseLdapDNOrder(), getUseCrlDistributionPointOnCrl(), getCrlDistributionPointOnCrlCritical(),
-                getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(), isDoEnforceUniqueDistinguishedName(),
-                isDoEnforceUniqueSubjectDNSerialnumber(), isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), isAcceptRevocationNonExistingEntry(), getCmpRaAuthSecret(),
-                getKeepExpiredCertsOnCRL());
+        X509CAInfo info =  new X509CAInfo.X509CAInfoBuilder()
+                .setSubjectDn(subjectDn)
+                .setName(name)
+                .setStatus(status)
+                .setUpdateTime(updateTime)
+                .setSubjectAltName(getSubjectAltName())
+                .setCertificateProfileId(getCertificateProfileId())
+                .setDefaultCertProfileId(getDefaultCertificateProfileId())
+                .setUseNoConflictCertificateData(isUseNoConflictCertificateData())
+                .setEncodedValidity(getEncodedValidity())
+                .setExpireTime(getExpireTime())
+                .setCaType(getCAType())
+                .setSignedBy(getSignedBy())
+                .setCertificateChain(getCertificateChain())
+                .setCaToken(getCAToken())
+                .setDescription(getDescription())
+                .setRevocationReason(getRevocationReason())
+                .setRevocationDate(getRevocationDate())
+                .setPolicies(getPolicies())
+                .setCrlPeriod(getCRLPeriod())
+                .setCrlIssueInterval(getCRLIssueInterval())
+                .setCrlOverlapTime(getCRLOverlapTime())
+                .setDeltaCrlPeriod(getDeltaCRLPeriod())
+                .setCrlPublishers(getCRLPublishers())
+                .setValidators(getValidators())
+                .setUseAuthorityKeyIdentifier(getUseAuthorityKeyIdentifier())
+                .setAuthorityKeyIdentifierCritical(getAuthorityKeyIdentifierCritical())
+                .setUseCrlNumber(getUseCRLNumber())
+                .setCrlNumberCritical(getCRLNumberCritical())
+                .setDefaultCrlDistPoint(getDefaultCRLDistPoint())
+                .setDefaultCrlIssuer(getDefaultCRLIssuer())
+                .setDefaultOcspCerviceLocator(getDefaultOCSPServiceLocator())
+                .setAuthorityInformationAccess(getAuthorityInformationAccess())
+                .setCertificateAiaDefaultCaIssuerUri(getCertificateAiaDefaultCaIssuerUri())
+                .setNameConstraintsPermitted(getNameConstraintsPermitted())
+                .setNameConstraintsExcluded(getNameConstraintsExcluded())
+                .setCaDefinedFreshestCrl(getCADefinedFreshestCRL())
+                .setFinishUser(getFinishUser())
+                .setExtendedCaServiceInfos(externalcaserviceinfos)
+                .setUseUtf8PolicyText(getUseUTF8PolicyText())
+                .setApprovals(getApprovals())
+                .setUsePrintableStringSubjectDN(getUsePrintableStringSubjectDN())
+                .setUseLdapDnOrder(getUseLdapDNOrder())
+                .setUseCrlDistributionPointOnCrl(getUseCrlDistributionPointOnCrl())
+                .setCrlDistributionPointOnCrlCritical(getCrlDistributionPointOnCrlCritical())
+                .setIncludeInHealthCheck(getIncludeInHealthCheck())
+                .setDoEnforceUniquePublicKeys(isDoEnforceUniquePublicKeys())
+                .setDoEnforceUniqueDistinguishedName(isDoEnforceUniqueDistinguishedName())
+                .setDoEnforceUniqueSubjectDNSerialnumber(isDoEnforceUniqueSubjectDNSerialnumber())
+                .setUseCertReqHistory(isUseCertReqHistory())
+                .setUseUserStorage(isUseUserStorage())
+                .setUseCertificateStorage(isUseCertificateStorage())
+                .setAcceptRevocationNonExistingEntry(isAcceptRevocationNonExistingEntry())
+                .setCmpRaAuthSecret(getCmpRaAuthSecret())
+                .setKeepExpiredCertsOnCRL(getKeepExpiredCertsOnCRL())
+                .build();
         ((X509CAInfo)info).setExternalCdp(getExternalCdp());
         ((X509CAInfo)info).setNameChanged(getNameChanged());
         //These to settings were deprecated in 6.8.0, but are still set for upgrade reasons
@@ -1491,8 +1533,6 @@ public class X509CA extends CA implements Serializable {
      *            true if we should generate a DeltaCRL
      * @param basecrlnumber
      *            caseCRLNumber for a delta CRL, use 0 for full CRLs
-     * @param certProfile
-     *            certificate profile for CRL Distribution point in the CRL, or null
      * @return CRL
      * @throws CryptoTokenOfflineException
      * @throws IllegalCryptoTokenException

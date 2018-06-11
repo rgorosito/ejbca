@@ -99,6 +99,7 @@ import org.cesecore.roles.member.RoleMemberDataSessionLocal;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.FileTools;
+import org.cesecore.util.StringTools;
 import org.cesecore.util.ui.PropertyValidationException;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.DatabaseConfiguration;
@@ -353,14 +354,10 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
         }
         boolean ret = true;
         if (isLesserThan(last, currentVersion)) {
-            if (log.isDebugEnabled()) {
-                log.debug("Database content version: " + last + " Current application version: " + currentVersion + " -> Starting upgrade.");
-            }
+            log.info("Database content version: " + last + ", current application version: " + currentVersion + " -> Starting upgrade.");
             ret = upgradeSession.upgrade(dbType, last, false);
         } else {
-            if (log.isDebugEnabled()) {
-                log.debug("Database content version: " + last + " Current application version: " + currentVersion + " -> Upgrade is not needed.");
-            }
+            log.info("Database content version: " + last + ", current application version: " + currentVersion + " -> Upgrade is not needed.");
         }
         return ret;
     }
@@ -380,14 +377,10 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
                         final String currentVersion = InternalConfiguration.getAppVersionNumber();
                         final String last = getLastPostUpgradedToVersion();
                         if (isLesserThan(last, currentVersion)) {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Database content version: " + last + " Current application version: " + currentVersion + " -> Starting post-upgrade.");
-                            }
+                            log.info("Database content version: " + last + ", current application version: " + currentVersion + " -> Starting post-upgrade.");
                             ret = upgradeSession.upgrade(dbType, last, true);
                         } else {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Database content version: " + last + " Current application version: " + currentVersion + " -> Post-upgrade is not needed.");
-                            }
+                            log.info("Database content version: " + last + ", current application version: " + currentVersion + " -> Post-upgrade is not needed.");
                             ret = true;
                         }
                     } finally {
@@ -1651,48 +1644,6 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public boolean isLesserThan(final String first, final String second) {
-        if (log.isTraceEnabled()) {
-            log.trace("isLesserThan("+first+", "+second+")");
-        }
-        final String delimiter = "\\.";
-        if (first == null) {
-            if (second != null) {
-                return true;    // No version is before a specified version
-            }
-            throw new IllegalArgumentException("First version argument may not be null");
-        }
-        if (second == null) {
-            throw new IllegalArgumentException("Second version argument may not be null");
-        }
-        String[] firstSplit = first.split(delimiter);
-        String[] secondSplit = second.split(delimiter);
-        for (int i = 0; i < Math.max(firstSplit.length, secondSplit.length); i++) {
-            if (i == firstSplit.length) {
-                //We've gotten this far and passed the number of digits in first, so false
-                return true;
-            } else if (i == secondSplit.length) {
-                return false;
-            } else {
-                String firstString = firstSplit[i].replaceAll("[^0-9].*", "");    // Remove trailing Beta2, _alpha1 etc
-                if (firstString.isEmpty()) {
-                    firstString = "0";  // Treat ".x" as ".0"
-                }
-                String secondString = secondSplit[i].replaceAll("[^0-9].*", "");
-                if (secondString.isEmpty()) {
-                    secondString = "0";
-                }
-                if (StringUtils.isNumeric(firstString) && StringUtils.isNumeric(secondString)) {
-                    final int firstNumber = Integer.valueOf(firstString);
-                    final int secondNumber = Integer.valueOf(secondString);
-                    if (firstNumber != secondNumber) {
-                        return firstNumber < secondNumber;
-                    }
-                } else {
-                    throw new IllegalArgumentException("Unable to parse version numbers.");
-                }
-            }
-        }
-        //Versions must be the same then
-        return false;
+        return StringTools.isLesserThan(first, second);
     }
 }

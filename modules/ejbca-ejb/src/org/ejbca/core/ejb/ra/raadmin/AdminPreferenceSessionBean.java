@@ -75,9 +75,11 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
             log.trace(">getAdminPreference()");
         }
         AdminPreference ret = null;
-        AdminPreferencesData apdata = AdminPreferencesData.findById(entityManager, certificatefingerprint);
-        if (apdata != null) {
-            ret = apdata.getAdminPreference();
+        if (certificatefingerprint != null) {
+            AdminPreferencesData adminPreferencesData = AdminPreferencesData.findById(entityManager, certificatefingerprint);
+            if (adminPreferencesData != null) {
+                ret = adminPreferencesData.getAdminPreference();
+            }
         }
         if (log.isTraceEnabled()) {
             log.trace("<getAdminPreference()");
@@ -153,10 +155,14 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
             log.trace(">existsAdminPreference(fingerprint : " + certificatefingerprint + ")");
         }
         boolean ret = false;
-        AdminPreferencesData apdata = AdminPreferencesData.findById(entityManager, certificatefingerprint);
-        if (apdata != null) {
-            log.debug("Found admin preferences with id " + apdata.getId());
-            ret = true;
+        if (certificatefingerprint!=null) {
+            final AdminPreferencesData adminPreferencesData = AdminPreferencesData.findById(entityManager, certificatefingerprint);
+            if (adminPreferencesData != null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Found admin preferences with id " + adminPreferencesData.getId());
+                }
+                ret = true;
+            }
         }
         log.trace("<existsAdminPreference()");
         return ret;
@@ -229,7 +235,7 @@ public class AdminPreferenceSessionBean implements AdminPreferenceSessionLocal, 
         }
 
         if (!authorizationSession.isAuthorized(admin, StandardRules.SYSTEMCONFIGURATION_EDIT.resource())) {
-            String msg = intres.getLocalizedMessage("authorization.notuathorizedtoresource", StandardRules.SYSTEMCONFIGURATION_EDIT, null);
+            String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", StandardRules.SYSTEMCONFIGURATION_EDIT, null);
             Map<String, Object> details = new LinkedHashMap<String, Object>();
             details.put("msg", msg);
             auditSession.log(EjbcaEventTypes.RA_DEFAULTADMINPREF, EventStatus.FAILURE, EjbcaModuleTypes.RA, EjbcaServiceTypes.EJBCA,

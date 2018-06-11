@@ -126,8 +126,8 @@ public abstract class CAInfo implements Serializable {
         return subjectdn;
     }
 
-    public void setSubjectDN(final String subjectdn) {
-        this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectdn));
+    public void setSubjectDN(final String subjectDn) {
+        this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectDn));
     }
 
     public int getCAId() {

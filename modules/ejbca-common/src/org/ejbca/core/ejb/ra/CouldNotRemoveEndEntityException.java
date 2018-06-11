@@ -10,15 +10,30 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.protocol.ws;
 
+package org.ejbca.core.ejb.ra;
 
-/** Class implementing the WS API call for caRenewCertRequest.
- * 
- * @version $Id$
+/**
+ * An exception thrown when someone tries to delete an end entity which is referenced by other objects, or could not be deleted otherwise.
+ *
+ * @version $Id: CouldNotRemoveEndEntityException.java 26057 2017-06-22 08:08:34Z anatom $
  */
-public class CaCertResponse {
+public class CouldNotRemoveEndEntityException extends Exception {
 
-	// TODO: Nuke this class!
+    private static final long serialVersionUID = 4525925695395312951L;
 
+    /**
+     * Creates a new instance.
+     */
+    public CouldNotRemoveEndEntityException() {
+        super("Could not remove end entity, it may still be referenced by other objects.");
+    }
+
+    /**
+     * Creates a new instance with a detail message.
+     * @param message the detail message.
+     */
+    public CouldNotRemoveEndEntityException(String message) {
+        super(message);
+    }
 }

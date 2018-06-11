@@ -10,15 +10,14 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.protocol.ws;
 
+package org.ejbca.core.ejb.rest;
 
-/** Class implementing the WS API call for caRenewCertRequest.
+/**
  * 
  * @version $Id$
+ *
  */
-public class CaRenewCertRequest {
-
-	// TODO: Nuke this class!
+public interface EjbcaRestHelperSession {
 
 }
