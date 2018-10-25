@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="plugins-ee" default="build">
+
+	<dirname property="this.dir" file="${ant.file.plugins-ee}"/>
+	<import file="../build-properties.xml"/>
+	<import file="../build-helpers.xml"/>
+	
+	<property name="build-plugin-ee.dir" location="${this.dir}/build-plugins-ee"/>
+	<property name="build-test.dir" location="${this.dir}/build-test"/>
+	<property name="src.plugins.dir" location="${this.dir}/src"/>
+	<property name="src.plugins.test.dir" location="${this.dir}/src-test"/>
+
+
+	<path id="compile-common.classpath">
+		<path refid="lib.servlet.classpath"/>
+		<path refid="lib.log4j.classpath"/>
+		<path refid="lib.commons-config.classpath"/>
+		<path refid="lib.commons-lang.classpath"/><!-- Dependency of commons-config -->
+		<path refid="lib.commons-logging.classpath"/><!-- Dependency of commons-config -->
+		<path refid="lib.commons-collections.classpath"/><!-- Dependency of commons-config -->
+		<path refid="lib.jee.classpath"/>
+		<path refid="lib.bouncycastle.classpath"/>
+		<path refid="lib.mail.classpath"/>
+		<path refid="lib.ldap.classpath"/>
+	</path>
+
+	<path id="compile-ejbca.classpath">
+		<path refid="compile-common.classpath"/>
+		<path location="${mod.ejbca-ejb-interface.lib}"/>
+		<path location="${mod.ejbca-common-web.lib}"/>
+		<path location="${mod.ejbca-common.lib}"/>
+        <path location="${mod.cesecore-entity.lib}"/>
+        <path location="${mod.cesecore-common.lib}"/>
+        <path location="${mod.cesecore-ejb-interface.lib}"/>
+	</path>
+	
+	<path id="test.classpath">
+		<path refid="compile-ejbca.classpath"/>
+		<path refid="lib.junit.classpath"/>
+		<path refid="lib.jee-client.classpath"/>
+		<path location="${build-plugin-ee.dir}"/>
+		<path location="${build-test.dir}"/>
+		<path location="${mod.ejbca-ejb-interface.lib}"/>
+		<path location="${mod.systemtest-interface.lib}"/>
+		<path location="${mod.systemtest-ejb.lib}"/>
+		<path refid="lib.cert-cvc.classpath" />
+		<path location="${mod.ejbca-entity.lib}"/>
+	</path>
+	
+    <target name="clean" description="Clean up this module">
+		<delete dir="${build-test.dir}" />
+		<delete dir="${build-plugin-ee.dir}" />
+	 	<delete file="${mod.plugins-ee.lib}" />
+    </target>
+	
+    <condition property="src.exists">
+    	<available file="${src.plugins.dir}" />
+    </condition>
+	
+	<condition property="ocsp.enabled.if.defined"><istrue value="${ocsp.enabled}"/></condition>
+
+	
+	<target name="build" depends="compile">
+		<buildservicemanifest interface="org.ejbca.core.model.ca.publisher.ICustomPublisher" file="${build-plugin-ee.dir}" 
+			classpath="compile-ejbca.classpath"/>
+		<jar destfile="${mod.plugins-ee.lib}" basedir="${build-plugin-ee.dir}"/>
+	</target>
+	
+	<target name="compile">
+		<mkdir dir="${build-plugin-ee.dir}" />
+		<javac srcdir="${src.plugins.dir}" destdir="${build-plugin-ee.dir}" debug="on" includeantruntime="no" encoding="iso8859-1" 
+			target="${java.target.version}" classpathref="compile-ejbca.classpath"/>
+	</target>
+	
+    <target name="tests-compile" depends="compile">
+    	<mkdir dir="${build-test.dir}" />		
+    	<copy file="${log4j.test.file}" tofile="${build-test.dir}/log4j.xml" failonerror="true"/>
+    	<copy todir="${build-test.dir}" failonerror="true">
+            <fileset dir="${ejbca.home}/src" includes="intresources/**"/>
+		    <fileset dir="${ejbca.home}/src/java/" includes="defaultvalues.properties"/>
+		</copy>
+		<!-- systemtests.properties needs to be in the classpath, if it exists for targeting non-default environment-->
+		<copy file="${systemtests.properties.file}" todir="${build-test.dir}" failonerror="false"/>
+    	<!-- jndi.properties needs to be in the classpath, if it exists (not for glassfish) -->
+    	<copy file="${jndi.properties.file}" tofile="${build-test.dir}/jndi.properties" failonerror="false"/>
+		<copy file="${jboss-ejb-client.properties}" todir="${build-test.dir}" failonerror="true"/>
+    	<javac srcdir="${src.plugins.test.dir}" destdir="${build-test.dir}" debug="on" includeantruntime="no"
+    	        	encoding="UTF-8" target="${java.target.version}" classpathref="test.classpath">
+			<sourcepath location="${mod.systemtests.path}/src-test/"/>
+    	</javac>
+    </target>
+	
+	<target name="test" depends="tests-compile">
+	    <antcall target="showtime"/>
+		<junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}" dir="${this.dir}">
+			<classpath>
+	        	<path refid="test.classpath"/>
+				<pathelement path="${clover.jar}"/>
+			</classpath>
+			<formatter type="xml" />
+			<batchtest fork="yes" todir="${reports.dir}">
+				<fileset dir="${build-test.dir}" includes="**/*Test.class" />
+			</batchtest>
+		</junit>
+		<antcall target="showtime"/>
+	</target>
+
+	<!-- =================================
+          Run a single test specified with -Dtest.runone=TestName
+         ================================= -->
+	<target name="runone" depends="tests-compile">
+		<fail message="'test.runone' is not set. Example -Dtest.runone=TestName . You can also use -Dtest.showoutput=true to send test output to console." unless="test.runone" />
+		<junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}">
+			<classpath>
+        		<path refid="test.classpath"/>
+				<path location="${build-test.dir}" />
+				<pathelement path="${clover.jar}"/>
+			</classpath>
+			<formatter type="xml" />
+			<batchtest fork="yes" todir="${reports.dir}">
+				<fileset dir="${build-test.dir}" includes="**/${test.runone}.class"/>
+			</batchtest>
+		</junit>
+	</target>
+</project>
