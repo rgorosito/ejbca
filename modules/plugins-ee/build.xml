@@ -22,6 +22,7 @@
 		<path refid="lib.bouncycastle.classpath"/>
 		<path refid="lib.mail.classpath"/>
 		<path refid="lib.ldap.classpath"/>
+		<path refid="lib.json-simple.classpath"/>
 	</path>
 
 	<path id="compile-ejbca.classpath">
