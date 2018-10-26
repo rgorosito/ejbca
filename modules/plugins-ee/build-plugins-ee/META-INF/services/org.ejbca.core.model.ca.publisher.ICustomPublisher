@@ -1,0 +1,2 @@
+org.ejbca.va.publisher.EnterpriseValidationAuthorityPublisher
+org.ejbca.core.model.ca.publisher.ValidationAuthorityPublisher
