@@ -11,6 +11,7 @@ package org.ejbca.va.publisher;
 
 import java.security.cert.Certificate;
 import java.security.cert.X509CRL;
+import java.security.cert.X509Certificate;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -58,6 +59,9 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
     public static final String PROPERTYKEY_STORECERT = "storeCert";
     public static final String PROPERTYKEY_STORECRL = "storeCRL";
     public static final String PROPERTYKEY_ONLYREVOKED = "onlyPublishRevoked";
+    public static final String PROPERTYKEY_DONTSTORECERTIFICATEMETADATA = "dontStoreCertificateMetadata";
+    // For non-nullable fields while not storing sensitive certficicate meta data
+    public static final String HIDDEN_VALUE = "null";
     
     private final static String insertCertificateSQL = "INSERT INTO CertificateData (base64Cert,subjectDN,issuerDN,cAFingerprint,serialNumber,status,type,username,expireDate,revocationDate,revocationReason,tag,certificateProfileId,updateTime,subjectKeyId,fingerprint,rowVersion) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)";
     private final static String updateCertificateSQL = "UPDATE CertificateData SET base64Cert=?,subjectDN=?,issuerDN=?,cAFingerprint=?,serialNumber=?,status=?,type=?,username=?,expireDate=?,revocationDate=?,revocationReason=?,tag=?,certificateProfileId=?,updateTime=?,subjectKeyId=?,rowVersion=(rowVersion+1) WHERE fingerprint=? AND (NOT status=40 or revocationReason=6)";
@@ -71,6 +75,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
     private boolean storeCertificate = true;
     private boolean storeCrl = true;
     private boolean onlyPublishRevoked = false;
+    private boolean dontStoreCertificateMetadata = false;
 
     public EnterpriseValidationAuthorityPublisher() {
         super();
@@ -105,7 +110,8 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
                 new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource),
                 new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)),
                 new CustomPublisherProperty(PROPERTYKEY_ONLYREVOKED, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(onlyPublishRevoked)),
-                new CustomPublisherProperty(PROPERTYKEY_STORECRL, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCrl))
+                new CustomPublisherProperty(PROPERTYKEY_STORECRL, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCrl)),
+                new CustomPublisherProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, CustomPublisherProperty.UI_BOOLEAN, Boolean.valueOf(dontStoreCertificateMetadata).toString())
                 );
     }
 
@@ -115,6 +121,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
         storeCertificate = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_STORECERT, Boolean.TRUE.toString()));
         storeCrl = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_STORECRL, Boolean.TRUE.toString()));
         onlyPublishRevoked = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_ONLYREVOKED, Boolean.FALSE.toString()));
+        dontStoreCertificateMetadata = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, Boolean.FALSE.toString()));
     }
 
     @Override
@@ -392,21 +399,25 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
             } else {
                 base64Cert = null;
             }
-            ps.setString(1, base64Cert);
-            ps.setString(2, subjectDN);
+            final boolean isCaCert = CertTools.isCA(CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class));
+            final boolean isOcspCert = CertTools.isOCSPCert(CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class));
+            // Don't store user sensitive certificate data
+            final boolean limitMetaData = dontStoreCertificateMetadata && !isCaCert && !isOcspCert;
+            ps.setString(1, limitMetaData ? null : base64Cert);
+            ps.setString(2, limitMetaData ? HIDDEN_VALUE : subjectDN);
             ps.setString(3, issuerDN);
             ps.setString(4, cAFingerprint);
             ps.setString(5, serialNumber);
             ps.setInt(6, status);
             ps.setInt(7, type);
-            ps.setString(8, username);
+            ps.setString(8, limitMetaData ? null : username);
             ps.setLong(9, expireDate);
             ps.setLong(10, revocationDate);
             ps.setInt(11, revocationReason);
-            ps.setString(12, tag);
+            ps.setString(12, limitMetaData ? null: tag);
             ps.setInt(13, certificateProfileId);
             ps.setLong(14, updateTime);
-            ps.setString(15, subjectKeyId);
+            ps.setString(15, limitMetaData ? null : subjectKeyId);
             ps.setString(16, fingerprint);
         }
 
