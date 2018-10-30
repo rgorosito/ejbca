@@ -69,6 +69,24 @@ public class VaPublisherTestBase {
             + "5wSOJhoVJSaEGHMPw6t3e+CbnEL9Yh5GlgxVAJCmIqhoScTMiov3QpDRHOZlZ15c"
             + "UlqugRBtORuA9xnLkrdxYNCHmX6aJTfjdIW61+o/ovP0yz6ulBkqcKzopAZLirX+"
             + "XSWf2uI9miNtxYMVnbQ1KPdEAt7Za3OQR6zcS0lGKg==").getBytes());
+    static final byte[] testOcpsSignerCertificateBytes = Base64.decode(("MIIDWzCCAkOgAwIBAgIIdoCW+AzvbDcwDQYJKoZIhvcNAQELBQAwOzEVMBMGA1UE" + 
+            "AwwMTWFuYWdlbWVudENBMRUwEwYDVQQKDAxFSkJDQSBTYW1wbGUxCzAJBgNVBAYT" + 
+            "AlNFMB4XDTE4MDUyNDE0MTYxNFoXDTI4MDUyMTE0MTYxNFowOzEVMBMGA1UEAwwM" + 
+            "TWFuYWdlbWVudENBMRUwEwYDVQQKDAxFSkJDQSBTYW1wbGUxCzAJBgNVBAYTAlNF" + 
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwv+AfS+WZgMsEWW/wChn" + 
+            "U708FwH7q1ShCN+8PMpf4+r4fZ3qTN4PEvp0eTyOxjK9WcFnAwHIrjbCfCKJyJUM" + 
+            "6OA0rovdf28SzGW+iEl3pEK9I5OGjJ6BKzAs1uAjVs/gSSYeYwAcsdv+caGB07Ss" + 
+            "bpdF7zPR3O7uknP6OsQRlcf4pw561NWV4MjyXXjQLJbQCDl9WcfLA7g27oljitb4" + 
+            "g4mzKzAx3ftS03M1BRq30bpXLoH6ZBhH5mWM27EC8A37PPGg2ds8mDC8Hd0PKVdU" + 
+            "qoS70nsHXFVjwWYteKJUzP0mr9o4GLND7LscwGFWnxy3+bGHY9Fs3Iaz1OPrd1fe" + 
+            "yQIDAQABo2MwYTAPBgNVHRMBAf8EBTADAQH/MB8GA1UdIwQYMBaAFCmPt5ioZ43P" + 
+            "8i6c1gLDYNaCo8xMMB0GA1UdDgQWBBQpj7eYqGeNz/IunNYCw2DWgqPMTDAOBgNV" + 
+            "HQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggEBAIuGPMrM4cy8ijpAwJLWqWxy" + 
+            "rtoH2Xck6DQ+cyuMIZTtxbB/N32YHnAcyAsSlV1OZw5NmTGSP+Rd+rURiP2ZBYIF" + 
+            "QoZpCZS6XFctLNTM3Mqr7Xg7m7uu34kmt6uwRlulURCRCsBc8kRp+6oxVAkUOo+y" + 
+            "xerdRt3dlCdSSVffMw96RDIUMI/3SwfPqv8EXUzFo8POYsWbfdZQQqA9PpKMJM22" + 
+            "q2oEjh+0B6zoqLPJL/1riHQVKRv7T6MhLycV3vcpvSWs3nI1NEBMZvg6XjkXgGea" + 
+            "82k6FNP7M7hKXqymILMTXWValfAqIzfRAgkB+Eob4HWJ8LfsjmlNuuNcsfdQmVo=").getBytes());
     static final AuthenticationToken internalAdminToken = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("VaPublisherTest"));
     private static final Logger log = Logger.getLogger(VaPublisherTestBase.class);
     //

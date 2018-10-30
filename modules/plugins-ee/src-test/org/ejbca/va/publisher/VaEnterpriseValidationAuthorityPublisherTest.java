@@ -14,9 +14,11 @@ import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateData;
+import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.RevokedCertInfo;
+import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.TraceLogMethodsRule;
@@ -46,6 +48,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
     private int publisherId = 0;
     // Set of variables to track for objects to be removed as test results
     private Certificate testCertificate;
+    private Certificate testOcspCertificate;
     private List<Integer> publishers;
     private String caName = null;
     private String endEntityManagementUsername = null;
@@ -64,6 +67,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
     @Before
     public void setUp() throws CertificateParsingException, PublisherExistsException, AuthorizationDeniedException {
         testCertificate = CertTools.getCertfromByteArray(testCertificateBytes, Certificate.class);
+        testOcspCertificate = CertTools.getCertfromByteArray(testOcpsSignerCertificateBytes, Certificate.class);
         publishers = new ArrayList<>();
         enterpriseValidationAuthorityPublisher = createEnterpriseValidationAuthorityPublisher();
         publisherId = publisherProxySession.addPublisher(
@@ -77,6 +81,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
     public void tearDown() throws Exception {
         // Remove certificate
         internalCertStoreSession.removeCertificate(testCertificate);
+        internalCertStoreSession.removeCertificate(testOcspCertificate);
         // Flush publishers
         for (int publisherEntry : publishers) {
             publisherProxySession.removePublisher(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
@@ -235,8 +240,75 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
         assertNull("The certificate should not exist in the DB.", actualCertificate);
     }
 
+    @Test
+    public void shouldPublishOcspCertificateWithFullDataWhenNoMetaDataMode() throws PublisherConnectionException, AuthorizationDeniedException, CertificateParsingException {
+        // given
+        publisherProxySession.testConnection(publisherId);
+        // Don't store sensitive meta data
+        switchEnterpriseValidationAuthorityPublisherInNoMetaDataMode();
+        // When
+        final Certificate certificate = CertTools.getCertfromByteArray(testOcpsSignerCertificateBytes, Certificate.class);
+        final CertificateData ocspSignerCert = new CertificateData(
+                certificate,
+                certificate.getPublicKey(),
+                "OcspSigner",
+                "abcde1234",
+                RevokedCertInfo.NOT_REVOKED,
+                CertificateConstants.CERTTYPE_ENDENTITY,
+                CertificateProfileConstants.CERTPROFILE_FIXED_OCSPSIGNER,
+                EndEntityConstants.NO_END_ENTITY_PROFILE,
+                "tag",
+                System.currentTimeMillis() + 12345,
+                true,
+                true);
+        CertificateDataWrapper certWrapper = createCertificateDataWrapperUsingCertificateData(ocspSignerCert);
+        final boolean additionResult = publisherSession.storeCertificate(
+                internalAdminToken,
+                publishers,
+                certWrapper,
+                "foo123",
+                CertTools.getSubjectDN(testOcspCertificate),
+                null);
+        final CertificateInfo actualCertificateInfo = certificateStoreSession.getCertificateInfo(ocspSignerCert.getFingerprint());
+        // then
+        assertTrue("Error storing certificate to external ocsp publisher", additionResult);
+        assertEquals("OcspSigner", actualCertificateInfo.getUsername());
+        assertEquals(CertTools.getSubjectDN(testOcspCertificate), actualCertificateInfo.getSubjectDN());
+    }
+    
+    @Test
+    public void shouldPublishCertificateWithLimitedDataWhenNoMetaDataMode() throws CertificateParsingException, AuthorizationDeniedException, PublisherConnectionException {
+        // given
+        publisherProxySession.testConnection(publisherId);
+        // Don't store sensitive meta data
+        switchEnterpriseValidationAuthorityPublisherInNoMetaDataMode();
+        // when
+        final boolean additionResult = publisherSession.storeCertificate(
+                internalAdminToken,
+                publishers,
+                createCertificateDataWrapperUsingTestCertificateData(),
+                "foo123",
+                CertTools.getSubjectDN(testCertificate),
+                null);
+        final CertificateInfo actualCertificateInfo = certificateStoreSession.getCertificateInfo(CertTools.getFingerprintAsString(testCertificate));
+        // then
+        assertTrue("Error storing certificate to external ocsp publisher", additionResult);
+        assertNotNull("Expected issuer DN to be stored in publisher target database", actualCertificateInfo.getIssuerDN());
+        assertEquals(null, actualCertificateInfo.getUsername());
+        assertEquals(0, actualCertificateInfo.getEndEntityProfileIdOrZero());
+        assertEquals(EnterpriseValidationAuthorityPublisher.HIDDEN_VALUE, actualCertificateInfo.getSubjectDN());
+        assertEquals(null, actualCertificateInfo.getTag());
+    }
+    
+    private void switchEnterpriseValidationAuthorityPublisherInNoMetaDataMode() throws AuthorizationDeniedException {
+        enterpriseValidationAuthorityPublisher.setPropertyData(enterpriseValidationAuthorityPublisher.getPropertyData() + 
+                EnterpriseValidationAuthorityPublisher.PROPERTYKEY_DONTSTORECERTIFICATEMETADATA + "=" + true + "\n");
+        publisherSession.changePublisher(internalAdminToken, publisherName, enterpriseValidationAuthorityPublisher);
+    }
+    
     private void switchEnterpriseValidationAuthorityPublisherInRevokedOnlyMode() throws AuthorizationDeniedException {
-        enterpriseValidationAuthorityPublisher.setPropertyData(enterpriseValidationAuthorityPublisher.getPropertyData() + EnterpriseValidationAuthorityPublisher.PROPERTYKEY_ONLYREVOKED + "=" + true + "\n");
+        enterpriseValidationAuthorityPublisher.setPropertyData(enterpriseValidationAuthorityPublisher.getPropertyData() + 
+                EnterpriseValidationAuthorityPublisher.PROPERTYKEY_ONLYREVOKED + "=" + true + "\n");
         publisherSession.changePublisher(internalAdminToken, publisherName, enterpriseValidationAuthorityPublisher);
     }
 }
