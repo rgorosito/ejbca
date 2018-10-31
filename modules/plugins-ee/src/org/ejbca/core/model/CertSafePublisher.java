@@ -22,6 +22,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -153,7 +154,7 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
     }
 
     @Override
-    public List<CustomPublisherProperty> getCustomUiPropertyList() {
+    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
         List<CustomPublisherProperty> ret = new ArrayList<CustomPublisherProperty>();
         // Make selection of the remote CertSafe server configurable
         ret.add(new CustomPublisherProperty(certSafeUrlPropertyName, CustomPublisherProperty.UI_TEXTINPUT, urlstr));
@@ -162,11 +163,9 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
         if (internalKeyBindingMgmtSession==null) {
             internalKeyBindingMgmtSession = new EjbLocalHelper().getInternalKeyBindingMgmtSession();
         }
-        List<InternalKeyBindingInfo> kinfos = internalKeyBindingMgmtSession.getAllInternalKeyBindingInfos(AuthenticationKeyBinding.IMPLEMENTATION_ALIAS);
-        ArrayList<String> options = new ArrayList<String>();
-        Iterator<InternalKeyBindingInfo> itr = kinfos.iterator();
-        while(itr.hasNext()) {
-            InternalKeyBindingInfo kinfo = itr.next();
+        List<String> options = new ArrayList<String>();
+        for (InternalKeyBindingInfo kinfo : internalKeyBindingMgmtSession
+                .getAllInternalKeyBindingInfos(AuthenticationKeyBinding.IMPLEMENTATION_ALIAS)) {
             options.add(kinfo.getName());
         }
         ret.add(new CustomPublisherProperty(certSafeAuthKeyBindingPropertyName, CustomPublisherProperty.UI_SELECTONE, options, options, authKeyBindingName));
@@ -174,6 +173,11 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
         // HTTPS connection timeout
         ret.add(new CustomPublisherProperty(certSafeConnectionTimeOutPropertyName, CustomPublisherProperty.UI_TEXTINPUT, String.valueOf(timeout)));
         return ret;
+    }
+    
+    @Override
+    public List<String> getCustomUiPropertyNames() {
+        return Arrays.asList(certSafeUrlPropertyName, certSafeAuthKeyBindingPropertyName, certSafeConnectionTimeOutPropertyName);
     }
 
     /**

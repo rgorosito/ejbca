@@ -105,7 +105,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
     }
 
     @Override
-    public List<CustomPublisherProperty> getCustomUiPropertyList() {
+    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
         return Arrays.asList(
                 new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource),
                 new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)),
@@ -113,6 +113,11 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
                 new CustomPublisherProperty(PROPERTYKEY_STORECRL, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCrl)),
                 new CustomPublisherProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, CustomPublisherProperty.UI_BOOLEAN, Boolean.valueOf(dontStoreCertificateMetadata).toString())
                 );
+    }
+    
+    @Override
+    public List<String> getCustomUiPropertyNames() {
+        return Arrays.asList(PROPERTYKEY_DATASOURCE, PROPERTYKEY_STORECERT, PROPERTYKEY_ONLYREVOKED, PROPERTYKEY_STORECRL);
     }
 
     @Override
@@ -484,4 +489,6 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
     public boolean isReadOnly() {
         return false;
     }
+
+
 }
