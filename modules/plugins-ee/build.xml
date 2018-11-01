@@ -11,7 +11,7 @@
 	<property name="src.plugins.test.dir" location="${this.dir}/src-test"/>
 
 
-	<path id="compile-common.classpath">
+	<path id="compile.classpath">
 		<path refid="lib.servlet.classpath"/>
 		<path refid="lib.log4j.classpath"/>
 		<path refid="lib.commons-config.classpath"/>
@@ -20,13 +20,12 @@
 		<path refid="lib.commons-collections.classpath"/><!-- Dependency of commons-config -->
 		<path refid="lib.jee.classpath"/>
 		<path refid="lib.bouncycastle.classpath"/>
-		<path refid="lib.mail.classpath"/>
-		<path refid="lib.ldap.classpath"/>
 		<path refid="lib.json-simple.classpath"/>
+		<path refid="lib.jsch.classpath"/>
 	</path>
 
 	<path id="compile-ejbca.classpath">
-		<path refid="compile-common.classpath"/>
+		<path refid="compile.classpath"/>
 		<path location="${mod.ejbca-ejb-interface.lib}"/>
 		<path location="${mod.ejbca-common-web.lib}"/>
 		<path location="${mod.ejbca-common.lib}"/>
@@ -44,7 +43,6 @@
 		<path location="${mod.ejbca-ejb-interface.lib}"/>
 		<path location="${mod.systemtest-interface.lib}"/>
 		<path location="${mod.systemtest-ejb.lib}"/>
-		<path refid="lib.cert-cvc.classpath" />
 		<path location="${mod.ejbca-entity.lib}"/>
 	</path>
 	
