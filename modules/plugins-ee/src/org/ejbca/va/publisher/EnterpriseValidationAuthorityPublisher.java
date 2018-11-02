@@ -14,8 +14,6 @@ import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
@@ -31,8 +29,8 @@ import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.ca.publisher.BasePublisher;
-import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
+import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
@@ -48,7 +46,7 @@ import org.ejbca.util.JDBCUtil.Preparer;
  * @version $Id$
  *
  */
-public class EnterpriseValidationAuthorityPublisher extends CustomPublisherContainer implements ICustomPublisher, CustomPublisherUiSupport  {
+public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBase implements ICustomPublisher, CustomPublisherUiSupport  {
 
     private static final long serialVersionUID = -6093639031082437287L;
     private static final Logger log = Logger.getLogger(EnterpriseValidationAuthorityPublisher.class);
@@ -104,21 +102,6 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
         return true;
     }
 
-    @Override
-    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
-        return Arrays.asList(
-                new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource),
-                new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)),
-                new CustomPublisherProperty(PROPERTYKEY_ONLYREVOKED, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(onlyPublishRevoked)),
-                new CustomPublisherProperty(PROPERTYKEY_STORECRL, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCrl)),
-                new CustomPublisherProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, CustomPublisherProperty.UI_BOOLEAN, Boolean.valueOf(dontStoreCertificateMetadata).toString())
-                );
-    }
-    
-    @Override
-    public List<String> getCustomUiPropertyNames() {
-        return Arrays.asList(PROPERTYKEY_DATASOURCE, PROPERTYKEY_STORECERT, PROPERTYKEY_ONLYREVOKED, PROPERTYKEY_STORECRL);
-    }
 
     @Override
     public void init(final Properties properties) {
@@ -126,7 +109,15 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherConta
         storeCertificate = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_STORECERT, Boolean.TRUE.toString()));
         storeCrl = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_STORECRL, Boolean.TRUE.toString()));
         onlyPublishRevoked = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_ONLYREVOKED, Boolean.FALSE.toString()));
-        dontStoreCertificateMetadata = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, Boolean.FALSE.toString()));
+        dontStoreCertificateMetadata = Boolean
+                .parseBoolean(properties.getProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, Boolean.FALSE.toString()));
+
+        addProperty(new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource));
+        addProperty(new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)));
+        addProperty(new CustomPublisherProperty(PROPERTYKEY_ONLYREVOKED, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(onlyPublishRevoked)));
+        addProperty(new CustomPublisherProperty(PROPERTYKEY_STORECRL, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCrl)));
+        addProperty(new CustomPublisherProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, CustomPublisherProperty.UI_BOOLEAN,
+                Boolean.valueOf(dontStoreCertificateMetadata).toString()));
     }
 
     @Override
