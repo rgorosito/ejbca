@@ -150,7 +150,7 @@ public class UpgradePublisherTest {
             }
 
         } finally {
-            publisherProxySession.removePublisher(internalAdmin, publisherName);
+            publisherProxySession.removePublisherInternal(internalAdmin, publisherName);
         }
     }
 
@@ -191,7 +191,7 @@ public class UpgradePublisherTest {
                 fail("Upgraded publisher was not of correct type.");
             }
         } finally {
-            publisherProxySession.removePublisher(internalAdmin, oldPublisherName);
+            publisherProxySession.removePublisherInternal(internalAdmin, oldPublisherName);
         }
     }
 
@@ -227,7 +227,7 @@ public class UpgradePublisherTest {
                 fail("Upgraded publisher was not of correct type.");
             }
         } finally {
-            publisherProxySession.removePublisher(internalAdmin, legacyPublisherName);
+            publisherProxySession.removePublisherInternal(internalAdmin, legacyPublisherName);
         }
     }
 
