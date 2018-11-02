@@ -12,31 +12,32 @@ package org.ejbca.scp.publisher;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.security.spec.InvalidKeySpecException;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
-import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
+import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
-import org.ejbca.core.model.util.EjbLocalHelper;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -49,8 +50,9 @@ import com.jcraft.jsch.Session;
  * 
  * @version $Id$
  */
-public class ScpPublisher implements ICustomPublisher, CustomPublisherUiSupport {
+public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublisher {
 
+    private static final long serialVersionUID = 1L;
     private static Logger log = Logger.getLogger(ScpPublisher.class);
     public static final String ANONYMIZE_CERTIFICATES_PROPERTY_NAME = "anonymize.certificates";
 
@@ -72,6 +74,7 @@ public class ScpPublisher implements ICustomPublisher, CustomPublisherUiSupport 
     private String scpKnownHosts = null;
     private String sshUsername = null;
     private String privateKeyPassword = null;
+    
     
 
     public ScpPublisher() {
@@ -96,44 +99,28 @@ public class ScpPublisher implements ICustomPublisher, CustomPublisherUiSupport 
         scpPrivateKey = getProperty(properties, SCP_PRIVATE_KEY_PROPERTY_NAME);
         scpKnownHosts = getProperty(properties, SCP_KNOWN_HOSTS_PROPERTY_NAME);
         sshUsername = getProperty(properties, SSH_USERNAME);
-        privateKeyPassword = getProperty(properties, SCP_PRIVATE_KEY_PASSWORD);
-
-    }
-
-    @Override
-    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
-        EjbLocalHelper localHelper = new EjbLocalHelper();
-        CaSessionLocal caSession = localHelper.getCaSession();
-
-        List<CustomPublisherProperty> properties = new ArrayList<>();
-        List<String> caNames = new ArrayList<>();
-        List<String> caIds = new ArrayList<>();
-        Map<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
-
-        for (int caId : caSession.getAuthorizedCaIds(authenticationToken)) {
-            caIds.add(Integer.toString(caId));
-            caNames.add(caIdToNameMap.get(caId));
+        String encryptedPassword = getProperty(properties, SCP_PRIVATE_KEY_PASSWORD);
+        //Password is encrypted on the database, using the key password.encryption.key
+        if (StringUtils.isNotEmpty(encryptedPassword)) {
+            try {
+                privateKeyPassword = StringTools.pbeDecryptStringWithSha256Aes192(encryptedPassword);
+            } catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException | InvalidKeySpecException e) {
+                throw new IllegalStateException("Could not decrypt encoded private key password.", e);
+            }
+        } else {
+            privateKeyPassword = "";
         }
-        properties.add(new CustomPublisherProperty(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, CustomPublisherProperty.UI_BOOLEAN,
+        addProperty(new CustomPublisherProperty(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, CustomPublisherProperty.UI_BOOLEAN,
                 Boolean.valueOf(anonymizeCertificates).toString()));
-        properties.add(new CustomPublisherProperty(SSH_USERNAME, CustomPublisherProperty.UI_TEXTINPUT, sshUsername));
-        properties.add(new CustomPublisherProperty(CRL_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, crlSCPDestination));
-        properties.add(new CustomPublisherProperty(CERT_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, certSCPDestination));
-        properties.add(new CustomPublisherProperty(SCP_PRIVATE_KEY_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpPrivateKey));
-        properties.add(new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, scpPrivateKey));
-        properties.add(new CustomPublisherProperty(SCP_KNOWN_HOSTS_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpKnownHosts));
+        addProperty(new CustomPublisherProperty(SSH_USERNAME, CustomPublisherProperty.UI_TEXTINPUT, sshUsername));
+        addProperty(new CustomPublisherProperty(CRL_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, crlSCPDestination));
+        addProperty(new CustomPublisherProperty(CERT_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, certSCPDestination));
+        addProperty(new CustomPublisherProperty(SCP_PRIVATE_KEY_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpPrivateKey));
+        addProperty(new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, scpPrivateKey));
+        addProperty(new CustomPublisherProperty(SCP_KNOWN_HOSTS_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpKnownHosts));
 
-        return properties;
     }
 
-    @Override
-    public List<String> getCustomUiPropertyNames() {
-        List<String> propertyNames = new ArrayList<>();
-        propertyNames.addAll(Arrays.asList(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, CRL_SCP_DESTINATION_PROPERTY_NAME,
-                CERT_SCP_DESTINATION_PROPERTY_NAME, SCP_PRIVATE_KEY_PROPERTY_NAME, SCP_KNOWN_HOSTS_PROPERTY_NAME));
-
-        return propertyNames;
-    }
 
     private String getProperty(Properties properties, String propertyName) {
         String property = properties.getProperty(propertyName);

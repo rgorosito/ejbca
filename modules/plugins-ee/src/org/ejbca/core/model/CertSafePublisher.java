@@ -22,10 +22,8 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
@@ -56,9 +54,8 @@ import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
-import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
-import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
+import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
@@ -74,7 +71,7 @@ import org.json.simple.parser.ParseException;
  *
  * @version $Id$
  */
-public class CertSafePublisher extends CustomPublisherContainer implements ICustomPublisher, CustomPublisherUiSupport {
+public class CertSafePublisher extends CustomPublisherUiBase implements ICustomPublisher {
 
     private static final long serialVersionUID = 1L;
     private static Logger log = Logger.getLogger(CertSafePublisher.class);
@@ -98,9 +95,7 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
     private int timeout = DEFAULT_CONNECTIONTIMEOUT;
     private URL url = null;
 
-
     private HashMap<String, String> revocationReasons = new HashMap<String, String>();
-
 
     public CertSafePublisher(){}
 
@@ -117,19 +112,16 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
         if (log.isTraceEnabled()) {
             log.trace(">init");
         }
-
         EjbLocalHelper localHelper = new EjbLocalHelper();
         internalKeyBindingMgmtSession = localHelper.getInternalKeyBindingMgmtSession();
         cryptoTokenManagementSession = localHelper.getCryptoTokenManagementSession();
         certificateStoreSession = localHelper.getCertificateStoreSession();
-
         // Extract system properties
         urlstr = (properties.getProperty(certSafeUrlPropertyName));
         authKeyBindingName = properties.getProperty(certSafeAuthKeyBindingPropertyName);
         timeout = properties.containsKey(certSafeConnectionTimeOutPropertyName)?
                         Integer.parseInt(properties.getProperty(certSafeConnectionTimeOutPropertyName)) :
                         DEFAULT_CONNECTIONTIMEOUT;
-
         // This map translates the revocation reasons in CertificateConstants.reasontext to more readable
         // text strings (according to CertSafe REST API specifications)
         revocationReasons.put("REV_UNSPECIFIED", "unspecified");
@@ -143,8 +135,22 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
         revocationReasons.put("REV_REMOVEFROMCRL", "removeFromCrl");
         revocationReasons.put("REV_PRIVILEGEWITHDRAWN", "privilegeWithdrawn");
         revocationReasons.put("REV_AACOMPROMISE", "aaComprimise");
+        // Make selection of the remote CertSafe server configurable
+        addProperty(new CustomPublisherProperty(certSafeUrlPropertyName, CustomPublisherProperty.UI_TEXTINPUT, urlstr));
+        // Authentication key binding we use to authenticate against the remove remote CertSafe server
+        if (internalKeyBindingMgmtSession==null) {
+            internalKeyBindingMgmtSession = new EjbLocalHelper().getInternalKeyBindingMgmtSession();
+        }
+        List<String> options = new ArrayList<>();
+        for (InternalKeyBindingInfo kinfo : internalKeyBindingMgmtSession
+                .getAllInternalKeyBindingInfos(AuthenticationKeyBinding.IMPLEMENTATION_ALIAS)) {
+            options.add(kinfo.getName());
+        }
+        addProperty(new CustomPublisherProperty(certSafeAuthKeyBindingPropertyName, CustomPublisherProperty.UI_SELECTONE, options, options, authKeyBindingName));
+        // HTTPS connection timeout
+        addProperty(new CustomPublisherProperty(certSafeConnectionTimeOutPropertyName, CustomPublisherProperty.UI_TEXTINPUT, String.valueOf(timeout)));
 
-    } // init
+    } 
 
     private URL getURL() throws MalformedURLException {
         if((url==null) && (urlstr!=null)) {
@@ -152,33 +158,7 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
         }
         return url;
     }
-
-    @Override
-    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
-        List<CustomPublisherProperty> ret = new ArrayList<CustomPublisherProperty>();
-        // Make selection of the remote CertSafe server configurable
-        ret.add(new CustomPublisherProperty(certSafeUrlPropertyName, CustomPublisherProperty.UI_TEXTINPUT, urlstr));
-
-        // Authentication key binding we use to authenticate against the remove remote CertSafe server
-        if (internalKeyBindingMgmtSession==null) {
-            internalKeyBindingMgmtSession = new EjbLocalHelper().getInternalKeyBindingMgmtSession();
-        }
-        List<String> options = new ArrayList<String>();
-        for (InternalKeyBindingInfo kinfo : internalKeyBindingMgmtSession
-                .getAllInternalKeyBindingInfos(AuthenticationKeyBinding.IMPLEMENTATION_ALIAS)) {
-            options.add(kinfo.getName());
-        }
-        ret.add(new CustomPublisherProperty(certSafeAuthKeyBindingPropertyName, CustomPublisherProperty.UI_SELECTONE, options, options, authKeyBindingName));
-
-        // HTTPS connection timeout
-        ret.add(new CustomPublisherProperty(certSafeConnectionTimeOutPropertyName, CustomPublisherProperty.UI_TEXTINPUT, String.valueOf(timeout)));
-        return ret;
-    }
     
-    @Override
-    public List<String> getCustomUiPropertyNames() {
-        return Arrays.asList(certSafeUrlPropertyName, certSafeAuthKeyBindingPropertyName, certSafeConnectionTimeOutPropertyName);
-    }
 
     /**
      * Sends the certificate in a JSON object to Cert Safe server through HTTPS.
@@ -548,5 +528,7 @@ public class CertSafePublisher extends CustomPublisherContainer implements ICust
     public boolean isReadOnly() {
         return false;
     }
+
+
 
 }
