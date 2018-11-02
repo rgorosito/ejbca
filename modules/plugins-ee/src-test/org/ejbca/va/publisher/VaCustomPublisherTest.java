@@ -70,7 +70,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
         internalCertStoreSession.removeCertificate(testCertificate);
         // Flush publishers
         for (int publisherEntry : publishers) {
-            publisherProxySession.removePublisher(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
+            publisherProxySession.removePublisherInternal(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
         }
     }
 

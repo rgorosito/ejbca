@@ -84,7 +84,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
         internalCertStoreSession.removeCertificate(testOcspCertificate);
         // Flush publishers
         for (int publisherEntry : publishers) {
-            publisherProxySession.removePublisher(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
+            publisherProxySession.removePublisherInternal(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
         }
         // Remove CA if exists
         if(caName != null) {
