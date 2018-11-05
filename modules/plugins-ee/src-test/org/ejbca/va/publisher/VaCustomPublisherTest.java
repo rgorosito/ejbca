@@ -48,7 +48,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
 
     @BeforeClass
     public static void beforeClass() {
-        CryptoProviderTools.installBCProvider();
+        CryptoProviderTools.installBCProviderIfNotAvailable();
     }
 
     @Before

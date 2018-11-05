@@ -21,8 +21,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -76,26 +79,56 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
     private static final long serialVersionUID = 1L;
     private static Logger log = Logger.getLogger(CertSafePublisher.class);
 
-    private InternalKeyBindingMgmtSessionLocal internalKeyBindingMgmtSession;
-    private CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
-    private CertificateStoreSessionLocal certificateStoreSession;
-
-    private final int DEFAULT_CONNECTIONTIMEOUT = 10000; // 10 000 milliseconds = 10 seconds
-
     /** The URL to the HTTPS server. Should be in the format https://HOST:PORT/RELATIVEURL */
     public static final String certSafeUrlPropertyName = "certsafe.url";
     /** The name of the Authentication Key Binding that will be used for authentication with the HTTPS server */
     public static final String certSafeAuthKeyBindingPropertyName = "certsafe.authkeybindingname";
     /** Timeout on connection to the HTTPS server  */
     public static final String certSafeConnectionTimeOutPropertyName = "certsafe.connectiontimeout";
+    
+    public static final String JSON_REVOCATION_REASON = "revocationReason";
+    public static final String JSON_STATUS = "status";
+    public static final String JSON_REVOCATION_DATE = "revocationDate";
+    public static final String JSON_CERTIFICATE = "pem";
+    
+    // Revocation reasons identifiers
+    private static final String[] reasontexts = {
+        "REV_UNSPECIFIED",          "REV_KEYCOMPROMISE",    "REV_CACOMPROMISE",
+        "REV_AFFILIATIONCHANGED",   "REV_SUPERSEDED",       "REV_CESSATIONOFOPERATION",
+        "REV_CERTIFICATEHOLD",      "REV_UNUSED",           "REV_REMOVEFROMCRL",
+        "REV_PRIVILEGEWITHDRAWN",   "REV_AACOMPROMISE"
+    };
+    
+    private InternalKeyBindingMgmtSessionLocal internalKeyBindingMgmtSession;
+    private CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
+    private CertificateStoreSessionLocal certificateStoreSession;
 
+    private final int DEFAULT_CONNECTIONTIMEOUT = 10000; // 10 000 milliseconds = 10 seconds
+
+    private static final HashMap<String, String> REVOCATION_REASONS = new HashMap<String, String>();
+    
+    static {
+        // This map translates the revocation reasons in CertificateConstants.reasontext to more readable
+        // text strings (according to CertSafe REST API specifications)
+        REVOCATION_REASONS.put("REV_UNSPECIFIED", "unspecified");
+        REVOCATION_REASONS.put("REV_KEYCOMPROMISE", "keyCompromise");
+        REVOCATION_REASONS.put("REV_AFFILIATIONCHANGED", "affiliationChanged");
+        REVOCATION_REASONS.put("REV_SUPERSEDED", "superseded");
+        REVOCATION_REASONS.put("REV_CESSATIONOFOPERATION", "cessationOfOperation");
+        REVOCATION_REASONS.put("REV_CERTIFICATEHOLD", "certificateHold");
+        REVOCATION_REASONS.put("REV_UNUSED", "REV_UNUSED");
+        REVOCATION_REASONS.put("REV_REMOVEFROMCRL", "removeFromCrl");
+        REVOCATION_REASONS.put("REV_PRIVILEGEWITHDRAWN", "privilegeWithdrawn");
+        REVOCATION_REASONS.put("REV_AACOMPROMISE", "aaComprimise");
+    }
 
     private String urlstr = "";
     private String authKeyBindingName = "";
     private int timeout = DEFAULT_CONNECTIONTIMEOUT;
     private URL url = null;
+    
+    
 
-    private HashMap<String, String> revocationReasons = new HashMap<String, String>();
 
     public CertSafePublisher(){}
 
@@ -122,19 +155,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         timeout = properties.containsKey(certSafeConnectionTimeOutPropertyName)?
                         Integer.parseInt(properties.getProperty(certSafeConnectionTimeOutPropertyName)) :
                         DEFAULT_CONNECTIONTIMEOUT;
-        // This map translates the revocation reasons in CertificateConstants.reasontext to more readable
-        // text strings (according to CertSafe REST API specifications)
-        revocationReasons.put("REV_UNSPECIFIED", "unspecified");
-        revocationReasons.put("REV_KEYCOMPROMISE", "keyComprimise");
-        revocationReasons.put("REV_CACOMPROMISE", "caComprimise");
-        revocationReasons.put("REV_AFFILIATIONCHANGED", "affiliationChanged");
-        revocationReasons.put("REV_SUPERSEDED", "superseded");
-        revocationReasons.put("REV_CESSATIONOFOPERATION", "cessationOfOperation");
-        revocationReasons.put("REV_CERTIFICATEHOLD", "certificateHold");
-        revocationReasons.put("REV_UNUSED", "REV_UNUSED");
-        revocationReasons.put("REV_REMOVEFROMCRL", "removeFromCrl");
-        revocationReasons.put("REV_PRIVILEGEWITHDRAWN", "privilegeWithdrawn");
-        revocationReasons.put("REV_AACOMPROMISE", "aaComprimise");
+
         // Make selection of the remote CertSafe server configurable
         addProperty(new CustomPublisherProperty(certSafeUrlPropertyName, CustomPublisherProperty.UI_TEXTINPUT, urlstr));
         // Authentication key binding we use to authenticate against the remove remote CertSafe server
@@ -194,7 +215,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
             throw new PublisherException(msg);
         }
 
-        final String jsonObject = getJSONString(incert, status, revocationReason);
+        final String jsonObject = getJSONString(incert, status, revocationReason, revocationDate);
 
         // Make the HTTPS connection and send the request
         HttpsURLConnection con = null;
@@ -426,26 +447,26 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
      *          {
      *              "status" : STATUS
      *              "revocationReason" : REVOCATION_REASON_IF_ANY
+     *              "revocationDate"   : REVOCATION_DATE
      *              "pem" : THE_CERTIFICATE
      *          }
      *
      *
-     * @param incert
-     * @param status
-     * @param revocationReason
+     * @param incert the revoked certificate
+     * @param status whether the certificate has been revoked, set inactive, or archived
+     * @param revocationReason the revocation reason (if revoked)
+     * @param revocationDate the revocation date 
      * @return
      * @throws PublisherException
      */
-    @SuppressWarnings("unchecked") // JsonSimple is not parameterised
-    private String getJSONString(Certificate incert, int status, int revocationReason) throws PublisherException {
+    @SuppressWarnings("unchecked") // JsonSimple is not parameterized
+    private String getJSONString(Certificate incert, int status, int revocationReason, long revocationDate) throws PublisherException {
 
         JSONObject json = new JSONObject();
         String stat = "";
         if (status == CertificateConstants.CERT_REVOKED) {
             stat = "revoked";
-            json.put("revocationReason", revocationReasons.get(CertificateConstants.reasontexts[revocationReason]) );
-        //} else if (status == CertificateConstants.CERT_TEMP_REVOKED) {
-        //    stat = "suspended";
+            json.put(JSON_REVOCATION_REASON, REVOCATION_REASONS.get(reasontexts[revocationReason]) );
         } else if ( (status == CertificateConstants.CERT_UNASSIGNED) ||
                      (status == CertificateConstants.CERT_INACTIVE) ) {
             stat = "hold";
@@ -454,7 +475,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         } else {
             stat = "active";
         }
-        json.put("status", stat);
+        json.put(JSON_STATUS, stat);
 
         //Add the certificate to the JSON object
         ArrayList<Certificate> certs =  new ArrayList<Certificate>();
@@ -469,7 +490,9 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         }
         int index = certStr.indexOf(CertTools.BEGIN_CERTIFICATE);
         certStr = certStr.substring(index);
-        json.put("pem", certStr);
+        DateFormat df = new SimpleDateFormat("YYYY-MM-dd hh:mm:ss z");
+        json.put(JSON_REVOCATION_DATE, df.format(new Date(revocationDate)));
+        json.put(JSON_CERTIFICATE, certStr);
         String ret = json.toString();
         if(log.isDebugEnabled()) {
             log.debug("Sending the JSON String: " + ret);
