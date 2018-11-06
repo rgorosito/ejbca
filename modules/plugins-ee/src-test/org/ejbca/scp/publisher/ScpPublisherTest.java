@@ -59,13 +59,14 @@ public class ScpPublisherTest {
             InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException {
         ScpPublisher scpPublisher = new ScpPublisher();
         Properties properties = new Properties();
+        properties.setProperty(ScpPublisher.SIGNING_CA_PROPERTY_NAME, "1652389506");
         properties.setProperty(ScpPublisher.ANONYMIZE_CERTIFICATES_PROPERTY_NAME, "false");
         properties.setProperty(ScpPublisher.CERT_SCP_DESTINATION_PROPERTY_NAME, "download.primekey.com:tmp");
         properties.setProperty(ScpPublisher.CRL_SCP_DESTINATION_PROPERTY_NAME, "download.primekey.com:tmp");
         properties.setProperty(ScpPublisher.SCP_PRIVATE_KEY_PROPERTY_NAME, "/Users/mikek/.ssh/id_rsa");
         properties.setProperty(ScpPublisher.SCP_KNOWN_HOSTS_PROPERTY_NAME, "/Users/mikek/.ssh/known_hosts");
         properties.setProperty(ScpPublisher.SSH_USERNAME, "mikek");
-        String password = "yourpassword";
+        String password = "";
         properties.setProperty(ScpPublisher.SCP_PRIVATE_KEY_PASSWORD, StringTools.pbeEncryptStringWithSha256Aes192(password));
         scpPublisher.init(properties);
         KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA); 

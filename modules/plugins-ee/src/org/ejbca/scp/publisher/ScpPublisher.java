@@ -20,7 +20,11 @@ import java.security.InvalidKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import javax.crypto.BadPaddingException;
@@ -29,15 +33,22 @@ import javax.crypto.IllegalBlockSizeException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CADoesntExistsException;
+import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
+import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
-import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
+import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
+import org.ejbca.core.model.util.EjbLocalHelper;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -50,12 +61,13 @@ import com.jcraft.jsch.Session;
  * 
  * @version $Id$
  */
-public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublisher {
+public class ScpPublisher extends CustomPublisherContainer implements ICustomPublisher, CustomPublisherUiSupport {
 
     private static final long serialVersionUID = 1L;
     private static Logger log = Logger.getLogger(ScpPublisher.class);
     public static final String ANONYMIZE_CERTIFICATES_PROPERTY_NAME = "anonymize.certificates";
 
+    public static final String SIGNING_CA_PROPERTY_NAME = "signing.ca.id";
     public static final String SSH_USERNAME = "ssh.username";
     public static final String CRL_SCP_DESTINATION_PROPERTY_NAME = "crl.scp.destination";
     public static final String CERT_SCP_DESTINATION_PROPERTY_NAME = "cert.scp.destination";
@@ -66,6 +78,8 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
 
     private static final String EKU_PKIX_OCSPSIGNING = "1.3.6.1.5.5.7.3.9";
 
+    private int signingCaId = -1;
+    
     private boolean anonymizeCertificates;
 
     private String crlSCPDestination = null;
@@ -75,6 +89,8 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
     private String sshUsername = null;
     private String privateKeyPassword = null;
     
+    private  Map<String, CustomPublisherProperty> properties = new LinkedHashMap<>();
+
     
 
     public ScpPublisher() {
@@ -93,6 +109,7 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
         if (log.isTraceEnabled()) {
             log.trace(">init");
         }
+        signingCaId = getIntProperty(properties, SIGNING_CA_PROPERTY_NAME);
         anonymizeCertificates = getBooleanProperty(properties, ANONYMIZE_CERTIFICATES_PROPERTY_NAME);
         crlSCPDestination = getProperty(properties, CRL_SCP_DESTINATION_PROPERTY_NAME);
         certSCPDestination = getProperty(properties, CERT_SCP_DESTINATION_PROPERTY_NAME);
@@ -110,15 +127,66 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
         } else {
             privateKeyPassword = "";
         }
-        addProperty(new CustomPublisherProperty(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, CustomPublisherProperty.UI_BOOLEAN,
-                Boolean.valueOf(anonymizeCertificates).toString()));
-        addProperty(new CustomPublisherProperty(SSH_USERNAME, CustomPublisherProperty.UI_TEXTINPUT, sshUsername));
-        addProperty(new CustomPublisherProperty(CRL_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, crlSCPDestination));
-        addProperty(new CustomPublisherProperty(CERT_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, certSCPDestination));
-        addProperty(new CustomPublisherProperty(SCP_PRIVATE_KEY_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpPrivateKey));
-        addProperty(new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, scpPrivateKey));
-        addProperty(new CustomPublisherProperty(SCP_KNOWN_HOSTS_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpKnownHosts));
+        
+        this.properties.put(SIGNING_CA_PROPERTY_NAME, new CustomPublisherProperty(SIGNING_CA_PROPERTY_NAME, CustomPublisherProperty.UI_SELECTONE, null,
+                null, Integer.valueOf(signingCaId).toString()));
+        this.properties.put(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, new CustomPublisherProperty(ANONYMIZE_CERTIFICATES_PROPERTY_NAME,
+                CustomPublisherProperty.UI_BOOLEAN, Boolean.valueOf(anonymizeCertificates).toString()));
+        this.properties.put(ANONYMIZE_CERTIFICATES_PROPERTY_NAME, new CustomPublisherProperty(ANONYMIZE_CERTIFICATES_PROPERTY_NAME,
+                CustomPublisherProperty.UI_BOOLEAN, Boolean.valueOf(anonymizeCertificates).toString()));
+        this.properties.put(SSH_USERNAME, new CustomPublisherProperty(SSH_USERNAME, CustomPublisherProperty.UI_TEXTINPUT, sshUsername));
+        this.properties.put(CRL_SCP_DESTINATION_PROPERTY_NAME,
+                new CustomPublisherProperty(CRL_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, crlSCPDestination));
+        this.properties.put(CERT_SCP_DESTINATION_PROPERTY_NAME,
+                new CustomPublisherProperty(CERT_SCP_DESTINATION_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, certSCPDestination));
+        this.properties.put(SCP_PRIVATE_KEY_PROPERTY_NAME,
+                new CustomPublisherProperty(SCP_PRIVATE_KEY_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpPrivateKey));
+        this.properties.put(SCP_PRIVATE_KEY_PASSWORD,
+                new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, scpPrivateKey));
+        this.properties.put(SCP_KNOWN_HOSTS_PROPERTY_NAME,
+                new CustomPublisherProperty(SCP_KNOWN_HOSTS_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpKnownHosts));
 
+    }
+    
+    
+    @Override
+    public List<CustomPublisherProperty> getCustomUiPropertyList(AuthenticationToken authenticationToken) {
+        List<CustomPublisherProperty> customProperties = new ArrayList<>();
+        
+        CaSessionLocal caSession = new EjbLocalHelper().getCaSession();
+        List<String> authorizedCaIds = new ArrayList<>();
+        List<String> authorizedCaNames = new ArrayList<>();
+        HashMap<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
+        authorizedCaIds.add("-1");
+        authorizedCaNames.add("None");
+        for(Integer caId : caSession.getAuthorizedCaIds(authenticationToken)) {
+            authorizedCaIds.add(caId.toString());
+            authorizedCaNames.add(caIdToNameMap.get(caId));
+        }
+        for(final String key : properties.keySet()) {
+            if(key.equals(SIGNING_CA_PROPERTY_NAME)) {
+                customProperties.add(new CustomPublisherProperty(SIGNING_CA_PROPERTY_NAME, CustomPublisherProperty.UI_SELECTONE, authorizedCaIds, authorizedCaNames,
+                        Integer.valueOf(signingCaId).toString()));
+            } else {
+                customProperties.add(properties.get(key));
+            }
+        }     
+        return customProperties;
+    }
+
+    @Override
+    public List<String> getCustomUiPropertyNames() {
+        return new ArrayList<>(properties.keySet());
+    }
+
+    @Override
+    public int getPropertyType(String label) {
+        CustomPublisherProperty property = properties.get(label);
+        if(property == null) {
+            return -1;
+        } else {
+            return property.getType();
+        }
     }
 
 
@@ -137,6 +205,15 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
             return true;
         } else {
             return false;
+        }
+    }
+    
+    private int getIntProperty(Properties properties, String propertyName) {
+        String property = getProperty(properties, propertyName);
+        if (StringUtils.isEmpty(property)) {
+            return -1;
+        } else {
+            return Integer.valueOf(property);
         }
     }
 
@@ -190,7 +267,7 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
                         .putArray(anon ? null : certBlob).putInt(type).putInt(status).putLong(revocationDate).putInt(revocationReason)
                         .putLong(lastUpdate).putInt(certificateProfileId).putLong(x509cert.getNotAfter().getTime());
                 final String fileName = fingerprint + ".cer";
-                performScp(fileName, sshUsername, bw.getTotal(), certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+                performScp(admin, signingCaId, fileName, sshUsername, bw.getTotal(), certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
             } catch (GeneralSecurityException | IOException | JSchException e) {
                 String msg = e.getMessage();
                 log.error(msg);
@@ -219,7 +296,7 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
         }
         String fileName = CertTools.getFingerprintAsString(incrl) + ".crl";
         try {
-            performScp(fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+            performScp(admin, signingCaId, fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
         } catch (JSchException | IOException e) {
             String msg = e.getMessage();
             log.error(msg == null ? "Unknown error" : msg, e);
@@ -255,6 +332,7 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
     /**
      * Copies the given file to the destination over SCP 
      * 
+     * @param 
      * @param destinationFileName The filename at the destination
      * @param username the username connected to the private key
      * @param password the password required to unlock the private key. May be null if the private key is not locked. 
@@ -265,9 +343,11 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
      * @param knownHostsFile the path to the .hosts file in the system
      * @throws JSchException if an SSH connection could not be established
      * @throws IOException if the file could not be written over the channel 
+     * @throws PublisherException 
      */
-    private void performScp(final String destinationFileName, final String username, final byte[] data, String destination,
-            final String privateKeyPath, final String privateKeyPassword, final String knownHostsFile) throws JSchException, IOException {
+    private void performScp(final AuthenticationToken authenticationToken, final int signingCaId, final String destinationFileName,
+            final String username, final byte[] data, String destination, final String privateKeyPath, final String privateKeyPassword,
+            final String knownHostsFile) throws JSchException, IOException, PublisherException {
         if(!(new File(privateKeyPath)).exists()) {
             throw new IllegalArgumentException("Private key file " + privateKeyPath + " was not found");
         }
@@ -275,6 +355,22 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
             throw new IllegalArgumentException("Hosts file " + knownHostsFile + " was not found");
         }
         
+        byte[] signedBytes;
+        if (signingCaId != -1) {
+            if(log.isDebugEnabled()) {
+                log.debug("Signing published certificate with CA with ID " + signingCaId);
+            }
+            try {
+                signedBytes = new EjbLocalHelper().getSignSession().signPayload(authenticationToken, data, signingCaId);
+            } catch (CryptoTokenOfflineException | CADoesntExistsException | SignRequestSignatureException | AuthorizationDeniedException e) {
+                throw new PublisherException("Could not sign certificate", e);
+            }
+        } else {
+            if(log.isDebugEnabled()) {
+                log.debug("Signing CA not defined, publishing raw certificate.");
+            }
+            signedBytes = data;
+        }        
         destination = destination.substring(destination.indexOf('@') + 1);
         String host = destination.substring(0, destination.indexOf(':'));
         String rfile = destination.substring(destination.indexOf(':') + 1);
@@ -285,12 +381,7 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
             jsch.addIdentity(privateKeyPath);
         }
         jsch.setKnownHosts(knownHostsFile);
-        Session session = jsch.getSession(username, host, 22);
-        
-       // java.util.Properties config = new java.util.Properties(); 
-       // config.put("StrictHostKeyChecking", "no");
-       // session.setConfig(config);
-        
+        Session session = jsch.getSession(username, host, 22);      
         session.connect();
         // exec 'scp -t rfile' remotely
         String command = "scp -p -t " + rfile;
@@ -302,13 +393,13 @@ public class ScpPublisher extends CustomPublisherUiBase implements ICustomPublis
         channel.connect();
         checkAck(in);
         // send "C0644 filesize filename", where filename should not include '/'
-        long filesize = data.length;
+        long filesize = signedBytes.length;
         command = "C0644 " + filesize + " " + destinationFileName + "\n";
         out.write(command.getBytes());
         out.flush();
         checkAck(in);
         byte[] buf = new byte[1024];
-        out.write(data);
+        out.write(signedBytes);
         // send '\0'
         buf[0] = 0;
         out.write(buf, 0, 1);
