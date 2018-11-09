@@ -14,6 +14,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -41,7 +43,9 @@ import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.StringTools;
+import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
@@ -246,28 +250,49 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
             try {
                 byte[] certBlob = incert.getEncoded();
                 X509Certificate x509cert = (X509Certificate) incert;
-                String fingerprint = CertTools.getFingerprintAsString(certBlob);
                 String issuerDN = CertTools.getIssuerDN(incert);
-                String serialNumber = x509cert.getSerialNumber().toString();
-                String subjectDN = CertTools.getSubjectDN(incert);
-                boolean anon = anonymizeCertificates && type == CertificateConstants.CERTTYPE_ENDENTITY;
-                if (anon) {
+                boolean redactInformation = anonymizeCertificates && type == CertificateConstants.CERTTYPE_ENDENTITY;
+                if (redactInformation) {
                     List<String> ekus = x509cert.getExtendedKeyUsage();
                     if (ekus != null)
                         for (String eku : ekus) {
                             if (eku.equals(EKU_PKIX_OCSPSIGNING)) {
-                                anon = false;
+                                redactInformation = false;
                             }
                         }
                 }
-                BlobWriter bw = new BlobWriter();
-                // Now write the object..
-                // MUST be in the same order as read by the reader!
-                bw.putString(fingerprint).putString(issuerDN).putString(serialNumber).putString(anon ? "anonymized" : subjectDN)
-                        .putArray(anon ? null : certBlob).putInt(type).putInt(status).putLong(revocationDate).putInt(revocationReason)
-                        .putLong(lastUpdate).putInt(certificateProfileId).putLong(x509cert.getNotAfter().getTime());
-                final String fileName = fingerprint + ".cer";
-                performScp(admin, signingCaId, fileName, sshUsername, bw.getTotal(), certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+                // @formatter:off
+                ScpContainer scpContainer = new ScpContainer().setIssuer(issuerDN)
+                        .setSerialNumber(x509cert.getSerialNumber())
+                        .setRevocationDate(revocationDate)
+                        .setRevocationReason(revocationReason)
+                        .setCertificateStatus(status);
+                // If we don't redact information, add in the certificate itself, as well as any other interesting info. 
+                if (!redactInformation) {
+                    scpContainer.setCertificate(incert)
+                    .setUsername(username)
+                    .setCertificateType(type)
+                    .setCertificateProfile(certificateProfileId)
+                    .setUpdateTime(lastUpdate);
+                }         
+                // @formatter:on
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutput out = null;
+                byte[] encodedObject;
+                try {
+                  out = new ObjectOutputStream(bos);   
+                  out.writeObject(scpContainer);
+                  out.flush();
+                  encodedObject = bos.toByteArray();
+                } finally {
+                  try {
+                    bos.close();
+                  } catch (IOException ex) {
+                    // NOPMD: ignore close exception
+                  }
+                }
+                final String fileName = CertTools.getFingerprintAsString(certBlob);
+                performScp(admin, signingCaId, fileName, sshUsername, encodedObject, certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
             } catch (GeneralSecurityException | IOException | JSchException e) {
                 String msg = e.getMessage();
                 log.error(msg);
@@ -361,7 +386,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 log.debug("Signing published certificate with CA with ID " + signingCaId);
             }
             try {
-                signedBytes = new EjbLocalHelper().getSignSession().signPayload(authenticationToken, data, signingCaId);
+                signedBytes = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class).signPayload(authenticationToken, data, signingCaId);
             } catch (CryptoTokenOfflineException | CADoesntExistsException | SignRequestSignatureException | AuthorizationDeniedException e) {
                 throw new PublisherException("Could not sign certificate", e);
             }
@@ -369,8 +394,9 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
             if(log.isDebugEnabled()) {
                 log.debug("Signing CA not defined, publishing raw certificate.");
             }
+            //If no signing CA is defined, just publish the ScpContainer in its raw form 
             signedBytes = data;
-        }        
+        } 
         destination = destination.substring(destination.indexOf('@') + 1);
         String host = destination.substring(0, destination.indexOf(':'));
         String rfile = destination.substring(destination.indexOf(':') + 1);
@@ -416,8 +442,9 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         // 1 for error,
         // 2 for fatal error,
         // -1
-        if (b <= 0)
+        if (b <= 0) {
             return;
+        }
         StringBuffer sb = new StringBuffer();
         int c;
         do {
@@ -425,45 +452,5 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
             sb.append((char) c);
         } while (c != '\n');
         throw new IOException("SCP error: " + sb.toString());
-    }
-
-    private static class BlobWriter {
-        private ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        BlobWriter putString(String string) throws IOException {
-            return putArray(string.getBytes("UTF-8"));
-        }
-
-        BlobWriter putArray(byte[] array) throws IOException {
-            if (array == null) {
-                return putShort(0);
-            }
-            putShort(array.length);
-            baos.write(array);
-            return this;
-        }
-
-        BlobWriter putShort(int value) {
-            baos.write((byte) (value >>> 8));
-            baos.write((byte) value);
-            return this;
-        }
-
-        BlobWriter putInt(int value) {
-            putShort(value >>> 16);
-            putShort(value);
-            return this;
-        }
-
-        BlobWriter putLong(long value) {
-            putInt((int) (value >>> 32));
-            putInt((int) value);
-            return this;
-        }
-
-        byte[] getTotal() {
-            return baos.toByteArray();
-        }
-
     }
 }
