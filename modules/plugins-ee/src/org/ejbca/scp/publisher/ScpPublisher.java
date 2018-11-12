@@ -160,7 +160,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         CaSessionLocal caSession = new EjbLocalHelper().getCaSession();
         List<String> authorizedCaIds = new ArrayList<>();
         List<String> authorizedCaNames = new ArrayList<>();
-        HashMap<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
+        final Map<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
         authorizedCaIds.add("-1");
         authorizedCaNames.add("None");
         for(Integer caId : caSession.getAuthorizedCaIds(authenticationToken)) {
@@ -357,7 +357,8 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
     /**
      * Copies the given file to the destination over SCP 
      * 
-     * @param 
+     * @param authenticationToken an authentication token, only required if the payload is to be signed. 
+     * @param signingCaId The signing CA ID. May be -1 if no signing is required. 
      * @param destinationFileName The filename at the destination
      * @param username the username connected to the private key
      * @param password the password required to unlock the private key. May be null if the private key is not locked. 
@@ -368,7 +369,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
      * @param knownHostsFile the path to the .hosts file in the system
      * @throws JSchException if an SSH connection could not be established
      * @throws IOException if the file could not be written over the channel 
-     * @throws PublisherException 
+     * @throws PublisherException is signing was required by failed for whatever reason
      */
     private void performScp(final AuthenticationToken authenticationToken, final int signingCaId, final String destinationFileName,
             final String username, final byte[] data, String destination, final String privateKeyPath, final String privateKeyPassword,
