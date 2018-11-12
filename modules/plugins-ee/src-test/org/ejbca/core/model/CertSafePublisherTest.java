@@ -11,6 +11,7 @@ package org.ejbca.core.model;
 
 import static org.junit.Assert.assertEquals;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.InvalidAlgorithmParameterException;
@@ -26,11 +27,14 @@ import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
+import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import sun.reflect.ReflectionFactory;
 
 /**
  * Unit tests for the CertSafePublisher
@@ -40,6 +44,7 @@ import org.junit.Test;
  */
 public class CertSafePublisherTest {
 
+    
     @BeforeClass
     public static void beforeClass() {
         CryptoProviderTools.installBCProviderIfNotAvailable();
@@ -47,11 +52,16 @@ public class CertSafePublisherTest {
 
     @Test
     public void testJSonSerialization() throws InvalidAlgorithmParameterException, OperatorCreationException, CertificateException,
-            NoSuchMethodException, SecurityException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, ParseException {
+            NoSuchMethodException, SecurityException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, ParseException, InstantiationException {
         KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
         X509Certificate certificate = CertTools.genSelfCert("C=SE,O=PrimeKey,CN=testJSonSerialization", 365, null, keys.getPrivate(),
                 keys.getPublic(), AlgorithmConstants.SIGALG_SHA1_WITH_RSA, true);
-        CertSafePublisher certSafePublisher = new CertSafePublisher();
+        //We want to run this test without calling the constructor. Test code, so calling a sun-package is acceptable. 
+        ReflectionFactory rf = ReflectionFactory.getReflectionFactory();
+        Constructor<CustomPublisherContainer> objDef = CustomPublisherContainer.class.getDeclaredConstructor();
+        Constructor<?> intConstr = rf.newConstructorForSerialization(CertSafePublisher.class, objDef);
+        CertSafePublisher certSafePublisher = CertSafePublisher.class.cast(intConstr.newInstance());
+        
         int status = CertificateConstants.CERT_REVOKED;
         int reason = RevocationReasons.KEYCOMPROMISE.getDatabaseValue();
         long date = 1541434399560L;
