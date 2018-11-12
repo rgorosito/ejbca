@@ -32,7 +32,6 @@ import org.ejbca.core.model.ca.publisher.BasePublisher;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
-import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
 import org.ejbca.util.JDBCUtil;
@@ -46,7 +45,7 @@ import org.ejbca.util.JDBCUtil.Preparer;
  * @version $Id$
  *
  */
-public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBase implements ICustomPublisher, CustomPublisherUiSupport  {
+public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBase implements CustomPublisherUiSupport  {
 
     private static final long serialVersionUID = -6093639031082437287L;
     private static final Logger log = Logger.getLogger(EnterpriseValidationAuthorityPublisher.class);
@@ -111,7 +110,8 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         onlyPublishRevoked = Boolean.parseBoolean(properties.getProperty(PROPERTYKEY_ONLYREVOKED, Boolean.FALSE.toString()));
         dontStoreCertificateMetadata = Boolean
                 .parseBoolean(properties.getProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, Boolean.FALSE.toString()));
-
+        setDescription(properties.getProperty(DESCRIPTION, ""));
+        addProperty(new CustomPublisherProperty(DESCRIPTION, CustomPublisherProperty.UI_TEXTINPUT, getDescription()));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_ONLYREVOKED, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(onlyPublishRevoked)));

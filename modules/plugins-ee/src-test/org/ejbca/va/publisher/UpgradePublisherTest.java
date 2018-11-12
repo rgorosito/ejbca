@@ -218,10 +218,10 @@ public class UpgradePublisherTest {
             try {
                 EnterpriseValidationAuthorityPublisher upgradedLegacyPublisher = (EnterpriseValidationAuthorityPublisher) ((CustomPublisherContainer) legacyBasePublisher)
                         .getCustomPublisher();
-                assertEquals("Description was incorrect.", description, legacyBasePublisher.getDescription());
                 assertEquals("Datasource name was incorrect.", dataSource, upgradedLegacyPublisher.getDataSource());
                 assertEquals("storeCert was incorrect.", false, upgradedLegacyPublisher.getStoreCert());
                 assertEquals("storeCRL was incorrect.", true, upgradedLegacyPublisher.getStoreCRL());
+                assertEquals("Description was incorrect.", description, upgradedLegacyPublisher.getDescription());
             } catch (ClassCastException e) {
                 log.error("Upgraded publisher was not of correct type.", e);
                 fail("Upgraded publisher was not of correct type.");
