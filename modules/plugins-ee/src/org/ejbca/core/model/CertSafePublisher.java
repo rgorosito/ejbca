@@ -91,14 +91,6 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
     public static final String JSON_REVOCATION_DATE = "revocationDate";
     public static final String JSON_CERTIFICATE = "pem";
     
-    // Revocation reasons identifiers
-    private static final String[] reasontexts = {
-        "REV_UNSPECIFIED",          "REV_KEYCOMPROMISE",    "REV_CACOMPROMISE",
-        "REV_AFFILIATIONCHANGED",   "REV_SUPERSEDED",       "REV_CESSATIONOFOPERATION",
-        "REV_CERTIFICATEHOLD",      "REV_UNUSED",           "REV_REMOVEFROMCRL",
-        "REV_PRIVILEGEWITHDRAWN",   "REV_AACOMPROMISE"
-    };
-    
     private InternalKeyBindingMgmtSessionLocal internalKeyBindingMgmtSession;
     private CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
     private CertificateStoreSessionLocal certificateStoreSession;
@@ -466,7 +458,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         String stat = "";
         if (status == CertificateConstants.CERT_REVOKED) {
             stat = "revoked";
-            json.put(JSON_REVOCATION_REASON, REVOCATION_REASONS.get(reasontexts[revocationReason]) );
+            json.put(JSON_REVOCATION_REASON, REVOCATION_REASONS.get(SecConst.reasontexts[revocationReason]) );
         } else if ( (status == CertificateConstants.CERT_UNASSIGNED) ||
                      (status == CertificateConstants.CERT_INACTIVE) ) {
             stat = "hold";
