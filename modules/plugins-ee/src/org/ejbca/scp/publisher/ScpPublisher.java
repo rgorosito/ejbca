@@ -221,23 +221,6 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         }
     }
 
-    /**
-     * Writes certificate to temporary file and executes an external command
-     * with the full pathname of the temporary file as argument. The temporary
-     * file is the encoded form of the certificate e.g. X.509 certificates would
-     * be encoded as ASN.1 DER. All parameters but incert are ignored.
-     * 
-     * @param incert
-     *            The certificate
-     * @param username
-     *            The username
-     * @param type
-     *            The certificate type
-     * 
-     * @see org.ejbca.core.model.ca.publisher.ICustomPublisher#storeCertificate(org.ejbca.core.model.log.Admin,
-     *      java.security.cert.Certificate, java.lang.String, java.lang.String,
-     *      int, int)
-     */
     @Override
     public boolean storeCertificate(AuthenticationToken admin, Certificate incert, String username, String password, String userDN, String cafp,
             int status, int type, long revocationDate, int revocationReason, String tag, int certificateProfileId, long lastUpdate,
@@ -305,15 +288,6 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         return true;
     }
 
-    /**
-     * Writes the CRL to a temporary file and executes an external command with
-     * the temporary file as argument. By default, a PublisherException is
-     * thrown if the external command returns with an errorlevel or outputs to
-     * stderr.
-     * 
-     * @see org.ejbca.core.model.ca.publisher.ICustomPublisher#storeCRL(org.ejbca.core.model.log.Admin,
-     *      byte[], java.lang.String, int)
-     */
     @Override
     public boolean storeCRL(AuthenticationToken admin, byte[] incrl, String cafp, int number, String userDN) throws PublisherException {
         if (log.isTraceEnabled()) {
@@ -321,7 +295,8 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         }
         String fileName = CertTools.getFingerprintAsString(incrl) + ".crl";
         try {
-            performScp(admin, signingCaId, fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+            //No use in signing a CRL - it's already signed - just write it in cleartext. 
+            performScp(admin, -1, fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
         } catch (JSchException | IOException e) {
             String msg = e.getMessage();
             log.error(msg == null ? "Unknown error" : msg, e);
