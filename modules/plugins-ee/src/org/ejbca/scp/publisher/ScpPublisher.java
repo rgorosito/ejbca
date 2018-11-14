@@ -23,7 +23,6 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -237,12 +236,13 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 boolean redactInformation = anonymizeCertificates && type == CertificateConstants.CERTTYPE_ENDENTITY;
                 if (redactInformation) {
                     List<String> ekus = x509cert.getExtendedKeyUsage();
-                    if (ekus != null)
+                    if (ekus != null) {
                         for (String eku : ekus) {
                             if (eku.equals(EKU_PKIX_OCSPSIGNING)) {
                                 redactInformation = false;
                             }
                         }
+                    }
                 }
                 // @formatter:off
                 ScpContainer scpContainer = new ScpContainer().setIssuer(issuerDN)
