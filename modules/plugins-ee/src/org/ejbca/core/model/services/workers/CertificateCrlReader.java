@@ -16,12 +16,15 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SignatureException;
+import java.security.cert.CRLException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,6 +35,7 @@ import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSException;
@@ -45,10 +49,16 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.Store;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.certificate.CertificateDataWrapper;
+import org.cesecore.certificates.certificate.CertificateRevokeException;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.crl.CrlStoreException;
+import org.cesecore.certificates.crl.CrlStoreSessionLocal;
 import org.cesecore.certificates.endentity.EndEntityConstants;
+import org.cesecore.certificates.util.cert.CrlExtensions;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.CustomServiceWorkerProperty;
@@ -67,9 +77,9 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
 
     private static final Logger log = Logger.getLogger(CertificateCrlReader.class);
 
-    private static final String CERTIFICATE_DIRECTORY_KEY = "certificate.directory";
-    private static final String CRL_DIRECTORY_KEY = "crl.directory";
-    private static final String SIGNING_CA_ID_KEY = "signing.ca.id";
+    public static final String CERTIFICATE_DIRECTORY_KEY = "certificate.directory";
+    public static final String CRL_DIRECTORY_KEY = "crl.directory";
+    public static final String SIGNING_CA_ID_KEY = "signing.ca.id";
 
     private final JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder;
 
@@ -115,65 +125,97 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         //Read certificate directory 
         File certificateDirectory = getDirectory(getCertificateDirectory(properties));
         File crlDirectory = getDirectory(getCRLDirectory(properties));
-        final CaSessionLocal caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
-        int caId = getCaId(properties);
-        List<Certificate> caChain;
-        if (caId != -1) {
-            CAInfo signingCa;
-            try {
-                signingCa = caSession.getCAInfo(admin, getCaId(properties));
-            } catch (AuthorizationDeniedException e) {
-                throw new ServiceExecutionFailedException("Certificate Reader does not have access to CA with id " + getCaId(properties));
-            }
-            caChain = signingCa.getCertificateChain();
-        } else {
-            caChain = null;
-        }
         if (certificateDirectory != null) {
             if (!certificateDirectory.canRead() || !certificateDirectory.canWrite()) {
                 throw new ServiceExecutionFailedException("Certificate Reader lacks read and/or write rights to directory " + certificateDirectory);
             }
-
+            final CaSessionLocal caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
+            int caId = getCaId(properties);
+            List<Certificate> caChain;
+            if (caId != -1) {
+                CAInfo signingCa;
+                try {
+                    signingCa = caSession.getCAInfo(admin, getCaId(properties));
+                } catch (AuthorizationDeniedException e) {
+                    throw new ServiceExecutionFailedException("Certificate Reader does not have access to CA with id " + getCaId(properties));
+                }
+                caChain = signingCa.getCertificateChain();
+            } else {
+                caChain = null;
+            }
             for (final File file : certificateDirectory.listFiles()) {
                 final String fileName = file.getName();
-                byte[] signedData = null;
+                byte[] signedData;
                 try {
-                    FileInputStream fileInputStream = new FileInputStream(file);
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream(10000);
-                    byte[] buffer = new byte[10000];
-                    int bytes;
-                    while ((bytes = fileInputStream.read(buffer)) != -1) {
-                        baos.write(buffer, 0, bytes);
-                    }
-                    fileInputStream.close();
-                    signedData = baos.toByteArray();
+                    signedData = getFileFromDisk(file);
                 } catch (IOException e) {
-                    log.info("File '" + fileName + "' could not be read.");
+                    log.error("File '" + fileName + "' could not be read.");
                     continue;
                 }
 
                 byte[] data;
                 try {
                     data = getAndVerifySignedData(signedData, caChain);
+                    
                 } catch (SignatureException | CertificateException e) {
-                    throw new ServiceExecutionFailedException("Could not get/verify signed certificate file", e);
+                    log.error("Could not get/verify signed certificate file. Certificate saved in file " + fileName, e);
+                    continue;
                 }
                 if (log.isDebugEnabled()) {
                     log.debug("File '" + fileName + "' successfully verified");
                 }
                 try {
                     storeCertificate(ejbs, data);
+                    file.delete();
                 } catch (AuthorizationDeniedException e) {
-                    throw new ServiceExecutionFailedException("Service not authorized to store certificates in database.", e);
+                    log.error("Service not authorized to store certificates in database. Certificate saved in file " + fileName, e);
+                    continue;
                 }
                 if (log.isDebugEnabled()) {
                     log.debug("File '" + fileName + "' successfully decoded");
                 }
-                file.delete();
 
             }
 
         }
+        if (crlDirectory != null) {
+            if (!crlDirectory.canRead() || !crlDirectory.canWrite()) {
+                throw new ServiceExecutionFailedException("Certificate Reader lacks read and/or write rights to directory " + crlDirectory);
+            }
+            for (final File file : crlDirectory.listFiles()) {
+                final String fileName = file.getName();
+                byte[] crlData = null;
+                try {
+                    crlData = getFileFromDisk(file);
+                } catch (IOException e) {
+                    log.error("File '" + fileName + "' could not be read.");
+                    continue;
+                }
+                try {
+                    storeCrl(ejbs, crlData);
+                    file.delete();
+                } catch (CRLException e) {
+                    log.error("CRL could not be stored on the database. CRL stored in file " + fileName, e);
+                    continue;
+                } catch (CADoesntExistsException e) {
+                    log.error("CA that issued imported CRL does not exist on this CRL stored in file " + fileName, e);
+                    continue;
+                }
+      
+            }
+        }
+    }
+    
+    private byte[] getFileFromDisk(final File file) throws IOException {
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(10000);
+        byte[] buffer = new byte[10000];
+        int bytes;
+        while ((bytes = fileInputStream.read(buffer)) != -1) {
+            baos.write(buffer, 0, bytes);
+        }
+        fileInputStream.close();
+        return baos.toByteArray();
     }
 
     /**
@@ -192,24 +234,72 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         int caId = scpObject.getIssuer().hashCode();
         CAInfo caInfo = caSession.getCAInfoInternal(caId);
         final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
-        if (scpObject.getCertificate() == null) {
-            //Information has been redacted, just write the minimum 
-            certificateStoreSession.updateLimitedCertificateDataStatus(admin, caId, scpObject.getIssuer(), scpObject.getSerialNumber(),
-                    new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason(), caFingerprint);
+        Certificate certificate = scpObject.getCertificate();
+        if (certificate == null) {
+            CertificateDataWrapper cdw = certificateStoreSession.getCertificateDataByIssuerAndSerno(scpObject.getIssuer(), scpObject.getSerialNumber());
+
+            if (cdw != null) {
+                //Certificate already exist, just update status
+                try {
+                    certificateStoreSession.setRevokeStatus(admin, cdw, new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason());
+                } catch (CertificateRevokeException e) {
+                    log.info("Certificate with issuer " + scpObject.getIssuer() + " and serial number " + scpObject + " was already revoked.", e);
+                }
+              
+            } else {
+              //Information has been redacted, just write the minimum 
+                certificateStoreSession.updateLimitedCertificateDataStatus(admin, caId, scpObject.getIssuer(), scpObject.getSerialNumber(),
+                        new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason(), caFingerprint);
+            }
         } else {
             final int endEntityProfileId = EndEntityConstants.NO_END_ENTITY_PROFILE;
-            final Certificate certificate = scpObject.getCertificate();
             final String username = scpObject.getUsername();
             final int certificateStatus = scpObject.getCertificateStatus();
             final int certificateType = scpObject.getCertificateType();
             final int certificateProfile = scpObject.getCertificateProfile();
             final long updateTime = scpObject.getUpdateTime();
             certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, certificateStatus, certificateType,
-                    certificateProfile, endEntityProfileId, null, updateTime);
-
+                    certificateProfile, endEntityProfileId, null, updateTime);          
         }
     }
 
+    /**
+     * Stores an imported CRL to the database. 
+     * log.error("CRL from file " + fileName + " couldn't be read.");
+     * @param ejbs
+     * @param crlData
+     * @throws CRLException if the CRL specified by the byte array couldn't be read
+     * @throws CADoesntExistsException if the CA that issued the CRL hasn't been imported on this machine 
+     * @throws ServiceExecutionFailedException if the CRL could not be stored on the database
+     */
+    private void storeCrl(final Map<Class<?>, Object> ejbs, final byte[] crlData) throws CRLException, CADoesntExistsException, ServiceExecutionFailedException {
+        CrlStoreSessionLocal crlStoreSession = (CrlStoreSessionLocal) ejbs.get(CrlStoreSessionLocal.class);
+        X509CRL crl = CertTools.getCRLfromByteArray(crlData);
+
+        final CaSessionLocal caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
+        CAInfo caInfo = caSession.getCAInfoInternal(CertTools.getIssuerDN(crl).hashCode());
+        if(caInfo == null) {
+            throw new CADoesntExistsException("CA with subject DN " + CertTools.getIssuerDN(crl) + " does not exist, cannot import CRL for it.");
+        }
+        final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
+        BigInteger crlnumber = CrlExtensions.getCrlNumber(crl);
+        final String issuerDn = CertTools.getIssuerDN(crl);
+        int isDeltaCrl = (crl.getExtensionValue(Extension.deltaCRLIndicator.getId()) != null ? -1 : 1);
+        if(crlStoreSession.getCRL(issuerDn, crlnumber.intValue()) == null) {
+            try {
+                crlStoreSession.storeCRL(admin, crlData, caFingerprint, crlnumber.intValue(), issuerDn, crl.getThisUpdate(), crl.getNextUpdate(), isDeltaCrl);
+            } catch (CrlStoreException e) {
+                throw new ServiceExecutionFailedException("An error occurred while storing the CRL.", e);
+            } catch (AuthorizationDeniedException e) {
+                throw new ServiceExecutionFailedException("Service not authorized to store CRLs in database.", e);
+            }
+        } else {
+            if(log.isDebugEnabled()) {
+                log.debug("CRL with number " + crlnumber.intValue() + " and issuer " + issuerDn + " already found in DB - skipping.");
+            }
+        }
+    }
+    
     /**
      * 
      * @param data a serialized ScpContainer

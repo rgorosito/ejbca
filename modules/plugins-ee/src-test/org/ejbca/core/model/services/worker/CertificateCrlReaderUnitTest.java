@@ -26,6 +26,7 @@ import java.util.List;
 
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.crl.RevocationReasons;
+import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.TraceLogMethodsRule;
@@ -37,12 +38,12 @@ import org.junit.Test;
 import org.junit.rules.TestRule;
 
 /**
- * Test class for the CertificateCrlReader Worker
+ * Unit tests for the CertificateCrlReader Worker
  * 
  * @version $Id$
  *
  */
-public class CertificateCrlReaderTest {
+public class CertificateCrlReaderUnitTest {
 
     /**
      * An unsigned, anonymized revocation.
@@ -293,8 +294,9 @@ public class CertificateCrlReaderTest {
             + "5dUvjwpxFTadx3QwFuoswGPSg2/WQqqo/0mO0B4sKWilZIflVBFqM4W+xfGSatif\n"
             + "Fhj1q+rlkkCghxIsFokpfE2i0h/zFiYCFpVgBDcrT8+MeKobxAA8GVXPnyjkk8DD\n"
             + "CpGKyqvcwkgKWj4Ubn+6y1bs9FLT4zHpXmbS+BaPeC/uupzFa4kQ5MiHtWb8wkjf\n"
-            + "NKWDRcPn9rsn+qeYZ5o9Qz53girVew3Gvc9EX9o5a28H6ZGw1vRJy/P1IBE67hg=\n" + "-----END CERTIFICATE-----";
-
+            + "NKWDRcPn9rsn+qeYZ5o9Qz53girVew3Gvc9EX9o5a28H6ZGw1vRJy/P1IBE67hg=\n" 
+            + "-----END CERTIFICATE-----";
+    
     @Rule
     public TestRule traceLogMethodsRule = new TraceLogMethodsRule();
 
