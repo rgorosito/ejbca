@@ -10,12 +10,9 @@
 
 package org.ejbca.scp.publisher;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -245,7 +242,8 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                     }
                 }
                 // @formatter:off
-                ScpContainer scpContainer = new ScpContainer().setIssuer(issuerDN)
+                ScpContainer scpContainer = new ScpContainer()
+                        .setIssuer(issuerDN)
                         .setSerialNumber(x509cert.getSerialNumber())
                         .setRevocationDate(revocationDate)
                         .setRevocationReason(revocationReason)
@@ -259,21 +257,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                     .setUpdateTime(lastUpdate);
                 }         
                 // @formatter:on
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ObjectOutput out = null;
-                byte[] encodedObject;
-                try {
-                  out = new ObjectOutputStream(bos);   
-                  out.writeObject(scpContainer);
-                  out.flush();
-                  encodedObject = bos.toByteArray();
-                } finally {
-                  try {
-                    bos.close();
-                  } catch (IOException ex) {
-                    // NOPMD: ignore close exception
-                  }
-                }
+                byte[] encodedObject = scpContainer.getEncoded();              
                 final String fileName = CertTools.getFingerprintAsString(certBlob);
                 performScp(admin, signingCaId, fileName, sshUsername, encodedObject, certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
             } catch (GeneralSecurityException | IOException | JSchException e) {

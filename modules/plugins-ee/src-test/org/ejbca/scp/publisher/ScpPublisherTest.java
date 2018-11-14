@@ -97,6 +97,7 @@ public class ScpPublisherTest {
         //To check that publisher works, verify that the published certificate exists at the location
     }
     
+    @Ignore 
     @Test
     public void testPublishCrl() throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, PublisherException {
         ScpPublisher scpPublisher = new ScpPublisher();

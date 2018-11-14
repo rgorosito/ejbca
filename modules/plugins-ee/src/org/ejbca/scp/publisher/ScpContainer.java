@@ -9,6 +9,10 @@
  *************************************************************************/
 package org.ejbca.scp.publisher;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.security.cert.Certificate;
@@ -165,6 +169,30 @@ public class ScpContainer extends UpgradeableDataHashMap implements Serializable
                 throw new IllegalStateException("Could not decode certificate.", e);
             }
         }
+    }
+
+    /**
+     * 
+     * @return this object as a byte array
+     * @throws IOException if this object could not be encoded
+     */
+    public byte[] getEncoded() throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutput out = null;
+        byte[] encodedObject;
+        try {
+            out = new ObjectOutputStream(bos);
+            out.writeObject(this);
+            out.flush();
+            encodedObject = bos.toByteArray();
+        } finally {
+            try {
+                bos.close();
+            } catch (IOException ex) {
+                // NOPMD: ignore close exception
+            }
+        }
+        return encodedObject;
     }
 
 }
