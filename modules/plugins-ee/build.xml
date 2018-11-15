@@ -37,6 +37,7 @@
 	
 	<path id="test.classpath">
 		<path refid="compile-ejbca.classpath"/>
+		<path refid="lib.commons-io.classpath"/>
 		<path refid="lib.junit.classpath"/>
 		<path refid="lib.jee-client.classpath"/>
 		<path refid="lib.cert-cvc.classpath"/> 
