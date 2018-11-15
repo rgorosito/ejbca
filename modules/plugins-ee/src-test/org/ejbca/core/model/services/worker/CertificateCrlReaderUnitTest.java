@@ -26,7 +26,6 @@ import java.util.List;
 
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.crl.RevocationReasons;
-import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.TraceLogMethodsRule;
