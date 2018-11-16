@@ -56,10 +56,10 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
     // Set of variables to track for objects to be removed as test results
     private Certificate testCertificate;
     private List<Integer> publishers;
-    private List<String> publisherQueueFingerprints;
+    private final List<String> publisherQueueFingerprints = new ArrayList<>();
     private String caName = null;
     private String endEntityManagementUsername = null;
-    private List<String> certificateProfileUsernames = new ArrayList<>();
+    private final List<String> certificateProfileUsernames = new ArrayList<>();
     private X509Certificate x509Certificate = null;
     private String endEntityProfileUsername = null;
 
@@ -76,28 +76,31 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
                 publisherName,
                 enterpriseValidationAuthorityPublisher);
         publishers.add(publisherId);
-        publisherQueueFingerprints = new ArrayList<>();
     }
-
+    
     @After
     public void tearDown() throws AuthorizationDeniedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException {
         // Remove certificate
         internalCertStoreSession.removeCertificate(testCertificate);
         // Flush publisher queue
-        for(String fingerprint : publisherQueueFingerprints) {
-            for (PublisherQueueData publisherQueueEntry : publisherQueueSession.getEntriesByFingerprint(fingerprint)) {
+        for(final String fingerprint : publisherQueueFingerprints) {
+            for (final PublisherQueueData publisherQueueEntry : publisherQueueSession.getEntriesByFingerprint(fingerprint)) {
                 publisherQueueSession.removeQueueData(publisherQueueEntry.getPk());
             }
         }
         // Flush publishers
-        for (int publisherEntry : publishers) {
+        publisherProxySession.removePublisherInternal(internalAdminToken, publisherName);
+        for (final int publisherEntry : publishers) {
             publisherProxySession.removePublisherInternal(internalAdminToken, publisherProxySession.getPublisherName(publisherEntry));
         }
+		
         // Remove CA if exists
         if(caName != null) {
             final CAInfo caInfo = caSession.getCAInfo(internalAdminToken, caName);
-            cryptoTokenManagementSession.deleteCryptoToken(internalAdminToken, caInfo.getCAToken().getCryptoTokenId());
-            caSession.removeCA(internalAdminToken, caInfo.getCAId());
+            if (caInfo != null && caInfo.getCAToken() != null) {
+                cryptoTokenManagementSession.deleteCryptoToken(internalAdminToken, caInfo.getCAToken().getCryptoTokenId());
+                caSession.removeCA(internalAdminToken, caInfo.getCAId());
+            }
         }
         // Remove end entity if exists
         if(endEntityManagementUsername != null) {
@@ -107,7 +110,7 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
         }
         // Remove certificate profiles if exists
         if(!certificateProfileUsernames.isEmpty()) {
-            for(String certificateProfileUsername : certificateProfileUsernames) {
+            for(final String certificateProfileUsername : certificateProfileUsernames) {
                 certificateProfileSession.removeCertificateProfile(internalAdminToken, certificateProfileUsername);
             }
         }
