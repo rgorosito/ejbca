@@ -111,7 +111,6 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         dontStoreCertificateMetadata = Boolean
                 .parseBoolean(properties.getProperty(PROPERTYKEY_DONTSTORECERTIFICATEMETADATA, Boolean.FALSE.toString()));
         setDescription(properties.getProperty(DESCRIPTION, ""));
-        addProperty(new CustomPublisherProperty(DESCRIPTION, CustomPublisherProperty.UI_TEXTINPUT, getDescription()));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_DATASOURCE, CustomPublisherProperty.UI_TEXTINPUT, dataSource));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_STORECERT, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(storeCertificate)));
         addProperty(new CustomPublisherProperty(PROPERTYKEY_ONLYREVOKED, CustomPublisherProperty.UI_BOOLEAN, Boolean.toString(onlyPublishRevoked)));
