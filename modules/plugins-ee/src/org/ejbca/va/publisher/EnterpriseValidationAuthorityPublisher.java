@@ -394,8 +394,15 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
             } else {
                 base64Cert = null;
             }
-            final boolean isCaCert = CertTools.isCA(CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class));
-            final boolean isOcspCert = CertTools.isOCSPCert(CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class));
+            
+            
+            final X509Certificate x509Certificate = (this.base64Cert != null) ? 
+                    CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class) : 
+                    null;
+                    
+            final boolean isCaCert = (x509Certificate != null) ? CertTools.isCA(x509Certificate) : false;
+            final boolean isOcspCert = (x509Certificate != null) ? CertTools.isOCSPCert(x509Certificate) : false;
+            
             // Don't store user sensitive certificate data
             final boolean limitMetaData = dontStoreCertificateMetadata && !isCaCert && !isOcspCert;
             ps.setString(1, limitMetaData ? null : base64Cert);
