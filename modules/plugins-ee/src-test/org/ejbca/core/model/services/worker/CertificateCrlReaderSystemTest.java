@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.cesecore.CaTestUtils;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -74,6 +75,8 @@ import org.junit.rules.TestRule;
  */
 public class CertificateCrlReaderSystemTest {
 
+    private static final Logger log = Logger.getLogger(CertificateCrlReaderSystemTest.class);
+
     @Rule
     public TestRule traceLogMethodsRule = new TraceLogMethodsRule();
 
@@ -104,6 +107,7 @@ public class CertificateCrlReaderSystemTest {
      */
     @Test
     public void testReadCertificateFromDisk() throws Exception {
+        log.trace(">testReadCertificateFromDisk");
         //Create an issuing CA
         final String endEntitySubjectDn = "CN=testReadCrlFromDiskUser";
         final String issuerDn = "CN=testReadCertificateFromDisk";
@@ -176,7 +180,7 @@ public class CertificateCrlReaderSystemTest {
         } finally {
             CaTestUtils.removeCa(admin, testCa.getCAInfo());
             internalCertificateStoreSession.removeCertificate(usercert);
-
+            log.trace("<testReadCertificateFromDisk");
         }
     }
     
@@ -185,6 +189,7 @@ public class CertificateCrlReaderSystemTest {
      */
     @Test
     public void testReadCrlFromDisk() throws Exception {
+        log.trace(">testReadCrlFromDisk");
         final String endEntitySubjectDn = "CN=testReadCrlFromDiskUser";
         //Create an issuing CA
         final String issuerDn = "CN=testReadCertificateFromDisk";
@@ -199,7 +204,7 @@ public class CertificateCrlReaderSystemTest {
             CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
             Certificate usercert = testCa.generateCertificate(cryptoToken, user, keypair.getPublic(), 0, null, "10d", certificateProfile, "00000",
                     null);
-            Collection<RevokedCertInfo> revcerts = new ArrayList<RevokedCertInfo>();
+            Collection<RevokedCertInfo> revcerts = new ArrayList<>();
             revcerts.add(new RevokedCertInfo(CertTools.getFingerprintAsString(usercert).getBytes(), CertTools.getSerialNumber(usercert).toByteArray(),
                     revDate.getTime(), RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD, CertTools.getNotAfter(usercert).getTime()));
             final int crlNumber = 1337;
@@ -208,7 +213,7 @@ public class CertificateCrlReaderSystemTest {
             final String serviceName = "testReadCrlFromDisk";
             File crlFolder = folder.newFolder();
             if (!crlFolder.setReadable(true, false) || !crlFolder.setWritable(true, false)) {
-                throw new IllegalStateException("Can't changes access rules for test folder.");
+                log.info("Can't changes file access mode for test folder " + crlFolder.getAbsolutePath() + " (expected on Windows)");
             }
             File crlFile = new File(crlFolder, "canned.crl");
             //Write CRL to disk
@@ -229,6 +234,7 @@ public class CertificateCrlReaderSystemTest {
             }
         } finally {
             CaTestUtils.removeCa(admin, testCa.getCAInfo());
+            log.trace("<testReadCrlFromDisk");
         }
 
     }
