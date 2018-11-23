@@ -19,6 +19,9 @@ import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.certificates.certificate.CertificateConstants;
@@ -74,10 +77,19 @@ public class CertSafePublisherTest {
         assertEquals("Revocation reason was not correctly JSON serialized", "keyCompromise",
                 jsonObject.get(CertSafePublisher.JSON_REVOCATION_REASON));
         assertEquals("Certificate Status was not correctly JSON serialized", "revoked", jsonObject.get(CertSafePublisher.JSON_STATUS));
-        assertEquals("Revocation date was not correctly JSON serialized", "2018-11-05 05:13:19 CET",
-                jsonObject.get(CertSafePublisher.JSON_REVOCATION_DATE));
+        assertEquals("Revocation date was not correctly JSON serialized", parseDate("2018-11-05 05:13:19 CET"),
+                parseDate((String) jsonObject.get(CertSafePublisher.JSON_REVOCATION_DATE)));
         assertEquals("Certificate was not correctly JSON serialized", CertTools.getPemFromCertificate(certificate),
                 jsonObject.get(CertSafePublisher.JSON_CERTIFICATE));
+    }
+    
+    private Date parseDate(final String date) {
+        final DateFormat df = new SimpleDateFormat("YYYY-MM-dd hh:mm:ss z");
+        try {
+            return df.parse(date);
+        } catch (java.text.ParseException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
 }
