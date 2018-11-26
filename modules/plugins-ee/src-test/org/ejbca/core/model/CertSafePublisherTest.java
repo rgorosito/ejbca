@@ -23,6 +23,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.apache.log4j.Logger;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.crl.RevocationReasons;
@@ -47,7 +48,8 @@ import sun.reflect.ReflectionFactory;
  */
 public class CertSafePublisherTest {
 
-    
+    private static final Logger log = Logger.getLogger(CertSafePublisherTest.class);
+
     @BeforeClass
     public static void beforeClass() {
         CryptoProviderTools.installBCProviderIfNotAvailable();
@@ -77,14 +79,22 @@ public class CertSafePublisherTest {
         assertEquals("Revocation reason was not correctly JSON serialized", "keyCompromise",
                 jsonObject.get(CertSafePublisher.JSON_REVOCATION_REASON));
         assertEquals("Certificate Status was not correctly JSON serialized", "revoked", jsonObject.get(CertSafePublisher.JSON_STATUS));
-        assertEquals("Revocation date was not correctly JSON serialized", parseDate("2018-11-05 05:13:19 CET"),
-                parseDate((String) jsonObject.get(CertSafePublisher.JSON_REVOCATION_DATE)));
+        // Check date
+        final String actualDateString = (String) jsonObject.get(CertSafePublisher.JSON_REVOCATION_DATE);
+        log.debug("Date string from JSON: " + actualDateString);
+        final Date actualDate = parseDate(actualDateString);
+        final Date expectedDate = parseDate("2018-11-05 17:13:19 CET");
+        log.debug("Expected date in current timezone: " + expectedDate);
+        log.debug("Actual date in current timezone:   " + actualDate);
+        log.debug("Expected timestamp: " + expectedDate.getTime());
+        log.debug("Actual timestamp:   " + actualDate.getTime());
+        assertEquals("Revocation date was not correctly JSON serialized", expectedDate, actualDate);
         assertEquals("Certificate was not correctly JSON serialized", CertTools.getPemFromCertificate(certificate),
                 jsonObject.get(CertSafePublisher.JSON_CERTIFICATE));
     }
     
     private Date parseDate(final String date) {
-        final DateFormat df = new SimpleDateFormat("YYYY-MM-dd hh:mm:ss z");
+        final DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         try {
             return df.parse(date);
         } catch (java.text.ParseException e) {
