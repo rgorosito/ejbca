@@ -482,7 +482,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         }
         int index = certStr.indexOf(CertTools.BEGIN_CERTIFICATE);
         certStr = certStr.substring(index);
-        DateFormat df = new SimpleDateFormat("YYYY-MM-dd hh:mm:ss z");
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         json.put(JSON_REVOCATION_DATE, df.format(new Date(revocationDate)));
         json.put(JSON_CERTIFICATE, certStr);
         String ret = json.toString();
