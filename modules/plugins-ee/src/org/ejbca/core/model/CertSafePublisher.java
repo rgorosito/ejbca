@@ -71,6 +71,8 @@ import org.json.simple.parser.ParseException;
  * A publisher that sends certificate issuance and life cycle events (revoke and unrevoke)
  * to a HTTPS server. The HTTPS request content (aka. the certificate and other related
  * data) is sent inside a JSON object.
+ * <p>
+ * See ECA-3437.
  *
  * @version $Id$
  */
@@ -482,6 +484,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         }
         int index = certStr.indexOf(CertTools.BEGIN_CERTIFICATE);
         certStr = certStr.substring(index);
+        certStr = certStr.replaceAll("\r\n?", "\n"); // normalize \r\n (Windows) and \r (Mac) to always have \n, which is used in the API examples.
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         json.put(JSON_REVOCATION_DATE, df.format(new Date(revocationDate)));
         json.put(JSON_CERTIFICATE, certStr);
