@@ -211,6 +211,11 @@ public class UpgradePublisherTest {
         legacyValidationAuthorityPublisher.setName(legacyPublisherName);
         legacyValidationAuthorityPublisher.setStoreCert(false);
         legacyValidationAuthorityPublisher.setStoreCRL(true);
+        legacyValidationAuthorityPublisher.setOnlyPublishRevoked(true);
+        legacyValidationAuthorityPublisher.setOnlyUseQueue(true);
+        legacyValidationAuthorityPublisher.setKeepPublishedInQueue(true);
+        legacyValidationAuthorityPublisher.setUseQueueForCertificates(true);
+        legacyValidationAuthorityPublisher.setUseQueueForCRLs(false);
         publisherProxySession.addPublisher(internalAdmin, legacyPublisherName, legacyValidationAuthorityPublisher);
         try {
             upgradeSession.upgrade(null, "6.3.1", true);
@@ -218,10 +223,17 @@ public class UpgradePublisherTest {
             try {
                 EnterpriseValidationAuthorityPublisher upgradedLegacyPublisher = (EnterpriseValidationAuthorityPublisher) ((CustomPublisherContainer) legacyBasePublisher)
                         .getCustomPublisher();
+                // Check VA Publisher properties
                 assertEquals("Datasource name was incorrect.", dataSource, upgradedLegacyPublisher.getDataSource());
                 assertEquals("storeCert was incorrect.", false, upgradedLegacyPublisher.getStoreCert());
                 assertEquals("storeCRL was incorrect.", true, upgradedLegacyPublisher.getStoreCRL());
-                assertEquals("Description was incorrect.", description, upgradedLegacyPublisher.getDescription());
+                assertEquals("onlyPublishRevoked was incorrect.", true, upgradedLegacyPublisher.getOnlyPublishRevoked());
+                // Check base properties also
+                assertEquals("Description was incorrect.", description, legacyBasePublisher.getDescription());
+                assertEquals("onlyUseQueue was incorrect.", true, legacyBasePublisher.getOnlyUseQueue());
+                assertEquals("keepPublishedInQueue was incorrect.", true, legacyBasePublisher.getKeepPublishedInQueue());
+                assertEquals("useQueueForCertificates was incorrect.", true, legacyBasePublisher.getUseQueueForCertificates());
+                assertEquals("useQueueForCRLs was incorrect.", false, legacyBasePublisher.getUseQueueForCRLs());
             } catch (ClassCastException e) {
                 log.error("Upgraded publisher was not of correct type.", e);
                 fail("Upgraded publisher was not of correct type.");
