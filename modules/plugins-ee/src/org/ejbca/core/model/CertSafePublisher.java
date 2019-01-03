@@ -57,6 +57,7 @@ import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.StringTools;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
@@ -484,7 +485,7 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         }
         int index = certStr.indexOf(CertTools.BEGIN_CERTIFICATE);
         certStr = certStr.substring(index);
-        certStr = certStr.replaceAll("\r\n?", "\n"); // normalize \r\n (Windows) and \r (Mac) to always have \n, which is used in the API examples.
+        certStr = StringTools.normalizeNewlines(certStr); // normalize \r\n (Windows) and \r (Mac) to always have \n, which is used in the API examples.
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         json.put(JSON_REVOCATION_DATE, df.format(new Date(revocationDate)));
         json.put(JSON_CERTIFICATE, certStr);
