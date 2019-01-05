@@ -12,11 +12,10 @@
  *************************************************************************/
 package org.ejbca.core.model.services.worker;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.X509CRL;
@@ -145,12 +144,14 @@ public class CertificateCrlReaderSystemTest {
             try {
                 serviceSession.addService(admin, serviceName, config);
                 serviceSession.activateServiceTimer(admin, serviceName);
-                //Wait then verify that certificate has been read to disk
-                Thread.sleep(4000);
-                assertNotNull("Certificate was not scanned by service",
-                        certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, CertTools.getSerialNumber(usercert)));
+                // Verify that the certificate gets read from disk
+                if (!waitForCertificateToExist(issuerDn, usercert)) {
+                    fail("Certificate was not scanned by service");
+                }
                 //Verify that the CRL has been removed from the folder
-                assertFalse("Certificate file was not removed after being scanned.", activeCertificateFile.exists());
+                if (!waitForFileDeletion(activeCertificateFile)) {
+                    fail("Certificate file was not removed after being scanned.");
+                }
             } finally {
                 serviceSession.removeService(admin, serviceName);
             }
@@ -166,24 +167,25 @@ public class CertificateCrlReaderSystemTest {
             try {
                 serviceSession.addService(admin, serviceName, config);
                 serviceSession.activateServiceTimer(admin, serviceName);
-                //Wait then verify that certificate has been read to disk
-                Thread.sleep(4000);
-                assertNotNull("Certificate no longest exists?",
-                        certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, CertTools.getSerialNumber(usercert)));
-                assertTrue("Certificate was not revoked", certificateStoreSessionRemote.isRevoked(issuerDn, CertTools.getSerialNumber(usercert)));
-                //Verify that the CRL has been removed from the folder
-                assertFalse("Certificate file was not removed after being scanned.", activeCertificateFile.exists());
+                // Verify that the certificate gets read from disk
+                Thread.sleep(2000);
+                if (!waitForCertificateToBeRevoked(issuerDn, usercert)) {
+                    fail("Certificate was not revoked");
+                }
+                // Verify that the certificate gets removed from the folder
+                if (!waitForFileDeletion(activeCertificateFile)) {
+                    fail("Certificate file was not removed after being scanned.");
+                }
             } finally {
                 serviceSession.removeService(admin, serviceName);
             }
-            
         } finally {
             CaTestUtils.removeCa(admin, testCa.getCAInfo());
             internalCertificateStoreSession.removeCertificate(usercert);
             log.trace("<testReadCertificateFromDisk");
         }
     }
-    
+
     /**
      * This test will write a CRL to a temporary file area and then use the CertificateCrlReader to import it to the system. 
      */
@@ -223,11 +225,14 @@ public class CertificateCrlReaderSystemTest {
             try {
                 serviceSession.addService(admin, serviceName, config);
                 serviceSession.activateServiceTimer(admin, serviceName);
-                //Wait a second, then verify that CRL has been read to disk
-                Thread.sleep(4000);
-                assertNotNull("CRL was not scanned by service", crlStoreSession.getCRL(issuerDn, crlNumber));
-                //Verify that the CRL has been removed from the folder
-                assertFalse("CRL file was not removed after being scanned.", crlFile.exists());
+                // Verify that the certificate gets read from disk
+                if (!waitForCrlToExist(issuerDn, crlNumber)) {
+                    fail("CRL was not scanned by service");
+                }
+                // Verify that the CRL gets removed from the folder
+                if (!waitForFileDeletion(crlFile)) {
+                    fail("CRL file was not removed after being scanned.");
+                }
             } finally {
                 serviceSession.removeService(admin, serviceName);
                 internalCrlStoreSession.removeCrl(issuerDn);
@@ -236,7 +241,89 @@ public class CertificateCrlReaderSystemTest {
             CaTestUtils.removeCa(admin, testCa.getCAInfo());
             log.trace("<testReadCrlFromDisk");
         }
+    }
 
+    /**
+     * Wait for a certificate to be imported
+     * @return true if it was imported, false on timeout
+     */
+    private boolean waitForCertificateToExist(final String issuerDn, final Certificate usercert) throws InterruptedException {
+        final long startTime = System.currentTimeMillis();
+        for (int i = 0; i <= 30*2; i++) {
+            final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, CertTools.getSerialNumber(usercert));
+            if (cert != null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Certificate found after " + (System.currentTimeMillis() - startTime) + " ms");
+                }
+                return true; // cert has been imported now
+            }
+            Thread.sleep(500);
+        }
+        log.debug("Timed out waiting for certificate to be imported");
+        return false; // timeout after 30 seconds
+    }
+
+    /**
+     * Wait for a certificate to be revoked
+     * @return true if it was revoked, false on timeout
+     */
+    private boolean waitForCertificateToBeRevoked(final String issuerDn, final Certificate usercert) throws InterruptedException {
+        final long startTime = System.currentTimeMillis();
+        final BigInteger serialNumber = CertTools.getSerialNumber(usercert);
+        for (int i = 0; i <= 30*2; i++) {
+            final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, serialNumber);
+            if (cert == null) {
+                fail("Certificate no longest exists?");
+            }
+            if (certificateStoreSessionRemote.isRevoked(issuerDn, serialNumber)) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Certificate revoked after " + (System.currentTimeMillis() - startTime) + " ms");
+                }
+                return true;
+            }
+            Thread.sleep(500);
+        }
+        log.debug("Timed out waiting for certificate to be revoked");
+        return false; // timeout after 30 seconds
+    }
+
+    /**
+     * Wait for a CRL to be imported
+     * @return true if it was imported, false on timeout
+     */
+    private boolean waitForCrlToExist(final String issuerDn, final int crlNumber) throws InterruptedException {
+        final long startTime = System.currentTimeMillis();
+        for (int i = 0; i <= 30*2; i++) {
+            final byte[] crl = crlStoreSession.getCRL(issuerDn, crlNumber);
+            if (crl != null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("CRL found after " + (System.currentTimeMillis() - startTime) + " ms");
+                }
+                return true; // CRL has been imported now
+            }
+            Thread.sleep(500);
+        }
+        log.debug("Timed out waiting for CRL to be imported");
+        return false; // timeout after 30 seconds
+    }
+
+    /**
+     * Wait for a file to be deleted.
+     * @return true if it was deleted, false on timeout
+     */
+    private boolean waitForFileDeletion(final File file) throws InterruptedException {
+        final long startTime = System.currentTimeMillis();
+        for (int i = 0; i <= 30*10; i++) {
+            if (!file.exists()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("File deleted after " + (System.currentTimeMillis() - startTime) + " ms");
+                }
+                return true; // CRL has been imported now
+            }
+            Thread.sleep(100);
+        }
+        log.debug("Timed out waiting for file to be deleted");
+        return false; // timeout after 30 seconds
     }
 
     private ServiceConfiguration getServiceConfig(final String directoryType, final File folder) {
