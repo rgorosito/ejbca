@@ -101,6 +101,12 @@ public class CertificateCrlReaderSystemTest {
             EjbRemoteHelper.MODULE_TEST);
     private ServiceSessionRemote serviceSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ServiceSessionRemote.class);
 
+    /** Time to wait for operations like certificate import, file deletion etc., before considering the test to have failed. Milliseconds */
+    private static final long WAIT_TIME = 30_000;
+    /** Sleep time in loop iterations to avoid causing too much CPU usage. Milliseconds */
+    private static final long IMPORT_ITERATION_SLEEP = 500;
+    private static final long DELETE_ITERATION_SLEEP = 100;
+
     /**
      * This test will write a certificate to a temporary file area and then use the CertificateCrlReader to import it to the system. 
      */
@@ -168,7 +174,6 @@ public class CertificateCrlReaderSystemTest {
                 serviceSession.addService(admin, serviceName, config);
                 serviceSession.activateServiceTimer(admin, serviceName);
                 // Verify that the certificate gets read from disk
-                Thread.sleep(2000);
                 if (!waitForCertificateToBeRevoked(issuerDn, usercert)) {
                     fail("Certificate was not revoked");
                 }
@@ -249,7 +254,7 @@ public class CertificateCrlReaderSystemTest {
      */
     private boolean waitForCertificateToExist(final String issuerDn, final Certificate usercert) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
-        for (int i = 0; i <= 30*2; i++) {
+        while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, CertTools.getSerialNumber(usercert));
             if (cert != null) {
                 if (log.isDebugEnabled()) {
@@ -257,7 +262,7 @@ public class CertificateCrlReaderSystemTest {
                 }
                 return true; // cert has been imported now
             }
-            Thread.sleep(500);
+            Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for certificate to be imported");
         return false; // timeout after 30 seconds
@@ -270,7 +275,7 @@ public class CertificateCrlReaderSystemTest {
     private boolean waitForCertificateToBeRevoked(final String issuerDn, final Certificate usercert) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
         final BigInteger serialNumber = CertTools.getSerialNumber(usercert);
-        for (int i = 0; i <= 30*2; i++) {
+        while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, serialNumber);
             if (cert == null) {
                 fail("Certificate no longest exists?");
@@ -281,7 +286,7 @@ public class CertificateCrlReaderSystemTest {
                 }
                 return true;
             }
-            Thread.sleep(500);
+            Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for certificate to be revoked");
         return false; // timeout after 30 seconds
@@ -293,7 +298,7 @@ public class CertificateCrlReaderSystemTest {
      */
     private boolean waitForCrlToExist(final String issuerDn, final int crlNumber) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
-        for (int i = 0; i <= 30*2; i++) {
+        while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             final byte[] crl = crlStoreSession.getCRL(issuerDn, crlNumber);
             if (crl != null) {
                 if (log.isDebugEnabled()) {
@@ -301,7 +306,7 @@ public class CertificateCrlReaderSystemTest {
                 }
                 return true; // CRL has been imported now
             }
-            Thread.sleep(500);
+            Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for CRL to be imported");
         return false; // timeout after 30 seconds
@@ -313,14 +318,14 @@ public class CertificateCrlReaderSystemTest {
      */
     private boolean waitForFileDeletion(final File file) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
-        for (int i = 0; i <= 30*10; i++) {
+        while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             if (!file.exists()) {
                 if (log.isDebugEnabled()) {
                     log.debug("File deleted after " + (System.currentTimeMillis() - startTime) + " ms");
                 }
                 return true; // CRL has been imported now
             }
-            Thread.sleep(100);
+            Thread.sleep(DELETE_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for file to be deleted");
         return false; // timeout after 30 seconds
