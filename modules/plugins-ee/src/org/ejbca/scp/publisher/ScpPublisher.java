@@ -28,6 +28,12 @@ import java.util.Properties;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelExec;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -49,12 +55,6 @@ import org.ejbca.core.model.ca.publisher.ICustomPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
 import org.ejbca.core.model.util.EjbLocalHelper;
-
-import com.jcraft.jsch.Channel;
-import com.jcraft.jsch.ChannelExec;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
 
 /**
  * This class is used for publishing certificates and CRLs to a remote destination over scp. 
@@ -142,7 +142,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         this.properties.put(SCP_PRIVATE_KEY_PROPERTY_NAME,
                 new CustomPublisherProperty(SCP_PRIVATE_KEY_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpPrivateKey));
         this.properties.put(SCP_PRIVATE_KEY_PASSWORD,
-                new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, scpPrivateKey));
+                new CustomPublisherProperty(SCP_PRIVATE_KEY_PASSWORD, CustomPublisherProperty.UI_TEXTINPUT_PASSWORD, privateKeyPassword));
         this.properties.put(SCP_KNOWN_HOSTS_PROPERTY_NAME,
                 new CustomPublisherProperty(SCP_KNOWN_HOSTS_PROPERTY_NAME, CustomPublisherProperty.UI_TEXTINPUT, scpKnownHosts));
 
