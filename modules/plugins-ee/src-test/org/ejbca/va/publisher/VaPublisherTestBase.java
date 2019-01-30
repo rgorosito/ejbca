@@ -87,6 +87,24 @@ public class VaPublisherTestBase {
             "xerdRt3dlCdSSVffMw96RDIUMI/3SwfPqv8EXUzFo8POYsWbfdZQQqA9PpKMJM22" + 
             "q2oEjh+0B6zoqLPJL/1riHQVKRv7T6MhLycV3vcpvSWs3nI1NEBMZvg6XjkXgGea" + 
             "82k6FNP7M7hKXqymILMTXWValfAqIzfRAgkB+Eob4HWJ8LfsjmlNuuNcsfdQmVo=").getBytes());
+    static final byte[] testSubCaCertificateBytes = Base64.decode(("MIIDBzCCAe+gAwIBAgIICEMt7gyhogowDQYJKoZIhvcNAQELBQAwEDEOMAwGA1UE" + 
+            "AwwFdGVzdDEwHhcNMTgxMTA2MTMxNjUyWhcNMTkxMTA2MTMxMTIwWjASMRAwDgYD" + 
+            "VQQDDAdzdWJjYWVlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvV4X" + 
+            "alJbmGEaG+Lz9TB7v5+IaAjUP1DFNWfD/xU5k0V7fzhAQUDlpp2wLv6nXiMzDWD7" + 
+            "qVJVOrq1NgQx9nBN3Ic92EYgZUaFVyQ356jY3teXghF+PwNQXW+ZM/6AOf1KAS+m" + 
+            "Ky7xntYDCKfWDAyKiWu3HO7dVfWbqVuU1MVMjFQ/+GW5SdCbTndPbsPw6kfKFZvU" + 
+            "p2/I0wLBeYhZjGgDytgEJ30GWBzKo8jV/xTIEuh9YVWzhhoGZtQoLbYA9nx+qQXp" + 
+            "5NAF78Ie82r0KCLLmj0Nu08q0Z7WleHoe+crMYRNZrTH2xYyD32ZcOel77E7QrL9" + 
+            "AkZe0KW0oHZM+mPwnQIDAQABo2MwYTAPBgNVHRMBAf8EBTADAQH/MB8GA1UdIwQY" + 
+            "MBaAFHVWv4yTlFV57gjGwPwfh/XnsXcyMB0GA1UdDgQWBBRH+PQ+3PHXJmey/Ptl" + 
+            "xJ4lLxAhCzAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggEBADV6dJz0" + 
+            "BiSnRNzw0X4mHEiGj7pgsT/ADTtI1BnF1uWxHziAfVKgrh8zYzAy90v9vTqKZjEF" + 
+            "ltvPKGOUm/L/N6d2BeEjz58dI9WyMhQI/uOXqucepY0bk2wFJTRum+BGjdQeabbL" + 
+            "rVxb5YMGco6O2/BakM28lByIJDES9cDtt4grEN6cRr0x/vaiPfftC3Y6cxUN/41Y" + 
+            "kHo2UiD6FHPYswmI3b9/XhfbZ/dkRqsfQ86DzPF2s+5s6H52+njJxvHZn7YUiFkI" + 
+            "sfrHsFATU+8z2ky4n6f59Ef/MkUiEp5g9y/HRJ7khLOrocOqGLQt13f6UJKVriFe" + 
+            "7WjRPKRNrXAeOK0=").getBytes());
+    
     static final AuthenticationToken internalAdminToken = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("VaPublisherTest"));
     private static final Logger log = Logger.getLogger(VaPublisherTestBase.class);
     //
