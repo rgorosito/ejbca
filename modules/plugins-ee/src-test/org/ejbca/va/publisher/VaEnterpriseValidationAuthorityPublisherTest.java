@@ -49,6 +49,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
     // Set of variables to track for objects to be removed as test results
     private Certificate testCertificate;
     private Certificate testOcspCertificate;
+    private Certificate testSubCaCertificate;
     private List<Integer> publishers;
     private String caName = null;
     private String endEntityManagementUsername = null;
@@ -68,6 +69,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
     public void setUp() throws CertificateParsingException, PublisherExistsException, AuthorizationDeniedException {
         testCertificate = CertTools.getCertfromByteArray(testCertificateBytes, Certificate.class);
         testOcspCertificate = CertTools.getCertfromByteArray(testOcpsSignerCertificateBytes, Certificate.class);
+        testSubCaCertificate = CertTools.getCertfromByteArray(testSubCaCertificateBytes, Certificate.class);
         publishers = new ArrayList<>();
         enterpriseValidationAuthorityPublisher = createEnterpriseValidationAuthorityPublisher();
         publisherId = publisherProxySession.addPublisher(
@@ -298,6 +300,40 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
         assertEquals(0, actualCertificateInfo.getEndEntityProfileIdOrZero());
         assertEquals(EnterpriseValidationAuthorityPublisher.HIDDEN_VALUE, actualCertificateInfo.getSubjectDN());
         assertEquals(null, actualCertificateInfo.getTag());
+    }
+    
+    @Test
+    public void shouldPublishCertificateOfTypeSubCa() throws PublisherConnectionException, CertificateParsingException, AuthorizationDeniedException {
+        // given
+        publisherProxySession.testConnection(publisherId);
+        final Certificate certificate = CertTools.getCertfromByteArray(testSubCaCertificateBytes, Certificate.class);
+        final CertificateData subCaCert = new CertificateData(
+                certificate,
+                certificate.getPublicKey(),
+                "SubCaEe",
+                "abcde1234",
+                RevokedCertInfo.NOT_REVOKED,
+                CertificateConstants.CERTTYPE_SUBCA,
+                CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA,
+                EndEntityConstants.NO_END_ENTITY_PROFILE,
+                "tag",
+                System.currentTimeMillis() + 12345,
+                true,
+                true);
+        final CertificateDataWrapper certWrapper = createCertificateDataWrapperUsingCertificateData(subCaCert);
+        // when
+        final boolean additionResult = publisherSession.storeCertificate(
+                internalAdminToken,
+                publishers,
+                certWrapper,
+                "foo123",
+                CertTools.getSubjectDN(testSubCaCertificate),
+                null);
+        final CertificateInfo actualCertificateInfo = certificateStoreSession.getCertificateInfo(subCaCert.getFingerprint());
+        // then
+        assertTrue("Error storing Sub CA certificate Publisher", additionResult);
+        assertEquals("Unexpected certificate type of published entry", CertificateConstants.CERTTYPE_SUBCA, actualCertificateInfo.getType());
+        assertEquals("Unexpected Subject DN of published entry", CertTools.getSubjectDN(testSubCaCertificate), actualCertificateInfo.getSubjectDN());
     }
     
     private void switchEnterpriseValidationAuthorityPublisherInNoMetaDataMode() throws AuthorizationDeniedException {
