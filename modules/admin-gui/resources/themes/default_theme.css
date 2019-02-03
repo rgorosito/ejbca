@@ -351,6 +351,9 @@ input.selectButton.enabled:hover {
 	background-color: Highlight;
 	color: HighlightText;
 }
+input[type=number] {
+    height: 1em;
+}
 div.message {
 	margin-top: 1.0em;
 	text-align: center;
@@ -477,7 +480,6 @@ table.grid tfoot tr:active {
 /* --- Forms: List/Actions */
 table.list,
 table.actions {
-	width: 100%;
 	margin: 0em;
 	padding: 0em;
 	border: 0px;
@@ -495,6 +497,7 @@ table.actions tr td h3 {
 
 /* --- Forms: Edit/Action/View */
 table.view,
+table.view-top,
 table.action,
 table.edit-top,
 table.edit-bottom,
@@ -508,6 +511,7 @@ table.edit-bottom {
 	margin-top: -1px;
 }
 table.view tr td,
+table.view-top tr td,
 table.action tr td,
 table.edit-top tr td,
 table.edit-ctnd tr td,
@@ -540,10 +544,24 @@ table.edit tr td {
 	text-align: right;
 }
 .editColumn2-Approval-steps {
-	width: 45%
+	width: 45%;
+	text-align: left;
 }
 .editColumnSystem2 {
 	width: 65%;
+	text-align: left;
+}
+.editColumn-eeProfile1 {
+	width: 10%;
+	text-align: center;
+	vertical-align: middle;
+} 
+.editColumn-eeProfile2 {
+	width: 40%;
+	text-align: right;
+}
+.editColumn-eeProfile3 {
+	width: 50%;
 	text-align: left;
 }
 .column-checkbox1 {
@@ -630,15 +648,20 @@ table.action tr:last-child td {
 }
 
 /* --- Form: View */
-table.view {
+table.view,
+table.view-top {
 	margin-top: .25em;
 }
-table.view tr td {
+
+table.view tr td,
+table.view-top tr td {
 	padding: .15em .5em !important;
 	line-height: 1.4em;
 }
+
 /* Headers, Sections, and Footers */
 table.view tr:first-child td,
+table.view-top tr:first-child td,
 table.view tr.section td {
 	background-color: #E5E5E5;
 	border-top: 3px solid #CCCCCC;
@@ -650,7 +673,8 @@ table.view tr:last-child td {
 	color: #000;
 }
 /* Titles */
-table.view tr.title td {
+table.view tr.title td,
+table.view-top tr.title td {
 	background-color: #F2F2F2;
 	/* Color: rgba(229,229,229,1) = #E5E5E5 */
 	background-image: -moz-linear-gradient(top, rgba(229,229,229,1) 0%, rgba(229,229,229,0) 100%);		/* FF3.6+ */
@@ -663,6 +687,7 @@ table.view tr.title td {
 
 /* --- Forms: Edit/Action/View */		/* KEEP IT HERE */
 table.view table,
+table.view-top table,
 table.action table,
 table.edit-top table,
 table.edit-bottom table,
@@ -671,6 +696,7 @@ table.edit table {
 	border-spacing: 0px;
 }
 table.view table tr td,
+table.view-top table tr td,
 table.action table tr td,
 table.edit-top table tr td,
 table.edit-bottom table tr td,
@@ -751,9 +777,23 @@ table.results table.actions tbody tr:active {
 	background-color: #BFB !important;
 }
 
+.approveationlist-select {
+	margin: 1em 0.5em 0 0.5em;
+}
+
+.scroller-table {
+	margin: 0 auto;
+}
+
 .section-label {
     margin-bottom: 1em;
     margin-top: 1em;
+}
+
+.section-label-span {
+    margin-bottom: 1em;
+    margin-top: 1em;
+    display: inline-block;
 }
 
 .checkbox {
@@ -1103,6 +1143,21 @@ table#config tr td:first-child {
 .listColumn1 { text-align: left; width: 40%; }
 .listColumn2 { text-align: left; width: 60%; }
 
+.subTableColumn1 { text-align: left; width: 50%; }
+.subTableColumn2 { text-align: right; width: 50%; }
+
+
+.ldapPublisherHeader {
+	font-weight: bold;
+	color: #600;
+}
+
+/* --- Table: My Preferences */
+.myPreferencesColumn { 
+    text-align: left; 
+    width: 50%; 
+}
+    
 /* --- Table: SUP > Logs */
 
 td#InfoRow0 { color: black; font-size: 9pt; background-color: white; }
@@ -1219,11 +1274,29 @@ body.popup {
 
 /*--------------------------------------------------------------------------*/
 
-.alert { color: red; font-size: 11pt; font-weight: bold; background-color: white; }
+.helpReference {
+	margin-left: 2px;
+}
+
+.mandatory {
+	border:2px solid #FFC300;
+}
+
+.smallHelp {
+	line-height: 1.4em;
+	font-size: 0.70em;
+	white-space: normal;
+	color: #606060;		/* Keep it, for old web browsers */
+	color: rgba(0,0,0,.6);
+}
+
+.alert, .errorMessage { color: red; font-size: 11pt; font-weight: bold; background-color: white; }
 .info { color: black; font-size: 11pt; font-weight: bold; background-color: white; }
 
 .commandLink { font-size: 9pt; font-weight: bold; text-decoration: none; text-align: right; margin-left: .5em; margin-right: .5em; }
 .commandButton { font-size: 9pt; vertical-align: bottom; margin-left: .5em; margin-right: .5em; }
+
+.commandLinkAudit { font-size: 9pt; font-weight: bold; text-decoration: none; text-align: right; margin-top: 1em; margin-right: 1em; margin-bottom: 0.5em; }
 
 .commandLink.reload { color: #4B842E; }
 .commandLink.remove { color: #A21C15; }
@@ -1309,11 +1382,24 @@ a.tabLinkfalse:hover, a.tabLinktrue:hover{
     color: black;
 }
 
+.fullwidth-dynui-table .editColumn2 table { width: 100%; }
+.fullwidth-dynui-table textarea,
+.fullwidth-dynui-table input[type=text], .fullwidth-dynui-table input[type=number] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 /* CSS2 compatible expandable text */
 .expandOnClick { width: 25em;  height: 1em;  display: block; overflow: hidden; white-space: nowrap; }
 .expandOnClick:after { content: "..."; }
 .expandOnClick:focus { width: 100%; display: inline; overflow: auto; color:#000000; white-space: pre-wrap; cursor: pointer; }
 .expandOnClick:focus:after { content: ""; }
 
+
+/* Line break stack traces */
+.preformatted {
+    white-space: pre-wrap;
+}
 /*--------------------------------------------------------------------------*/
 /* EOF */

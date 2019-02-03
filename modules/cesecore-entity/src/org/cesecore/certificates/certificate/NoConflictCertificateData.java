@@ -24,6 +24,7 @@ import javax.persistence.SqlResultSetMappings;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.dbprotection.ProtectionStringBuilder;
 import org.cesecore.util.CertTools;
@@ -79,6 +80,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
     private Integer endEntityProfileId = null;  // @since EJBCA 6.6.0
     private long updateTime = 0;
     private String subjectKeyId;
+    private String certificateRequest;  // @since EJBCA 7.0.0
     private int rowVersion = 0;
     private String rowProtection;
     
@@ -107,6 +109,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         setEndEntityProfileId(copy.getEndEntityProfileId());
         setSubjectKeyId(copy.getSubjectKeyId());
         setTag(copy.getTag());
+        setCertificateRequest(copy.getCertificateRequest());
         setRowVersion(copy.getRowVersion());
         setRowProtection(copy.getRowProtection());
     }
@@ -403,6 +406,33 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         return endEntityProfileId;
     }
     
+    @Override
+    public String getCertificateRequest() {
+        return this.getZzzCertificateRequest();
+    }
+    
+    @Override
+    public void setCertificateRequest(String certificateRequest) {
+        this.setZzzCertificateRequest(certificateRequest);
+    }
+    
+
+    /**
+     * Horrible work-around due to the fact that Oracle needs to have (LONG and) CLOB values last in order to avoid ORA-24816.
+     *
+     * Since Hibernate sorts columns by the property names, naming this Z-something will apparently ensure that this column is used last.
+     * @deprecated Use {@link #getCertificateRequest()} instead
+     */
+    @Deprecated
+    public String getZzzCertificateRequest() {
+        return this.certificateRequest;
+    }
+    
+    /** @deprecated Use {@link #setCertificateRequest(String)} instead */
+    @Deprecated
+    public void setZzzCertificateRequest(String certificateRequest) {
+        this.certificateRequest = certificateRequest;
+    }
     
     
     // Comparators
@@ -518,6 +548,9 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
                 return false;
             }
         }
+        if (!StringUtils.equals(certificateRequest, certificateData.certificateRequest)) {
+            return false;
+        }
         return true;
     }
     
@@ -543,6 +576,7 @@ public class NoConflictCertificateData extends BaseCertificateData implements Se
         updateTime = certificateData.updateTime;
         base64Cert = inclusionMode ? null : certificateData.base64Cert;
         id = certificateData.id;
+        certificateRequest = certificateData.certificateRequest;
     }
     
 

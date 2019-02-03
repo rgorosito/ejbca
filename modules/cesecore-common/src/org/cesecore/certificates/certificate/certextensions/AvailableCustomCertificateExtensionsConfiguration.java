@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.configuration.ConfigurationBase;
 
@@ -74,11 +75,12 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
         data.put(ce.getId(), ce);
     }
     
-    public void addCustomCertExtension(int id, String oid, String displayName, String classPath, boolean critical, Properties properties) throws CertificateExtentionConfigurationException {
+    public void addCustomCertExtension(int id, String oid, String displayName, String classPath, boolean critical, 
+            final boolean required, Properties properties) throws CertificateExtentionConfigurationException {
         try {
             Class<?> implClass = Class.forName(classPath);
             CertificateExtension certificateExtension = (CertificateExtension) implClass.newInstance();
-            certificateExtension.init(id, oid.trim(), displayName, critical, properties);
+            certificateExtension.init(id, oid.trim(), displayName, critical, required, properties);
             data.put(id, certificateExtension);
         } catch (ClassNotFoundException e) {
             throw new CertificateExtentionConfigurationException("Cannot add custom certificate extension. " + e.getLocalizedMessage());
@@ -178,7 +180,11 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
         }
     }
     
-    private CertificateExtension getCertificateExtensionFromFile(int id, Properties propertiesInFile) throws CertificateExtentionConfigurationException {
+    /**
+     * Used for upgrading from old certextensions.properties files.
+     * Package-internal to allow for testing.
+     */
+    static CertificateExtension getCertificateExtensionFromFile(int id, Properties propertiesInFile) throws CertificateExtentionConfigurationException {
         String PROPERTY_ID           = "id";
         String PROPERTY_OID          = ".oid";
         String PROPERTY_CLASSPATH    = ".classpath";
@@ -188,9 +194,9 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
         String PROPERTY_CRITICAL     = ".critical";
         
         try{
-            String oid = propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_OID);
-            String classPath = propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_CLASSPATH);
-            String displayName = propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_DISPLAYNAME);
+            String oid = StringUtils.trim(propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_OID));
+            String classPath = StringUtils.trim(propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_CLASSPATH));
+            String displayName = StringUtils.trim(propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_DISPLAYNAME));
             log.debug(PROPERTY_ID + id + PROPERTY_USED + ":" + propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_USED));
             boolean used = propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_USED).trim().equalsIgnoreCase("TRUE");
             boolean translatable = propertiesInFile.getProperty(PROPERTY_ID + id + PROPERTY_TRANSLATABLE).trim().equalsIgnoreCase("TRUE");
@@ -204,7 +210,7 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
                     if(translatable) {
                         extensionProperties.put("translatable", true);
                     }
-                    certificateExtension.init(id, oid.trim(), displayName, critical, extensionProperties);
+                    certificateExtension.init(id, oid.trim(), displayName, critical, /*required=*/true, extensionProperties);
                     return certificateExtension;
 
                 }else{
@@ -218,7 +224,7 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
         return null;
     }
     
-    private Properties getExtensionProperties(int id, Properties propertiesInFile) {
+    private static Properties getExtensionProperties(int id, Properties propertiesInFile) {
         Properties extProps = new Properties();
         Iterator<Object> keyIter = propertiesInFile.keySet().iterator();
         String matchString = "id" + id + ".property."; 

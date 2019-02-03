@@ -280,6 +280,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     * PDS URLs are now handled in QCETSIPDS */
     @Deprecated
     protected static final String QCETSIPDSLANG = "qcetsipdslang";
+    protected static final String USEQCPSD2 = "useqcpsd2";
     protected static final String USEQCCUSTOMSTRING = "useqccustomstring";
     protected static final String QCCUSTOMSTRINGOID = "qccustomstringoid";
     protected static final String QCCUSTOMSTRINGTEXT = "qccustomstringtext";
@@ -298,7 +299,7 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
     protected static final String USECERTIFICATETRANSPARENCYINCERTS = "usecertificatetransparencyincerts";
     protected static final String USECERTIFICATETRANSPARENCYINOCSP  = "usecertificatetransparencyinocsp";
     protected static final String USECERTIFICATETRANSPARENCYINPUBLISHERS  = "usecertificatetransparencyinpublisher";
-
+    
     /* Certificate Transparency */
     protected static final String CTSUBMITEXISTING  = "ctsubmitexisting";
     protected static final String CTLOGS = "ctlogs";
@@ -2103,6 +2104,21 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         data.remove(QCETSIPDSLANG);
     }
 
+    /** 
+     * @return true if the PSD2 QC statement should be included, or false (default) if it should not
+     */
+    public boolean getUseQCPSD2() {
+        Boolean ret = ((Boolean) data.get(USEQCPSD2));
+        if (ret == null) {
+            return false; // default value
+        }
+        return ret.booleanValue();
+    }
+
+    public void setUseQCPSD2(boolean useqcpsd2) {
+        data.put(USEQCPSD2, Boolean.valueOf(useqcpsd2));
+    }
+
     public boolean getUseQCCustomString() {
         return ((Boolean) data.get(USEQCCUSTOMSTRING)).booleanValue();
     }
@@ -2557,6 +2573,40 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         data.put(CT_NUMBER_OF_SCTS_BY_CUSTOM, use);
     }
     
+    public String getNumberOfSctBy() {
+        if (isNumberOfSctByValidity()) {
+            return CT_NUMBER_OF_SCTS_BY_VALIDITY;
+        }
+        return CT_NUMBER_OF_SCTS_BY_CUSTOM;
+    }
+    
+    public void setNumberOfSctBy(String choice) {
+        if (CT_NUMBER_OF_SCTS_BY_VALIDITY.equals(choice)) {
+            setNumberOfSctByValidity(true);
+            setNumberOfSctByCustom(false);
+        } else {
+            setNumberOfSctByValidity(false);
+            setNumberOfSctByCustom(true);            
+        }
+    }
+    
+    public String getMaxNumberOfSctBy() {
+        if (isMaxNumberOfSctByValidity()) {
+            return CT_NUMBER_OF_SCTS_BY_VALIDITY;
+        }
+        return CT_NUMBER_OF_SCTS_BY_CUSTOM;
+    }
+    
+    public void setMaxNumberOfSctBy(String choice) {
+        if (CT_NUMBER_OF_SCTS_BY_VALIDITY.equals(choice)) {
+            setMaxNumberOfSctByValidity(true);
+            setMaxNumberOfSctByCustom(false);
+        } else {
+            setMaxNumberOfSctByValidity(false);
+            setMaxNumberOfSctByCustom(true);            
+        }
+    }
+    
     public boolean isMaxNumberOfSctByValidity() {
         if (data.get(CT_MAX_NUMBER_OF_SCTS_BY_VALIDITY) == null) {
             // Default value
@@ -2876,6 +2926,17 @@ public class CertificateProfile extends UpgradeableDataHashMap implements Serial
         }
     }
 
+    /**
+     * Checks that provided caId is allowed.
+     *
+     * @param caId caId to verify
+     * @return Returns true, if caId belongs to availableCas or if any CA is allowed (-1 is in availableCAs list)
+     */
+    public boolean isCaAllowed(int caId) {
+        List<Integer> availableCAs = getAvailableCAs();
+        return availableCAs.contains(-1) || availableCAs.contains(caId);
+    }
+    
     @Override
     public CertificateProfile clone() throws CloneNotSupportedException {
         final CertificateProfile clone = new CertificateProfile(0);

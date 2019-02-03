@@ -19,7 +19,10 @@ import java.util.Collections;
 import java.util.List;
 
 import javax.faces.application.Application;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang.StringUtils;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
@@ -31,12 +34,14 @@ import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
 import org.ejbca.ui.web.admin.configuration.SortableSelectItem;
 
 /**
- * Class used to manage the listservices.jsp page
+ * Class used to manage the listservices.xhtml page
  * Contains and manages the available services
  * 
  *
  * @version $Id$
  */
+@ManagedBean (name = "listServicesManagedBean")
+@SessionScoped
 public class ListServicesManagedBean extends BaseManagedBean {
 
 	private static final long serialVersionUID = 1L;
@@ -45,6 +50,14 @@ public class ListServicesManagedBean extends BaseManagedBean {
 	private String newServiceName = "";
 
 	public ListServicesManagedBean() { }
+	
+    public void initAccess() throws Exception {
+        // To check access 
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, AccessRulesConstants.SERVICES_VIEW);
+        }
+    }
 
 	public String getSelectedServiceName() {
 		return selectedServiceName;
@@ -111,7 +124,7 @@ public class ListServicesManagedBean extends BaseManagedBean {
 			try {
 				ejb.getServiceSession().renameService(getAdmin(), selectedServiceName, newServiceName);
 			} catch (ServiceExistsException e) {
-				addNonTranslatedErrorMessage(EjbcaJSFHelper.getBean().getText().get("SERVICENAMEALREADYEXISTS"));
+				addErrorMessage("SERVICENAMEALREADYEXISTS");
 			}			
 		}
 		newServiceName = "";
@@ -130,7 +143,7 @@ public class ListServicesManagedBean extends BaseManagedBean {
 				getEditServiceBean().setServiceConfiguration(serviceConfig);
 				getEditServiceBean().setServiceName(newServiceName);
 			} catch (ServiceExistsException e) {
-				addNonTranslatedErrorMessage(EjbcaJSFHelper.getBean().getText().get("SERVICENAMEALREADYEXISTS"));
+				addErrorMessage("SERVICENAMEALREADYEXISTS");
 			} 
 		}
 		newServiceName = "";

@@ -14,6 +14,7 @@ package org.cesecore.keys.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
@@ -73,6 +74,7 @@ import javax.crypto.interfaces.DHPublicKey;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.ASN1Exception;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERBMPString;
@@ -99,6 +101,7 @@ import org.bouncycastle.jce.spec.ECPublicKeySpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.encoders.DecoderException;
 import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
@@ -146,7 +149,7 @@ public final class KeyTools {
      * @param keyAlg
      *            algorithm of keys to generate, typical value is RSA, DSA or ECDSA, see AlgorithmConstants.KEYALGORITHM_XX
      * 
-     * @see org.cesecore.certificates.util.core.model.AlgorithmConstants
+     * @see org.cesecore.certificates.util.AlgorithmConstants
      * @see org.bouncycastle.asn1.x9.X962NamedCurves
      * @see org.bouncycastle.asn1.nist.NISTNamedCurves
      * @see org.bouncycastle.asn1.sec.SECNamedCurves
@@ -466,12 +469,13 @@ public final class KeyTools {
      *            CA-certificate or null if only one cert in chain, in that case use 'cert'.
      * 
      * @return KeyStore containing PKCS12-keystore
-     * 
-     * @exception Exception
-     *                if input parameters are not OK or certificate generation fails
+     * @throws CertificateException if the certificate couldn't be parsed
+     * @throws CertificateEncodingException if the encoded bytestream of the certificate couldn't be retrieved
+     * @throws NoSuchAlgorithmException if the algorithm defined in privKey couldn't be found
+     * @throws InvalidKeySpecException if the key specification defined in privKey couldn't be found
      */
     public static KeyStore createP12(final String alias, final PrivateKey privKey, final Certificate cert, final Certificate cacert)
-            throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException, InvalidKeySpecException {
+            throws CertificateException, NoSuchAlgorithmException, InvalidKeySpecException {
         final Certificate[] chain;
 
         if (cacert == null) {
@@ -497,11 +501,13 @@ public final class KeyTools {
      * @param cacerts
      *            Collection of X509Certificate, or null if only one cert in chain, in that case use 'cert'.
      * @return KeyStore containing PKCS12-keystore
-     * @exception Exception
-     *                if input parameters are not OK or certificate generation fails
+     * @throws CertificateException if the certificate couldn't be parsed
+     * @throws CertificateEncodingException if the encoded bytestream of the certificate couldn't be retrieved
+     * @throws NoSuchAlgorithmException if the algorithm defined in privKey couldn't be found
+     * @throws InvalidKeySpecException if the key specification defined in privKey couldn't be found
      */
     public static KeyStore createP12(final String alias, final PrivateKey privKey, final Certificate cert, final Collection<Certificate> cacerts)
-            throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException, InvalidKeySpecException {
+            throws CertificateException, NoSuchAlgorithmException, InvalidKeySpecException {
         final Certificate[] chain;
         if (cacerts == null) {
             chain = null;
@@ -641,9 +647,6 @@ public final class KeyTools {
      * 
      * @return KeyStore containing JKS-keystore
      * @throws KeyStoreException is storing the certificate failed, perhaps because the alias is already being used?
-     * 
-     * @exception Exception
-     *                if input parameters are not OK or certificate generation fails
      */
     public static KeyStore createJKS(final String alias, final PrivateKey privKey, final String password, final X509Certificate cert,
             final Certificate[] cachain) throws KeyStoreException {
@@ -712,6 +715,31 @@ public final class KeyTools {
         return store;
     } // createJKS
 
+    /**
+     * Generates KeyStore from key store byte array. Token type (JKS / P12) is determined 
+     * automatically by the byte array content
+     * @param keyStoreBytes byte array containing key store
+     * @param password of the key store
+     * @return JKS or P12 KeyStore depending of input content
+     */
+    public static KeyStore createKeyStore(byte[] keyStoreBytes, String password) throws KeyStoreException, 
+            NoSuchProviderException, IOException, NoSuchAlgorithmException, CertificateException {
+        final byte PKCS12_MAGIC = (byte)48;
+        final byte JKS_MAGIC = (byte)(0xfe);
+
+        final KeyStore keyStore;
+        if (keyStoreBytes[0] == PKCS12_MAGIC) {
+            keyStore = KeyStore.getInstance("PKCS12", "BC");
+        } else if (keyStoreBytes[0] == JKS_MAGIC) {
+            keyStore = KeyStore.getInstance("JKS");
+        } else {
+            throw new IOException("Unsupported keystore type. Must be PKCS12 or JKS");
+        }
+        keyStore.load(new ByteArrayInputStream(keyStoreBytes), password.toCharArray());
+        return keyStore;
+    }
+    
+    
     /**
      * Convert a KeyStore to PEM format.
      */
@@ -1047,8 +1075,6 @@ public final class KeyTools {
      * @throws InvalidKeyException
      *             if the public key can not be used to verify a string signed by the private key, because the key is wrong or the signature operation
      *             fails for other reasons such as a NoSuchAlgorithmException or SignatureException.
-     * @throws TaskWithSigningException 
-     * @throws NoSuchProviderException
      *             if the provider is not installed.
      */
     public static void testKey(final PrivateKey priv, final PublicKey pub, final String sProvider) throws InvalidKeyException { // NOPMD:this is not a junit test
@@ -1264,7 +1290,7 @@ public final class KeyTools {
 
     /** 
      * Get the ASN.1 encoded PublicKey as a Java PublicKey Object.
-     * @param the ASN.1 encoded PublicKey
+     * @param asn1EncodedPublicKey the ASN.1 encoded PublicKey
      * @return the ASN.1 encoded PublicKey as a Java Object
      */
     public static PublicKey getPublicKeyFromBytes(byte[] asn1EncodedPublicKey) {
@@ -1315,6 +1341,9 @@ public final class KeyTools {
      * @throws CertificateParsingException If the data isn't a public key in either PEM or DER format.
      */
     public static byte[] getBytesFromPublicKeyFile(final byte[] file) throws CertificateParsingException {
+        if (file.length == 0) {
+            throw new CertificateParsingException("Public key file is empty");
+        }
         final String fileText = Charset.forName("ASCII").decode(java.nio.ByteBuffer.wrap(file)).toString();
         final byte[] asn1bytes;
         {
@@ -1324,14 +1353,42 @@ public final class KeyTools {
         try {
             PublicKeyFactory.createKey(asn1bytes); // Check that it's a valid public key
             return asn1bytes;
-        } catch (IOException e) {
-            throw new CertificateParsingException(e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new CertificateParsingException("File is neither a valid PEM nor DER file.", e);
         }
     }
-    
+
+    /** Like {@link getBytesFromPublicKeyFile}, but allows for missing ----BEGIN... and END lines. */
+    public static byte[] getBytesFromCtLogKey(final byte[] file) throws CertificateParsingException {
+        try {
+            return getBytesFromPublicKeyFile(file);
+        } catch (CertificateParsingException originalException) {
+            log.debug("Could not parse key as PEM or DER, trying as raw base64.", originalException);
+            final byte[] decoded;
+            try {
+                decoded = Base64.decode(file);
+            } catch (DecoderException ignored) {
+                log.debug("Public key file is not valid base64");
+                throw new CertificateParsingException("Public key could not be parsed as either PEM, DER or base64.", originalException);
+            }
+            if (decoded == null || decoded.length == 0) {
+                log.debug("Decoded base64 data of public key is empty or null");
+                throw originalException;
+            }
+            try {
+                PublicKeyFactory.createKey(decoded); // Check that it's a valid public key
+                return decoded;
+            } catch (IOException | IllegalArgumentException e) {
+                final String msg = "The base64 encoded data does not represent a public key.";
+                log.debug(msg);
+                throw new CertificateParsingException(msg, e);
+            }
+        }
+    }
+
     /**
      * Returns the modulus of the public key.
-     * @param public key
+     * @param publicKey public key
      * @return modulus of the public key
      */
     public static String getKeyModulus(final PublicKey publicKey) {
@@ -1352,7 +1409,7 @@ public final class KeyTools {
     
     /**
      * Returns the exponent of the public key.
-     * @param public key
+     * @param publicKey public key
      * @return modulus of the public key
      */
     public static String getKeyPublicExponent(final PublicKey publicKey) {
@@ -1365,7 +1422,7 @@ public final class KeyTools {
     
     /**
      * Generates the SHA256 fingerprint of the given text string.
-     * @param input on what to generate the fingerprint
+     * @param text input on what to generate the fingerprint
      * @return SHA256 fingerprint of given input string 
      */
     public static String getSha256Fingerprint(String text) {
@@ -1375,7 +1432,7 @@ public final class KeyTools {
     
     /**
      * Returns the signature of the given JcaPKCS10CertificationRequest.
-     * @param BouncyCastle JcaPKCS10CertificationRequest certification request
+     * @param certificationRequest BouncyCastle JcaPKCS10CertificationRequest certification request
      * @return signature of given certification request
      */
     public static String getCertificateRequestSignature(JcaPKCS10CertificationRequest certificationRequest) {

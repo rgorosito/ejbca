@@ -1,5 +1,5 @@
 <project name="ejbca" default="build" basedir=".">
-    
+
 	<!-- Import build specific info, like version number -->
     <property file="src/internal.properties" />
 	
@@ -15,8 +15,11 @@
     <property name="hwtoken.class.dir" location="${hwtoken_classes}" />
     <property name="apidoc" value="${ejbca.home}/doc/api" />
 
-	<!-- include the standard properties and paths -->
+	<!-- include the standard properties and paths
     <import file="propertyDefaults.xml"/>
+    -->
+    <!-- this import is used by the modules scheme-->
+    <import file="${ejbca.home}/modules/build-properties.xml"/>
 
 	<import file="bin/${appserver.type}.xml" optional="true"/><!-- We might just want to build the clientToolBox with an appserver. -->
 	<property name="reports.base.dir" location="${ejbca.home}/reports/"/>
@@ -27,8 +30,6 @@
         <import file="./removed.xml" />
         <!-- Include the build file which takes care of deprecation detection (for options etc). -->
         <import file="./deprecated.xml" />
-	<!-- this import is used by the modules scheme-->
-    <import file="${ejbca.home}/modules/build-properties.xml"/>
 
     <!-- =================================================================== -->
     <!-- Clean ALL                                                           -->
@@ -40,7 +41,7 @@
         <delete dir="${tmp}"/>
         <delete file="velocity.log" />
         <delete file="validationtool.log" />
-        <ant antfile="modules/build.xml" target="clean" inheritall="false"><property name="runoncesetup.hasrun" value="true"/></ant>
+        <ant antfile="modules/build.xml" target="clean" inheritall="true" inheritrefs="true"/>
     </target>
 	
 	<!-- =================================================================== -->
@@ -186,7 +187,34 @@
 		</sequential>
 	</macrodef>
 
-    <target name="build-one-plugin">
+    <target name="condition.pluginIsJarBased">
+		<property file="${ejbca.plugin.property.file}"/>
+        <condition property="pluginIsJarBased">
+            <not>
+				<isset property="plugin.ejbca.ant.file"/>
+			</not>
+        </condition>
+    </target>
+
+    <target name="build-one-plugin" depends="condition.pluginIsJarBased, include-plugin-from-jar, build-one-plugin-from-source" />
+
+  <target name="include-plugin-from-jar" if="pluginIsJarBased">
+	<property file="${ejbca.plugin.property.file}"/>
+	<fail message="File '${ejbca.plugin.property.file}' lacks a property setting for 'plugin.ejbca.lib.dir'!">
+            <condition>
+                <not>
+                    <isset property="plugin.ejbca.lib.dir"/>
+                </not>
+            </condition>
+        </fail>
+    <copy todir="${ejbca.plugin.gen.path}/lib">
+    	<fileset dir="${plugin.ejbca.lib.dir}">
+        	<include name="*.jar" />
+     	</fileset>
+     </copy>
+  </target>
+
+  <target name="build-one-plugin-from-source" unless="pluginIsJarBased">
         <echo message="Processing plugin file: '${ejbca.plugin.property.file}'"/>
         <property file="${ejbca.plugin.property.file}"/>
         <fail message="File '${ejbca.plugin.property.file}' lacks a property setting for 'plugin.ejbca.ant.file'!">
@@ -346,8 +374,8 @@
     <!-- Build CA-ear                                                        -->
     <!-- =================================================================== -->
 	<target name="ejbca.ear" depends="display-properties, ejbca.ear.module-dependencies, create-log4config-bundle">
-		<antcall target="doc.war"><param name="external-deps-satfisfied" value="isset"/></antcall>
-		<!-- This is quite ugly, we use two variables in order to decide if the systemtest files will be 
+		<antcall target="doc.war" inheritall="true" inheritrefs="true"><param name="docs.external-deps-satfisfied" value="isset"/></antcall>
+		<!-- This is quite ugly, we use two variables in order to decide if the systemtest files will be
 		     included in the ear file or not. In ant 1.8 we could us an "if" to the "include" directive,
 		     and only need one variable, but that does not work in ant 1.7 so... --> 
         <condition property="in-test-mode" else="false">
@@ -420,8 +448,6 @@
 			replacement-enabled="${mod.peerconnector.exists}"
 			replacement-ejb="peerconnector-ejb.jar"
 			/>
-
-
 		<jar-replacement-in-module
 			replacement-tag="!--@unidfnr-ejb.jar@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
@@ -457,21 +483,28 @@
 				replacement-context-root="/ejbca/acme"
 		/>
 		<war-replacement-in-module
-						replacement-tag="!--@est.war@-->"
-						replacement-file="${eardd.src}/META-INF/application.xml"
-						replacement-enabled="${mod.est.exists}"
-						replacement-web-uri="est.war"
-						replacement-context-root="/.well-known/est"
+                	replacement-tag="!--@est.war@-->"
+                	replacement-file="${eardd.src}/META-INF/application.xml"
+	                replacement-enabled="${mod.est.exists}"
+        	        replacement-web-uri="est.war"
+			replacement-context-root="/.well-known/est"
 		/>
 		<war-replacement-in-module
 				replacement-tag="!--@ejbca-rest-api.war@-->"
 				replacement-file="${eardd.src}/META-INF/application.xml"
-				replacement-enabled="true"
+			    replacement-enabled="${mod.ejbca-rest-api.exists}"
 				replacement-web-uri="ejbca-rest-api.war"
 				replacement-context-root="/ejbca/ejbca-rest-api"
 		/>
-
-		<antcall target="va_replacings_in_application.xml">
+		<war-replacement-in-module
+                replacement-tag="!--@swagger-ui.war@-->"
+                replacement-file="${eardd.src}/META-INF/application.xml"
+                replacement-enabled="${swagger-ui.exists}"
+                replacement-web-uri="swagger-ui.war"
+                replacement-context-root="/ejbca/swagger-ui"
+		/>
+		
+		<antcall target="va_replacings_in_application.xml" inheritall="true" inheritrefs="true">
 			<param name="application.xml" value="${eardd.src}/META-INF/application.xml"/>
 		</antcall>
 		<!-- This dir has to exist here -->
@@ -489,7 +522,7 @@
 		<!-- Remove possible "leftovers" from previous plugin runs! -->
 	    <delete dir="${ejbca.plugin.gen.path}"/>
         <!-- Plugin build starts here... -->
-	    <antcall target="plugin-bootstrap-build"/>
+	    <antcall target="plugin-bootstrap-build" inheritall="true" inheritrefs="true"/>
 		<!-- Build the EAR -->
         <ear destfile="${caear}" appxml="${eardd.src}/META-INF/application.xml">
     		<!-- Add other specific files we need in META-INF -->
@@ -517,10 +550,11 @@
             	<include name="snakeyaml-*.jar" />
             	<include name="dns*.jar" />
                 <include name="guava-*.jar" />
+            	<include name="jsch-*.jar" />
             </zipfileset>
             <zipfileset prefix="lib" dir="${lib}/ct" erroronmissingdir="false">
                 <!-- Certificate Transparency -->
-                <include name="ctlog-jdk7-*.jar" />
+                <include name="ctlog-*.jar" />
                 <include name="protobuf-java-*.jar" />
             </zipfileset>
 			<zipfileset prefix="lib" dir="${lib}/ext/swagger" erroronmissingdir="false">
@@ -566,10 +600,14 @@
                 <include name="peerconnector-ejb.jar" />
                 <include name="unidfnr-ejb.jar" />
                 <include name="ra-gui.war" />
-		<include name="ejbca-rest-api.war"/>
-                <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
-				<include name="${in-test-mode-include}acme.war" />
+                <include name="ejbca-rest-api.war"/>
+            	<include name="acme.war" />
             </fileset>
+        	
+        	<fileset dir="${ejbca.home}/lib/swagger">
+        		<include name="swagger-ui.war" />
+    		</fileset>
+        	
         	<zipfileset prefix="lib" dir="${ejbca.home}/modules/dist">
                 <include name="externalra-service.jar" />
                 <include name="ejbca-common-web.jar" />
@@ -586,7 +624,6 @@
         		<include name="${in-test-mode-include}systemtests-interfaces.jar"/>
         		<include name="${in-test-mode-include}systemtests-common.jar"/>
         	    <include name="ct.jar" />
-        		<include name="certsafe.jar" />
         		<include name="edition-specific-interface.jar" />
         		<include name="edition-specific-ejb.jar" />
         		<include name="statedump-common.jar" />
@@ -596,15 +633,11 @@
                 <include name="peerconnector-interface.jar" />
                 <include name="peerconnector-common.jar" />
         		<include name="peerconnector-entity.jar" />
-        		<include name="va-publisher.jar" />
+        		<include name="plugins-ee.jar" />
         		<include name="caa.jar" />
-	                <include name="unidfnr-ejb.jar" />
-	                <include name="ejbca-ejb.jar" />
-
-
-
-                <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
-				<include name="${in-test-mode-include}acme-common.jar" />
+	            <include name="unidfnr-ejb.jar" />
+	            <include name="ejbca-ejb.jar" />
+				<include name="acme-common.jar" />
         	</zipfileset>
             <!-- Include XStream for the use from statedump-ejb.jar -->
             <zipfileset prefix="lib" dir="${lib}/xstream" erroronmissingdir="false">
@@ -623,8 +656,12 @@
         	<zipfileset prefix="lib" dir="${dist.dir}" includes="ejbca-common.jar"/>
         	<!-- Include PrimeCard HSM libraries. TODO: Test that this works. Previously the classes were included in ejbca-ejb.jar.. -->
         	<zipfileset prefix="lib" dir="${hwtoken.class.dir}" includes="*.jar"/>
+			<!-- Include OpenClover to support System tests code coverage if in test mode -->
+			<zipfileset prefix="lib" dir="${lib}/ext/openclover-ant" erroronmissingdir="false">
+				<include name="${in-test-mode-include}clover.jar"/>
+			</zipfileset>
 		</ear>
-    	<antcall target="signjar">
+    	<antcall target="signjar" inheritall="true" inheritrefs="true">
         	<param name="signjar.file" value="${caear}"/>
     	</antcall>
     </target>	
@@ -761,7 +798,7 @@
     <!-- ======================================================================= -->
     <target name="deploy" depends="cleanDistDir, failinproduction-deprecation,build, inputDatabasePassword, deprecated:check" description="Deploy the main EJBCA application with datasources and configuration">       
     	<antcall target="jee:deploy" />
-        <antcall target="showtime" />
+        <antcall target="showtime" inheritall="true" inheritrefs="true"/>
     </target>
     <!-- Check if there exist a dist/ejbca.ear, if it exists deployear can just deploy it directly, if not we have to build it before deployear can deploy it -->
 	<target name="checkearexists">
@@ -770,7 +807,7 @@
         </condition>
 	</target>
 	<target name="buildifnotbuilt" depends="checkearexists" unless="ejbcaear.built">
-		<antcall target="build"/>
+		<antcall target="build" inheritall="true" inheritrefs="true"/>
 	</target>
     <target name="deployear" depends="buildifnotbuilt" description="Deploy the EJBCA application (ejbca.ear) without building and without deploying datasources or any configuration">       
 		<fail message="File '${dist.dir}/ejbca.ear' to deploy does not exist. You must build the file using the 'ant' command.">
@@ -781,7 +818,7 @@
             </condition>
         </fail>
         <antcall target="jee:deployear" />
-        <antcall target="showtime" />
+        <antcall target="showtime" inheritall="true" inheritrefs="true"/>
     </target>
 
     <!-- ======================================================================= -->
@@ -847,10 +884,11 @@
 		<!-- Always retrieve current version from Confluence -->
 		<antcall target="doc" inheritAll="true">
 			<param name="update.from.confluence" value="true"/>	
+            <param name="doc.update" value="true"/> 
 		</antcall>
 		<!-- Copy the retrieved documentation from the tmp/docs directory into doc/dist for the sake of this release-->
-		<copy todir="doc/dist">
-		    <fileset dir="tmp/htdocs/docs" includes="**/*"/>
+		<copy todir="doc/dist" overwrite="true">
+		    <fileset dir="tmp/htdocs/docs" includes="**/*" excludes="**/jquery.min.js"/>
 		</copy>
 		<!-- A small script that converts the version x.y.z to x_y_z to be used in the file. JavaScript does not work under Java 1.5. -->
 		<scriptdef name="convertdot" language="javascript">
@@ -869,6 +907,9 @@
 		<convertdot/> <!-- convert dots to underscores in version string -->
         <!-- <input message="Version tag for zipfile (ex 3_2_1):" addproperty="ejbca.zipversion" /> -->
 		<property name="basezipfile" value="ejbca_${edition}_${ejbca.zipversion}"/>
+        <condition property="edition.is.ee" value="true">
+            <equals arg1="${edition}" arg2="ee" casesensitive="true"/>
+        </condition>
 		<zip destfile="../${basezipfile}.zip">
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="600" dirmode="700" > 
 		    	<include name="**/**" />
@@ -889,20 +930,90 @@
 		    	<exclude name="**/*.sh" />
 		    	<exclude name="**/jndi.properties" />
 		    	<exclude name="**/hs_err*" />
+                <exclude name="**/*.log" />
+                <exclude name=".metadata/**" />
 		    	<exclude name="doc/xdocs/site/**" />
 		    	<exclude name="modules/statedump/**" />
-		    	<!-- Exclude ACME until finished. -->
-		    	<exclude name="modules/acme/**" />
+		    	<exclude name="lib/ext/openclover-ant/**" />
+                <!-- Exclude directories from release that are built after "clean" as dependency to documentation -->
+                <exclude name="modules/dist/**" />
+                <exclude name="modules/buildtools/build/**" />
+                <exclude name="modules/cesecore-common/build/**" />
+                <exclude name="modules/cesecore-ejb-interface/build/**" />
+                <exclude name="modules/cesecore-entity/build/**" />
+                <exclude name="modules/ejbca-common/build-common/**" />
+                <exclude name="modules/va/build-va-publisher/**" />
+                <!-- Exclude continuous integration files -->
+                <exclude name="jenkins-files/**" />
 		    	<!-- Exclude Web Tests -->
 		    	<exclude name="modules/ejbca-webtest/**"/>
+                <exclude name="lib/ext/webtest/**"/>
 		    	<!-- Exclude internal Confluence information -->
 		    	<exclude name="src/doc.properties" />
+		    	<!-- Exclude modules that are not present in Community Edition -->
+                <exclude unless="edition.is.ee" name="modules/ejbca-entity/src-cli/**"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-entity/src-test/org/ejbca/ui/cli/OcspMonitoringToolTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/database/DatabaseCliCommandTest.java"/>
+                <exclude unless="edition.is.ee" name="conf/databaseprotection.properties.sample"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-entity/src/org/cesecore/dbprotection/ProtectedDataConfiguration.java"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-entity/src/org/cesecore/dbprotection/ProtectedDataIntegrityImpl.java"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-entity/src-test/org/cesecore/dbprotection/**"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-common/src/org/cesecore/certificates/ca/CvcEacCA.java"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-common/src-test/org/cesecore/certificates/ca/CVCCATest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/protocol/ws/EjbcaWSCVCTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/ejb/ca/caadmin/CVCCAsTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/ui/cli/ca/CaInitCvcCommandTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/CaImportCVCCACommand.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/ui/cli/ca/CaImportCVCCACommandTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/ejb/ca/sign/SignSessionCvcTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/cesecore/certificates/ca/CaCvcSessionTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/validationtool/**"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-ejb/src/org/ejbca/core/protocol/cmp/authentication/CmpVendorModeImpl.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/protocol/cmp/VendorAuthenticationTest.java"/>
+                <exclude unless="edition.is.ee" name="modules/cmpProxy/**"/>
+                <exclude unless="edition.is.ee" name="modules/ct/**"/>
+                <exclude unless="edition.is.ee" name="lib/ct/**"/>
+                <exclude unless="edition.is.ee" name="modules/peerconnector/**"/>
+                <exclude unless="edition.is.ee" name="modules/peerconnector/src-interface/org/ejbca/peerconnector/**"/>
+                <exclude unless="edition.is.ee" name="modules/peerconnector/src-ejb/org/ejbca/peerconnector/**"/>
+                <exclude unless="edition.is.ee" name="modules/admin-gui/src/org/ejbca/ui/web/admin/peerconnector/**"/>
+                <exclude unless="edition.is.ee" name="modules/admin-gui/resources/peerconnector/**"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-ejb/src/org/ejbca/core/protocol/scep/ScepRaModeExtension.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/protocol/scep/ProtocolScepHttpRATest.java"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-ejb/src/org/ejbca/core/protocol/scep/ClientCertificateRenewalExtension.java"/>
+                <exclude unless="edition.is.ee" name="modules/systemtests/src-test/org/ejbca/core/protocol/scep/ScepClientCertificateRenewalTest.java"/>
+                <exclude unless="edition.is.ee" name="src/java/profilemappings_enterprise.properties"/>
+                <exclude unless="edition.is.ee" name="modules/edition-specific-ee/**"/>
+                <exclude unless="edition.is.ee" name="modules/externalra/**"/>
+                <exclude unless="edition.is.ee" name="modules/externalra-gui/**"/>
+                <exclude unless="edition.is.ee" name="modules/externalra-scep/**"/>
+                <exclude unless="edition.is.ee" name="modules/cmpclient/**"/>
+                <exclude unless="edition.is.ee" name="modules/acme/**"/>
+                <exclude unless="edition.is.ee" name="lib/dnsjava-*.jar"/>
+                <exclude unless="edition.is.ee" name="lib/dnssecjava-*.jar"/>
+                <exclude unless="edition.is.ee" name="lib/nimbus-jose-jwt-*.jar"/>
+                <exclude unless="edition.is.ee" name="modules/est/**"/>
+                <exclude unless="edition.is.ee" name="modules/caa/**"/>
+                <exclude unless="edition.is.ee" name="modules/cesecore-common/src/org/cesecore/certificates/certificate/certextensions/BasicCVCertificateExtension.java"/>
+                <exclude unless="edition.is.ee" name="modules/configdump/**"/>
+                <exclude unless="edition.is.ee" name="modules/unidfnr/**"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-rest-api/**"/>
+                <exclude unless="edition.is.ee" name="modules/ejbca-common/src/org/ejbca/util/swagger/SnakeCaseConverter.java"/>
+                <exclude unless="edition.is.ee" name="lib/ext/jackson2/**"/>
+                <exclude unless="edition.is.ee" name="lib/ext/resteasy-jaxrs-lib/**"/>
+                <exclude unless="edition.is.ee" name="lib/ext/swagger docs/**"/>
+                <exclude unless="edition.is.ee" name="lib/ext/swagger/**"/>
+                <exclude unless="edition.is.ee" name="modules/plugins-ee/**"/>
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="700" dirmode="700"> 
 		    	<include name="**/*.sh" />
 		    	<exclude name="bin/backup/**" />
+                <exclude name="jenkins-files/**" />
 		    	<exclude name="modules/statedump/**" />
-		    	<exclude name="modules/configdump/**" />
+                <exclude unless="edition.is.ee" name="modules/ejbca-entity/**"/>
+                <exclude unless="edition.is.ee" name="modules/configdump/**"/>
+                <exclude unless="edition.is.ee" name="modules/externalra/**"/>
+                <exclude unless="edition.is.ee" name="modules/validationtool/**"/>
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="600" dirmode="700">
 		    	<include name="conf/extendedkeyusage.properties" />		    	
@@ -1014,52 +1125,6 @@ After building, you will need to re-deploy EJBCA.
     </target>
 	
     <!-- ======================================================================= -->
-    <!-- Make a ZIP source release for Configdump, if available.                 -->
-    <!-- Creates a fat source zip containing all Configedump source files and    -->
-    <!-- can be included in your IDE to be able to browse the source.            -->
-	<!-- 																		 -->
-	<!-- Note that this zip is not standalone but needs to be unzipped inside an -->
-	<!-- existing EJBCA installation and built there.							 -->
-    <!-- ======================================================================= -->
-    <target name="ziprelease-configdump-src" if="${mod.configdump.exists}" description="Make a source zip for the Configdump modules">
-        <property name="configdump.src.basezipfile" value="configdump-${app.version.number}-src"/>
-        <delete file="../${configdump.src.basezipfile}.zip"/>
-
-        <property name="configdump.src.release.dir" location="${tmp}/configdump-release-src"/>
-        <delete dir="${configdump.src.release.dir}"/>
-        <mkdir dir="${configdump.src.release.dir}"/>
-        <copy todir="${configdump.src.release.dir}">
-            <fileset dir="${basedir}/modules/">
-                <include name="configdump/src-*/**/*.java" />
-                <include name="configdump/*.txt" />
-                <include name="configdump/*.xml" />
-                <include name="configdump/resources/**" />
-            </fileset>
-        </copy>
-
-        <zip destfile="../${configdump.src.basezipfile}.zip">
-            <zipfileset dir="${configdump.src.release.dir}" filemode="600" dirmode="700">
-            </zipfileset>
-        </zip>
-
-        <antcall target="signjar">
-            <param name="signjar.file" value="../${configdump.src.basezipfile}.zip"/>
-        </antcall>
-        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA1" forceOverwrite="yes" format="MD5SUM"/>
-        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA1" property="configdumpsrcSHA1"/>
-        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA-256" forceOverwrite="yes" format="MD5SUM"/>
-        <checksum file="../${configdump.src.basezipfile}.zip" algorithm="SHA-256" property="configdumpsrcSHA256"/>
-        <echo>
-File:             ../${configdump.src.basezipfile}.zip
-SHA1 checksum:    ${configdumpsrcSHA1}
-SHA-256 checksum: ${configdumpsrcSHA256}
-        	
-Note that this zip is not standalone but needs to be unzipped inside an existing EJBCA installation and built there.
-After building, you will need to re-deploy EJBCA.
-        </echo>
-    </target>
-
-    <!-- ======================================================================= -->
     <!-- Make a ZIP source release for CmpClient, if available.                  -->
     <!-- Creates a fat source zip containing all CmpClient source files and can  -->
     <!-- be included in your IDE to be able to browse the source.                -->
@@ -1168,9 +1233,19 @@ SHA-256 checksum: ${cesecorebinSHA256}
         <property name="revision" value="COMMITTED"/>	
 		
         <!-- find out svn.revision of HEAD, need svn.exe installed on local machine will end up in property ${Revision} -->
-        <exec executable="svn" output="svnlog.out">
+        <exec executable="svn" output="svnlog.out" failonerror="false" failifexecutionfails="false" resultproperty="exec.svn.errorcode">
             <arg line="info -r ${revision} --force-interactive"/>
         </exec>
+        <!-- Allow the revision to be specified using -Drelease.revision=12345 on systems where the "svn" CLI is not avilable. -->
+        <condition property="failifsvnfails" value="true">
+            <and>
+            	<not><isset property="release.revision"/></not>
+                <!-- Either the executable did not start (and hence this is unset) or the command failed with an error code. -->
+                <not><equals arg1="${exec.svn.errorcode}" arg2="0"/></not>
+            </and>
+        </condition>
+		<fail if="failifsvnfails" message="Failed to get current version using 'svn' CLI. Consider installing subversion or use -Drelease.revision=&lt;number&gt;."/>
+		<echo message="" append="true" file="svnlog.out"/>
 		<loadproperties srcFile="svnlog.out">
 		      <filterchain>
 		        <linecontains>
@@ -1178,6 +1253,8 @@ SHA-256 checksum: ${cesecorebinSHA256}
 		        </linecontains>
 		      </filterchain>
 		</loadproperties>
+        <!-- If we failed to get the SVN revision from the CLI command, use the specified one -->
+        <property name="Revision" value="${release.revision}"/>
 		<delete file="svnlog.out"/>
 		<antcall target="update-svnrev-updatefile" /> <!-- do update of file only if property is set -->
     </target>
@@ -1244,7 +1321,7 @@ SHA-256 checksum: ${cesecorebinSHA256}
 	</target>
 	
 	<target name="ejbca.ear.module-dependencies">
-            <ant dir="modules" target="ejbca.ear.module-dependencies"/>
+        <ant dir="modules" target="ejbca.ear.module-dependencies" inheritall="true" inheritrefs="true"/>
 	</target>
 
     <target name="ejbca-entity">
@@ -1275,8 +1352,12 @@ SHA-256 checksum: ${cesecorebinSHA256}
     	<ant dir="modules" target="ejbca-ejb-cli" />
     </target>
 	
-	<target name="peerconnector-cli" if="mod.peerconnector.exists">
-		<ant antfile="${mod.peerconnector.path}/build.xml" target="build-cli" inheritall="false"><property name="runoncesetup.hasrun" value="true"/><property name="external-deps-satfisfied" value="isset"/></ant>
+    <target name="peerconnector-cli:fail" unless="mod.peerconnector.exists">
+        <fail>EJBCA DB CLI does not exist in EJBCA Community. Please contact a sales representative at PrimeKey Solutions for information about how to get an Enterprise License.</fail>
+    </target>
+
+	<target name="peerconnector-cli" depends="peerconnector-cli:fail" >
+        <ant dir="modules" target="peerconnector-cli" />
 	</target>
 	
     <target name="adminweb.war">
@@ -1319,8 +1400,7 @@ SHA-256 checksum: ${cesecorebinSHA256}
     <target name="ejbca-rest-api.war">
     	<ant dir="modules" target="ejbca-rest-api-war" />
     </target>
-
-
+    	
     <target name="status.war">
     	<ant dir="modules" target="va-ejbca-war" />
     </target>
@@ -1336,11 +1416,6 @@ SHA-256 checksum: ${cesecorebinSHA256}
 	<target name="statedump" depends="deprecated:check" description="Build EJBCA StateDump tool">
 		<ant dir="modules" target="statedump" />
     </target>
-	
-	<!-- Secret build command for statedump to make Jocke happy -->
-	<target name="poop" >
-		<antcall target="statedump" />
-	</target>
 	
 	<target name="configdump" depends="deprecated:check" description="Build EJBCA ConfigDump tool">
 		<ant dir="modules" target="configdump" />
@@ -1433,6 +1508,10 @@ SHA-256 checksum: ${cesecorebinSHA256}
         <ant dir="modules" target="oldlogexport-cli"/>
     </target>
 
+	<target name="check.clover">
+		<ant dir="modules" target="check.clover"/>
+	</target>
+
     <target name="clover.html">
         <ant dir="modules" target="clover.html"/>
     </target>
@@ -1506,5 +1585,17 @@ SHA-256 checksum: ${cesecorebinSHA256}
             </fileset>
         </copy>
     </target>
+
+	<!-- Setup Firefox profiles for Selenium UI Tests -->
+	<target name="ejbca:setup:selenium">
+		<ant dir="${ejbca.home}/bin" antfile="cli.xml" target="ejbca:setup:selenium-certificates" />
+		<ant dir="${ejbca.home}/bin" antfile="cli.xml" target="ejbca:setup:selenium-firefox-profiles" />
+	</target>
+	<target name="ejbca:setup:selenium-certificates">
+		<ant dir="${ejbca.home}/bin" antfile="cli.xml" target="ejbca:setup:selenium-certificates" />
+	</target>
+	<target name="ejbca:setup:selenium-firefox-profiles">
+		<ant dir="${ejbca.home}/bin" antfile="cli.xml" target="ejbca:setup:selenium-firefox-profiles" />
+	</target>
 
 </project>

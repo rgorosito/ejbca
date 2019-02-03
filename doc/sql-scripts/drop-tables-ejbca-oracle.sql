@@ -32,3 +32,8 @@ drop table ServiceData cascade constraints;
 drop table UserData cascade constraints;
 drop table UserDataSourceData cascade constraints;
 drop table NoConflictCertificateData cascade constraints;
+drop table AcmeAuthorizationData cascade constraints;
+drop table AcmeChallengeData cascade constraints;
+drop table AcmeNonceData cascade constraints;
+drop table AcmeAccountData cascade constraints;
+drop table AcmeOrderData cascade constraints;

@@ -21,6 +21,7 @@ import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.common.exception.ReferencesToItemExistException;
 import org.ejbca.core.model.ca.publisher.BasePublisher;
 import org.ejbca.core.model.ca.publisher.PublisherDoesntExistsException;
 import org.ejbca.core.model.ca.publisher.PublisherExistsException;
@@ -59,6 +60,9 @@ public interface PublisherSession {
 
     /** @return mapping of publisher id (Integer) to publisher name (String). */
     HashMap<Integer,String> getPublisherIdToNameMap();
+
+    /** @return mapping of publisher name (String) to publisher id (Integer). */
+    HashMap<String, Integer> getPublisherNameToIdMap();
 
     /**
      * Adds a publisher to the database. Used for importing and exporting
@@ -120,15 +124,17 @@ public interface PublisherSession {
      * @throws AuthorizationDeniedException */
     void changePublisher(AuthenticationToken admin, String name, BasePublisher publisher) throws AuthorizationDeniedException;
 
-    /** Removes publisher data. Ignores if there are any references to the publisher from CA or certificate profiles, 
-     * just goes ahead and removes it.
+    /**
+     * Removes a publisher. References to the publisher from CA, certificate profiles and Multi Group Publishers
+     * are checked.
      * 
      * @param admin AuthenticationToken of admin.
      * @param name the name of the publisher to remove.
      * 
      * @throws AuthorizationDeniedException required access rights are ca_functionality/edit_publisher
+     * @throws ReferencesToItemExistException if references exist from other items in the database.
      */
-    void removePublisher(AuthenticationToken admin, String name) throws AuthorizationDeniedException;
+    void removePublisher(AuthenticationToken admin, String name) throws AuthorizationDeniedException, ReferencesToItemExistException;
 
     /**
      * Stores the certificate to the given collection of publishers. See

@@ -19,6 +19,8 @@
     <property name="docs.dist"    location="doc/dist"/>
     <property name="docs.nojs.dest"    location="tmp/htdocs/docsnojs"/>
     <property name="docs.dest.ws" location="tmp/htdocs/docs/ws"/>
+    <property name="docs.dest.rest" location="tmp/htdocs/docs/rest"/>
+    <property name="docs.dest.acme" location="tmp/htdocs/docs/acme"/>
     <property name="docs.dest.logtypes" location="tmp/htdocs/docs/logtypes"/>
     <property name="site.src"     location="doc/xdocs/site"/>
     <property name="site.dest"    location="tmp/htdocs"/>
@@ -40,20 +42,21 @@
     <property name="confluence.url"  value="none" />
     <property name="confluence.port"  value="-1" />
 	<path id="jdoc.classpath">
+        <path location="lib/jee/javaee-api-6.0-6.jar"/>
 		<path location="dist/ejbca-common.jar" />
 		<path location="modules/dist/ejbca-ejb.jar" />
         <path location="modules/dist/cesecore-common.jar"/>
         <path location="modules/dist/cesecore-entity.jar"/>
        	<path location="modules/dist/cesecore-ejb-interface.jar"/>
-		<path location="lib/bcprov-jdk15on-159.jar" />
-		<path location="lib/bcpkix-jdk15on-159.jar" />
+		<path location="lib/bcprov-jdk15on-160.jar" />
+		<path location="lib/bcpkix-jdk15on-160.jar" />
     </path>
     
     <!-- =================================================================== -->
     <!-- Build doc part                                                                                                                             -->
     <!-- =================================================================== -->
 	 <target name="doc.war" if="doc.war.enabled">
-    	<antcall target="doc" />  	
+    	<antcall target="doc" inheritall="true" inheritrefs="true"/>  	
 		<war destfile="${dist.dir}/doc.war" webxml="${ejbca.home}/src/publicweb/empty_webxml.xml">
             <fileset dir="${docs.dest}" />
         </war>
@@ -87,24 +90,34 @@
         </echo>
     </target>
 
-	<condition property="update.from.confluence" value="true" else="false">
-		<istrue value="${doc.update}"/>
-    </condition>
-    
-    <condition property="connected.to.confluence" value="true" else="false">
-    	<isreachable url="http://${confluence.url}" timeout="2"/>	
+    <condition property="mod.rest-api.exists">
+        <available file="${mod.ejbca-rest-api.path}/build.xml" />
     </condition>
 
+    <condition property="mod.acme.exists">
+        <available file="${mod.acme.path}/build.xml" />
+    </condition>
+
+    <condition property="update.from.confluence" value="true" else="false">
+        <istrue value="${doc.update}"/>
+    </condition>
+    
 	<target name="doc-confluence">
-		<antcall target="doc-confluence-from-server"/>
-		<antcall target="doc-confluence-copy-local"/>
+		<antcall target="doc-confluence-from-server" inheritall="true" inheritrefs="true"/>
+		<antcall target="doc-confluence-copy-local" inheritall="true" inheritrefs="true"/>
 	</target>
 	
 	<target name="doc-confluence-from-server" if="${update.from.confluence}">	
 	    <delete dir="${docs.dest}" />
 	    <mkdir dir="${docs.dest}"/>
 	    
-		<fail message="Could not contact Confluence Server.">
+        <condition property="connected.to.confluence" value="true" else="false">
+            <and>
+                <istrue value="${doc.update}"/>          
+                <isreachable url="http://${confluence.url}:${confluence.port}/" timeout="10"/>
+            </and>  
+        </condition>    
+        <fail message="Could not contact Confluence Server at http://${confluence.url}:${confluence.port}/. doc.update=${doc.update}">
 			<condition>
 	       		<isfalse value="${connected.to.confluence}"/>
 	       	</condition>
@@ -130,8 +143,8 @@
         </copy>
 	</target>
 
-	<target name="doc-external-deps" unless="external-deps-satfisfied">
-		<antcall target="ejbca-common.jar"/>
+	<target name="doc-external-deps" unless="docs.external-deps-satfisfied">
+		<antcall target="ejbca-common.jar" inheritall="true" inheritrefs="true"/>
 	</target>
     
     <target name="site" if="site.present">
@@ -155,7 +168,7 @@
         </copy>
     </target>
         
-    <target name="doc" depends="prepare, doc-build-tool, doc-external-deps, site, doc-confluence" description="Build EJBCA inline ear file docs. Set -Ddoc.update=true to update documentation from PrimeKey's Confluence Server.">
+    <target name="doc" depends="prepare, doc-build-tool, doc-external-deps, site, doc-confluence, doc-rest, doc-acme" description="Build EJBCA inline ear file docs. Set -Ddoc.update=true to update documentation from PrimeKey's Confluence Server.">
         <echo message="WS=${ws.objects.dir}"/>
         <mkdir dir="${jdocs.ws.tmp}"/>
         <mkdir dir="${docs.dest.ws}"/>
@@ -219,6 +232,22 @@
 	      <bottom><![CDATA[<i>2018 PrimeKey Solutions AB.</i>]]></bottom>
 	    </javadoc>        
         <echo message="Local documentation is now available in file://${docs.dest}/index.html"/>
+    </target>
+
+    <target name="doc-rest" if="${mod.rest-api.exists}">
+        <mkdir dir="${docs.dest.rest}"/>
+        <java dir="${ejbca.home}" jar="${ejbca.home}/lib/ext/swagger docs/swagger-codegen-cli-2.3.1.jar" fork="true">
+            <arg line="generate -i ${mod.ejbca-rest-api.path}/resources/swagger.json -l html2 -o ${docs.dest.rest}
+            -t ${ejbca.home}/modules/ejbca-rest-api/htmlDocsTemplate"/>
+        </java>
+    </target>
+
+    <target name="doc-acme" if="${mod.acme.exists}">
+        <mkdir dir="${docs.dest.acme}"/>
+        <java dir="${ejbca.home}" jar="${ejbca.home}/lib/ext/swagger docs/swagger-codegen-cli-2.3.1.jar" fork="true">
+            <arg line="generate -i ${mod.acme.path}/resources/swagger.json -l html2 -o ${docs.dest.acme}
+            -t ${ejbca.home}/modules/ejbca-rest-api/htmlDocsTemplate"/>
+        </java>
     </target>
     
     <target name="docpiwik" depends="doc" description="Build EJBCA site docs including piwik webstats">

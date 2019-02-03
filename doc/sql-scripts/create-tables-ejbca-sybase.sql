@@ -89,6 +89,7 @@ CREATE TABLE Base64CertData (
     base64Cert TEXT,
     rowProtection TEXT,
     rowVersion INTEGER NOT NULL,
+    certificateRequest TEXT,
     PRIMARY KEY (fingerprint)
 );
 
@@ -153,6 +154,7 @@ CREATE TABLE CertificateData (
     type INTEGER NOT NULL,
     updateTime DECIMAL(20,0) NOT NULL,
     username VARCHAR(255),
+    certificateRequest TEXT,
     PRIMARY KEY (fingerprint)
 );
 
@@ -428,7 +430,19 @@ CREATE TABLE NoConflictCertificateData (
     type INTEGER NOT NULL,
     updateTime DECIMAL(20,0) NOT NULL,
     username VARCHAR(255),
+    certificateRequest TEXT,
     PRIMARY KEY (id)
+);
+
+CREATE TABLE AcmeOrderData (
+    orderId VARCHAR(255) NOT NULL,
+    accountId VARCHAR(255) NOT NULL,
+    fingerprint VARCHAR(255),
+    status VARCHAR(255) NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (orderId)
 );
 
 CREATE TABLE AcmeNonceData (
@@ -437,4 +451,33 @@ CREATE TABLE AcmeNonceData (
     rowProtection TEXT,
     rowVersion INTEGER NOT NULL,
     PRIMARY KEY (nonce)
+);
+
+CREATE TABLE AcmeAccountData (
+    accountId VARCHAR(255) NOT NULL
+    currentKeyId VARCHAR(255) NOT NULL
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (accountId)
+);
+
+CREATE TABLE AcmeChallengeData (
+    challengeId VARCHAR(255) NOT NULL,
+    authorizationId VARCHAR(255) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (challengeId)
+);
+
+CREATE TABLE AcmeAuthorizationData (
+    authorizationId VARCHAR(255) NOT NULL,
+    orderId VARCHAR(255),
+    accountId VARCHAR(255) NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (authorizationId)
 );

@@ -22,7 +22,7 @@ import org.ejbca.core.model.services.IAction;
 import org.ejbca.ui.web.admin.CustomLoader;
 
 /**
- * Class used to populate the fields in the customaction.jsp subview page. 
+ * Class used to populate the fields in the customaction.xhtml subview page. 
  * 
  *
  * @version $Id$
@@ -34,7 +34,7 @@ public class CustomActionType extends ActionType {
     public static final String NAME = "CUSTOMACTION";
 	
 	public CustomActionType() {
-		super("customaction.jsp", NAME, true);
+		super(ServiceTypeUtil.CUSTOMACTION_SUB_PAGE, NAME, true);
 	}
 
 	private String autoClassPath;

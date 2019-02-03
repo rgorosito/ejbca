@@ -14,6 +14,7 @@
 package org.ejbca.ui.cli;
 
 import org.ejbca.ui.cli.dbmanager.DBManager;
+import org.ejbca.ui.cli.jdbc.JdbcTool;
 
 /**
  * Extend this class for each new tool you want to add and add the new extended class to the toolBox array in {@link #main(String[])}
@@ -48,18 +49,20 @@ public abstract class ClientToolBox {
     public static void main(String[] args) {
         // each new tool must be added to the array
         final ClientToolBox toolBox[] = {
-        		new HealthCheckTest(),
-        		new HSMKeyTool(),
-        		new Ocsp(),
-        		new EjbcaWsRaCli(),
-        		new CvcWsRaCli(),
-        		new CMPTest(),
-        		new CMPKeyUpdateStressTest(),
-        		new SCEPTest(),
+                new HealthCheck(),
+                new HealthCheckTest(),
+                new HSMKeyTool(),
+                new Ocsp(),
+                new EjbcaWsRaCli(),
+                new CvcWsRaCli(),
+                new CMPTest(),
+                new CMPKeyUpdateStressTest(),
+                new SCEPTest(),
                 new OCSPActivate(),
                 new DBManager(),
                 new PasswordGenerator(),
                 new CaIdGenerator(),
+                new JdbcTool(),
         };
         for ( int i=0; args.length>0 && i<toolBox.length; i++) {
             if ( toolBox[i].executeIfSelected(args) ) {

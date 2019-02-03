@@ -174,6 +174,7 @@ public abstract class BasePublisher extends UpgradeableDataHashMap implements Se
      * To revoke a certificate (already revoked by the CA) call with status=CertificateDataBean.CERT_ACTIVE, the Publisher decides what to do, if
      * anything.
      * 
+     * @param admin the administrator publishing the Certificate, it's up to the publisher to decide if authorization is needed or not
      * @param incert The certificate to be stored.
      * @param chainfp Fingerprint (hex) of the CAs certificate.
      * @param username Username of end entity owning the certificate.
@@ -196,6 +197,19 @@ public abstract class BasePublisher extends UpgradeableDataHashMap implements Se
         throw new UnsupportedOperationException("This publisher has not implemented this method, and it has been called in error.");
     }
 
+    /**
+     * Variation of the storeCertificate method which gets the full information needed to call either of the other storeCertificate methods.
+     * This is needed for MultiGroupPublisher for example, which can call publishers of either type.
+     *
+     * @see #storeCertificate(AuthenticationToken, Certificate, String, String, String, String, int, int, long, int, String, int, long, ExtendedInformation)
+     * @see #storeCertificate(AuthenticationToken, CertificateData, Base64CertData)
+     * @return true if storage was successful.
+     * @throws PublisherException if a communication or other error occurs.
+     */
+    public boolean storeCertificate(final AuthenticationToken authenticationToken, final CertificateData certificateData, final Base64CertData base64CertData, final String password, final String userDN, final ExtendedInformation extendedinformation) throws PublisherException {
+        return storeCertificate(authenticationToken, certificateData, base64CertData);
+    }
+
     @Override
     public boolean isFullEntityPublishingSupported() {
         return false;
@@ -204,10 +218,11 @@ public abstract class BasePublisher extends UpgradeableDataHashMap implements Se
     /**
      * Published a CRL to a CRL store.
      *
+     * @param admin the administrator publishing the CRL, it's up to the publisher to decide if authorization is needed or not
      * @param incrl The DER coded CRL to be stored.
      * @param chainfp Fingerprint (hex) of the CAs certificate.
      * @param number CRL number.
-     * @param userDN if an DN object is not found in the certificate use object from user data instead, can be null.
+     * @param userDN if a DN object is not found in the CRL use object from user data instead, can be null, but for a CRL this is typically the issuerDN.
      *
      * @return true if storage was successful.
      *
@@ -223,6 +238,10 @@ public abstract class BasePublisher extends UpgradeableDataHashMap implements Se
     public abstract void testConnection() throws PublisherConnectionException; // NOPMD: this is not a JUnit test
     
 
+    /**
+     * clone() is used to create new publishers in the user interface, with an existing publisher as a template.
+     * The publishers currently do not copy the name and id, which is a deviation from how clone() is supposed to work.
+     */
     @Override
     public abstract Object clone() throws CloneNotSupportedException;
 

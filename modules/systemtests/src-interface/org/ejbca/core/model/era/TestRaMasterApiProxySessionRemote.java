@@ -33,13 +33,19 @@ import org.ejbca.core.protocol.ws.objects.UserDataVOWS;
 public interface TestRaMasterApiProxySessionRemote {
 
     /**
+     * De-prioritizes the local RA Master API implementation, causing it to not be called if a remote connection is available.
+     * Used in tests, to test "remote" peer connections to localhost.
+     */
+    void deferLocalForTest();
+    
+    /**
      * Adds (end entity) user.
      * @param admin authentication token
      * @param endEntity end entity data as EndEntityInformation object
      * @param clearpwd 
      * @throws AuthorizationDeniedException
      * @throws EjbcaException if an EJBCA exception with an error code has occurred during the process
-     * @throws WaitingForApprovalException if approval is required to finalize the adding of the end entity
+     * @throws WaitingForApprovalException if approval is required to finalize the adding of the end entity. The request ID will be included as a field in this exception.
      * @return true if used has been added, false otherwise
      */
     boolean addUser(AuthenticationToken authenticationToken, EndEntityInformation endEntity, boolean clearpwd)

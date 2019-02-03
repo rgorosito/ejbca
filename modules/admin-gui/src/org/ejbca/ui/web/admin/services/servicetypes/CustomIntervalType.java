@@ -22,7 +22,7 @@ import org.ejbca.core.model.services.IInterval;
 import org.ejbca.ui.web.admin.CustomLoader;
 
 /**
- * Class used to populate the fields in the custominterval.jsp subview page. 
+ * Class used to populate the fields in the custominterval.xhtml subview page. 
  * 
  *
  * @version $Id$
@@ -34,7 +34,7 @@ public class CustomIntervalType extends IntervalType {
     public static final String NAME = "CUSTOMINTERVAL";
 	
 	public CustomIntervalType() {
-		super("custominterval.jsp", NAME, true);
+		super(ServiceTypeUtil.CUSTOMINTERVAL_SUB_PAGE, NAME, true);
 	}
 
 	private String autoClassPath;

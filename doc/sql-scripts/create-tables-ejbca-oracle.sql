@@ -89,6 +89,7 @@ CREATE TABLE Base64CertData (
     base64Cert CLOB,
     rowProtection CLOB,
     rowVersion NUMBER(10) NOT NULL,
+    certificateRequest CLOB,
     PRIMARY KEY (fingerprint)
 );
 
@@ -153,6 +154,7 @@ CREATE TABLE CertificateData (
     type NUMBER(10) NOT NULL,
     updateTime NUMBER(19) NOT NULL,
     username VARCHAR2(255 byte),
+    certificateRequest CLOB,
     PRIMARY KEY (fingerprint)
 );
 
@@ -428,6 +430,7 @@ CREATE TABLE NoConflictCertificateData (
     type NUMBER(10) NOT NULL,
     updateTime NUMBER(19) NOT NULL,
     username VARCHAR2(255 byte),
+    certificateRequest CLOB,
     PRIMARY KEY (id)
 );
 
@@ -437,4 +440,44 @@ CREATE TABLE AcmeNonceData (
     rowProtection CLOB,
     rowVersion NUMBER(10) NOT NULL,
     PRIMARY KEY (nonce)
+);
+
+CREATE TABLE AcmeAccountData (
+    accountId VARCHAR2(255 byte) NOT NULL,
+    currentKeyId VARCHAR2(255 byte) NOT NULL,
+    rawData CLOB,
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    PRIMARY KEY (accountId)
+);
+
+CREATE TABLE AcmeOrderData (
+    orderId VARCHAR2(255 byte) NOT NULL,
+    accountId VARCHAR2(255 byte) NOT NULL,
+    fingerprint VARCHAR2(255 byte),
+    status VARCHAR2(255 byte) NOT NULL,
+    rawData CLOB,
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    PRIMARY KEY (orderId)
+);
+
+CREATE TABLE AcmeChallengeData (
+    challengeId VARCHAR2(255 byte) NOT NULL,
+    authorizationId VARCHAR2(255 byte) NOT NULL,
+    type VARCHAR2(20 byte) NOT NULL,
+    rawData CLOB,
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    PRIMARY KEY (challengeId)
+);
+
+CREATE TABLE AcmeAuthorizationData (
+    authorizationId VARCHAR2(255 byte) NOT NULL,
+    orderId VARCHAR2(255 byte),
+    accountId VARCHAR2(255 byte) NOT NULL,
+    rawData CLOB,
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    PRIMARY KEY (authorizationId)
 );

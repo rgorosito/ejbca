@@ -12,10 +12,16 @@
  *************************************************************************/
 package org.ejbca.core.ejb.ra;
 
+import java.math.BigInteger;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -33,15 +39,21 @@ import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
+import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.certificate.CertificateConstants;
+import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.config.GlobalCesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EJBTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.config.GlobalConfiguration;
+import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.SecConst;
@@ -80,7 +92,9 @@ public class EndEntityAccessSessionBean implements EndEntityAccessSessionLocal, 
     private EndEntityProfileSessionLocal endEntityProfileSession;
     @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
-
+    @EJB
+    private CertificateStoreSessionLocal certificateStoreSession;
+    
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
     public AbstractMap.SimpleEntry<String, SupportedPasswordHashAlgorithm> getPasswordAndHashAlgorithmForUser(String username)
@@ -607,4 +621,65 @@ public class EndEntityAccessSessionBean implements EndEntityAccessSessionLocal, 
         
     }
 
+    @Override
+    public CertificateWrapper getCertificate(AuthenticationToken authenticationToken, String certSNinHex, String issuerDN)
+            throws AuthorizationDeniedException, CADoesntExistsException, EjbcaException {
+        final String bcString = CertTools.stringToBCDNString(issuerDN);
+        final int caId = bcString.hashCode();
+        caSession.verifyExistenceOfCA(caId);
+        final String[] rules = {StandardRules.CAFUNCTIONALITY.resource()+"/view_certificate", StandardRules.CAACCESS.resource() + caId};
+        if(!authorizationSession.isAuthorizedNoLogging(authenticationToken, rules)) {
+            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", Arrays.toString(rules), null);
+            throw new AuthorizationDeniedException(msg);
+        }
+        final Certificate result = certificateStoreSession.findCertificateByIssuerAndSerno(issuerDN, new BigInteger(certSNinHex,16));
+        if (log.isDebugEnabled()) {
+            log.debug("Found certificate for issuer '" + issuerDN + "' and SN " + certSNinHex + " for admin " + authenticationToken.getUniqueId());
+        }
+        return EJBTools.wrap(result);
+    }
+    
+    @Override
+    public Collection<CertificateWrapper> findCertificatesByUsername(final AuthenticationToken authenticationToken, final String username, final boolean onlyValid, final long now)
+            throws AuthorizationDeniedException, CertificateEncodingException {
+        if (log.isDebugEnabled()) {
+            log.debug( "Find certificates by username requested by " + authenticationToken.getUniqueId());
+        }
+        // Check authorization on current CA and profiles and view_end_entity by looking up the end entity.
+        if (findUser(authenticationToken, username) == null) {
+            if (log.isDebugEnabled()) {
+                log.debug(intres.getLocalizedMessage("ra.errorentitynotexist", username));
+            }
+        }
+        // Even if there is no end entity, it might be the case that we don't store UserData, so we still need to check CertificateData.
+        Collection<CertificateWrapper> searchResults;
+        if (onlyValid) {
+            // We will filter out not yet valid certificates later on, but we as the database to not return any expired certificates
+            searchResults = EJBTools.wrapCertCollection(certificateStoreSession.findCertificatesByUsernameAndStatusAfterExpireDate(username, CertificateConstants.CERT_ACTIVE, now));
+        } else {
+            searchResults = certificateStoreSession.findCertificatesByUsername(username);
+        }
+        // Assume the user may have certificates from more than one CA.
+        Certificate certificate = null;
+        int caId = -1;
+        Boolean authorized = null;
+        final Map<Integer, Boolean> authorizationCache = new HashMap<>();
+        final List<CertificateWrapper> result = new ArrayList<>();
+        for (Object searchResult: searchResults) {
+            certificate = ((CertificateWrapper) searchResult).getCertificate();
+            caId = CertTools.getIssuerDN(certificate).hashCode();
+            authorized = authorizationCache.get(caId);
+            if (authorized == null) {
+                authorized = authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAACCESS.resource() + caId);
+                authorizationCache.put(caId, authorized);
+            }
+            if (authorized.booleanValue()) {
+                result.add((CertificateWrapper) searchResult);
+            }
+        }
+        if (log.isDebugEnabled()) {
+            log.debug( "Found " + result.size() + " certificate(s) by username requested by " + authenticationToken.getUniqueId());
+        }
+        return result;
+    }
 }

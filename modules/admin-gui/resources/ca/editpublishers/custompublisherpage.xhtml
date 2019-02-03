@@ -1,0 +1,88 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:c="http://xmlns.jcp.org/jsp/jstl/core">
+<ui:remove>
+	<!--
+    /*************************************************************************
+     *                                                                       *
+     *  EJBCA: The OpenSource Certificate Authority                          *
+     *                                                                       *
+     *  This software is free software; you can redistribute it and/or       *
+     *  modify it under the terms of the GNU Lesser General Public           *
+     *  License as published by the Free Software Foundation; either         *
+     *  version 2.1 of the License, or any later version.                    *
+     *                                                                       *
+     *  See terms of license at gnu.org.                                     *
+     *                                                                       *
+     *************************************************************************/
+     
+     $Id$
+     -->
+</ui:remove>
+<body>
+<ui:composition>
+	<h:panelGrid styleClass="edit-top" width="100%" columns="2" rowClasses="Row0,Row1" columnClasses="editColumn1,editColumn2">
+		<h:panelGroup>
+			<h:outputText value="#{web.text.CUSTOMPUBLISHERSETTINGS}" rendered="#{editPublisher.customClassChoice}" style="font-weight:bold;"/> 
+			<h:outputText value="#{editPublisher.customPublisherSettingText}" rendered="#{!editPublisher.customClassChoice}" style="font-weight:bold;"/> 
+		</h:panelGroup>
+		
+		<h:panelGroup/>
+		
+		<h:panelGroup rendered="#{editPublisher.manualClassPathsEnabledOrIsCustomClassChoice}">
+			<h:outputText value="#{web.text.CLASSPATH}" />
+		</h:panelGroup>
+		
+		<h:panelGroup rendered="#{editPublisher.manualClassPathsEnabledOrIsCustomClassChoice}">
+			<h:inputText size="60" maxlength="255" rendered="#{editPublisher.manualClassPathsEnabledAndIsCustomClassChoice}"
+						disabled="#{editPublisher.readOnly}" value="#{editPublisher.customPublisherMBData.customPublisherCurrentClass}"/> 
+							
+			<h:inputText size="60" maxlength="255" rendered="#{!editPublisher.manualClassPathsEnabledAndIsCustomClassChoice}"
+						disabled="#{editPublisher.readOnly}" value="#{editPublisher.customPublisherMBData.customPublisherCurrentClass}" readonly="true"/>
+						
+			<h:outputText value="#{web.text.OLDMANUALCLASSPATHELP}" 
+						  rendered="#{!editPublisher.manualClassPathsEnabledAndIsCustomClassChoice and editPublisher.customClassChoice}"/>							
+		</h:panelGroup>
+
+		<c:forEach items="#{editPublisher.customUiPropertyList}" var="property">
+ 			<h:panelGroup rendered="#{editPublisher.customUiRenderingSupported}">
+				<h:outputText value="#{editPublisher.getCustomPublisherPropertyText(property)}"/>
+			</h:panelGroup >
+			<h:panelGroup rendered="#{editPublisher.customUiRenderingSupported}">
+				<h:selectOneMenu value="#{editPublisher.customPublisherMBData.customPublisherPropertyValues[property.name]}" 
+								 disabled="#{editPublisher.readOnly}"
+								 rendered="#{editPublisher.customPublisherMBData.renderCustomSelectOneMenu(property)}">
+					<f:selectItems value="#{editPublisher.customPublisherMBData.getCustomPublisherPropertySelectOneMenuList(property)}"/>
+				</h:selectOneMenu>
+				<h:inputText value="#{editPublisher.customPublisherMBData.customPublisherPropertyValues[property.name]}" 
+							 size="45" maxlength="255" disabled="#{editPublisher.readOnly}" 
+							 rendered="#{editPublisher.customPublisherMBData.renderCustomTextInput(property)}"/>
+				<h:inputSecret value="#{editPublisher.customPublisherMBData.customPublisherPropertyValues[property.name]}" 
+							   autocomplete="off" size="45" maxlength="255" disabled="#{editPublisher.readOnly}" 
+							   rendered="#{editPublisher.customPublisherMBData.renderCustomInputPassword(property)}"/>
+				<h:selectBooleanCheckbox  value="#{editPublisher.customPublisherMBData.customPublisherPropertyValues[property.name]}" 
+										  disabled="#{editPublisher.readOnly}" rendered="#{editPublisher.customPublisherMBData.renderCustomCheckbox(property)}"/> 
+				<h:outputLabel value="#{web.text.USE}" rendered="#{editPublisher.customPublisherMBData.renderCustomCheckbox(property)}"/>
+				<h:inputTextarea cols="60" rows="12" value="#{editPublisher.customPublisherMBData.customPublisherPropertyValues[property.name]}" disabled="#{editPublisher.readOnly}"
+								 rendered="#{editPublisher.customPublisherMBData.renderCustomOutputTextArea(property)}"/>
+			<f:verbatim rendered="#{editPublisher.renderCustomHelp(property)}">
+				<br />
+			</f:verbatim>					 
+			<h:outputText value="#{editPublisher.getCustomHelpText(property)}" styleClass="smallHelp" rendered="#{editPublisher.renderCustomHelp(property)}"/>
+			</h:panelGroup>
+		</c:forEach>
+
+		<h:panelGroup rendered="#{not editPublisher.customUiRenderingSupported}">
+			<h:outputText value="#{web.text.PROPERTIESOFCUSTOM}"/>
+		</h:panelGroup>	
+		<h:panelGroup rendered="#{not editPublisher.customUiRenderingSupported}">
+			<h:inputTextarea cols="45" rows="8" disabled="#{editPublisher.readOnly}" value="#{editPublisher.customPublisherMBData.customPublisherPropertyData}"/>
+		</h:panelGroup>
+	</h:panelGrid>
+</ui:composition>
+</body>
+</html>

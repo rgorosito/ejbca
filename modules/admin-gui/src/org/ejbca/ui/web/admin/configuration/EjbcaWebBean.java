@@ -34,7 +34,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -104,11 +103,12 @@ import org.ejbca.core.model.ra.raadmin.AdminPreference;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.core.model.util.EnterpriseEjbLocalHelper;
-import org.ejbca.ui.web.RequestHelper;
 import org.ejbca.util.HTMLTools;
 
 /**
  * The main bean for the web interface, it contains all basic functions.
+ * <p>
+ * Do not add page specific code here, use a ManagedBean for that.
  *
  * @version $Id$
  */
@@ -153,8 +153,11 @@ public class EjbcaWebBean implements Serializable {
     private boolean initialized = false;
     private boolean errorpage_initialized = false;
     private AuthenticationToken administrator;
+    private String requestScheme;
     private String requestServerName;
-
+    private int requestServerPort;
+    private String currentRemoteIp;
+    
     /*
      * We should make this configurable, so GUI client can use their own time zone rather than the
      * servers. Using JavaScript's "new Date().getTimezoneOffset()" in a cookie will not work on
@@ -193,11 +196,11 @@ public class EjbcaWebBean implements Serializable {
     }
 
     /* Sets the current user and returns the global configuration */
-    public GlobalConfiguration initialize(HttpServletRequest request, String... resources) throws Exception {
+    public GlobalConfiguration initialize(final HttpServletRequest httpServletRequest, final String... resources) throws Exception {
         // Get some variables so we can detect if the TLS session and/or TLS client certificate changes within this session
-        final X509Certificate certificate = getClientX509Certificate(request);
+        final X509Certificate certificate = getClientX509Certificate(httpServletRequest);
         final String fingerprint = CertTools.getFingerprintAsString(certificate);
-        final String currentTlsSessionId = getTlsSessionId(request);
+        final String currentTlsSessionId = getTlsSessionId(httpServletRequest);
         // Re-initialize if we are not initialized (new session) or if authentication parameters change within an existing session (TLS session ID or client certificate).
         // If authentication parameters change it can be an indication of session hijacking, which should be denied if we re-auth, or just session re-use in web browser such as what FireFox 57 seems to do even after browser re-start
         if (!initialized || !StringUtils.equals(authenticationTokenTlsSessionId, currentTlsSessionId) || !StringUtils.equals(fingerprint, certificateFingerprint)) {
@@ -205,8 +208,11 @@ public class EjbcaWebBean implements Serializable {
                 // Only log this if we are not initialized, i.e. if we entered here because session authentication parameters changed
                 log.debug("TLS session authentication changed withing the HTTP Session, re-authenticating admin. Old TLS session ID: "+authenticationTokenTlsSessionId+", new TLS session ID: "+currentTlsSessionId+", old cert fp: "+certificateFingerprint+", new cert fp: "+fingerprint);
             }
-            final String requestURL = request.getRequestURL().toString();
-            requestServerName = RequestHelper.getRequestServerName(requestURL);
+            // Escape value taken from the request, just to be sure there can be no XSS
+            requestScheme = HTMLTools.htmlescape(httpServletRequest.getScheme());
+            requestServerName = HTMLTools.htmlescape(httpServletRequest.getServerName());
+            requestServerPort = httpServletRequest.getServerPort();
+            currentRemoteIp = httpServletRequest.getRemoteAddr();
             if (log.isDebugEnabled()) {
                 log.debug("requestServerName: "+requestServerName);
             }
@@ -239,10 +245,10 @@ public class EjbcaWebBean implements Serializable {
                     details.put("msg", "Logging in: Administrator Certificate is issued by external CA and not present in the database.");
                 }
                 if (WebConfiguration.getAdminLogRemoteAddress()) {
-                    details.put("remoteip", request.getRemoteAddr());
+                    details.put("remoteip", currentRemoteIp);
                 }
                 if (WebConfiguration.getAdminLogForwardedFor()) {
-                    details.put("forwardedip", StringTools.getCleanXForwardedFor(request.getHeader("X-Forwarded-For")));
+                    details.put("forwardedip", StringTools.getCleanXForwardedFor(httpServletRequest.getHeader("X-Forwarded-For")));
                 }
                 // Also check if this administrator is present in any role, if not, login failed
                 if (roleSession.getRolesAuthenticationTokenIsMemberOf(administrator).isEmpty()) {
@@ -259,13 +265,13 @@ public class EjbcaWebBean implements Serializable {
                         administrator.toString(), Integer.toString(issuerDN.hashCode()), sernostr, null, details);
             } else {
                 // TODO: When other types of authentication are implemented, check the distinct configured tokenTypes and try to authenticate for each
-                administrator = authenticationSession.authenticateUsingNothing(request.getRemoteAddr(), currentTlsSessionId!=null);
+                administrator = authenticationSession.authenticateUsingNothing(currentRemoteIp, currentTlsSessionId!=null);
                 Map<String, Object> details = new LinkedHashMap<>();
                 if (WebConfiguration.getAdminLogRemoteAddress()) {
-                    details.put("remoteip", request.getRemoteAddr());
+                    details.put("remoteip", currentRemoteIp);
                 }
                 if (WebConfiguration.getAdminLogForwardedFor()) {
-                    details.put("forwardedip", StringTools.getCleanXForwardedFor(request.getHeader("X-Forwarded-For")));
+                    details.put("forwardedip", StringTools.getCleanXForwardedFor(httpServletRequest.getHeader("X-Forwarded-For")));
                 }
                 // Also check if this administrator is present in any role, if not, login failed
                 if (roleSession.getRolesAuthenticationTokenIsMemberOf(administrator).isEmpty()) {
@@ -285,13 +291,13 @@ public class EjbcaWebBean implements Serializable {
             // Set the current TLS session
             authenticationTokenTlsSessionId = currentTlsSessionId;
             // Set ServletContext for reading language files from resources
-            servletContext = request.getSession(true).getServletContext();
+            servletContext = httpServletRequest.getSession(true).getServletContext();
         }
         try {
             if (resources.length > 0 && !authorizationSession.isAuthorized(administrator, resources)) {
                 throw new AuthorizationDeniedException("You are not authorized to view this page.");
             }
-        } catch (EJBException e) {
+        } catch (final EJBException e) {
             // Will this code ever execute? You are "initialized" (logged in) when the database went under
             // and your AppServer + JDBC driver throws an EJBException with SQLException as cause..?
             // Since the errorpage.jsp requires a database connection to show, it does not make any sense
@@ -314,7 +320,7 @@ public class EjbcaWebBean implements Serializable {
         return globalconfiguration;
     }
 
-    public GlobalConfiguration initialize_errorpage(HttpServletRequest request) throws Exception {
+    public GlobalConfiguration initialize_errorpage(final HttpServletRequest request) throws Exception {
         if (!errorpage_initialized) {
             if (administrator == null) {
                 final String remoteAddr = request.getRemoteAddr();
@@ -371,7 +377,7 @@ public class EjbcaWebBean implements Serializable {
         return currentAdminPreference.getLogEntriesPerPage();
     }
 
-    public void setLogEntriesPerPage(int logentriesperpage) throws AdminDoesntExistException, AdminExistsException {
+    public void setLogEntriesPerPage(final int logentriesperpage) throws AdminDoesntExistException, AdminExistsException {
         currentAdminPreference.setLogEntriesPerPage(logentriesperpage);
         saveCurrentAdminPreference();
     }
@@ -380,17 +386,8 @@ public class EjbcaWebBean implements Serializable {
         return currentAdminPreference.getLastFilterMode();
     }
 
-    public void setLastFilterMode(int lastfiltermode) throws AdminDoesntExistException, AdminExistsException {
+    public void setLastFilterMode(final int lastfiltermode) throws AdminDoesntExistException, AdminExistsException {
         currentAdminPreference.setLastFilterMode(lastfiltermode);
-        saveCurrentAdminPreference();
-    }
-
-    public int getLastLogFilterMode() {
-        return currentAdminPreference.getLastLogFilterMode();
-    }
-
-    public void setLastLogFilterMode(int lastlogfiltermode) throws AdminDoesntExistException, AdminExistsException {
-        currentAdminPreference.setLastLogFilterMode(lastlogfiltermode);
         saveCurrentAdminPreference();
     }
 
@@ -398,7 +395,7 @@ public class EjbcaWebBean implements Serializable {
         return currentAdminPreference.getLastProfile();
     }
 
-    public void setLastEndEntityProfile(int lastprofile) throws AdminDoesntExistException, AdminExistsException {
+    public void setLastEndEntityProfile(final int lastprofile) throws AdminDoesntExistException, AdminExistsException {
         currentAdminPreference.setLastProfile(lastprofile);
         saveCurrentAdminPreference();
     }
@@ -420,7 +417,7 @@ public class EjbcaWebBean implements Serializable {
                 currentAdminPreference.getSecondaryLanguage());
     }
 
-    public void changeAdminPreference(AdminPreference adminPreference) throws AdminDoesntExistException {
+    public void changeAdminPreference(final AdminPreference adminPreference) throws AdminDoesntExistException {
         currentAdminPreference = adminPreference;
         if (administrator instanceof X509CertificateAuthenticationToken) {
             if (!adminPreferenceSession.changeAdminPreference((X509CertificateAuthenticationToken)administrator, adminPreference)) {
@@ -485,7 +482,7 @@ public class EjbcaWebBean implements Serializable {
      * @throws AuthorizationDeniedException is not authorized to resource
      */
     @Deprecated
-    public boolean isAuthorizedNoLog(String... resources) throws AuthorizationDeniedException { // still used by JSP code (viewcertificate.jsp and viewtoken.jsp)
+    public boolean isAuthorizedNoLog(final String... resources) throws AuthorizationDeniedException { // still used by JSP/JSF code (viewcertificate.xhtml and viewtoken.jsp)
         if (!authorizationSession.isAuthorizedNoLogging(administrator, resources)) {
             throw new AuthorizationDeniedException("Not authorized to " + Arrays.toString(resources));
         }
@@ -498,12 +495,12 @@ public class EjbcaWebBean implements Serializable {
      *
      * @return true if is authorized to resource, false if not
      */
-    public boolean isAuthorizedNoLogSilent(String... resources) {
+    public boolean isAuthorizedNoLogSilent(final String... resources) {
         return authorizationSession.isAuthorizedNoLogging(administrator, resources);
     }
 
     public String getBaseUrl() {
-        return globalconfiguration.getBaseUrl(requestServerName);
+        return globalconfiguration.getBaseUrl(requestScheme, requestServerName, requestServerPort);
     }
 
     public String getReportsPath() {
@@ -516,6 +513,17 @@ public class EjbcaWebBean implements Serializable {
     }
 
     /**
+     * @return Public application base URL (e.g. 'http://localhost:8080/ejbca')
+     */
+    public String getBaseUrlPublic() {
+        return globalconfiguration.getBaseUrlPublic();
+    }
+    
+    public String getCurrentRemoteIp() {
+        return currentRemoteIp;
+    }
+    
+    /**
      * A functions that returns wanted imagefile in preferred language and theme. If none of the language specific images are found the original
      * imagefilename will be returned.
      *
@@ -526,41 +534,41 @@ public class EjbcaWebBean implements Serializable {
      * 'caimg.en.png' if English was the users preferred language. It's important that all letters in imagefilename is lowercase.
      */
 
-    public String getImagefileInfix(String imagefilename) {
+    public String getImagefileInfix(final String imagefilename) {
         String returnedurl = null;
-        String[] strs = adminsweblanguage.getAvailableLanguages();
-        int index = currentAdminPreference.getPreferedLanguage();
-        String prefered = strs[index];
-        String secondary = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getSecondaryLanguage()];
+        final String[] strs = adminsweblanguage.getAvailableLanguages();
+        final int index = currentAdminPreference.getPreferedLanguage();
+        final String prefered = strs[index];
+        final String secondary = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getSecondaryLanguage()];
 
-        String imagefile = imagefilename.substring(0, imagefilename.lastIndexOf('.'));
-        String theme = currentAdminPreference.getTheme().toLowerCase();
-        String postfix = imagefilename.substring(imagefilename.lastIndexOf('.') + 1);
+        final String imagefile = imagefilename.substring(0, imagefilename.lastIndexOf('.'));
+        final String theme = currentAdminPreference.getTheme().toLowerCase();
+        final String postfix = imagefilename.substring(imagefilename.lastIndexOf('.') + 1);
 
-        String preferedthemefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + prefered + "." + postfix;
-        String secondarythemefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + secondary + "." + postfix;
-        String themefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + postfix;
+        final String preferedthemefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + prefered + "." + postfix;
+        final String secondarythemefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + secondary + "." + postfix;
+        final String themefilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + theme + "." + postfix;
 
-        String preferedfilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + prefered + "." + postfix;
+        final String preferedfilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + prefered + "." + postfix;
 
-        String secondaryfilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + secondary + "." + postfix;
+        final String secondaryfilename = "/" + globalconfiguration.getImagesPath() + "/" + imagefile + "." + secondary + "." + postfix;
 
-        String preferedthemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String preferedthemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + theme + "." + prefered + "." + postfix;
 
-        String secondarythemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String secondarythemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + theme + "." + secondary + "." + postfix;
 
-        String imagethemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String imagethemeurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + theme + "." + postfix;
 
-        String preferedurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String preferedurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + prefered + "." + postfix;
 
-        String secondaryurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String secondaryurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + secondary + "." + postfix;
 
-        String imageurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
+        final String imageurl = getBaseUrl() + globalconfiguration.getAdminWebPath() + globalconfiguration.getImagesPath() + "/" + imagefile + "."
                 + postfix;
         if (this.getClass().getResourceAsStream(preferedthemefilename) != null) {
             returnedurl = preferedthemeurl;
@@ -590,25 +598,21 @@ public class EjbcaWebBean implements Serializable {
         return adminsweblanguage.getAvailableLanguages();
     }
 
-    public String[] getLanguagesEnglishNames() {
-        return adminsweblanguage.getLanguagesEnglishNames();
-    }
-
-    public String[] getLanguagesNativeNames() {
-        return adminsweblanguage.getLanguagesNativeNames();
-    }
-
-    public String getText(String template) {
+    public String getText(final String template) {
         return adminsweblanguage.getText(template);
     }
 
+    public List<WebLanguage> getWebLanguages() {
+        return adminsweblanguage.getWebLanguages();
+    }
+    
     /**
      * @param template the entry in the language file to get
      * @param unescape true if html entities should be unescaped (&auml; converted to the real char)
      * @param params values of {0}, {1}, {2}... parameters
      * @return text string, possibly unescaped, or "template" if the template does not match any entry in the language files
      */
-    public String getText(String template, boolean unescape, Object... params) {
+    public String getText(final String template, final boolean unescape, final Object... params) {
         String str = adminsweblanguage.getText(template, params);
         if (unescape == true) {
             str = HTMLTools.htmlunescape(str);
@@ -626,7 +630,7 @@ public class EjbcaWebBean implements Serializable {
     }
 
     /** Parse a Date and reformat it as vailidation. */
-    public String validateDateFormat(String value) throws ParseException {
+    public String validateDateFormat(final String value) throws ParseException {
         return ValidityDate.formatAsUTC(ValidityDate.parseAsUTC(value));
     }
 
@@ -650,6 +654,9 @@ public class EjbcaWebBean implements Serializable {
      * return it as it was. Otherwise we try to parse it as a ISO8601 date time.
      */
     public String getImpliedUTCFromISO8601OrRelative(final String dateString) throws ParseException {
+        if (StringUtils.isEmpty(dateString)) {
+            return "";
+        }
         if (!isRelativeDateTime(dateString)) {
             return getImpliedUTCFromISO8601(dateString);
         }
@@ -673,7 +680,7 @@ public class EjbcaWebBean implements Serializable {
         if (!isRelativeDateTime(dateString)) {
             try {
                 return getISO8601FromImpliedUTC(dateString);
-            } catch (ParseException e) {
+            } catch (final ParseException e) {
                 log.debug(e.getMessage());
                 // If we somehow managed to store an invalid date, we want to give the admin the option
                 // to correct this. If we just throw an Exception here it would not be possible.
@@ -688,7 +695,7 @@ public class EjbcaWebBean implements Serializable {
         globalconfiguration.initializeAdminWeb();
     }
 
-    public void saveGlobalConfiguration(GlobalConfiguration gc) throws AuthorizationDeniedException {
+    public void saveGlobalConfiguration(final GlobalConfiguration gc) throws AuthorizationDeniedException {
         globalConfigurationSession.saveConfiguration(administrator, gc);
         reloadGlobalConfiguration();
     }
@@ -703,7 +710,7 @@ public class EjbcaWebBean implements Serializable {
      * @param cmpconfiguration A CMPConfiguration
      * @throws AuthorizationDeniedException if the current admin doesn't have access to global configurations
      */
-    public void saveCmpConfiguration(CmpConfiguration cmpconfiguration) throws AuthorizationDeniedException {
+    public void saveCmpConfiguration(final CmpConfiguration cmpconfiguration) throws AuthorizationDeniedException {
         this.cmpconfiguration = cmpconfiguration;
         globalConfigurationSession.saveConfiguration(administrator, cmpconfiguration);
     }
@@ -714,7 +721,7 @@ public class EjbcaWebBean implements Serializable {
      * @param estconfiguration A EstConfiguration
      * @throws AuthorizationDeniedException if the current admin doesn't have access to global configurations
      */
-    public void saveEstConfiguration(EstConfiguration estconfiguration) throws AuthorizationDeniedException {
+    public void saveEstConfiguration(final EstConfiguration estconfiguration) throws AuthorizationDeniedException {
         this.estconfiguration = estconfiguration;
         globalConfigurationSession.saveConfiguration(administrator, estconfiguration);
     }
@@ -732,32 +739,40 @@ public class EjbcaWebBean implements Serializable {
 
     public TreeMap<String,Integer> getHardTokenProfiles() {
         final TreeMap<String,Integer> hardtokenprofiles = new TreeMap<>();
-        for (Integer id : hardTokenSession.getAuthorizedHardTokenProfileIds(administrator)){
+        for (final Integer id : hardTokenSession.getAuthorizedHardTokenProfileIds(administrator)){
             final String name = hardTokenSession.getHardTokenProfileName(id.intValue());
             hardtokenprofiles.put(name, id);
         }
         return hardtokenprofiles;
     }
 
+    /** @deprecated Since EJBCA 7.0.0. Use HardTokenSession.getHardTokenIssuers instead. */
+    @Deprecated
     public TreeMap<String, HardTokenIssuerInformation> getHardTokenIssuers() {
         return hardTokenSession.getHardTokenIssuers(administrator);
     }
 
+    /** @deprecated Since EJBCA 7.0.0. Use CaSession.getCAIdToNameMap instead. */
+    @Deprecated
     public Map<Integer,String> getCAIdToNameMap() {
         return caSession.getCAIdToNameMap();
     }
 
+    /** @deprecated Since EJBCA 7.0.0. Use CaSession.getAuthorizedCaIds instead. */
+    @Deprecated
     public List<Integer> getAuthorizedCAIds() {
         return caSession.getAuthorizedCaIds(administrator);
     }
 
+    /** @deprecated Since EJBCA 7.0.0. Use CaSession.getAuthorizedCaNamesToIds instead. */
+    @Deprecated
     public TreeMap<String,Integer> getCANames() {
         return caSession.getAuthorizedCaNamesToIds(administrator);
     }
 
     public TreeMap<String,Integer> getExternalCANames() {
-        TreeMap<String,Integer> ret = new TreeMap<>();
-        for (CAInfo caInfo : caSession.getAuthorizedCaInfos(administrator)) {
+        final TreeMap<String,Integer> ret = new TreeMap<>();
+        for (final CAInfo caInfo : caSession.getAuthorizedCaInfos(administrator)) {
             if (caInfo.getStatus() == CAConstants.CA_EXTERNAL) {
                 ret.put(caInfo.getName(), caInfo.getCAId());
             }
@@ -766,23 +781,16 @@ public class EjbcaWebBean implements Serializable {
     }
 
     public TreeMap<String,Integer> getActiveCANames() {
-        TreeMap<String, Integer> ret = new TreeMap<>();
-        Map<Integer, String> idtonamemap = this.caSession.getActiveCAIdToNameMap(administrator);
-        for (Integer id : idtonamemap.keySet()) {
+        final TreeMap<String, Integer> ret = new TreeMap<>();
+        final Map<Integer, String> idtonamemap = this.caSession.getActiveCAIdToNameMap(administrator);
+        for (final Integer id : idtonamemap.keySet()) {
             ret.put(idtonamemap.get(id), id);
         }
         return ret;
     }
 
-    /** @return authorized CA Ids sorted by CA name alphabetically*/
-    public Collection<Integer> getAuthorizedCAIdsByName() {
-        return caSession.getAuthorizedCaNamesToIds(administrator).values();
-    }
-
-    public boolean isAuthorizedToAllCAs() {
-        return caSession.getAllCaIds().size() == getAuthorizedCAIds().size();
-    }
-
+    /** @deprecated Since EJBCA 7.0.0. Use CertificateProfileSession.getCertificateProfileName instead. */
+    @Deprecated
     public String getCertificateProfileName(final int profileId) {
         return certificateProfileSession.getCertificateProfileName(profileId);
     }
@@ -837,32 +845,39 @@ public class EjbcaWebBean implements Serializable {
      * @return the approvalprofiles-id-to-name-map (HashMap)
      */
     public Map<Integer, String> getApprovalProfileIdToNameMap() {
-        Map<Integer, String> approvalProfileMap = approvalProfileSession.getApprovalProfileIdToNameMap();
+        final Map<Integer, String> approvalProfileMap = approvalProfileSession.getApprovalProfileIdToNameMap();
         approvalProfileMap.put(-1, getText("NONE"));
         return approvalProfileMap;
     }
 
     public List<Integer> getSortedApprovalProfileIds() {
-        List<ApprovalProfile> sortedProfiles = new ArrayList<>(approvalProfileSession.getAllApprovalProfiles().values());
+        final List<ApprovalProfile> sortedProfiles = new ArrayList<>(approvalProfileSession.getAllApprovalProfiles().values());
         Collections.sort(sortedProfiles);
-        List<Integer> result = new ArrayList<>();
+        final List<Integer> result = new ArrayList<>();
         result.add(-1);
-        for(ApprovalProfile approvalProfile : sortedProfiles) {
+        for(final ApprovalProfile approvalProfile : sortedProfiles) {
             result.add(approvalProfile.getProfileId());
         }
         return result;
     }
 
     /**
-     * Returns all authorized publishers names as a treemap of name (String) -> id (Integer).
+     * @return all authorized publishers names as a list
      */
-    public TreeMap<String, Integer> getAuthorizedPublisherNames() {
-        final TreeMap<String,Integer> ret = new TreeMap<>();
-        final Map<Integer, String> idtonamemap = publisherSession.getPublisherIdToNameMap();
-        for(Integer id : caAdminSession.getAuthorizedPublisherIds(administrator)) {
-            ret.put(idtonamemap.get(id), id);
+    public List<String> getAuthorizedPublisherNames() {
+        return new ArrayList<String>(getAuthorizedPublisherNamesAndIds().keySet());
+    }
+    
+    /**
+     * @return all authorized publishers names as a treemap of name (String) -> id (Integer).
+     */
+    public TreeMap<String,Integer> getAuthorizedPublisherNamesAndIds() {
+        final TreeMap<String,Integer> result = new TreeMap<>();
+        final Map<Integer, String> idToNameMap = publisherSession.getPublisherIdToNameMap();
+        for(final int id : caAdminSession.getAuthorizedPublisherIds(administrator)) {
+            result.put(idToNameMap.get(id), id);
         }
-        return ret;
+        return result;
     }
 
     /**
@@ -875,14 +890,14 @@ public class EjbcaWebBean implements Serializable {
         final List<Map.Entry<Integer, String>> publisherIdToNameMapList = new LinkedList<>(publisheridtonamemap.entrySet());
         Collections.sort(publisherIdToNameMapList, new Comparator<Map.Entry<Integer, String>>() {
             @Override
-            public int compare(Map.Entry<Integer, String> o1, Map.Entry<Integer, String> o2) {
+            public int compare(final Map.Entry<Integer, String> o1, final Map.Entry<Integer, String> o2) {
                 if (o1 == null) { return o2 == null ? 0 : -1; }
                 else if (o2 == null) { return 1; }
                 return o1.getValue().compareToIgnoreCase(o2.getValue());
             }
         });
-        Map<Integer, String> sortedMap = new LinkedHashMap<>();
-        for (Map.Entry<Integer, String> entry : publisherIdToNameMapList) {
+        final Map<Integer, String> sortedMap = new LinkedHashMap<>();
+        for (final Map.Entry<Integer, String> entry : publisherIdToNameMapList) {
             sortedMap.put(entry.getKey(), entry.getValue());
         }
         return sortedMap;
@@ -898,20 +913,6 @@ public class EjbcaWebBean implements Serializable {
 
     public AuthenticationToken getAdminObject() {
         return this.administrator;
-    }
-
-    /**
-     * Method returning all CA ids with CMS service enabled
-     */
-    public Collection<Integer> getCAIdsWithCMSServiceActive() {
-        ArrayList<Integer> retval = new ArrayList<>();
-        Collection<Integer> caids = caSession.getAuthorizedCaIds(administrator);
-        Iterator<Integer> iter = caids.iterator();
-        while (iter.hasNext()) {
-            Integer caid = iter.next();
-            retval.add(caid);
-        }
-        return retval;
     }
 
     /**
@@ -933,10 +934,10 @@ public class EjbcaWebBean implements Serializable {
     public String getHostName() {
         String hostname = "unknown";
         try {
-            InetAddress addr = InetAddress.getLocalHost();
+            final InetAddress addr = InetAddress.getLocalHost();
             // Get hostname
             hostname = addr.getHostName();
-        } catch (UnknownHostException e) {
+        } catch (final UnknownHostException e) {
             // Ignored
         }
         return hostname;
@@ -953,10 +954,10 @@ public class EjbcaWebBean implements Serializable {
      * @return the locale of the Admin GUI
      */
     public Locale getLocale() {
-        Locale[] locales = DateFormat.getAvailableLocales(); // TODO: Why not use Locale.getAvailableLocales()? Difference?
+        final Locale[] locales = DateFormat.getAvailableLocales(); // TODO: Why not use Locale.getAvailableLocales()? Difference?
         Locale returnValue = null;
-        String prefered = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getPreferedLanguage()];
-        String secondary = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getSecondaryLanguage()];
+        final String prefered = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getPreferedLanguage()];
+        final String secondary = adminsweblanguage.getAvailableLanguages()[currentAdminPreference.getSecondaryLanguage()];
         for (int i = 0; i < locales.length; i++) {
             if (locales[i].getLanguage().equalsIgnoreCase(prefered)) {
                 returnValue = locales[i];
@@ -969,16 +970,21 @@ public class EjbcaWebBean implements Serializable {
         }
         return returnValue;
     }
-    
-    
 
-
+    public boolean isSessionTimeoutEnabled() {
+        return globalconfiguration.getUseSessionTimeout();
+    }
+    
+    public int getSessionTimeoutTime() {
+        return globalconfiguration.getSessionTimeoutTime();
+    }
+    
     public boolean isHelpEnabled() {
         return !"disabled".equalsIgnoreCase(WebConfiguration.getDocBaseUri());
     }
 
     public String getHelpBaseURI() {
-        String helpBaseURI = WebConfiguration.getDocBaseUri();
+        final String helpBaseURI = WebConfiguration.getDocBaseUri();
         if ("internal".equalsIgnoreCase(helpBaseURI)) {
             return getBaseUrl() + "doc";
         } else {
@@ -986,7 +992,7 @@ public class EjbcaWebBean implements Serializable {
         }
     }
     
-    public String getHelpReference(String lastPart) {
+    public String getHelpReference(final String lastPart) {
         if (!isHelpEnabled()) {
             return "";
         }
@@ -994,14 +1000,14 @@ public class EjbcaWebBean implements Serializable {
                 + getText("OPENHELPSECTION") + "\" >?</a>]";
     }
 
-    public String getExternalHelpReference(String linkPart) {
+    public String getExternalHelpReference(final String linkPart) {
         if (!isHelpEnabled()) {
             return "";
         }
         return "[<a href=\"" + linkPart + "\" target=\"" + GlobalConfiguration.DOCWINDOW + "\" title=\"" + getText("OPENHELPSECTION") + "\" >?</a>]";
     }
 
-    public String[] getCertSernoAndIssuerdn(String certdata) {
+    public String[] getCertSernoAndIssuerdn(final String certdata) {
         final String[] ret = StringTools.parseCertData(certdata);
         if (log.isDebugEnabled()) {
             log.debug("getCertSernoAndIssuerdn: " + certdata + " -> " + (ret==null?"null":(ret[0] + "," + ret[1])));
@@ -1009,7 +1015,7 @@ public class EjbcaWebBean implements Serializable {
         return ret;
     }
 
-    public String getCleanOption(String parameter, String[] validOptions) {
+    public String getCleanOption(final String parameter, final String[] validOptions) {
         for (int i = 0; i < validOptions.length; i++) {
             if (parameter.equals(validOptions[i])) {
                 return parameter;
@@ -1018,7 +1024,7 @@ public class EjbcaWebBean implements Serializable {
         throw new IllegalArgumentException("Parameter " + parameter + " not found among valid options.");
     }
 
-    public void clearClusterCache(boolean excludeActiveCryptoTokens) throws CacheClearException {
+    public void clearClusterCache(final boolean excludeActiveCryptoTokens) throws CacheClearException {
         if (log.isTraceEnabled()) {
             log.trace(">clearClusterCache");
         }
@@ -1045,7 +1051,7 @@ public class EjbcaWebBean implements Serializable {
                         }
                     }
                 }
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 failedHosts.append(' ').append(host);
             }
         }
@@ -1063,7 +1069,7 @@ public class EjbcaWebBean implements Serializable {
     /** Perform HTTP connection to the cluster nodes clear-cache Servlet
      * @throws IOException if any of the external hosts couldn't be contacted
      */
-    private boolean checkHost(String hostname, boolean excludeActiveCryptoTokens) throws IOException {
+    private boolean checkHost(final String hostname, final boolean excludeActiveCryptoTokens) throws IOException {
         // get http port of remote host, this requires that all cluster nodes uses the same public htt port
         final int pubport = WebConfiguration.getPublicHttpPort();
         final String requestUrl = "http://" + hostname + ":" + pubport + "/ejbca/clearcache?command=clearcaches&excludeactivects="
@@ -1079,9 +1085,9 @@ public class EjbcaWebBean implements Serializable {
                 return true;
             }
             log.info("Failed to clear caches for host: " + hostname + ", responseCode=" + responseCode);
-        } catch (SocketException e) {
+        } catch (final SocketException e) {
             log.info("Failed to clear caches for host: " + hostname + ", message=" + e.getMessage());
-        } catch (IOException e) {
+        } catch (final IOException e) {
             log.info("Failed to clear caches for host: " + hostname + ", message=" + e.getMessage());
         }
         return false;
@@ -1093,7 +1099,7 @@ public class EjbcaWebBean implements Serializable {
             if (hostname.equals(InetAddress.getLocalHost().getHostName())) {
                 return true;
             }
-        } catch (UnknownHostException e) {
+        } catch (final UnknownHostException e) {
             log.error("Hostname could not be determined", e);
         }
         return false;
@@ -1126,7 +1132,7 @@ public class EjbcaWebBean implements Serializable {
      * @return a clone of the current CMPConfiguration containing only the given alias. Will return an alias with only default values if the CmpConfiguration doesn't
      *          contain that alias.
      */
-    public CmpConfiguration getCmpConfigForEdit(String alias) {
+    public CmpConfiguration getCmpConfigForEdit(final String alias) {
         if (cmpConfigForEdit != null) {
             return cmpConfigForEdit;
         }
@@ -1134,8 +1140,8 @@ public class EjbcaWebBean implements Serializable {
         cmpConfigForEdit = new CmpConfiguration();
         cmpConfigForEdit.setAliasList(new LinkedHashSet<String>());
         cmpConfigForEdit.addAlias(alias);
-        for(String key : CmpConfiguration.getAllAliasKeys(alias)) {
-            String value = cmpconfiguration.getValue(key, alias);
+        for(final String key : CmpConfiguration.getAllAliasKeys(alias)) {
+            final String value = cmpconfiguration.getValue(key, alias);
             cmpConfigForEdit.setValue(key, value, alias);
         }
         return cmpConfigForEdit;
@@ -1147,10 +1153,10 @@ public class EjbcaWebBean implements Serializable {
      * @param alias a CMP config alias.
      * @throws AuthorizationDeniedException if the current admin isn't authorized to edit configurations
      */
-    public void updateCmpConfigFromClone(String alias) throws AuthorizationDeniedException {
+    public void updateCmpConfigFromClone(final String alias) throws AuthorizationDeniedException {
         if (cmpconfiguration.aliasExists(alias) && cmpConfigForEdit.aliasExists(alias)) {
-            for(String key : CmpConfiguration.getAllAliasKeys(alias)) {
-                String value = cmpConfigForEdit.getValue(key, alias);
+            for(final String key : CmpConfiguration.getAllAliasKeys(alias)) {
+                final String value = cmpConfigForEdit.getValue(key, alias);
                 cmpconfiguration.setValue(key, value, alias);
             }
         }
@@ -1221,26 +1227,26 @@ public class EjbcaWebBean implements Serializable {
      */
     private CmpConfiguration clearCmpConfigurationFromUnauthorizedAliases(final CmpConfiguration cmpConfiguration) {
         //Copy the configuration, because modifying parameters is nasty
-        CmpConfiguration returnValue = new CmpConfiguration(cmpConfiguration);
+        final CmpConfiguration returnValue = new CmpConfiguration(cmpConfiguration);
         //Build a lookup map due to the fact that default CA is stored as a SubjectDNs
-        Map<String, String> subjectDnToCaNameMap = new HashMap<>();
-        for (int caId : caSession.getAllCaIds()) {
-            CAInfo caInfo = caSession.getCAInfoInternal(caId);
+        final Map<String, String> subjectDnToCaNameMap = new HashMap<>();
+        for (final int caId : caSession.getAllCaIds()) {
+            final CAInfo caInfo = caSession.getCAInfoInternal(caId);
             if (caInfo != null) {
                 subjectDnToCaNameMap.put(caInfo.getSubjectDN(), caInfo.getName());
             }
         }
-        Set<Integer> authorizedProfileIds = new HashSet<>(endEntityProfileSession.getAuthorizedEndEntityProfileIds(administrator, ""));
+        final Set<Integer> authorizedProfileIds = new HashSet<>(endEntityProfileSession.getAuthorizedEndEntityProfileIds(administrator, ""));
         //Exclude all aliases which refer to CAs that current admin doesn't have access to
-        aliasloop: for (String alias : new ArrayList<>(cmpConfiguration.getAliasList())) {
+        aliasloop: for (final String alias : new ArrayList<>(cmpConfiguration.getAliasList())) {
             //Collect CA names
-            Set<String> caNames = new HashSet<>();
-            String defaultCaSubjectDn = cmpConfiguration.getCMPDefaultCA(alias);
+            final Set<String> caNames = new HashSet<>();
+            final String defaultCaSubjectDn = cmpConfiguration.getCMPDefaultCA(alias);
             if (!StringUtils.isEmpty(defaultCaSubjectDn)) {
                 caNames.add(subjectDnToCaNameMap.get(defaultCaSubjectDn));
             }
             if (cmpConfiguration.getRAMode(alias)) {
-                String authenticationCa = cmpConfiguration.getAuthenticationParameter(CmpConfiguration.AUTHMODULE_ENDENTITY_CERTIFICATE, alias);
+                final String authenticationCa = cmpConfiguration.getAuthenticationParameter(CmpConfiguration.AUTHMODULE_ENDENTITY_CERTIFICATE, alias);
                 if (!StringUtils.isEmpty(authenticationCa)) {
                     caNames.add(authenticationCa);
                 }
@@ -1249,7 +1255,7 @@ public class EjbcaWebBean implements Serializable {
                     // "ProfileDefault" is not a CA name and if the profile default is used, this will be implicitly checked be checking access to the EEP
                     caNames.add(raCaName);
                 }
-                String eeProfileIdString = cmpconfiguration.getRAEEProfile(alias);
+                final String eeProfileIdString = cmpconfiguration.getRAEEProfile(alias);
                 // If value is set to KeyId we will not hide it, because it can be any EE profile
                 if (!StringUtils.equals(CmpConfiguration.PROFILE_USE_KEYID, eeProfileIdString)) {
                     if (eeProfileIdString != null && endEntityProfileSession.getEndEntityProfile(Integer.valueOf(eeProfileIdString)) != null) {
@@ -1266,10 +1272,10 @@ public class EjbcaWebBean implements Serializable {
                 }
                 //Certificate Profiles are tested implicitly, since we can't choose any CP which isn't part of the EEP, and we can't choose the EEP if we don't have access to its CPs.
             }
-            TreeMap<String, Integer> caNameToIdMap = caSession.getAuthorizedCaNamesToIds(administrator);
-            for (String caName : caNames) {
+            final TreeMap<String, Integer> caNameToIdMap = caSession.getAuthorizedCaNamesToIds(administrator);
+            for (final String caName : caNames) {
                 if(caName != null) { //CA might have been removed
-                    Integer caId = caNameToIdMap.get(caName);
+                    final Integer caId = caNameToIdMap.get(caName);
                     if (caId != null) {
                         if (!caSession.authorizedToCANoLogging(administrator, caId)) {
                             if (log.isDebugEnabled()) {
@@ -1372,21 +1378,12 @@ public class EjbcaWebBean implements Serializable {
         return addKeyIdAndSort(certificateProfiles);
     }
 
-    private Collection<String> getAvailableCertProfileIDsOfEEProfileNoKeyID(final String endEntityProfileId) {
-        if (StringUtils.equals(endEntityProfileId, CmpConfiguration.PROFILE_USE_KEYID)) {
-            final List<Integer> allCertificateProfileIds = certificateProfileSession.getAuthorizedCertificateProfileIds(administrator, 0);
-            final List<String> allCertificateProfiles = new ArrayList<>(allCertificateProfileIds.size());
-            for (final int id : allCertificateProfileIds) {
-                allCertificateProfiles.add(certificateProfileSession.getCertificateProfileName(id));
-            }
-            return allCertificateProfiles;
-        }
+    private Collection<Integer> getAvailableCertProfileIDsOfEEProfile(final String endEntityProfileId) {
         final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfile(Integer.valueOf(endEntityProfileId));
         if (profile == null) {
             return Collections.emptyList();
         }
-        final Collection<String> certificateProfileIds = profile.getAvailableCertificateProfileIdsAsStrings();
-        return certificateProfileIds;
+        return profile.getAvailableCertificateProfileIds();
     }
 
     /**
@@ -1394,12 +1391,17 @@ public class EjbcaWebBean implements Serializable {
      * @param endEntityProfileId the the end entity profile in which we want to find certificate profiles
      * @return a map (TreeMap so it's sorted by key) {certificate profile name, certificate profile id} with authorized certificate profiles
      */
-    public Map<String, String> getCertificateProfilesNoKeyId(final String endEntityProfileId) {
+    public Map<String, Integer> getCertificateProfilesNoKeyId(final String endEntityProfileId) {
         final Map<Integer, String> map = certificateProfileSession.getCertificateProfileIdToNameMap();
-        final TreeMap<String, String> certificateProfiles = new TreeMap<>();
-        final Collection<String> ids = getAvailableCertProfileIDsOfEEProfileNoKeyID(endEntityProfileId);
-        for (String idstr : ids) {
-            certificateProfiles.put(map.get(Integer.valueOf(idstr)), idstr);
+        final TreeMap<String, Integer> certificateProfiles = new TreeMap<>();
+        final Collection<Integer> ids = getAvailableCertProfileIDsOfEEProfile(endEntityProfileId);
+        for (final int id : ids) {
+            final String name = map.get(id);
+            if (name == null) {
+                log.warn("Missing Certificate Profile " + id + " referenced from End Entity Profile with ID " + endEntityProfileId);
+                continue;
+            }
+            certificateProfiles.put(name, id);
         }
         return certificateProfiles;
     }
@@ -1419,6 +1421,8 @@ public class EjbcaWebBean implements Serializable {
         return entries;
     }
 
+    /** @deprecated Since EJBCA 7.0.0. Use CaSession.getAuthorizedCaNamesToIds instead. */
+    @Deprecated
     public TreeMap<String, Integer> getCAOptions() {
         return getCANames();
     }
@@ -1434,9 +1438,9 @@ public class EjbcaWebBean implements Serializable {
         final TreeMap<String, Integer> availableCas = getCAOptions();
         final List<String> result = new ArrayList<>();
         if (StringUtils.isNotBlank(idString)) {
-            for (String id : idString.split(";")) {
+            for (final String id : idString.split(";")) {
                 if (availableCas.containsValue(Integer.valueOf(id))) {
-                    for (Entry<String,Integer> entry : availableCas.entrySet()) {
+                    for (final Entry<String,Integer> entry : availableCas.entrySet()) {
                         if (entry.getValue() != null && entry.getValue().equals( Integer.valueOf(id))) {
                             result.add(entry.getKey());
                         }
@@ -1447,13 +1451,8 @@ public class EjbcaWebBean implements Serializable {
         return StringUtils.join(result, ";");
     }
 
-
-    //**********************
-    //     EST
-    //**********************
-
-    /** @return true if the EST implementation is present. */
-    public boolean isEstConfigurationPresent() {
+    /** @return true if we are running in the enterprise mode otherwise false. */
+    public boolean isRunningEnterprise() {
         return enterpriseEjbLocalHelper.isRunningEnterprise();
     }
 
@@ -1473,7 +1472,7 @@ public class EjbcaWebBean implements Serializable {
      * @return a clone of the current EstConfiguration containing only the given alias. Will return an alias with only default values if the EstConfiguration doesn't
      *          contain that alias.
      */
-    public EstConfiguration getEstConfigForEdit(String alias) {
+    public EstConfiguration getEstConfigForEdit(final String alias) {
         if (estConfigForEdit != null) {
             return estConfigForEdit;
         }
@@ -1481,8 +1480,8 @@ public class EjbcaWebBean implements Serializable {
         estConfigForEdit = new EstConfiguration();
         estConfigForEdit.setAliasList(new LinkedHashSet<String>());
         estConfigForEdit.addAlias(alias);
-        for(String key : EstConfiguration.getAllAliasKeys(alias)) {
-            String value = estconfiguration.getValue(key, alias);
+        for(final String key : EstConfiguration.getAllAliasKeys(alias)) {
+            final String value = estconfiguration.getValue(key, alias);
             estConfigForEdit.setValue(key, value, alias);
         }
         return estConfigForEdit;
@@ -1494,10 +1493,10 @@ public class EjbcaWebBean implements Serializable {
      * @param alias a EST config alias.
      * @throws AuthorizationDeniedException if the current admin isn't authorized to edit configurations
      */
-    public void updateEstConfigFromClone(String alias) throws AuthorizationDeniedException {
+    public void updateEstConfigFromClone(final String alias) throws AuthorizationDeniedException {
         if (estconfiguration.aliasExists(alias) && estConfigForEdit.aliasExists(alias)) {
-            for(String key : EstConfiguration.getAllAliasKeys(alias)) {
-                String value = estConfigForEdit.getValue(key, alias);
+            for(final String key : EstConfiguration.getAllAliasKeys(alias)) {
+                final String value = estConfigForEdit.getValue(key, alias);
                 estconfiguration.setValue(key, value, alias);
             }
         }
@@ -1568,17 +1567,17 @@ public class EjbcaWebBean implements Serializable {
      */
     private EstConfiguration clearEstConfigurationFromUnauthorizedAliases(final EstConfiguration estConfiguration) {
         //Copy the configuration, because modifying parameters is nasty
-        EstConfiguration returnValue = new EstConfiguration(estConfiguration);
+        final EstConfiguration returnValue = new EstConfiguration(estConfiguration);
         //Exclude all aliases which refer to CAs that current admin doesn't have access to
-        aliasloop: for (String alias : new ArrayList<>(estConfiguration.getAliasList())) {
+        aliasloop: for (final String alias : new ArrayList<>(estConfiguration.getAliasList())) {
             Integer caId = 0;
             // To be backward compatible with EJBCA 6.11, where this was stored as the name instead of ID, we make it possible to use both. See ECA-6556
-            String defaultCAIDStr = estConfiguration.getDefaultCAID(alias);
+            final String defaultCAIDStr = estConfiguration.getDefaultCAID(alias);
             if (NumberUtils.isNumber(defaultCAIDStr)) {
                 caId = Integer.valueOf(defaultCAIDStr);
             } else {
                 // We have a caName, and want the Id
-                CAInfo cainfo = caSession.getCAInfoInternal(-1, defaultCAIDStr, true);
+                final CAInfo cainfo = caSession.getCAInfoInternal(-1, defaultCAIDStr, true);
                 if (cainfo != null) {
                     caId = cainfo.getCAId();
                 } else {
@@ -1617,7 +1616,7 @@ public class EjbcaWebBean implements Serializable {
                 .getCachedConfiguration(AvailableExtendedKeyUsagesConfiguration.CONFIGURATION_ID);
     }
 
-    public void saveAvailableExtendedKeyUsagesConfiguration(AvailableExtendedKeyUsagesConfiguration ekuConfig) throws AuthorizationDeniedException {
+    public void saveAvailableExtendedKeyUsagesConfiguration(final AvailableExtendedKeyUsagesConfiguration ekuConfig) throws AuthorizationDeniedException {
         globalConfigurationSession.saveConfiguration(administrator, ekuConfig);
         availableExtendedKeyUsagesConfig = ekuConfig;
     }
@@ -1638,7 +1637,7 @@ public class EjbcaWebBean implements Serializable {
                 .getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
     }
 
-    public void saveAvailableCustomCertExtensionsConfiguration(AvailableCustomCertificateExtensionsConfiguration cceConfig)
+    public void saveAvailableCustomCertExtensionsConfiguration(final AvailableCustomCertificateExtensionsConfiguration cceConfig)
             throws AuthorizationDeniedException {
         globalConfigurationSession.saveConfiguration(administrator, cceConfig);
         availableCustomCertExtensionsConfig = cceConfig;
@@ -1656,7 +1655,7 @@ public class EjbcaWebBean implements Serializable {
             try {
                 Class.forName("org.ejbca.ui.web.admin.peerconnector.PeerConnectorsMBean");
                 peerConnectorPresent = Boolean.TRUE;
-            } catch (ClassNotFoundException e) {
+            } catch (final ClassNotFoundException e) {
                 peerConnectorPresent = Boolean.FALSE;
             }
         }

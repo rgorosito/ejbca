@@ -151,6 +151,35 @@ public interface EndEntityProfileSession {
     List<String> getEndEntityProfilesUsingCertificateProfile(int certificateprofileid);
 
     /**
+     * Fetches available certificate profiles associated with an end entity profile.
+     *
+     * No authorization required.
+     *
+     * @param admin the authentication of the caller.
+     * @param entityProfileId id of the end entity profile.
+     * @return a map of available certificate profiles names and IDs or an empty map.
+     * @throws EndEntityProfileNotFoundException if a profile with the ID entityProfileId could not be found
+     * @throws AuthorizationDeniedException if the authorization was denied (still not thrown).
+     */
+    Map<String, Integer> getAvailableCertificateProfiles(AuthenticationToken admin, int entityProfileId) throws EndEntityProfileNotFoundException;
+    
+    /**
+     * Fetches the available CAs associated with an end entity profile.
+     *
+     * Authorization requirements:<pre>
+     * - /administrator
+     * - /endentityprofilesrules/&lt;end entity profile&gt;
+     * </pre>
+     *
+     * @param admin the authentication of the caller.
+     * @param entityProfileId id of the end entity profile.
+     * @return a map of available CA names and IDs or an empty map.
+     * @throws AuthorizationDeniedException if the authorization was denied (still not thrown).
+     * @throws EndEntityProfileNotFoundException if the end entity could not be found.
+     */
+    Map<String,Integer> getAvailableCasInProfile(AuthenticationToken admin, final int entityProfileId) throws AuthorizationDeniedException, EndEntityProfileNotFoundException;
+    
+    /**
      * Method to check if a CA exists in any of the end entity profiles. Used to
      * avoid desynchronization of CA data.
      * @param caid the caid to search for.
@@ -159,4 +188,21 @@ public interface EndEntityProfileSession {
      */
     boolean existsCAInEndEntityProfiles(int caid);
 
+    /**
+     * Fetches the profile specified by profileId and profileType in XML format.
+     *
+     * Authorization requirements:<pre>
+     * - /administrator
+     * - /endentityprofilesrules/&lt;end entity profile&gt;
+     * - /ca/&lt;ca name&gt;
+     * </pre>
+     *
+     * For detailed documentation for how to parse an End Entity Profile XML, see the org.ejbca.core.model.ra.raadmin.EndEntity class.
+     *
+     * @param profileId ID of the profile we want to retrieve.
+     * @return a byte array containing the specified profile in XML format.
+     * @throws AuthorizationDeniedException if the requesting admin wasn't authorized to the profile or any of the CA's therein
+     * @throws EndEntityProfileNotFoundException if the profile was not found
+     */
+    byte[] getProfileAsXml(AuthenticationToken authenticationToken, int profileId) throws AuthorizationDeniedException, EndEntityProfileNotFoundException;
 }

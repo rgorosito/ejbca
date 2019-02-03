@@ -24,6 +24,55 @@ function checkAll(checkboxlist,size) {
   }
 }
 
+/**
+ * Used in importca.xhtml and importcacert.xhtml
+ * 
+ * @param message the message to be printed in case no file is selected to import
+ * @returns false if no file selected for import, true otherwise
+ */
+function checkFileRecieve(element, message) {
+	if (document.getElementById(element).value == '') {
+		alert(message);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Used in managecas.xhtml
+ * 
+ * @param message the message to be shown to user before confirming the delete operation
+ * @returns false in case message is null or empty, otherwise returns a delete confirmation dialogue to user.
+ */
+function confirmcaaction(message) {
+    if (!message || 0 === message.length) {
+        return false;
+    }
+    return confirm(message);
+}
+
+function checkcreatecafield(thetextfield, alerttext) {
+	field = eval(thetextfield);
+	var text = new String(field.value);
+	if (!text || 0 === text.length || text === "") {
+		alert("Please give a ca name first!")
+		return false
+	}
+	return checkfieldforlegalchars(thetextfield, alerttext);
+}
+
+/**
+ * Used in editcapage.xhtml
+ * 
+ * @param link
+ *            The link to the certificate to be shown
+ * 
+ */
+function viewcacert(link){
+    win_popup = window.open(link, 'view_cert','height=750,width=750,scrollbars=yes,toolbar=no,resizable=1');
+    win_popup.focus();
+}
+
 function uncheckAll(checkboxlist,size) {
   for (var i = 0; i < size; i++) {
   box = eval(checkboxlist + i ); 
@@ -316,28 +365,40 @@ function trim(s) {
   return s;
 }
 
-// Prompt user for input, validate it for illegal chars and write it to a field
-function getInputToField(fieldname, infotext, infovalidchars) {
+function inputIntoField(oldaliasfield, aliasfield, oldalias, infotext) {
 	var input = prompt(infotext,"");
-	if ( input != null && "" != input) {
-		document.getElementById(fieldname).value = input;
-		if (checkfieldforlegalchars(document.getElementById(fieldname), infovalidchars)) {
-			return true;
-		}
-		document.getElementById(fieldname).value = '';
+	if (input != null && "" != input) {
+		document.getElementById(oldaliasfield).value = oldalias;
+		document.getElementById(aliasfield).value = input;
+		return true;
 	}
+	document.getElementById(oldaliasfield).value = '';
+	document.getElementById(aliasfield).value = '';
 	return false;
 }
 
-// Validate and write the 'input' to a field
-function getInsertIntoField(fieldname, input, infovalidchars) {
-	if ( input != null && "" != input) {
-		document.getElementById(fieldname).value = input;
-		if (checkfieldforlegalchars(document.getElementById(fieldname), infovalidchars)) {
-			return true;
-		}
+function inputIntoFieldConfirm(confirmmessage, field, input) {
+	var confirmed = confirm(confirmmessage);
+	if (confirmed && input != null && "" != input) {
+		document.getElementById(field).value = input;
+		return true;
 	}
+	document.getElementById(field).value = '';
 	return false;
+}
+
+function logout() {
+	// Redirects user to RA web (through LogOutServlet) and terminates session.
+	var logoutUrl = "https://" + window.location.hostname + ":" + window.location.port + "/ejbca/adminweb/logout";
+	window.location.href = logoutUrl;
+}
+
+// Resets timer for page inactivity.
+// parameter 'validity' should be specified in minutes.
+function resetTimer(validity) {
+	clearTimeout(time);
+	// Log out after X minutes of inactivity
+	time=setTimeout(logout, 1000*60*validity)
 }
 
 /* JS library functions used by EJBCA 6.8.0+ JSF pages */

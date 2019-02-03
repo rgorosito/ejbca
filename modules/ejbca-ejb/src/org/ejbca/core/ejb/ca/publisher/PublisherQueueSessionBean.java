@@ -164,7 +164,7 @@ public class PublisherQueueSessionBean implements PublisherQueueSessionLocal {
         }
         Collection<org.ejbca.core.ejb.ca.publisher.PublisherQueueData> datas = org.ejbca.core.ejb.ca.publisher.PublisherQueueData
                 .findDataByPublisherIdAndStatus(entityManager, publisherId, PublisherConst.STATUS_PENDING, 0);
-        if (datas.size() == 0) {
+        if (datas.isEmpty()) {
             log.debug("No publisher queue entries found for publisher " + publisherId);
         }
         Collection<PublisherQueueData> ret = new ArrayList<PublisherQueueData>();
@@ -236,7 +236,7 @@ public class PublisherQueueSessionBean implements PublisherQueueSessionLocal {
         Collection<PublisherQueueData> ret = new ArrayList<PublisherQueueData>();
         Collection<org.ejbca.core.ejb.ca.publisher.PublisherQueueData> datas = org.ejbca.core.ejb.ca.publisher.PublisherQueueData
                 .findDataByFingerprint(entityManager, fingerprint);
-        if (datas.size() == 0) {
+        if (datas.isEmpty()) {
             log.debug("No publisher queue entries found for fingerprint " + fingerprint);
         } else {
             Iterator<org.ejbca.core.ejb.ca.publisher.PublisherQueueData> iter = datas.iterator();
@@ -422,7 +422,7 @@ public class PublisherQueueSessionBean implements PublisherQueueSessionLocal {
     public boolean storeCertificateNonTransactional(BasePublisher publisher, AuthenticationToken admin, CertificateDataWrapper certWrapper,
             String password, String userDN, ExtendedInformation extendedinformation) throws PublisherException {
         if (publisher.isFullEntityPublishingSupported()) {
-            return publisher.storeCertificate(admin, certWrapper.getCertificateDataOrCopy(), certWrapper.getBase64CertData());
+            return publisher.storeCertificate(admin, certWrapper.getCertificateDataOrCopy(), certWrapper.getBase64CertData(), password, userDN, extendedinformation);
         } else {
             final BaseCertificateData certificateData = certWrapper.getBaseCertificateData();
             final String cAFingerprint = certificateData.getCaFingerprint();
@@ -516,6 +516,9 @@ public class PublisherQueueSessionBean implements PublisherQueueSessionLocal {
     }
 
     private PublisherException getAsPublisherException(final Exception e) {
+        if (log.isDebugEnabled()) {
+            log.debug("Publisher threw exception", e);
+        }
         if (e instanceof PublisherException) {
             return (PublisherException) e;
         }

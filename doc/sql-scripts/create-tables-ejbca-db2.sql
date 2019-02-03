@@ -89,6 +89,7 @@ CREATE TABLE Base64CertData (
     base64Cert CLOB,
     rowProtection CLOB(10K),
     rowVersion INTEGER NOT NULL,
+    certificateRequest CLOB,
     PRIMARY KEY (fingerprint)
 );
 
@@ -153,6 +154,33 @@ CREATE TABLE CertificateData (
     type INTEGER NOT NULL,
     updateTime BIGINT NOT NULL,
     username VARCHAR(254),
+    certificateRequest CLOB,
+    PRIMARY KEY (fingerprint)
+);
+
+CREATE TABLE NoConflictCertificateData (
+    fingerprint VARCHAR(254) NOT NULL,
+    base64Cert CLOB,
+    cAFingerprint VARCHAR(254),
+    certificateProfileId INTEGER NOT NULL,
+    endEntityProfileId INTEGER,
+    expireDate BIGINT NOT NULL,
+    issuerDN VARCHAR(254) NOT NULL,
+    notBefore BIGINT,
+    revocationDate BIGINT NOT NULL,
+    revocationReason INTEGER NOT NULL,
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    serialNumber VARCHAR(254) NOT NULL,
+    status INTEGER NOT NULL,
+    subjectAltName VARCHAR(2000),
+    subjectDN VARCHAR(400),
+    subjectKeyId VARCHAR(254),
+    tag VARCHAR(254),
+    type INTEGER NOT NULL,
+    updateTime BIGINT NOT NULL,
+    username VARCHAR(254),
+    certificateRequest CLOB,
     PRIMARY KEY (fingerprint)
 );
 
@@ -407,6 +435,46 @@ CREATE TABLE AcmeNonceData (
     rowProtection CLOB(10K),
     rowVersion INTEGER NOT NULL,
     PRIMARY KEY (nonce)
+);
+
+CREATE TABLE AcmeAccountData (
+    accountId VARCHAR(254) NOT NULL,
+    currentKeyId VARCHAR(254) NOT NULL,
+    rawData CLOB(1M),
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (accountId)
+);
+
+CREATE TABLE AcmeOrderData (
+    orderId VARCHAR(254) NOT NULL,
+    accountId VARCHAR(254) NOT NULL,
+    fingerprint VARCHAR(254),
+    status VARCHAR(254) NOT NULL,
+    rawData CLOB(1M),
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (orderId)
+);
+
+CREATE TABLE AcmeChallengeData (
+    challengeId VARCHAR(254) NOT NULL,
+    authorizationId VARCHAR(254) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    rawData CLOB(1M),
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (challengeId)
+);
+
+CREATE TABLE AcmeAuthorizationData (
+    authorizationId VARCHAR(254) NOT NULL,
+    orderId VARCHAR(254),
+    accountId VARCHAR(254) NOT NULL,
+    rawData CLOB(1M),
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (authorizationId)
 );
 
 alter table AccessRulesData add constraint FKABB4C1DFDBBC970 foreign key (AdminGroupData_accessRules) references AdminGroupData;

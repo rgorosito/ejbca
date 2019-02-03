@@ -33,8 +33,12 @@
 #password.encryption.count=100
 
 # ------------ Basic CA configuration ---------------------
-# This password is used internally to protect CA keystores in database (i.e. the CAs private key).
-# foo123 is to keep compatibility with default installations of EJBCA 3.0, please change this if possible
+# This password is used internally to protect CA keystores in database unless a password has been set manually. 
+# CA keystores are the CAs private key, where a password can be defined manually instead when creating the Crypto Token, 
+# and Extended CA Services, such as the 'CMS Service', where a manual password can not be defined..
+# Default value is foo123, which is needed to keep compatibility with default installations of EJBCA 3.0, please change this if possible.
+# This value is not very important if you don't use the CMS Service (which most do not), if you define your own 
+# Crypto Token Authentication Codes, which is recommended.
 # Note! If changing this value AFTER installation of EJBCA you must do 'ant clean; ant bootstrap' in order to activate changes.
 #ca.keystorepass=foo123
 #ca.keystorepass=!secret!
@@ -224,8 +228,13 @@ securityeventsaudit.exporter.1=org.cesecore.audit.impl.AuditExporterXml
 # Java 6: http://docs.oracle.com/javase/6/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider
 #   TLS versions: SSLv3, TLSv1, SSLv2Hello
 # Java 7: http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider
-#   TLS versions: SSLv3, TLSv1, SSLv2Hello, TLSv1.1, TLSv1.2
+#   TLS versions: SSLv3, TLSv1, TLSv1.1, TLSv1.2
 #   Cipher suites with SHA384 and SHA256 are available only for TLS 1.2 or later.
+# Java 8: http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider
+#   TLS versions: SSLv3, TLSv1, TLSv1.1, TLSv1.2
+#   Cipher suites with SHA384 and SHA256 are available only for TLS 1.2 or later.
+#
+# Use TLSv1.2 or better unless you have too keep compatibility with really old systems.
 #
 # The configuration format is "<TLS version>;cipher" and the follow ciphers are defined by default
 # and can be undefined by setting the properties to "undefined".

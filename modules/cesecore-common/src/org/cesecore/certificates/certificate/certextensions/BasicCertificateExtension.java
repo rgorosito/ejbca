@@ -15,12 +15,11 @@ package org.cesecore.certificates.certificate.certextensions;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.PublicKey;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Boolean;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -44,34 +43,34 @@ import org.cesecore.internal.InternalResources;
 
 /**
  * The default basic certificate extension that has two property.
- * 
+ *
  * 'value' : The value returned 'encoding' : How the value is encoded.
- * 
+ *
  * Optionally, a new property can be defined:
- * 
+ *
  * 'nvalues' : number of values of type 'encoding'
- * 
+ *
  * Thus, the extension will be of type 'SEQUENCE OF ENCODING' with a size of nvalues. The members will be: 'value1', 'value2' and so on.
- * 
+ *
  * Optionally, an other property can be defined:
- * 
- *  'dynamic' : true/false if the extension value(s) should be allowed to be 
- *              overridden by value(s) put as extensiondata in 
+ *
+ *  'dynamic' : true/false if the extension value(s) should be allowed to be
+ *              overridden by value(s) put as extensiondata in
  *              ExtendedInformation. Default is 'false'.
  *
  *
  * See documentation for more information.
- * 
+ *
  * @version $Id$
  */
 public class BasicCertificateExtension extends CertificateExtension implements CustomCertificateExtension {
 
     private static final long serialVersionUID = 6896964791897238060L;
 
-    private static final Logger log = Logger.getLogger(BasicCertificateExtension.class);
+    //private static final Logger log = Logger.getLogger(BasicCertificateExtension.class);
 
     private static final InternalResources intres = InternalResources.getInstance();
-    
+
     private static final String DISPLAY_NAME = "Basic Certificate Extension";
 
     private enum Encoding {
@@ -85,55 +84,56 @@ public class BasicCertificateExtension extends CertificateExtension implements C
         ENCODING_DERNULL("DERNULL"),
         ENCODING_DEROBJECT("DEROBJECT"),
         ENCODING_DEROID("DERBOJECTIDENTIFIER");
-        
+
         private static final Map<String, Encoding> lookupMap = new HashMap<String, Encoding>();
-        
+
         static {
             for(Encoding encoding : Encoding.values()) {
                 lookupMap.put(encoding.value(), encoding);
             }
         }
-        
+
         private final String value;
 
-        
+
         private Encoding(String value) {
             this.value = value;
         }
-        
+
         public String value() {
             return value;
         }
-        
+
         public boolean equals(Encoding otherValue) {
             if(otherValue == null) {
                 return false;
             }
             return value.equalsIgnoreCase(otherValue.value());
         }
-        
+
         public static final Encoding fromString(String value) {
-            return lookupMap.get(value);
+            return lookupMap.get(StringUtils.upperCase(value, Locale.ROOT));
         }
-        
-      
+
+
     }
 
 
-    /** 
-     * The value is expected to by hex encoded and is added as an byte array 
-     * as the extension value. 
+    /**
+     * The value is expected to by hex encoded and is added as an byte array
+     * as the extension value.
      **/
     private static String ENCODING_RAW = "RAW";
+    private static String ENCODING_DERNULL = "DERNULL";
 
     // Defined Properties
     private static String PROPERTY_VALUE = "value";
     private static String PROPERTY_ENCODING = "encoding";
     private static String PROPERTY_NVALUES = "nvalues";
     private static String PROPERTY_DYNAMIC  = "dynamic";
-    
+
     private static final Map<String, String[]> propertiesMap = new HashMap<String, String[]>();
-    
+
     static {
         Encoding[] encodings = Encoding.values();
         // +1 because we need to add RAW as well in the end
@@ -143,12 +143,12 @@ public class BasicCertificateExtension extends CertificateExtension implements C
         }
         // Add RAW last
         encodingValues[encodingValues.length-1] = ENCODING_RAW;
-        
+
         propertiesMap.put(PROPERTY_ENCODING, encodingValues);
         propertiesMap.put(PROPERTY_VALUE, new String[]{});
         propertiesMap.put(PROPERTY_DYNAMIC, CustomCertificateExtension.BOOLEAN);
     }
-    
+
     {
         setDisplayName(DISPLAY_NAME);
     }
@@ -156,6 +156,8 @@ public class BasicCertificateExtension extends CertificateExtension implements C
     /**
      * @deprecated use getValueEncoded instead.
      */
+    @Deprecated
+    @Override
     public ASN1Encodable getValue(EndEntityInformation userData, CA ca, CertificateProfile certProfile, PublicKey userPublicKey, PublicKey caPublicKey, CertificateValidity val)
     throws CertificateExtensionException {
         throw new UnsupportedOperationException("Use getValueEncoded instead");
@@ -163,13 +165,13 @@ public class BasicCertificateExtension extends CertificateExtension implements C
 
     /**
      * Returns the defined property 'value' in the encoding specified in 'encoding'.
-     * 
-     * This certificate extension implementations overrides this method as it 
-     * want to be able to return a byte[] with the extension value. Otherwise 
-     * the implementation could have been put in the getValue method as the 
-     * super class CertificateExtension has a default implementation for 
+     *
+     * This certificate extension implementations overrides this method as it
+     * want to be able to return a byte[] with the extension value. Otherwise
+     * the implementation could have been put in the getValue method as the
+     * super class CertificateExtension has a default implementation for
      * getValueEncoded which calls getValue.
-     * 
+     *
      * @param userData
      *            Used to lookup extension data
      * @param ca
@@ -182,14 +184,24 @@ public class BasicCertificateExtension extends CertificateExtension implements C
     @Override
     public byte[] getValueEncoded(EndEntityInformation userData, CA ca, CertificateProfile certProfile, PublicKey userPublicKey,
             PublicKey caPublicKey, CertificateValidity val) throws CertificateExtensionException {
+        String[] values = getValues(userData, null);
+        return handleValues(values);
+    }
+
+    @Override
+    public byte[] getValueEncoded(EndEntityInformation userData, CA ca, CertificateProfile certProfile, PublicKey userPublicKey,
+            PublicKey caPublicKey, CertificateValidity val, String oid) throws CertificateExtensionException {
+        String[] values = getValues(userData, oid);
+        return handleValues(values);
+    }
+
+    private byte[] handleValues(String[] values) throws CertificateExtensionException {
         final byte[] result;
         String encoding = StringUtils.trim(getProperties().getProperty(PROPERTY_ENCODING));
-        String[] values = getValues(userData);
-        if (log.isDebugEnabled()) {
-            log.debug("Got extension values: " + Arrays.toString(values));
-        }
-
-        if (values == null || values.length == 0) {
+        if (values == null || values.length == 0 || (values[0] == null && !encoding.equalsIgnoreCase(ENCODING_DERNULL))) {
+            if (!isRequiredFlag()) {
+                return null;
+            }
             throw new CertificateExtensionException(intres.getLocalizedMessage("certext.basic.incorrectvalue", Integer.valueOf(getId()), getOID()));
         }
 
@@ -220,19 +232,18 @@ public class BasicCertificateExtension extends CertificateExtension implements C
     }
 
     /**
-     * Get the extension value by first looking in the ExtendedInformation (if 
+     * Get the extension value by first looking in the ExtendedInformation (if
      * dynamic is enabled) and then in the static configuration.
-     * 
+     *
      * @param userData The userdata to get the ExtendedInformation from
      * @return The value(s) for the extension (usually 1) or null if no value found
      */
-    private String[] getValues(EndEntityInformation userData) {
+    private String[] getValues(EndEntityInformation userData, final String oid) {
         String[] result = null;
 
         boolean dynamic = Boolean.parseBoolean(StringUtils.trim(getProperties().getProperty(PROPERTY_DYNAMIC, Boolean.FALSE.toString())));
 
         String strnvalues = getProperties().getProperty(PROPERTY_NVALUES);
-
         int nvalues;
 
         if ( strnvalues == null || strnvalues.trim().equals("") ) {
@@ -247,9 +258,17 @@ public class BasicCertificateExtension extends CertificateExtension implements C
                 result = null;
             } else {
                 if (nvalues < 1 ) {
-                    String value = userData.getExtendedInformation().getExtensionData(getOID());
-                    if (value == null || value.trim().isEmpty()) {
-                        value = userData.getExtendedInformation().getExtensionData(getOID() + "." + PROPERTY_VALUE);
+                    String value = null;
+                    if (oid != null) {
+                        value = userData.getExtendedInformation().getExtensionData(oid);
+                        if (value == null || value.trim().isEmpty()) {
+                            value = userData.getExtendedInformation().getExtensionData(oid + "." + PROPERTY_VALUE);
+                        }
+                    } else {
+                        value = userData.getExtendedInformation().getExtensionData(getOID());
+                        if (value == null || value.trim().isEmpty()) {
+                            value = userData.getExtendedInformation().getExtensionData(getOID() + "." + PROPERTY_VALUE);
+                        }
                     }
                     if (value == null) {
                         result = null;
@@ -258,7 +277,12 @@ public class BasicCertificateExtension extends CertificateExtension implements C
                     }
                 } else {
                     for (int i = 1; i <= nvalues; i++) {
-                        String value = userData.getExtendedInformation().getExtensionData(getOID() + "." + PROPERTY_VALUE + Integer.toString(i));
+                        String value = null;
+                        if (oid != null) {
+                            value = userData.getExtendedInformation().getExtensionData(oid + "." + PROPERTY_VALUE + Integer.toString(i));
+                        } else {
+                            value = userData.getExtendedInformation().getExtensionData(getOID() + "." + PROPERTY_VALUE + Integer.toString(i));
+                        }
                         if (value != null) {
                             if (result == null) {
                                 result = new String[nvalues];
@@ -284,24 +308,24 @@ public class BasicCertificateExtension extends CertificateExtension implements C
             }
         }
         return result;
-    } 
+    }
 
     private ASN1Encodable parseValue(String encoding, String value) throws CertificateExtensionException {
 
         ASN1Encodable toret = null;
-        
+
         Encoding encodingType = Encoding.fromString(encoding);
-        
+
         if(encodingType == null) {
             throw new CertificateExtensionException(intres.getLocalizedMessage("certext.basic.incorrectenc", encoding,
                     Integer.valueOf(getId())));
         }
 
-        if (!Encoding.ENCODING_DERNULL.equals(encodingType) && (value == null || value.trim().equals(""))) {
+        if (!Encoding.ENCODING_DERNULL.equals(encodingType) && ((value == null || value.trim().equals("")) && isRequiredFlag())) {
             throw new CertificateExtensionException(intres.getLocalizedMessage("certext.basic.incorrectvalue", Integer.valueOf(getId()), getOID()));
         }
 
-        switch(encodingType) { 
+        switch(encodingType) {
         case ENCODING_DERBITSTRING:
             toret = parseDERBitString(value);
             break;
@@ -482,4 +506,6 @@ public class BasicCertificateExtension extends CertificateExtension implements C
     public Map<String, String[]> getAvailableProperties() {
         return propertiesMap;
     }
+
+
 }

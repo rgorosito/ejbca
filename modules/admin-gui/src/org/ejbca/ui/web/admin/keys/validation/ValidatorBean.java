@@ -146,7 +146,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
         return getValidator().getValidatorTypeIdentifier();
     }
   
-    /**
+    /**˛
      * Sets the selected validator type. This re-creates the entire validator, so only do it if it actually changed type.
      * @param type the type {@link ValidatorBase#getValidatorTypeIdentifier()}.
      */
@@ -169,7 +169,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
      */
     public Validator getValidator() {
         // @ViewScoped: If the back link was called it may happen that the same view is rendered again with another validator.
-        final int newId = validatorsBean.getValidatorId();
+        final int newId = ( validatorsBean.getValidatorId() != null ? validatorsBean.getValidatorId() : -1);
         final int oldId = getValidatorId();
         if (validator != null && oldId != newId) {
             reset();
@@ -243,7 +243,7 @@ public class ValidatorBean extends BaseManagedBean implements Serializable {
     /**
      * Initializes the dynamic UI model grid panel.
      * @param pim the PIM.
-     * @param the HTML components ID prefix.
+     * @param prefix the HTML components ID prefix.
      * @throws DynamicUiModelException if the PSM could not be created.
      */
     private void initGrid(final DynamicUiModel pim, final String prefix) throws DynamicUiModelException {

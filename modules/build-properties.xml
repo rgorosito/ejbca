@@ -84,6 +84,7 @@
     <property name="mod.publicweb-gui.path" location="${mod.path}/publicweb-gui" />
     <property name="mod.publicweb-gui.war" location="${mod.dist.path}/publicweb.war" />
     <property name="mod.va.path" location="${mod.path}/va" />
+    <property name="mod.plugins.path" location="${mod.path}/plugins-ee" />
     <property name="mod.status.war" location="${mod.dist.path}/status.war" />
     <property name="mod.certstore.war" location="${mod.dist.path}/certstore.war" />
     <property name="mod.cerstore.path" location="${mod.path}/certificatestore" />
@@ -149,13 +150,11 @@
 	<property name="mod.cli-util.path" location="${mod.path}/cli-util" />
 	<property name="mod.ct.path" location="${mod.path}/ct" />
 	<property name="mod.ct.lib" location="${mod.dist.path}/ct.jar" />
-	<property name="mod.certsafe.path" location="${mod.path}/certsafe"/>
-	<property name="mod.certsafe.lib" location="${mod.dist.path}/certsafe.jar"/>
 	<property name="mod.edition-specific-interface.path" location="${mod.path}/edition-specific"/>
 	<property name="mod.edition-specific-interface.lib" location="${mod.dist.path}/edition-specific-interface.jar"/>
 	<property name="mod.edition-specific-ejb.lib" location="${mod.dist.path}/edition-specific-ejb.jar"/>
 	<property name="mod.edition-specific-ee-ejb.path" location="${mod.path}/edition-specific-ee"/>
-	<property name="mod.va-publisher.lib"  location="${mod.dist.path}/va-publisher.jar"/>
+	<property name="mod.plugins-ee.lib"  location="${mod.dist.path}/plugins-ee.jar"/>
 	<property name="mod.systemtest-interface.lib" location="${mod.dist.path}/systemtests-interfaces.jar" />
 	<property name="mod.systemtest-common.lib" location="${mod.dist.path}/systemtests-common.jar" />
 	<property name="mod.systemtest-ejb.lib" location="${mod.dist.path}/systemtests-ejb.jar" />
@@ -170,7 +169,7 @@
     <property name="mod.webtest.path" location="${mod.path}/ejbca-webtest"/>
     <property name="mod.ejbca-rest-api.path" location="${mod.path}/ejbca-rest-api" />
     <property name="mod.ejbca-rest-api.war" location="${mod.dist.path}/ejbca-rest-api.war" />
-
+    <property name="swagger-ui.war" location="${ejbca.home}/lib/swagger/swagger-ui.war" />
 	
     <!-- Variables of global interest -->
     <property name="java.target.version" value="${java.specification.version}"/>
@@ -228,6 +227,7 @@
 		</fileset>
 	</path>
 
+    <mkdir dir="${ejbca.home}/lib/ext/resteasy-jaxrs-lib"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.resteasy-jaxrs.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/resteasy-jaxrs-lib">
 			<include name="*.jar"/>
@@ -236,6 +236,7 @@
 		</fileset>
 	</path>
 
+	<mkdir dir="${ejbca.home}/lib/ext/swagger"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.swagger.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/swagger">
 			<include name="*.jar"/>
@@ -244,6 +245,7 @@
 		</fileset>
 	</path>
 
+    <mkdir dir="${ejbca.home}/lib/ext/jackson2"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.jackson2.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/jackson2">
 			<include name="*.jar"/>
@@ -251,6 +253,23 @@
 			<exclude name="*-sources.jar"/>
 		</fileset>
 	</path>
+
+	<path id="lib.hibernate-validator.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/hibernate-validator">
+			<include name="*.jar"/>
+			<exclude name="*-javadoc.jar"/>
+			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
+
+	<path id="lib.jboss-logging.classpath">
+        <fileset dir="${ejbca.home}/lib/hibernate">
+            <include name="*.jar"/>
+            <exclude name="*-javadoc.jar"/>
+            <exclude name="*-sources.jar"/>
+        </fileset>
+	</path>
+	
 	<path id="lib.log4j.classpath"><fileset dir="${ejbca.home}/lib" includes="log4j*.jar"/></path>
 	<path id="lib.slf4jlog4j.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="slf4j-log4j*.jar"/></path>
 	<path id="lib.slf4japi.classpath"><fileset dir="${ejbca.home}/lib/ext" includes="slf4j-api*.jar"/></path>
@@ -269,6 +288,7 @@
 	<path id="lib.mail.classpath">
 		<fileset dir="${ejbca.home}/lib/ext" includes="mailapi.jar"/>
 	</path>
+	<path id="lib.jsch.classpath"><fileset dir="${ejbca.home}/lib" includes="jsch-*.jar"/></path>
 	<path id="lib.tomahawk.classpath"><fileset dir="${ejbca.home}/lib/myfaces" includes="tomahawk-*.jar"/></path>
 	<path id="lib.owaspcsrfguard.classpath"><fileset dir="${ejbca.home}/lib/" includes="csrfguard-*.jar"/></path>
 	<path id="lib.ldap.classpath"><fileset dir="${ejbca.home}/lib" includes="ldap.jar"/></path>
@@ -352,8 +372,8 @@
     	<pathelement location="${mod.ejbca-common-web.lib}"/>
 	</path>
 
-	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-159.jar"/></fileset></path>
-	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-159.jar"/></fileset></path>
+	<path id="lib.bouncycastle-provonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcprov-jdk15on-*.jar"/></fileset></path>
+	<path id="lib.bouncycastle-mailonly.classpath"><fileset dir="${ejbca.home}/lib"><include name="bcpkix-jdk15on-*.jar"/></fileset></path>
 	<path id="lib.bouncycastle.classpath">
 		<path refid="lib.bouncycastle-provonly.classpath"/>
 		<path refid="lib.bouncycastle-mailonly.classpath"/>
@@ -390,14 +410,14 @@
 	</path>
 	
 	<!-- Certificate Transparency -->
+    <mkdir dir="${ejbca.home}/lib/ct"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.ctlog.classpath">
 		<path refid="lib.commons-codec.classpath"/>
 		<path refid="lib.json-simple.classpath"/>
 		<path refid="lib.hc.classpath"/>
 	    <fileset dir="${ejbca.home}/lib/ct">
-	        <include name="ctlog-jdk7-*.jar"/>
+	        <include name="ctlog-*.jar"/>
 	        <include name="protobuf-java-*.jar"/>
-            <include name="guava-*.jar" />
         </fileset>
     </path>
             	
@@ -439,6 +459,10 @@
 		<available file="${mod.ejbca-entity.path}/src-cli/org" type="dir"/>
 	</condition>
 	
+    <condition property="mod.ejbca-rest-api.exists">
+        <available file="${mod.ejbca-rest-api.path}/build.xml"/>
+    </condition>
+	
     <condition property="mod.statedump.exists">
         <available file="${mod.statedump.path}/build.xml" />
     </condition>
@@ -457,20 +481,27 @@
 	<istrue value="${unidfnr.enabled}"/>
       </and>
     </condition>
-
     
     <condition property="mod.est.exists">
         <available file="${mod.est-war.path}/build.xml" />
     </condition>
 
     <condition property="mod.acme.exists">
-        <and>
-            <available file="${mod.acme.path}/build.xml"/>
-            <!-- Only include ACME in non-production mode builds for now. TODO: Change this when production ready. -->
-	    	<equals arg1="${ejbca.productionmode}" arg2="false" casesensitive="false"/>
-        </and>
+    	<available file="${mod.acme.path}/build.xml"/>
     </condition>
 	
+    <condition property="swagger-ui.exists">
+        <and>
+        	<available file="${swagger-ui.war}"/>
+        	<or>
+    		   <equals arg1="${mod.ejbca-rest-api.exists}" arg2="true" casesensitive="false"/>
+    		   <equals arg1="${mod.acme.exists}" arg2="true" casesensitive="false"/>
+        	</or>
+            <!-- Exclude Swagger UI in production mode builds. -->
+            <equals arg1="${ejbca.productionmode}" arg2="false" casesensitive="false"/>
+        </and>
+    </condition>
+
 	<condition property="mod.caa.exists">
 		<available file="${mod.caa.path}/build.xml" />
     </condition>

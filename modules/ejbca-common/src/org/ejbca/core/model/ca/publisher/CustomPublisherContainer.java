@@ -15,18 +15,25 @@ package org.ejbca.core.model.ca.publisher;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.cert.Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.certificates.certificate.Base64CertData;
 import org.cesecore.certificates.certificate.CertificateData;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.util.StringTools;
 
 
 
@@ -94,7 +101,37 @@ public class CustomPublisherContainer extends BasePublisher {
 	 *  Sets the propertydata used to configure this custom publisher.
 	 */   
 	public void setPropertyData(String propertydata){
-		data.put(PROPERTYDATA, propertydata);	
+	    if(isCustomUiRenderingSupported()) {
+            CustomPublisherUiSupport publisher = (CustomPublisherUiSupport) getCustomPublisher();
+	        //Check if any fields are passwords, and encrypt those
+	        Properties properties = new Properties();
+	        try {
+	            properties.load(new ByteArrayInputStream(propertydata.getBytes()));
+	        } catch (IOException e) {
+	            throw new IllegalArgumentException("Properties could not be loaded.", e);
+	        }
+	        StringBuilder encryptedProperties = new StringBuilder();
+	        for(Object key : properties.keySet()) {
+	            String value;
+	            if(publisher.getPropertyType((String)key) == CustomPublisherProperty.UI_TEXTINPUT_PASSWORD) {
+	                //Property is of a type that shouldn't be written in clear text to disk. Encrypt!
+	                try {
+                        value = StringTools.pbeEncryptStringWithSha256Aes192(properties.getProperty((String) key));
+                    } catch (InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
+                            | InvalidKeySpecException e) {
+                        throw new IllegalStateException("Could not encrypt private key password!", e);
+                    }
+	            } else {
+	                value = properties.getProperty((String) key);
+	            }
+	            encryptedProperties.append(key + "=" + value + "\n");
+	        }
+	        data.put(PROPERTYDATA, encryptedProperties.toString());  
+	    } else {
+	        data.put(PROPERTYDATA, propertydata);  
+	    }
+
+		
 	}
 	
 	public boolean isCustomAccessRulesSupported() {
@@ -111,19 +148,30 @@ public class CustomPublisherContainer extends BasePublisher {
     public boolean isCustomUiRenderingSupported() {
 	    return getCustomPublisher() instanceof CustomPublisherUiSupport;
 	}
-    public List<CustomPublisherProperty> getCustomUiPropertyList() {
+    public List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken) {
         if (getCustomPublisher() instanceof CustomPublisherUiSupport) {
-            return ((CustomPublisherUiSupport)getCustomPublisher()).getCustomUiPropertyList();
+            return ((CustomPublisherUiSupport)getCustomPublisher()).getCustomUiPropertyList(authenticationToken);
         }
-        return new ArrayList<CustomPublisherProperty>();
+        return new ArrayList<>();
+    }
+    
+    private List<String> getCustomUiPropertyNames() {
+        if (getCustomPublisher() instanceof CustomPublisherUiSupport) {
+            return ((CustomPublisherUiSupport)getCustomPublisher()).getCustomUiPropertyNames();
+        }
+        return new ArrayList<>();
     }
 	
-    public Properties getProperties() throws IOException {
+    public Properties getProperties() {
         final Properties properties = new Properties();
         final String propertyData = getPropertyData();
         // Re-Factor: Here the strings are escaped: \\ -> \; \n -> new line, etc.
         if (propertyData != null) {
-            properties.load(new ByteArrayInputStream(propertyData.getBytes()));
+            try {
+                properties.load(new ByteArrayInputStream(propertyData.getBytes()));
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not retrieve properties from database", e);
+            }
         }
         /*
          * The below code is only to be able to handle the change of our EnterpriseValidationAuthorityPublisher from
@@ -136,8 +184,7 @@ public class CustomPublisherContainer extends BasePublisher {
          * Note that for example get/setDescription belongs to the BasePublisher and not the ICustomPublisher instance.
          * This is just one of many small things that needs to be corrected in a major version rewrite.
          */
-        for (final CustomPublisherProperty customPublisherProperty : getCustomUiPropertyList()) {
-        	final String key = customPublisherProperty.getName();
+        for (final String key : getCustomUiPropertyNames()) {
             if (!properties.containsKey(key) && data.get(key)!=null) {
                 // If this is a publisher that used to have it's specific properties in the "data", we need to provide an upgrade conversion path ONCE
                 properties.setProperty(key, String.valueOf(data.get(key)));
@@ -210,13 +257,9 @@ public class CustomPublisherContainer extends BasePublisher {
                 // publisher configured (Peer publisher for example)
                 log.info("Publisher class "+classPath+" is not available in this version/build of EJBCA.");
                 return null;
-            } catch (IllegalAccessException iae) {
-                throw new RuntimeException(iae);
-            } catch (IOException ioe) {
-                throw new RuntimeException(ioe);
-            } catch (InstantiationException ie) {
-                throw new RuntimeException(ie);
-            }
+            } catch (IllegalAccessException | InstantiationException iae) {
+                throw new IllegalStateException(iae);
+            } 
 		}
 		
 		return custompublisher;

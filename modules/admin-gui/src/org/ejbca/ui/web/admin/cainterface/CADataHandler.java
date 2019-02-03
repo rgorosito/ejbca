@@ -15,20 +15,16 @@ package org.ejbca.ui.web.admin.cainterface;
 
 import java.io.ByteArrayInputStream;
 import java.io.Serializable;
-import java.security.KeyStore;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
@@ -38,13 +34,9 @@ import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAExistsException;
 import org.cesecore.certificates.ca.CAInfo;
-import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.ca.InvalidAlgorithmException;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
-import org.cesecore.certificates.certificate.CertificateRevokeException;
-import org.cesecore.certificates.certificate.request.RequestMessage;
-import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSession;
@@ -63,17 +55,19 @@ import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherSessionLocal;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSession;
-import org.ejbca.core.model.approval.ApprovalException;
-import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ca.caadmin.extendedcaservices.BaseSigningCAServiceInfo;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
 
 /**
- * A class help administrating CAs. 
+ * A class help administrating CAs.
+ * <p>
+ * Deprecated, we should move the methods here into managed beans or session beans (ECA-7588)
  *
  * @version $Id$
+ * @deprecated since EJBCA 7.0.0
  */
+@Deprecated
 public class CADataHandler implements Serializable {
   
     private static final long serialVersionUID = 2132603037548273013L;
@@ -108,38 +102,6 @@ public class CADataHandler implements Serializable {
        this.administrator = authenticationToken;
        this.ejbcawebbean = ejbcawebbean;
     }
-    
-  /**
-   * @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
-   */    
-  public void createCA(CAInfo cainfo) throws CAExistsException, CryptoTokenOfflineException, AuthorizationDeniedException, InvalidAlgorithmException{
-    caadminsession.createCA(administrator, cainfo);
-  }
-
-  /**
-   *  @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
-   */
-  public void importCAFromKeyStore(String caname, byte[] p12file, String keystorepass, String privateSignatureKeyAlias, String privateEncryptionKeyAlias) throws Exception {
-      final KeyStore ks = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
-      ks.load(new ByteArrayInputStream(p12file), keystorepass.toCharArray());
-      if (privateSignatureKeyAlias.equals("")) {
-          Enumeration<String> aliases = ks.aliases();
-          if (aliases == null || !aliases.hasMoreElements()) {
-              throw new Exception("This file does not contain any aliases.");
-          }
-          privateSignatureKeyAlias = aliases.nextElement();
-          if (aliases.hasMoreElements()) {
-              while (aliases.hasMoreElements()) {
-                  privateSignatureKeyAlias += " " + aliases.nextElement();
-              }
-              throw new Exception("You have to specify any of the following aliases: " + privateSignatureKeyAlias);
-          }
-      }
-      if ( privateEncryptionKeyAlias.equals("") ) {
-          privateEncryptionKeyAlias = null;
-      }
-      caadminsession.importCAFromKeyStore(administrator, caname, p12file, keystorepass, keystorepass, privateSignatureKeyAlias, privateEncryptionKeyAlias);  
-  }
 
   /**
    * @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
@@ -155,23 +117,6 @@ public class CADataHandler implements Serializable {
           certs.add(CertTools.getCertfromByteArray(certbytes, Certificate.class));
       }
       caadminsession.updateCACertificate(administrator, caId, EJBTools.wrapCertCollection(certs));
-  }
-
-  /**
-   *  @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
-   */
-  public void importCACert(String caname, byte[] certbytes) throws Exception {
-	  Collection<Certificate> certs = null;
-	  try {
-		  certs = CertTools.getCertsFromPEM(new ByteArrayInputStream(certbytes), Certificate.class);
-	  } catch (CertificateException e) {
-		  log.debug("Input stream is not PEM certificate(s): "+e.getMessage());
-		  // See if it is a single binary certificate
-		  Certificate cert = CertTools.getCertfromByteArray(certbytes, Certificate.class);
-		  certs = new ArrayList<>();
-		  certs.add(cert);
-	  }
-	  caadminsession.importCACertificate(administrator, caname, EJBTools.wrapCertCollection(certs));
   }
 
   /**
@@ -240,7 +185,7 @@ public class CADataHandler implements Serializable {
   public boolean renameCA(int caId, String newname) throws AuthorizationDeniedException, CADoesntExistsException {
       if (caId!=0 && newname != null && newname.length()>0) {
           try {
-              final String oldname = getCAIdToNameMap().get(Integer.valueOf(caId));
+              final String oldname = caSession.getCAIdToNameMap().get(caId);
               caSession.renameCA(administrator, oldname, newname);
           } catch (CAExistsException e) {
               return true;
@@ -249,42 +194,11 @@ public class CADataHandler implements Serializable {
       return false;
   }
 
-  public CAInfoView getCAInfo(String name) throws AuthorizationDeniedException {
-    CAInfoView cainfoview = null; 
-    CAInfo cainfo = caSession.getCAInfo(administrator, name);
-    if(cainfo != null) {
-      cainfoview = new CAInfoView(cainfo, ejbcawebbean, publisherSession.getPublisherIdToNameMap(), keyValidatorSession.getKeyValidatorIdToNameMap());
-    } 
-    return cainfoview;
-  }
-  
-  public CAInfoView getCAInfoNoAuth(String name) {
-    CAInfoView cainfoview = null; 
-    CAInfo cainfo = caSession.getCAInfoInternal(-1, name, true);
-    if(cainfo != null) {
-      cainfoview = new CAInfoView(cainfo, ejbcawebbean, publisherSession.getPublisherIdToNameMap(), keyValidatorSession.getKeyValidatorIdToNameMap());
-    } 
-    return cainfoview;
-  }
-  
-  public CAInfoView getCAInfoNoAuth(final int caid) {
-      final CAInfo cainfo = caSession.getCAInfoInternal(caid);
-      return new CAInfoView(cainfo, ejbcawebbean, publisherSession.getPublisherIdToNameMap(), keyValidatorSession.getKeyValidatorIdToNameMap());
-    }
-  
-
   public CAInfoView getCAInfo(final int caid) throws AuthorizationDeniedException {
     final CAInfo cainfo = caSession.getCAInfo(administrator, caid);
     return new CAInfoView(cainfo, ejbcawebbean, publisherSession.getPublisherIdToNameMap(), keyValidatorSession.getKeyValidatorIdToNameMap());
   }
 
-  /**
-   *  @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
-   */  
-  public Map<Integer, String> getCAIdToNameMap(){
-    return caSession.getCAIdToNameMap();
-  }
-  
   /** @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean */
   public byte[] makeRequest(int caid, byte[] caChainBytes, String nextSignKeyAlias) throws CADoesntExistsException, AuthorizationDeniedException, CryptoTokenOfflineException {
       List<Certificate> certChain = null;
@@ -312,11 +226,6 @@ public class CADataHandler implements Serializable {
           throw new RuntimeException("Unexpected outcome.", e);
       }
   }
-
-  /** @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean */
-  public byte[] createAuthCertSignRequest(int caid, byte[] request) throws CADoesntExistsException, AuthorizationDeniedException, CryptoTokenOfflineException{
-      return caadminsession.createAuthCertSignRequest(administrator, caid, request);
-  }     
   
   /** @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean#receiveResponse */  
   public void receiveResponse(int caid, byte[] certBytes, String nextSignKeyAlias, boolean futureRollover) throws Exception{
@@ -343,58 +252,30 @@ public class CADataHandler implements Serializable {
 	  }
   }
 
-  /**
-   *  @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean
-   */  
-  public Certificate processRequest(CAInfo cainfo, RequestMessage requestmessage) throws Exception {      
-      Certificate returnval = null;
-      ResponseMessage result = caadminsession.processRequest(administrator, cainfo, requestmessage);
-      if(result instanceof X509ResponseMessage){
-         returnval = ((X509ResponseMessage) result).getCertificate();      
-      }            
-      
-      return returnval;      
-  }
-
-  public boolean renewCA(int caid, String nextSignKeyAlias, boolean createLinkCertificate) throws Exception {
-      if (getCAInfo(caid).getCAInfo().getSignedBy() == CAInfo.SIGNEDBYEXTERNALCA) {
-          return false;
+  public void renewCA(int caid, String nextSignKeyAlias, boolean createLinkCertificate) throws Exception {
+      if (caSession.getCAInfo(administrator, caid).getCAType() == CAInfo.CATYPE_CVC) {
+          // Force generation of link certificate for CVC CAs
+          createLinkCertificate = true;
+      }
+      if (nextSignKeyAlias == null || nextSignKeyAlias.length()==0) {
+          // Generate new keys
+          caadminsession.renewCA(administrator, caid, true, null, createLinkCertificate);
       } else {
-          if (getCAInfo(caid).getCAInfo().getCAType()==CAInfo.CATYPE_CVC) {
-              // Force generation of link certificate for CVC CAs
-              createLinkCertificate = true;
-          }
-          if (nextSignKeyAlias == null || nextSignKeyAlias.length()==0) {
-              // Generate new keys
-              caadminsession.renewCA(administrator, caid, true, null, createLinkCertificate);
-          } else {
-              // Use existing keys
-              caadminsession.renewCA(administrator, caid, nextSignKeyAlias, null, createLinkCertificate);
-          }
-          return true;
+          // Use existing keys
+          caadminsession.renewCA(administrator, caid, nextSignKeyAlias, null, createLinkCertificate);
       }
   }
   
-  public boolean renewAndRenameCA(int caid, String nextSignKeyAlias, boolean createLinkCertificate, String newSubjectDn) throws Exception {
-      if (getCAInfo(caid).getCAInfo().getSignedBy() == CAInfo.SIGNEDBYEXTERNALCA) {
-          return false;
+  public void renewAndRenameCA(int caid, String nextSignKeyAlias, boolean createLinkCertificate, String newSubjectDn) throws Exception {
+      if (nextSignKeyAlias == null || nextSignKeyAlias.length()==0) {
+          // Generate new keys
+          caadminsession.renewCANewSubjectDn(administrator, caid, true, null, createLinkCertificate, newSubjectDn);
       } else {
-          if (nextSignKeyAlias == null || nextSignKeyAlias.length()==0) {
-              // Generate new keys
-              caadminsession.renewCANewSubjectDn(administrator, caid, true, null, createLinkCertificate, newSubjectDn);
-          } else {
-              // Use existing keys
-              caadminsession.renewCANewSubjectDn(administrator, caid, nextSignKeyAlias, null, createLinkCertificate, newSubjectDn);
-          }
-          return true;
+          // Use existing keys
+          caadminsession.renewCANewSubjectDn(administrator, caid, nextSignKeyAlias, null, createLinkCertificate, newSubjectDn);
       }
   }
 
-  /** @see org.ejbca.core.ejb.ca.caadmin.CAAdminSessionBean */
-  public void revokeCA(int caid, int reason) throws CADoesntExistsException, AuthorizationDeniedException {
-      caadminsession.revokeCA(administrator, caid, reason);
-  }
-      
   /**
    *  @throws CADoesntExistsException 
    */  
@@ -423,29 +304,7 @@ public class CADataHandler implements Serializable {
     caadminsession.publishCACertificate(administrator, cainfo.getCertificateChain(), publishers, cainfo.getSubjectDN());
     caadminsession.publishCRL(administrator, cainfo.getCertificateChain().iterator().next(), publishers, cainfo.getSubjectDN(), cainfo.getDeltaCRLPeriod()>0);
  }
- 
- /**
-  * Performs a rollover from the current certificate to the next certificate. 
-  * @throws AuthorizationDeniedException 
-  * @throws CryptoTokenOfflineException
-  * @see org.ejbca.core.ejb.ca.caadmin.CAAdminSession#rolloverCA
-  * */
- public void rolloverCA(int caid) throws CryptoTokenOfflineException, AuthorizationDeniedException {
-     caadminsession.rolloverCA(administrator, caid);
- }
- 
- public void renewAndRevokeCmsCertificate(int caid) throws CADoesntExistsException, CAOfflineException, CertificateRevokeException, AuthorizationDeniedException {
-    caadminsession.renewAndRevokeCmsCertificate(administrator, caid);
- }
- 
- public void activateCAToken(int caid) throws AuthorizationDeniedException, ApprovalException, WaitingForApprovalException, CADoesntExistsException {
-   caadminsession.activateCAService(administrator, caid);
- }
- 
- public void deactivateCAToken(int caid) throws AuthorizationDeniedException, CADoesntExistsException {
-    caadminsession.deactivateCAService(administrator, caid);	
- }
- 
+
  public boolean isCARevoked(CAInfo cainfo){
 	 boolean retval = false;
 	 

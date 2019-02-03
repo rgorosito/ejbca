@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeSet;
 
 import javax.ejb.CreateException;
 import javax.ejb.EJB;
@@ -33,6 +35,7 @@ import javax.ejb.TransactionAttributeType;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.audit.enums.EventStatus;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
@@ -43,7 +46,9 @@ import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.certificate.BaseCertificateData;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.common.exception.ReferencesToItemExistException;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.Base64GetHashMap;
@@ -53,6 +58,7 @@ import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ca.publisher.ActiveDirectoryPublisher;
@@ -62,6 +68,7 @@ import org.ejbca.core.model.ca.publisher.GeneralPurposeCustomPublisher;
 import org.ejbca.core.model.ca.publisher.LdapPublisher;
 import org.ejbca.core.model.ca.publisher.LdapSearchPublisher;
 import org.ejbca.core.model.ca.publisher.LegacyValidationAuthorityPublisher;
+import org.ejbca.core.model.ca.publisher.MultiGroupPublisher;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherConst;
 import org.ejbca.core.model.ca.publisher.PublisherDoesntExistsException;
@@ -87,11 +94,15 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
     private EntityManager entityManager;
 
     @EJB
-    private GlobalConfigurationSessionLocal globalConfigurationSession;
-    @EJB
     private AuthorizationSessionLocal authorizationSession;
     @EJB
+    private CAAdminSessionLocal caAdminSession;
+    @EJB
+    private CertificateProfileSessionLocal certificateProfileSession;
+    @EJB
     private CertificateStoreSessionLocal certificateStoreSession;
+    @EJB
+    private GlobalConfigurationSessionLocal globalConfigurationSession;
     @EJB
     private PublisherQueueSessionLocal publisherQueueSession;
     @EJB
@@ -162,7 +173,14 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             final int id = publ.getPublisherId();
             final String name = getPublisherName(id);
             if (!(publisherResult instanceof PublisherException)) {
-                final String msg = intres.getLocalizedMessage("publisher.store", certificateData.getSubjectDnNeverNull(), name);
+                // If it wasn't an exception, it's a Boolean, but check it anyhow to avoid any chance of exception
+                Boolean result = false;
+                if (publisherResult instanceof Boolean) {
+                    result = (Boolean)publisherResult;
+                } else {
+                    log.error("Return type from storeCertificateNonTransactionalInternal was not a Boolean but a " + result.getClass().getName() + ", this is an API error.");
+                }
+                final String msg = intres.getLocalizedMessage("publisher.store", certificateData.getSubjectDnNeverNull(), name, result);
                 final Map<String, Object> details = new LinkedHashMap<String, Object>();
                 details.put("msg", msg);
                 auditSession.log(EjbcaEventTypes.PUBLISHER_STORE_CERTIFICATE, EventStatus.SUCCESS, EjbcaModuleTypes.PUBLISHER,
@@ -254,7 +272,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
                                 throw e;
                             }
                         }
-                        final String msg = intres.getLocalizedMessage("publisher.store", "CRL", name);
+                        final String msg = intres.getLocalizedMessage("publisher.store", "CRL", name, publishStatus);
                         final Map<String, Object> details = new LinkedHashMap<String, Object>();
                         details.put("msg", msg);
                         auditSession.log(EjbcaEventTypes.PUBLISHER_STORE_CRL, EventStatus.SUCCESS, EjbcaModuleTypes.PUBLISHER,
@@ -272,6 +290,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
                     returnval = false;
                 }
                 if (log.isDebugEnabled()) {
+                    log.debug("Publisher status: " + publishStatus);
                     log.debug("KeepPublishedInQueue: " + publ.getKeepPublishedInQueue());
                     log.debug("UseQueueForCRLs: " + publ.getUseQueueForCRLs());
                 }
@@ -458,9 +477,9 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
     }
 
     @Override
-    public void removePublisher(AuthenticationToken admin, String name) throws AuthorizationDeniedException {
+    public void removePublisherInternal(AuthenticationToken admin, String name) throws AuthorizationDeniedException {
         if (log.isTraceEnabled()) {
-            log.trace(">removePublisher(name: " + name + ")");
+            log.trace(">removePublisherInternal(name: " + name + ")");
         }
         authorizedToEditPublishers(admin);
         try {
@@ -474,7 +493,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
                 // Purge the cache here
                 PublisherCache.INSTANCE.removeEntry(htp.getId());
                 final String msg = intres.getLocalizedMessage("publisher.removedpublisher", name);
-                final Map<String, Object> details = new LinkedHashMap<String, Object>();
+                final Map<String, Object> details = new LinkedHashMap<>();
                 details.put("msg", msg);
                 auditSession.log(EjbcaEventTypes.PUBLISHER_REMOVAL, EventStatus.SUCCESS, EjbcaModuleTypes.PUBLISHER, EjbcaServiceTypes.EJBCA,
                         admin.toString(), null, null, null, details);
@@ -483,8 +502,51 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             String msg = intres.getLocalizedMessage("publisher.errorremovepublisher", name);
             log.info(msg, e);
         }
+        log.trace("<removePublisherInternal()");
+    }
+
+    @Override
+    public void removePublisher(final AuthenticationToken admin, final String name) throws AuthorizationDeniedException, ReferencesToItemExistException {
         if (log.isTraceEnabled()) {
-            log.trace("<removePublisher()");
+            log.trace(">removePublisher(name: " + name + ")");
+        }
+        checkPublisherInUse(name);
+        removePublisherInternal(admin, name);
+        log.trace("<removePublisher()");
+    }
+
+    /**
+     * Checks if the given publisher is in use, and throws AuthorizationDeniedException with an informative error message if so. 
+     * @param name Name of publisher
+     * @throws ReferencesToItemExistException If in use by CAs, profiles or Multi Group Publishers.
+     */
+    private void checkPublisherInUse(final String name) throws ReferencesToItemExistException {
+        final List<String> inUseBy = new ArrayList<>();
+        int publisherId = getPublisherId(name);
+        if (caAdminSession.exitsPublisherInCAs(publisherId)) {
+            inUseBy.add("one or more CAs");
+        }
+        if (certificateProfileSession.existsPublisherIdInCertificateProfiles(publisherId)) {
+            inUseBy.add("one or more Certificate Profiles");
+        }
+        for (final Entry<Integer, BasePublisher> entry : getAllPublishersInternal().entrySet()) {
+            final BasePublisher publisher = entry.getValue();
+            if (publisher instanceof MultiGroupPublisher) {
+                final List<TreeSet<Integer>> publisherGroups = ((MultiGroupPublisher) publisher).getPublisherGroups();
+                for (final TreeSet<Integer> group : publisherGroups) {
+                    if (group.contains(publisherId)) {
+                        inUseBy.add("publisher '" + publisher.getName() + "'");
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!inUseBy.isEmpty()) {
+            final String message = "Publisher " + name + " can't be deleted because it's in use by: " +
+                    StringUtils.join(inUseBy, ", ");
+            log.info(message);
+            throw new ReferencesToItemExistException(message);
         }
     }
 
@@ -555,6 +617,20 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             publisher = getPublisher(publisherData);
             if (enabled || !GeneralPurposeCustomPublisher.class.getName().equals(publisher.getRawData().get(CustomPublisherContainer.CLASSPATH))) {
                 returnval.put(publisherData.getId(), publisherData.getName());
+            }
+        }
+        return returnval;
+    }
+
+    @Override
+    public HashMap<String, Integer> getPublisherNameToIdMap() {
+        final HashMap<String, Integer> returnval = new HashMap<String, Integer>();
+        final boolean enabled = ((GlobalConfiguration)  globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableExternalScripts();
+        BasePublisher publisher;
+        for (PublisherData publisherData : PublisherData.findAll(entityManager)) {
+            publisher = getPublisher(publisherData);
+            if (enabled || !GeneralPurposeCustomPublisher.class.getName().equals(publisher.getRawData().get(CustomPublisherContainer.CLASSPATH))) {
+                returnval.put(publisherData.getName(), publisherData.getId());
             }
         }
         return returnval;
@@ -761,6 +837,8 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             } catch (ClassNotFoundException e) {
                 return null;
             }
+        case PublisherConst.TYPE_MULTIGROUPPUBLISHER:
+            return new MultiGroupPublisher();
         case PublisherConst.TYPE_CUSTOMPUBLISHERCONTAINER:
             return new CustomPublisherContainer();
         default:

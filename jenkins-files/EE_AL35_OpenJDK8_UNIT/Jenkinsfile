@@ -1,0 +1,34 @@
+pipeline {
+	agent {
+		label "docker"
+	}
+    
+    stages {
+        stage('run unit tests') {
+            agent {
+                // build and run (later also cleanup) the Docker container
+                dockerfile {
+                    label 'docker'
+                    dir 'ejbca/jenkins-files/EE_AL35_OpenJDK8_UNIT'
+                    filename 'Dockerfile'
+                    additionalBuildArgs  '--disable-content-trust=false --pull'
+                    args '--group-add root'
+                }
+            }
+            steps {
+                // Run these steps inside the running docker container
+                dir ('ejbca') {
+                    sh "cp /opt/conf/* conf/"
+                    sh "ant -q -Dappserver.home=/tmp -Dappserver.type=jboss -Dejbca.productionmode=false clean build test:runsa"
+                }
+                // gather the results
+                junit "ejbca/**/reports/**/TEST-*.xml"
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

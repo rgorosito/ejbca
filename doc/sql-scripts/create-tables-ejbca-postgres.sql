@@ -89,6 +89,7 @@ CREATE TABLE Base64CertData (
     base64Cert TEXT,
     rowProtection TEXT,
     rowVersion INT4 NOT NULL,
+    certificateRequest TEXT,
     PRIMARY KEY (fingerprint)
 );
 
@@ -153,6 +154,7 @@ CREATE TABLE CertificateData (
     type INT4 NOT NULL,
     updateTime INT8 NOT NULL,
     username TEXT,
+    certificateRequest TEXT,
     PRIMARY KEY (fingerprint)
 );
 
@@ -424,6 +426,7 @@ CREATE TABLE NoConflictCertificateData (
     type INT4 NOT NULL,
     updateTime INT8 NOT NULL,
     username TEXT,
+    certificateRequest TEXT,
     PRIMARY KEY (id)
 );
 
@@ -433,6 +436,46 @@ CREATE TABLE AcmeNonceData (
     rowProtection TEXT,
     rowVersion INT4 NOT NULL,
     PRIMARY KEY (nonce)
+);
+
+CREATE TABLE AcmeAccountData (
+    accountId TEXT BINARY NOT NULL,
+    currentKeyId TEXT BINARY NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (accountId)
+);
+
+CREATE TABLE AcmeOrderData (
+    orderId TEXT BINARY NOT NULL,
+    accountId TEXT BINARY NOT NULL,
+    fingerprint TEXT BINARY,
+    status TEXT BINARY NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (orderId)
+);
+
+CREATE TABLE AcmeChallengeData (
+    challengeId TEXT BINARY NOT NULL,
+    authorizationId TEXT BINARY NOT NULL,
+    type TEXT BINARY NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (challengeId)
+);
+
+CREATE TABLE AcmeAuthorizationData (
+    authorizationId TEXT BINARY NOT NULL,
+    orderId TEXT BINARY,
+    accountId TEXT BINARY NOT NULL,
+    rawData TEXT,
+    rowProtection TEXT,
+    rowVersion INT4 NOT NULL,
+    PRIMARY KEY (authorizationId)
 );
 
 alter table AccessRulesData add constraint FKABB4C1DFDBBC970 foreign key (AdminGroupData_accessRules) references AdminGroupData;

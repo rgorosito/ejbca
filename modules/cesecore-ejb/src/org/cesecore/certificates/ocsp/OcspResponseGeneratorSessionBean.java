@@ -335,7 +335,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                         + caCertificateStatus.revocationReason + ".");
                             }
                             //Check if CA cert is expired
-                            if (!CertTools.isCertificateValid(caCertificate)) {
+                            if (!CertTools.isCertificateValid(caCertificate, true)) {
                                 log.warn("Active CA with subject DN '" + CertTools.getSubjectDN(caCertificate) + "' and serial number "
                                         + CertTools.getSerialNumber(caCertificate) + " has an expired certificate with expiration date "
                                         + CertTools.getNotAfter(caCertificate) + ".");
@@ -359,7 +359,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                     + caCertificateStatus.revocationReason + ".");
                         }
                         //Check if CA cert is expired
-                        if (!CertTools.isCertificateValid(caCertificateChain.get(0))) {
+                        if (!CertTools.isCertificateValid(caCertificateChain.get(0), false)) {
                             log.info("External CA with subject DN '" + CertTools.getSubjectDN(caCertificateChain.get(0)) + "' and serial number "
                                     + CertTools.getSerialNumber(caCertificateChain.get(0)) + " has an expired certificate with expiration date "
                                     + CertTools.getNotAfter(caCertificateChain.get(0)) + ".");
@@ -395,7 +395,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                 + CertTools.getSerialNumber(ocspSigningCertificate) + " is revoked.");
                     }
                     //Check if signing cert is expired
-                    if (!CertTools.isCertificateValid(ocspSigningCertificate)) {
+                    if (!CertTools.isCertificateValid(ocspSigningCertificate, true)) {
                         log.warn("OCSP Responder certificate with subject DN '" + CertTools.getSubjectDN(ocspSigningCertificate) + "' and serial number "
                                 + CertTools.getSerialNumber(ocspSigningCertificate) + " is expired.");
                     }
@@ -598,7 +598,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         log.error(errMsg, e);
         if (transactionLogger.isEnabled()) {
             transactionLogger.paramPut(TransactionLogger.STATUS, OCSPRespBuilder.INTERNAL_ERROR);
-            transactionLogger.writeln();
         }
         if (auditLogger.isEnabled()) {
             auditLogger.paramPut(AuditLogger.STATUS, OCSPRespBuilder.INTERNAL_ERROR);
@@ -1185,7 +1184,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                         responseList.add(new OCSPResponseItem(certId, new UnknownStatus(), nextUpdate));
                         if (transactionLogger.isEnabled()) {
                             transactionLogger.paramPut(TransactionLogger.CERT_STATUS, OCSPResponseItem.OCSP_UNKNOWN);
-                            transactionLogger.writeln();
                         }
                         continue;
                     } else {
@@ -1238,7 +1236,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                     if (transactionLogger.isEnabled()) {
                         transactionLogger.paramPut(TransactionLogger.CERT_STATUS, OCSPResponseItem.OCSP_REVOKED);
                         transactionLogger.paramPut(TransactionLogger.REV_REASON, signerIssuerCertStatus.revocationReason);
-                        transactionLogger.writeln();
                     }
                 } else {
                     /**
@@ -1365,9 +1362,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                         addArchiveCutoff(respItem);
                         producedAt = new Date();
                     }
-                    if (transactionLogger.isEnabled()) {
-                        transactionLogger.writeln();
-                    }
                 }
  
                 for (String oidstr : extensionOids) {
@@ -1468,7 +1462,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             ocspResponse = responseGenerator.build(OCSPRespBuilder.SIG_REQUIRED, null);
             if (transactionLogger.isEnabled()) {
                 transactionLogger.paramPut(TransactionLogger.STATUS, OCSPRespBuilder.SIG_REQUIRED);
-                transactionLogger.writeln();
             }
             if (auditLogger.isEnabled()) {
                 auditLogger.paramPut(AuditLogger.STATUS, OCSPRespBuilder.SIG_REQUIRED);
@@ -1486,7 +1479,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             ocspResponse = responseGenerator.build(OCSPRespBuilder.UNAUTHORIZED, null);
             if (transactionLogger.isEnabled()) {
                 transactionLogger.paramPut(TransactionLogger.STATUS, OCSPRespBuilder.UNAUTHORIZED);
-                transactionLogger.writeln();
             }
             if (auditLogger.isEnabled()) {
                 auditLogger.paramPut(AuditLogger.STATUS, OCSPRespBuilder.UNAUTHORIZED);
@@ -1504,7 +1496,6 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             ocspResponse = responseGenerator.build(OCSPRespBuilder.MALFORMED_REQUEST, null);
             if (transactionLogger.isEnabled()) {
                 transactionLogger.paramPut(TransactionLogger.STATUS, OCSPRespBuilder.MALFORMED_REQUEST);
-                transactionLogger.writeln();
             }
             if (auditLogger.isEnabled()) {
                 auditLogger.paramPut(AuditLogger.STATUS, OCSPRespBuilder.MALFORMED_REQUEST);
@@ -1524,6 +1515,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                 auditLogger.flush();
             }
             if (transactionLogger.isEnabled()) {
+                transactionLogger.writeln();
                 transactionLogger.flush();
             }
             if (OcspConfiguration.getLogSafer()) {
@@ -1544,9 +1536,11 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         } catch (IOException e) {
             log.error("Unexpected IOException caught.", e);
             if (transactionLogger.isEnabled()) {
+                transactionLogger.writeln();
                 transactionLogger.flush();
             }
             if (auditLogger.isEnabled()) {
+                auditLogger.writeln();
                 auditLogger.flush();
             }
         }
@@ -1679,7 +1673,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         try {
             // Now we can use the returned OCSPServiceResponse to get private key and certificate chain to sign the ocsp response
             final BasicOCSPResp ocspresp = generateBasicOcspResp(exts, responseList, sigAlg, signerCert, ocspSigningCacheEntry, producedAt);
-            if (CertTools.isCertificateValid(signerCert)) {
+            if (CertTools.isCertificateValid(signerCert, false)) { // Don't warn about signer validity for each OCSP response...
                 return ocspresp;
             } else {
                 throw new OcspFailureException("Response was not validly signed.");
@@ -2194,7 +2188,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                         log.error("No key available. " + errMsg);
                         continue;
                     }
-                    if (OcspConfiguration.getHealthCheckCertificateValidity() && !CertTools.isCertificateValid(ocspSigningCertificate) ) {
+                    if (OcspConfiguration.getHealthCheckCertificateValidity() && !CertTools.isCertificateValid(ocspSigningCertificate, true) ) {
                         sb.append('\n').append(errMsg);
                         continue;
                     }

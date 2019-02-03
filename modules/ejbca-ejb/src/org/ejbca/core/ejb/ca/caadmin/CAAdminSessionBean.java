@@ -71,6 +71,7 @@ import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.CesecoreException;
 import org.cesecore.ErrorCode;
 import org.cesecore.audit.enums.EventStatus;
+import org.cesecore.audit.enums.EventType;
 import org.cesecore.audit.enums.EventTypes;
 import org.cesecore.audit.enums.ModuleTypes;
 import org.cesecore.audit.enums.ServiceTypes;
@@ -78,8 +79,10 @@ import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
+import org.cesecore.authorization.control.AuditLogRules;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CA;
@@ -167,6 +170,7 @@ import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
+import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
 import org.ejbca.core.ejb.ca.publisher.PublisherSessionLocal;
 import org.ejbca.core.ejb.ca.revoke.RevocationSessionLocal;
@@ -1675,14 +1679,13 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                     null);
             x509cainfo.setSubjectAltName(subjectaltname);
             x509cainfo.setPolicies(policies);
-            x509cainfo.setExpireTime(CertTools.getNotAfter(x509CaCertificate));
             cainfo = x509cainfo;
         } else if (StringUtils.equals(caCertificate.getType(), "CVC")) {
             cainfo = new CVCCAInfo(subjectdn, caname, CAConstants.CA_EXTERNAL, certprofileid, validityString, signedby, null, null);
         } else {
             throw new CertificateImportException("Certificate was of an unknown type: " + caCertificate.getType());
         }
-
+        cainfo.setExpireTime(CertTools.getNotAfter(caCertificate));
         cainfo.setDescription("CA created by certificate import.");
 
         if (cainfo instanceof X509CAInfo) {
@@ -1825,6 +1828,8 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
 
         // Update CA in database
         editCA(authenticationToken, caInfo);
+        // Update the CA certificate in the local database
+        publishCACertificate(authenticationToken, certificates, null, ca.getSubjectDN());
     }
 
     @Override
@@ -2216,7 +2221,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
     }
 
     @Override
-    public byte[] getLatestLinkCertificate(final int caId) throws CADoesntExistsException {
+    public byte[] getLatestLinkCertificate(final int caId) {
         try {
             CA ca = caSession.getCANoLog(new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("Fetching link certificate user.")), caId);
             return ca.getLatestLinkCertificate();
@@ -3132,7 +3137,8 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public Set<Integer> getAuthorizedPublisherIds(final AuthenticationToken admin) {
+    public Set<Integer> getAuthorizedPublisherIds(AuthenticationToken admin, List<Integer> excludedTypes) {
+
         // Set to use to track all authorized publisher IDs
         final Set<Integer> result = new HashSet<Integer>();
         // Find all publishers, use this set to track unowned publishers
@@ -3148,6 +3154,14 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                         allPublishers.remove(key);
                     }
                 }
+            }
+        }
+
+        //remove publishers of excluded types
+        for (Integer key : new HashSet<Integer>(allPublishers.keySet())) {
+            BasePublisher publisher = allPublishers.get(key);
+            if (excludedTypes.contains(publisher.getType())) {
+                allPublishers.remove(key);
             }
         }
 
@@ -3174,6 +3188,12 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         //Any remaining publishers must be unowned, so add them in as well.
         result.addAll(allPublishers.keySet());
         return result;
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public Set<Integer> getAuthorizedPublisherIds(final AuthenticationToken admin) {
+        return getAuthorizedPublisherIds(admin, Collections.EMPTY_LIST);
     }
 
     @Override
@@ -3362,4 +3382,33 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
         caSession.flushCACache();
     }
 
+    @Override
+    public void customLog(final AuthenticationToken authenticationToken, final String type, final String caName, final String username, final String certificateSn,
+            final String msg, final EventType event) throws AuthorizationDeniedException, CADoesntExistsException {
+        // Check authorization to perform custom logging.
+        if(!authorizationSession.isAuthorized(authenticationToken, AuditLogRules.LOG_CUSTOM.resource())) {
+            throw new AuthorizationDeniedException(intres.getLocalizedMessage("authorization.notauthorizedtoresource", 
+                    AuditLogRules.LOG_CUSTOM.resource(), null));
+        }
+        int caId = 0;
+        if(caName != null) {
+            final CAInfo cAInfo = caSession.getCAInfo(authenticationToken, caName);
+            if (cAInfo == null) {
+                throw new CADoesntExistsException("CA with name " + caName + " doesn't exist.");
+            } 
+            caId = cAInfo.getCAId();
+        } else {
+            try {
+                caId = CertTools.getIssuerDN(((X509CertificateAuthenticationToken) authenticationToken).getCertificate()).hashCode();
+            } catch(Exception e) {
+                log.debug("Could not get CA by users authentication token: " + authenticationToken.getUniqueId(), e);
+            }
+        }
+        final Map<String, Object> details = new LinkedHashMap<>();
+        details.put("msg", type + " : " + msg);
+        auditSession.log(event, EventStatus.SUCCESS, EjbcaModuleTypes.CUSTOM, EjbcaServiceTypes.EJBCA, authenticationToken.toString(), String.valueOf(caId), certificateSn, username, details);
+        if (log.isDebugEnabled()) {
+            log.debug("Custom message '" + msg + "'was written to audit log by " + authenticationToken.getUniqueId());
+        }
+    }
 }

@@ -70,6 +70,8 @@ import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
+import org.cesecore.certificates.certificate.certextensions.AvailableCustomCertificateExtensionsConfiguration;
+import org.cesecore.certificates.certificate.certextensions.CertificateExtension;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.certificatetransparency.CTLogInfo;
@@ -526,6 +528,14 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
                 return false;
             }
             setLastUpgradedToVersion("6.14.0");
+        }
+        if (isLesserThan(oldVersion, "6.15.0")) {
+            try {
+                upgradeSession.migrateDatabase6150();
+            } catch (UpgradeFailedException e) {
+                return false;
+            }
+            setLastUpgradedToVersion("6.15.0");
         }
         setLastUpgradedToVersion(InternalConfiguration.getAppVersionNumber());
         return true;
@@ -1370,9 +1380,36 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
         for (Role role : allRoles) {
             boolean isRaRequestRole = role.hasAccessToResource(AccessRulesConstants.REGULAR_PEERCONNECTOR_INVOKEAPI);
             if (isRaRequestRole) {
+                role.getAccessRules().put(AccessRulesHelper.normalizeResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_ACME), Role.STATE_ALLOW);
+                role.getAccessRules().put(AccessRulesHelper.normalizeResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_REST), Role.STATE_ALLOW);
                 role.getAccessRules().put(AccessRulesHelper.normalizeResource(AccessRulesConstants.REGULAR_PEERPROTOCOL_SCEP), Role.STATE_ALLOW);
                 roleDataSession.persistRole(role);
             }
+        }
+    }
+    
+    
+    /**
+     * Upgrade to EJBCA 6.15.0 
+     * 
+     * All the CCE will get a new required flag with the default value set to true.
+     *  
+     */
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    @Override
+    public void migrateDatabase6150() throws UpgradeFailedException {
+        log.debug("migrateDatabase6150: Adding new field (required) for custom certificate extensions.");
+        
+        AvailableCustomCertificateExtensionsConfiguration availableCustomCertExtensionsConfig = (AvailableCustomCertificateExtensionsConfiguration) globalConfigurationSession
+                .getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
+        
+        for (CertificateExtension customCertificateExtension : availableCustomCertExtensionsConfig.getAllAvailableCustomCertificateExtensions()) {
+                customCertificateExtension.setRequiredFlag(true);
+                try {
+                    globalConfigurationSession.saveConfiguration(authenticationToken, availableCustomCertExtensionsConfig);
+                } catch (AuthorizationDeniedException e) {
+                    log.error("Authorization error while saving the updated configuration!", e);
+                }
         }
     }
 
@@ -1598,8 +1635,7 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
     private void addApprovalNotification(final AccumulativeApprovalProfile newProfile) {
         final GlobalConfiguration gc = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         if (gc.getUseApprovalNotifications()) {
-            final String hostname = WebConfiguration.getHostName();
-            final String baseUrl = gc.getBaseUrl(hostname);
+            final String baseUrl = gc.getBaseUrlFromConfig();
             final String defaultSubject = "[AR-${approvalRequest.ID}-${approvalRequest.STEP_ID}-${approvalRequest.PARTITION_ID}] " +
                     "Approval Request to ${approvalRequest.TYPE} is now in state ${approvalRequest.WORKFLOWSTATE}";
             final String defaultBody = "Approval Request to ${approvalRequest.TYPE} from ${approvalRequest.REQUESTOR} is now in state ${approvalRequest.WORKFLOWSTATE}.\n" +

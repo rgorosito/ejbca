@@ -57,6 +57,7 @@ import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.internal.CACacheHelper;
 import org.cesecore.certificates.ca.internal.CaCache;
 import org.cesecore.certificates.ca.internal.CaIDCacheBean;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificate.certextensions.AvailableCustomCertificateExtensionsConfiguration;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
@@ -72,6 +73,7 @@ import org.cesecore.keys.token.PKCS11CryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
+import org.cesecore.util.EJBTools;
 import org.cesecore.util.QueryResultWrapper;
 
 /**
@@ -437,6 +439,23 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
             return ca.getCAInfo();
         } 
     }
+    
+    @Override
+    public Collection<CertificateWrapper> getCaChain(AuthenticationToken authenticationToken, String caName)
+            throws AuthorizationDeniedException, CADoesntExistsException {
+        final CAInfo info = getCAInfo(authenticationToken, caName);
+        if(info == null) {
+            throw new CADoesntExistsException("CA with name " + caName + " doesn't exist.");
+        }
+        final List<CertificateWrapper> result = new ArrayList<>();
+        if (info.getStatus() != CAConstants.CA_WAITING_CERTIFICATE_RESPONSE) {
+            result.addAll(EJBTools.wrapCertCollection(info.getCertificateChain()));   
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("CA chain request by admin " + authenticationToken.getUniqueId() + " " + result);
+        }
+        return result;
+    }
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     @Override
@@ -448,6 +467,13 @@ public class CaSessionBean implements CaSessionLocal, CaSessionRemote {
         } else {
             return ca.getCAInfo();
         }         
+    }
+
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public String getCaSubjectDn(final String caName) {
+        final CAInfo caInfo = getCAInfoInternal(-1, caName, true);
+        return (caInfo != null ? caInfo.getSubjectDN() : "");
     }
 
     @Override

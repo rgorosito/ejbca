@@ -25,12 +25,14 @@ import javax.faces.bean.ManagedBean;
 import javax.faces.bean.ManagedProperty;
 import javax.faces.bean.ViewScoped;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
 import javax.faces.model.ListDataModel;
 import javax.faces.model.SelectItem;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.internal.InternalResources;
 import org.cesecore.roles.AccessRulesHelper;
@@ -51,7 +53,9 @@ import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.approval.profile.ApprovalProfilesFactory;
 import org.ejbca.core.model.approval.profile.ApprovalStep;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
+import org.ejbca.ui.web.RequestHelper;
 import org.ejbca.ui.web.admin.BaseManagedBean;
+import org.ejbca.util.HTMLTools;
 
 /**
  * JSF MBean backing the approval profile pages.
@@ -120,7 +124,17 @@ public class ApprovalProfileMBean extends BaseManagedBean implements Serializabl
 
     @ManagedProperty(value = "#{approvalProfilesMBean}")
     private ApprovalProfilesMBean approvalProfilesMBean;
-
+    
+    // Authentication check and audit log page access request
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.APPROVALPROFILEVIEW.resource());
+            RequestHelper.setDefaultCharacterEncoding(request);
+        }
+    }
+    
     private int currentApprovalProfileId = -1;
     private ApprovalProfile currentApprovalProfile = null;
 
@@ -603,10 +617,10 @@ public class ApprovalProfileMBean extends BaseManagedBean implements Serializabl
         final ApprovalPartition approvalPartition = approvalStep.getPartition(partitionIdentifier);
         // Configure some nice defaults
         final GlobalConfiguration globalConfiguration = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        String hostnameFromRequest = ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest()).getServerName();
+        final HttpServletRequest httpServletRequest = ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest());
         // Escape value taken from the request, just to be sure there can be no XSS
-        hostnameFromRequest = org.ejbca.util.HTMLTools.htmlescape(hostnameFromRequest);
-        final String baseUrl = globalConfiguration.getBaseUrl(hostnameFromRequest);
+        final String hostnameFromRequest = HTMLTools.htmlescape(httpServletRequest.getServerName());
+        final String baseUrl = globalConfiguration.getBaseUrl(HTMLTools.htmlescape(httpServletRequest.getScheme()), hostnameFromRequest, httpServletRequest.getServerPort());
         final String defaultSubject = "[AR-${approvalRequest.ID}-${approvalRequest.STEP_ID}-${approvalRequest.PARTITION_ID}] " +
                 "Approval Request to ${approvalRequest.TYPE} is now in state ${approvalRequest.WORKFLOWSTATE}";
         final String defaultBody = "Approval Request to ${approvalRequest.TYPE} from ${approvalRequest.REQUESTOR} is now in state ${approvalRequest.WORKFLOWSTATE}.\n" +
@@ -643,8 +657,10 @@ public class ApprovalProfileMBean extends BaseManagedBean implements Serializabl
         final ApprovalPartition approvalPartition = approvalStep.getPartition(partitionIdentifier);
         // Configure some nice defaults
         final GlobalConfiguration globalConfiguration = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
-        final String hostnameFromRequest = ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest()).getServerName();
-        final String baseUrl = globalConfiguration.getBaseUrl(hostnameFromRequest);
+        final HttpServletRequest httpServletRequest = ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest());
+        // Escape value taken from the request, just to be sure there can be no XSS
+        final String hostnameFromRequest = HTMLTools.htmlescape(httpServletRequest.getServerName());
+        final String baseUrl = globalConfiguration.getBaseUrl(HTMLTools.htmlescape(httpServletRequest.getScheme()), hostnameFromRequest, httpServletRequest.getServerPort());
         final String defaultSubject = "[AR-${approvalRequest.ID}-${approvalRequest.STEP_ID}-${approvalRequest.PARTITION_ID}] " +
                 "Approval Request to ${approvalRequest.TYPE} is now in state ${approvalRequest.WORKFLOWSTATE}";
         final String defaultBody = "Approval Request to ${approvalRequest.TYPE} from ${approvalRequest.REQUESTOR} is now in state ${approvalRequest.WORKFLOWSTATE}.\n" +

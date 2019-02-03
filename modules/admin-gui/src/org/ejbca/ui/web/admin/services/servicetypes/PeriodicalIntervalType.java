@@ -23,7 +23,7 @@ import org.ejbca.core.model.services.intervals.PeriodicalInterval;
 import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
 
 /**
- * Class used to populate the fields in the custominterval.jsp subview page. 
+ * Class used to populate the fields in the custominterval.xhtml subview page. 
  * 
  *
  * @version $Id$
@@ -41,7 +41,7 @@ public class PeriodicalIntervalType extends IntervalType {
     private String value;
 	
 	public PeriodicalIntervalType() {
-		super("periodicalinterval.jsp", NAME, true);
+		super(ServiceTypeUtil.PERIODICALINTERVAL_SUB_PAGE, NAME, true);
 		this.unit = DEFAULT_UNIT;
 		this.value = DEFAULT_VALUE;
 	}

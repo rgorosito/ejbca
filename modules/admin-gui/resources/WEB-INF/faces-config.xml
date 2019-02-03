@@ -15,21 +15,16 @@
 
  version: $Id$
  -->
-<faces-config version="2.0"
+<faces-config version="2.2"
     metadata-complete="false"
-    xmlns="http://java.sun.com/xml/ns/javaee"
+    xmlns="http://xmlns.jcp.org/xml/ns/javaee"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
-                        http://java.sun.com/xml/ns/javaee/web-facesconfig_2_0.xsd">
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee 
+                        http://xmlns.jcp.org/xml/ns/javaee/web-facesconfig_2_2.xsd">
 
   <managed-bean>
     <managed-bean-name>web</managed-bean-name>
     <managed-bean-class>org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper</managed-bean-class>
-    <managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-  <managed-bean>
-    <managed-bean-name>listApproveActionManagedBean</managed-bean-name>
-    <managed-bean-class>org.ejbca.ui.web.admin.approval.ListApproveActionManagedBean</managed-bean-class>
     <managed-bean-scope>session</managed-bean-scope>
   </managed-bean>
   <managed-bean>
@@ -40,26 +35,6 @@
   <managed-bean>
     	<managed-bean-name>auditor</managed-bean-name>
     	<managed-bean-class>org.ejbca.ui.web.admin.audit.AuditorManagedBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-  <managed-bean>
-    	<managed-bean-name>listServicesManagedBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.services.ListServicesManagedBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-  <managed-bean>
-    	<managed-bean-name>editService</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.services.EditServiceManagedBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-    <managed-bean>
-    	<managed-bean-name>cAActivationMBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.cainterface.CAActivationMBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-  <managed-bean>
-    	<managed-bean-name>cryptoTokenMBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.cryptotoken.CryptoTokenMBean</managed-bean-class>
     	<managed-bean-scope>session</managed-bean-scope>
   </managed-bean>
   <managed-bean>
@@ -76,6 +51,7 @@
     	    <value>#{certProfilesBean}</value>
     	</managed-property>
   </managed-bean>
+  
   <managed-bean>
     	<managed-bean-name>validatorsBean</managed-bean-name>
     	<managed-bean-class>org.ejbca.ui.web.admin.keys.validation.ValidatorsBean</managed-bean-class>
@@ -90,6 +66,34 @@
     	    <value>#{validatorsBean}</value>
     	</managed-property>
   </managed-bean>
+    <managed-bean>
+        <managed-bean-name>userDatasoucesMBean</managed-bean-name>
+        <managed-bean-class>org.ejbca.ui.web.admin.rainterface.UserDatasoucesMBean</managed-bean-class>
+        <managed-bean-scope>session</managed-bean-scope>
+    </managed-bean>
+    <managed-bean>
+        <managed-bean-name>editUserDatasoucesMBean</managed-bean-name>
+        <managed-bean-class>org.ejbca.ui.web.admin.rainterface.EditUserDatasoucesMBean</managed-bean-class>
+        <managed-bean-scope>view</managed-bean-scope>
+        <managed-property>
+            <property-name>userDatasoucesMBean</property-name>
+            <value>#{userDatasoucesMBean}</value>
+        </managed-property>
+    </managed-bean>
+    <managed-bean>
+        <managed-bean-name>hardTokenIssuerMBean</managed-bean-name>
+        <managed-bean-class>org.ejbca.ui.web.admin.hardtokeninterface.HardTokenIssuerMBean</managed-bean-class>
+        <managed-bean-scope>session</managed-bean-scope>
+    </managed-bean>
+    <managed-bean>
+        <managed-bean-name>editHardTokenIssuerMBean</managed-bean-name>
+        <managed-bean-class>org.ejbca.ui.web.admin.hardtokeninterface.EditHardTokenIssuerMBean</managed-bean-class>
+        <managed-bean-scope>view</managed-bean-scope>
+        <managed-property>
+            <property-name>hardTokenIssuerMBean</property-name>
+            <value>#{hardTokenIssuerMBean}</value>
+        </managed-property>
+    </managed-bean>
   <managed-bean>
     	<managed-bean-name>internalKeyBindingMBean</managed-bean-name>
     	<managed-bean-class>org.ejbca.ui.web.admin.keybind.InternalKeyBindingMBean</managed-bean-class>
@@ -118,27 +122,13 @@
     	    <value>#{peerConnectorsMBean}</value>
     	</managed-property>
   </managed-bean>
+
   <managed-bean>
-    	<managed-bean-name>scepConfigMBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.configuration.ScepConfigMBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
+        <managed-bean-name>myPreferencesMBean</managed-bean-name>
+        <managed-bean-class>org.ejbca.ui.web.admin.mypreferences.MyPreferencesMBean</managed-bean-class>
+        <managed-bean-scope>session</managed-bean-scope>
   </managed-bean>
   
-    <managed-bean>
-    	<managed-bean-name>systemConfigMBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.configuration.SystemConfigMBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-  </managed-bean>
-  
-  <managed-bean>
-    	<managed-bean-name>customCertExtensionMBean</managed-bean-name>
-    	<managed-bean-class>org.ejbca.ui.web.admin.configuration.CustomCertExtensionMBean</managed-bean-class>
-    	<managed-bean-scope>session</managed-bean-scope>
-    	<managed-property>
-    	    <property-name>systemConfigMBean</property-name>
-    	    <value>#{systemConfigMBean}</value>
-    	</managed-property>
-  </managed-bean>
   
   <validator>
         <validator-id>dummyValidator</validator-id>
@@ -147,6 +137,14 @@
   <validator>
         <validator-id>legalCharsValidator</validator-id>
         <validator-class>org.ejbca.ui.web.admin.LegalCharsValidator</validator-class>
+  </validator>
+  <validator>
+        <validator-id>multiLineFreeTextValidator</validator-id>
+        <validator-class>org.ejbca.ui.web.admin.MultiLineFreeTextValidator</validator-class>
+  </validator>
+  <validator>
+        <validator-id>urlValidator</validator-id>
+        <validator-class>org.ejbca.ui.web.admin.UrlValidator</validator-class>
   </validator>
   <validator>
         <validator-id>hexSerialNumberValidator</validator-id>
@@ -183,44 +181,81 @@
   </converter>
 
   <navigation-rule>
-    <from-view-id>/approval/approveactionlist.jsp</from-view-id>
-    <navigation-case>
-      <from-outcome>viewApproveAction</from-outcome>
-      <to-view-id>/approval/approveaction.jsp</to-view-id>
-    </navigation-case>
-  </navigation-rule>
-  <navigation-rule>
-  	<from-view-id>/approval/approveaction.jsp</from-view-id>
+  	<from-view-id>/approval/approvalaction.xhtml</from-view-id>
   	<navigation-case>
   		<from-outcome>approveaction</from-outcome>
-  		<to-view-id>/approval/approveaction.jsp</to-view-id>
+  		<to-view-id>/approval/approvalaction.xhtml</to-view-id>
   	</navigation-case>
   </navigation-rule>
-  
   <navigation-rule>
-    <from-view-id>/ca/caactivation.jsp</from-view-id>
+    <from-view-id>/ca/caactivation.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>apply</from-outcome>
-      <to-view-id>/ca/caactivation.jsp</to-view-id>
+      <to-view-id>/ca/caactivation.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
-  	
+
   <navigation-rule>
-    <from-view-id>/ca/editcertificateprofiles/editcertificateprofiles.jsp</from-view-id>
+  	<from-view-id>/sysconfig/cmpaliases.xhtml</from-view-id>
+  	<navigation-case>
+  		<from-outcome>edit</from-outcome>
+  		<to-view-id>/sysconfig/cmpalias.xhtml</to-view-id>
+  	</navigation-case>
+  </navigation-rule>
+  <navigation-rule>
+  	<from-view-id>/sysconfig/cmpaliases.xhtml</from-view-id>
+  	<navigation-case>
+  		<from-outcome>view</from-outcome>
+  		<to-view-id>/sysconfig/cmpalias.xhtml</to-view-id>
+  	</navigation-case>
+  </navigation-rule>
+   <navigation-rule>
+  	<from-view-id>/sysconfig/cmpalias.xhtml</from-view-id>
+  	<navigation-case>
+  		<from-outcome>done</from-outcome>
+  		<to-view-id>/sysconfig/cmpaliases.xhtml</to-view-id>
+  	</navigation-case>
+  </navigation-rule>
+
+    <navigation-rule>
+        <from-view-id>/sysconfig/estconfigurations.xhtml</from-view-id>
+        <navigation-case>
+            <from-outcome>edit</from-outcome>
+            <to-view-id>/sysconfig/editestalias.xhtml</to-view-id>
+        </navigation-case>
+    </navigation-rule>
+    <navigation-rule>
+        <from-view-id>/sysconfig/estconfigurations.xhtml</from-view-id>
+        <navigation-case>
+            <from-outcome>view</from-outcome>
+            <to-view-id>/sysconfig/editestalias.xhtml</to-view-id>
+        </navigation-case>
+    </navigation-rule>
+    <navigation-rule>
+        <from-view-id>/sysconfig/editestalias.xhtml</from-view-id>
+        <navigation-case>
+            <from-outcome>done</from-outcome>
+            <to-view-id>/sysconfig/estconfigurations.xhtml</to-view-id>
+        </navigation-case>
+    </navigation-rule>
+
+
+  <navigation-rule>
+    <from-view-id>/ca/editcertificateprofiles/editcertificateprofiles.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>edit</from-outcome>
-      <to-view-id>/ca/editcertificateprofiles/editcertificateprofile.jsp</to-view-id>
+      <to-view-id>/ca/editcertificateprofiles/editcertificateprofile.xhtml</to-view-id>
     </navigation-case>
     <navigation-case>
       <from-outcome>view</from-outcome>
-      <to-view-id>/ca/editcertificateprofiles/editcertificateprofile.jsp</to-view-id>
+      <to-view-id>/ca/editcertificateprofiles/editcertificateprofile.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   <navigation-rule>
-    <from-view-id>/ca/editcertificateprofiles/editcertificateprofile.jsp</from-view-id>
+    <from-view-id>/ca/editcertificateprofiles/editcertificateprofile.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>done</from-outcome>
-      <to-view-id>/ca/editcertificateprofiles/editcertificateprofiles.jsp</to-view-id>
+      <to-view-id>/ca/editcertificateprofiles/editcertificateprofiles.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   
@@ -258,99 +293,147 @@
     </navigation-case>
   </navigation-rule>
   
-    <navigation-rule>
-    <from-view-id>/approval/editapprovalprofiles.jsp</from-view-id>
+   <navigation-rule>
+    <from-view-id>/approval/editapprovalprofiles.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>edit</from-outcome>
-      <to-view-id>/approval/editapprovalprofile.jsp</to-view-id>
+      <to-view-id>/approval/editapprovalprofile.xhtml</to-view-id>
     </navigation-case>
     <navigation-case>
       <from-outcome>view</from-outcome>
-      <to-view-id>/approval/editapprovalprofile.jsp</to-view-id>
+      <to-view-id>/approval/editapprovalprofile.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   <navigation-rule>
-    <from-view-id>/approval/editapprovalprofile.jsp</from-view-id>
+    <from-view-id>/approval/editapprovalprofile.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>done</from-outcome>
-      <to-view-id>/approval/editapprovalprofiles.jsp</to-view-id>
+      <to-view-id>/approval/editapprovalprofiles.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
-  
+
+    <navigation-rule>
+        <from-view-id>/ra/edituserdatasources/userdatasourcespage.xhtml</from-view-id>
+        <navigation-case>
+            <from-action>#{userDatasoucesMBean.actionEdit}</from-action>
+            <from-outcome>edit</from-outcome>
+            <to-view-id>/ra/edituserdatasources/edituserdatasource.xhtml</to-view-id>
+            <redirect include-view-params="true"></redirect>
+        </navigation-case>
+    </navigation-rule>
+    <navigation-rule>
+        <from-view-id>/ra/edituserdatasources/edituserdatasource.xhtml</from-view-id>
+        <navigation-case>
+            <from-outcome>done</from-outcome>
+            <to-view-id>/ra/edituserdatasources/userdatasourcespage.xhtml</to-view-id>
+        </navigation-case>
+    </navigation-rule>
+
+    <navigation-rule>
+        <from-view-id>/hardtoken/hardtokenissuerspage.xhtml</from-view-id>
+        <navigation-case>
+            <from-action>#{hardTokenIssuerMBean.actionEdit}</from-action>
+            <from-outcome>edit</from-outcome>
+            <to-view-id>/hardtoken/edithardtokenissuerpage.xhtml</to-view-id>
+            <redirect include-view-params="true"></redirect>
+        </navigation-case>
+    </navigation-rule>
+    <navigation-rule>
+        <from-view-id>/hardtoken/edithardtokenissuerpage.xhtml</from-view-id>
+        <navigation-case>
+            <from-outcome>done</from-outcome>
+            <to-view-id>/hardtoken/hardtokenissuerspage.xhtml</to-view-id>
+        </navigation-case>
+    </navigation-rule>
+
   <navigation-rule>
-    <from-view-id>/sysconfig/systemconfiguration.jsp</from-view-id>
+    <from-view-id>/sysconfig/systemconfiguration.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>edit</from-outcome>
-      <to-view-id>/sysconfig/customcertextension.jsp</to-view-id>
+      <to-view-id>/sysconfig/customcertextension.xhtml</to-view-id>
     </navigation-case>
     <navigation-case>
       <from-outcome>view</from-outcome>
-      <to-view-id>/sysconfig/customcertextension.jsp</to-view-id>
+      <to-view-id>/sysconfig/customcertextension.xhtml</to-view-id>
     </navigation-case>
     <navigation-case>
       <from-outcome>editCTLog</from-outcome>
-      <to-view-id>/sysconfig/editctlog.jsp</to-view-id>
+      <to-view-id>/sysconfig/editctlog.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   
   <navigation-rule>
-    <from-view-id>/sysconfig/editctlog.jsp</from-view-id>
+    <from-view-id>/sysconfig/editctlog.xhtml</from-view-id>
     <navigation-case>
       <from-outcome>saved</from-outcome>
-      <to-view-id>/sysconfig/systemconfiguration.jsp</to-view-id>
+      <to-view-id>/sysconfig/systemconfiguration.xhtml</to-view-id>
     </navigation-case>
   </navigation-rule>
   	
   <navigation-rule>
-  	<from-view-id>/services/listservices.jsp</from-view-id>
+  	<from-view-id>/services/listservices.xhtml</from-view-id>
   	<navigation-case>
   		<from-outcome>listservices</from-outcome>
-  		<to-view-id>/services/listservices.jsp</to-view-id>
+  		<to-view-id>/services/listservices.xhtml</to-view-id>
   	</navigation-case>
   	<navigation-case>
   		<from-outcome>editservice</from-outcome>
-  		<to-view-id>/services/editservice.jsp</to-view-id>
+  		<to-view-id>/services/editservice.xhtml</to-view-id>
   	</navigation-case>
   </navigation-rule>
   <navigation-rule>
-  	<from-view-id>/services/editservice.jsp</from-view-id>
+  	<from-view-id>/services/editservice.xhtml</from-view-id>
   	<navigation-case>
   		<from-outcome>listservices</from-outcome>
-  		<to-view-id>/services/listservices.jsp</to-view-id>
+  		<to-view-id>/services/listservices.xhtml</to-view-id>
   	</navigation-case>
   	<navigation-case>
   		<from-outcome>editservice</from-outcome>
-  		<to-view-id>/services/editservice.jsp</to-view-id>
+  		<to-view-id>/services/editservice.xhtml</to-view-id>
   	</navigation-case>
   </navigation-rule>
 
   <navigation-rule>
-  	<from-view-id>/peerconnector/peerconnectors.jsp</from-view-id>
+  	<from-view-id>/peerconnector/peerconnectors.xhtml</from-view-id>
   	<navigation-case>
   		<from-outcome>edit</from-outcome>
-  		<to-view-id>/peerconnector/peerconnector.jsp</to-view-id>
+  		<to-view-id>/peerconnector/peerconnector.xhtml</to-view-id>
   	</navigation-case>
   	<navigation-case>
   		<from-outcome>done</from-outcome>
-  		<to-view-id>/peerconnector/peerconnectors.jsp</to-view-id>
+  		<to-view-id>/peerconnector/peerconnectors.xhtml</to-view-id>
   	</navigation-case>
   	<navigation-case>
   		<from-outcome>manage</from-outcome>
-  		<to-view-id>/peerconnector/peermgmt.jsp</to-view-id>
+  		<to-view-id>/peerconnector/peermgmt.xhtml</to-view-id>
+  	</navigation-case>
+  	<navigation-case>
+        <from-outcome>peerprocessauth</from-outcome>
+	    <to-view-id>/peerconnector/peerprocessauth.jsp</to-view-id>
+    </navigation-case>
+    <navigation-case>
+        <from-outcome>peerinauth</from-outcome>
+        <to-view-id>/peerconnector/peerinauth.xhtml</to-view-id>
+	</navigation-case>
+  </navigation-rule>
+  
+  <navigation-rule>
+  	<from-view-id>/peerconnector/peerconnector.xhtml</from-view-id>
+  	<navigation-case>
+  		<from-outcome>done</from-outcome>
+  		<to-view-id>/peerconnector/peerconnectors.xhtml</to-view-id>
   	</navigation-case>
   </navigation-rule>
   <navigation-rule>
-  	<from-view-id>/peerconnector/peerconnector.jsp</from-view-id>
+  	<from-view-id>/peerconnector/peermgmt.xhtml</from-view-id>
   	<navigation-case>
   		<from-outcome>done</from-outcome>
-  		<to-view-id>/peerconnector/peerconnectors.jsp</to-view-id>
+  		<to-view-id>/peerconnector/peerconnectors.xhtml</to-view-id>
   	</navigation-case>
   </navigation-rule>
-  <navigation-rule>
-  	<from-view-id>/peerconnector/peermgmt.jsp</from-view-id>
-  	<navigation-case>
-  		<from-outcome>done</from-outcome>
-  		<to-view-id>/peerconnector/peerconnectors.jsp</to-view-id>
-  	</navigation-case>
-  </navigation-rule>
+  
+  <factory>
+  		<exception-handler-factory>org.ejbca.ui.web.admin.CaExceptionHandlerFactory</exception-handler-factory>
+  </factory>
+  
 </faces-config>

@@ -48,6 +48,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
@@ -129,6 +130,7 @@ import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.EnterpriseEditionEjbBridgeProxySessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionRemote;
+import org.ejbca.core.ejb.approval.ApprovalProfileExistsException;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalSessionRemote;
 import org.ejbca.core.ejb.ca.CaTestCase;
@@ -149,11 +151,13 @@ import org.ejbca.core.model.approval.ApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.AddEndEntityApprovalRequest;
 import org.ejbca.core.model.approval.approvalrequests.RevocationApprovalTest;
 import org.ejbca.core.model.approval.profile.AccumulativeApprovalProfile;
+import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.hardtoken.HardTokenConstants;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.protocol.ws.client.gen.AlreadyRevokedException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.ApprovalException_Exception;
+import org.ejbca.core.protocol.ws.client.gen.AuthorizationDeniedException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.CADoesntExistsException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.CertificateResponse;
 import org.ejbca.core.protocol.ws.client.gen.EjbcaException_Exception;
@@ -167,6 +171,7 @@ import org.ejbca.core.protocol.ws.client.gen.PinDataWS;
 import org.ejbca.core.protocol.ws.client.gen.RevokeStatus;
 import org.ejbca.core.protocol.ws.client.gen.TokenCertificateRequestWS;
 import org.ejbca.core.protocol.ws.client.gen.TokenCertificateResponseWS;
+import org.ejbca.core.protocol.ws.client.gen.UnknownProfileTypeException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.UserDataVOWS;
 import org.ejbca.core.protocol.ws.client.gen.UserDoesntFullfillEndEntityProfile_Exception;
 import org.ejbca.core.protocol.ws.client.gen.UserMatch;
@@ -184,7 +189,13 @@ import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
 /**
- * This test uses remote EJB calls to setup the environment.
+ * System tests for the EjbcaWS API. This test uses remote EJB calls to setup the environment.
+ * <p>
+ * The tests have five pre-requisites (all fulfilled in a "default" EJBCA installation):
+ * <li>A CA named ManagementCA or AdminCA1 must exist.
+ * <li>That CA must be trusted in the appserver truststore.
+ * <li>That CA must have issued the EJBCA server certificate.
+ * <li>If EJBCA is not running on localhost, then target.hostname must be configured in systemtests.properties
  * 
  * @version $Id$
  */
@@ -193,7 +204,6 @@ public class EjbcaWSTest extends CommonEjbcaWS {
 
     private static final Logger log = Logger.getLogger(EjbcaWSTest.class);
 
-    public final static String WS_ADMIN_ROLENAME = "WsTEstRole";
     public final static String WS_TEST_ROLENAME = "WsTestRoleMgmt";
     private final static String WS_TEST_CERTIFICATE_PROFILE_NAME = "WSTESTPROFILE"; 
     private static final String KEY_RECOVERY_EEP = "KEYRECOVERY";
@@ -286,21 +296,6 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         }
     }
 
-    private void setAccessRulesForWsAdmin(final List<String> resourcesAllowed, final List<String> resourcesDenied) throws AuthorizationDeniedException {
-        final Role role = roleSession.getRole(intAdmin, null, WS_ADMIN_ROLENAME);
-        assertNotNull("Role " + WS_ADMIN_ROLENAME + " does not exist!", role);
-        role.getAccessRules().clear();
-        if (resourcesAllowed!=null) {
-            for (final String resource : resourcesAllowed) {
-                role.getAccessRules().put(resource, Role.STATE_ALLOW);
-            }
-        }
-        if (resourcesDenied!=null) {
-            for (final String resource : resourcesDenied) {
-                role.getAccessRules().put(resource, Role.STATE_DENY);
-            }
-        }
-    }
 
     /** This test is not a WebService test, but for simplicity it re-uses the created administrator certificate in order to connect to the
      * EJBCA Admin Web and verify returned security headers.
@@ -313,7 +308,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
      */
     @Test
     public void testAdminWebSecurityHeaders() throws UnrecoverableKeyException, KeyManagementException, NoSuchAlgorithmException, KeyStoreException, CertificateException, IOException {
-        HttpURLConnection con = super.getHttpsURLConnection("https://" + hostname + ":" + httpsPort + "/ejbca/adminweb/index.jsp");
+        HttpURLConnection con = super.getHttpsURLConnection("https://" + hostname + ":" + httpsPort + "/ejbca/adminweb/index.xhtml");
         String xframe = con.getHeaderField("X-FRAME-OPTIONS");
         String csp = con.getHeaderField("content-security-policy");
         String xcsp = con.getHeaderField("x-content-security-policy");
@@ -396,10 +391,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         super.editUser();
     }
 
-    @Test
-    public void test02FindUser() throws Exception {
-        findUser();
-    }
+   
 
     @Test
     public void test03_1GeneratePkcs10() throws Exception {
@@ -730,7 +722,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     @Test
     public void test19RevocationApprovals() throws Exception {
         log.trace(">test19RevocationApprovals");
-        final String APPROVINGADMINNAME = "superadmin";
+        final String APPROVINGADMINNAME = TEST_ADMIN_USERNAME;
         final String TOKENSERIALNUMBER = "42424242";
         final String TOKENUSERNAME = "WSTESTTOKENUSER3";
         final String ERRORNOTSENTFORAPPROVAL = "The request was never sent for approval.";
@@ -743,7 +735,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         AccumulativeApprovalProfile approvalProfile = new AccumulativeApprovalProfile(approvalProfileName);
         int partitionId = approvalProfile.getStep(AccumulativeApprovalProfile.FIXED_STEP_ID).getPartitions().values().iterator().next().getPartitionIdentifier();
         approvalProfile.setNumberOfApprovalsRequired(1);
-        final int approvalProfileId = approvalProfileSession.addApprovalProfile(intAdmin, approvalProfile);
+        final int approvalProfileId = createApprovalProfile(approvalProfile, true);        
         try {
             cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(intAdmin, caname, "1024");
             final CAToken catoken = CaTestUtils.createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
@@ -755,7 +747,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             principals.add(adminCert.getSubjectX500Principal());
             AuthenticationToken approvingAdmin = simpleAuthenticationProvider.authenticate(new AuthenticationSubject(principals, credentials));
             try {
-                X509Certificate cert = createUserAndCert(username, caID);
+                X509Certificate cert = createUserAndCert(username, caID, true);
                 String issuerdn = cert.getIssuerDN().toString();
                 String serno = cert.getSerialNumber().toString(16);
                 // revoke via WS and verify response
@@ -936,7 +928,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
 
     @Test
     public void test20KeyRecoverNewest() throws Exception {
-        log.trace(">keyRecover");
+        log.trace(">test20KeyRecoverNewest");
         GlobalConfiguration gc = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         boolean krenabled = gc.getEnableKeyRecovery();
         if (krenabled == true) {
@@ -1046,12 +1038,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         String key1 = new String(Hex.encode(privK.getEncoded()));
         String key2 = new String(Hex.encode(privK2.getEncoded()));
         assertEquals(key1, key2);
-        log.trace("<keyRecover");
+        log.trace("<test20KeyRecoverNewest");
     }
 
     @Test
     public void test20bKeyRecoverAny() throws Exception {
-        log.trace(">keyRecoverAny");
+        log.trace(">test20bKeyRecoverAny");
         final GlobalConfiguration gc = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         boolean eelimitation = gc.getEnableEndEntityProfileLimitations();
         boolean keyrecovery = gc.getEnableKeyRecovery();
@@ -1203,13 +1195,47 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 String key2 = new String(Hex.encode(privK2.getEncoded()));
                 assertEquals(key1, key2);
             }
+
+            // Try the single keyRecoverEnroll command as well, making a single call instead of a "keyRecover" followed by a "p12Req".
+            for (final java.security.KeyStore ks : keyStores){
+                Enumeration<String> en = ks.aliases();
+                String alias = en.nextElement();
+                // You never know in which order the certificates in the KS are returned, it's different between java 6 and 7 for ex 
+                if(!ks.isKeyEntry(alias)) {
+                    alias = en.nextElement();
+                }
+                X509Certificate cert = (X509Certificate) ks.getCertificate(alias);
+                assertEquals("CN="+username, cert.getSubjectDN().toString());
+                PrivateKey privK = (PrivateKey) ks.getKey(alias, "foo456".toCharArray());
+                log.info("recovering key. sn "+ cert.getSerialNumber().toString(16) + " issuer "+ cert.getIssuerDN().toString());
+
+                // Try the single keyRecoverEnroll command
+                KeyStore ksenv = ejbcaraws.keyRecoverEnroll(username, cert.getSerialNumber().toString(16), cert.getIssuerDN().toString(), "foo456", null);
+                java.security.KeyStore ks2 = KeyStoreHelper.getKeyStore(ksenv.getKeystoreData(), "PKCS12", "foo456");
+                assertNotNull(ks2);
+                en = ks2.aliases();
+                alias = en.nextElement();
+                // You never know in which order the certificates in the KS are returned, it's different between java 6 and 7 for ex 
+                if(!ks.isKeyEntry(alias)) {
+                    alias = en.nextElement();
+                }
+                X509Certificate cert2 = (X509Certificate) ks2.getCertificate(alias);
+                assertEquals("CN="+username, cert2.getSubjectDN().toString());
+                PrivateKey privK2 = (PrivateKey) ks2.getKey(alias, "foo456".toCharArray());
+                // Compare certificates
+                assertEquals(cert.getSerialNumber().toString(16), cert2.getSerialNumber().toString(16));
+                // Compare keys
+                String key1 = new String(Hex.encode(privK.getEncoded()));
+                String key2 = new String(Hex.encode(privK2.getEncoded()));
+                assertEquals(key1, key2);
+            }
         } finally {
             gc.setEnableEndEntityProfileLimitations(eelimitation);
             gc.setEnableKeyRecovery(keyrecovery);
             globalConfigurationSession.saveConfiguration(intAdmin, gc);
         }
 
-        log.trace("<keyRecoverAny");
+        log.trace("<test20bKeyRecoverAny");
     }
     
     @Test
@@ -1271,10 +1297,10 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
     
     @Test
-    public void test27EjbcaVersion() {
+    public void testEjbcaVersion() {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 6.14";
+        final String expectedSubString = "EJBCA 7.0";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));    }
 
     @Test
@@ -1369,41 +1395,65 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     /** In EJBCA 4.0.0 we changed the date format to ISO 8601. This verifies the that we still accept old requests, but returns UserDataVOWS objects using the new DateFormat 
      * @throws AuthorizationDeniedException */
     @Test
-    public void test36EjbcaWsHelperTimeFormatConversion() throws ClassCastException, EjbcaException, AuthorizationDeniedException {
-        log.trace(">test36EjbcaWsHelperTimeFormatConversion()");
-        final Date nowWithOutSeconds = new Date((new Date().getTime()/60000)*60000);    // To avoid false negatives.. we will loose precision when we convert back and forth..
+    public void testTimeFormatConversionFromUS() throws EjbcaException {
+        log.trace(">testTimeFormatConversionFromUs()");
+        final Date nowWithOutSeconds = new Date((new Date().getTime() / 60000) * 60000); // To avoid false negatives.. we will loose precision when we convert back and forth..
         final String oldTimeFormat = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.US).format(nowWithOutSeconds);
         final String newTimeFormatStorage = FastDateFormat.getInstance("yyyy-MM-dd HH:mm", TimeZone.getTimeZone("UTC")).format(nowWithOutSeconds);
-        final String newTimeFormatRequest = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("CEST")).format(nowWithOutSeconds);
-        final String newTimeFormatResponse = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("UTC")).format(nowWithOutSeconds);
-        final String relativeTimeFormat = "0123:12:31";
+        final String newTimeFormatRequest = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("CEST"))
+                .format(nowWithOutSeconds);
+        final String newTimeFormatResponse = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("UTC"))
+                .format(nowWithOutSeconds);
         log.debug("oldTimeFormat=" + oldTimeFormat);
         log.debug("newTimeFormatStorage=" + newTimeFormatStorage);
         log.debug("newTimeFormatRequest=" + newTimeFormatRequest);
         // Convert from UserDataVOWS with US Locale DateFormat to endEntityInformation
-        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username", "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username",
+                "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
         userDataVoWs.setStartTime(oldTimeFormat);
         userDataVoWs.setEndTime(oldTimeFormat);
         final EndEntityInformation endEntityInformation1 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
-        assertEquals("CUSTOM_STARTTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage, endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
-        assertEquals("CUSTOM_ENDTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage, endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
+        assertEquals("CUSTOM_STARTTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage,
+                endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
+        assertEquals("CUSTOM_ENDTIME in old format was not correctly handled (VOWS to VO).", newTimeFormatStorage,
+                endEntityInformation1.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
+        // Convert from endEntityInformation with standard DateFormat to UserDataVOWS
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs1 = ejbcaWSHelperSession.convertEndEntityInformation(endEntityInformation1, "CA1", "EEPROFILE", "CERTPROFILE", "HARDTOKENISSUER", "P12");
+        // We expect that the server will respond using UTC
+        assertEquals("CUSTOM_STARTTIME in new format was not correctly handled (VO to VOWS).", newTimeFormatResponse, userDataVoWs1.getStartTime());
+        assertEquals("CUSTOM_ENDTIME in new format was not correctly handled (VO to VOWS).", newTimeFormatResponse, userDataVoWs1.getEndTime());
+    }   
+    
+    @Test
+    public void testTimeFormatConversionFromStandard() throws EjbcaException {
+        final Date nowWithOutSeconds = new Date((new Date().getTime() / 60000) * 60000); // To avoid false negatives.. we will loose precision when we convert back and forth..
+        final String newTimeFormatStorage = FastDateFormat.getInstance("yyyy-MM-dd HH:mm", TimeZone.getTimeZone("UTC")).format(nowWithOutSeconds);
+        final String newTimeFormatRequest = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("CEST"))
+                .format(nowWithOutSeconds);
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username",
+                "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
         // Convert from UserDataVOWS with standard DateFormat to endEntityInformation
         userDataVoWs.setStartTime(newTimeFormatRequest);
         userDataVoWs.setEndTime(newTimeFormatRequest);
         final EndEntityInformation endEntityInformation2 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
         assertEquals("ExtendedInformation.CUSTOM_STARTTIME in new format was not correctly handled.", newTimeFormatStorage, endEntityInformation2.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
         assertEquals("ExtendedInformation.CUSTOM_ENDTIME in new format was not correctly handled.", newTimeFormatStorage, endEntityInformation2.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
+    }
+    
+    @Test
+    public void testTimeFormatConversionFromCustom() throws EjbcaException {
+        final String relativeTimeFormat = "0123:12:31";
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username",
+                "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
         // Convert from UserDataVOWS with relative date format to endEntityInformation
         userDataVoWs.setStartTime(relativeTimeFormat);
         userDataVoWs.setEndTime(relativeTimeFormat);
         final EndEntityInformation endEntityInformation3 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
-        assertEquals("ExtendedInformation.CUSTOM_STARTTIME in relative format was not correctly handled.", relativeTimeFormat, endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
-        assertEquals("ExtendedInformation.CUSTOM_ENDTIME in relative format was not correctly handled.", relativeTimeFormat, endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
-        // Convert from endEntityInformation with standard DateFormat to UserDataVOWS
-        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs1 = ejbcaWSHelperSession.convertEndEntityInformation(endEntityInformation1, "CA1", "EEPROFILE", "CERTPROFILE", "HARDTOKENISSUER", "P12");
-        // We expect that the server will respond using UTC
-        assertEquals("CUSTOM_STARTTIME in new format was not correctly handled (VO to VOWS).", newTimeFormatResponse, userDataVoWs1.getStartTime());
-        assertEquals("CUSTOM_ENDTIME in new format was not correctly handled (VO to VOWS).", newTimeFormatResponse, userDataVoWs1.getEndTime());
+        assertEquals("ExtendedInformation.CUSTOM_STARTTIME in relative format was not correctly handled.", relativeTimeFormat,
+                endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_STARTTIME));
+        assertEquals("ExtendedInformation.CUSTOM_ENDTIME in relative format was not correctly handled.", relativeTimeFormat,
+                endEntityInformation3.getExtendedInformation().getCustomData(ExtendedInformation.CUSTOM_ENDTIME));
+        
         // Convert from EndEntityInformation with relative date format to UserDataVOWS
         final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs3 = ejbcaWSHelperSession.convertEndEntityInformation(endEntityInformation3, "CA1", "EEPROFILE", "CERTPROFILE", "HARDTOKENISSUER", "P12");
         assertEquals("CUSTOM_STARTTIME in relative format was not correctly handled (VO to VOWS).", relativeTimeFormat, userDataVoWs3.getStartTime());
@@ -1417,9 +1467,33 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         } catch (EjbcaException e) {
             assertEquals("Unexpected error code in exception.", ErrorCode.FIELD_VALUE_NOT_VALID, e.getErrorCode());
         }
+    }
+
+    @Test
+    public void testTimeFormatConversionFromStandardWithZulu() throws EjbcaException {
+        final Date nowWithOutSeconds = new Date((new Date().getTime() / 60000) * 60000); // To avoid false negatives.. we will loose precision when we convert back and forth..
+        final String newTimeFormatResponse = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("UTC"))
+                .format(nowWithOutSeconds);
+        final String newTimeFormatWithZulu = newTimeFormatResponse.replace("+00:00", "Z");
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username",
+                "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
+        // Test using a time format that ends with Z instead of +00.00
+        userDataVoWs.setStartTime(newTimeFormatWithZulu);
+        final EndEntityInformation endEntityInformationZ = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWsZ = ejbcaWSHelperSession.convertEndEntityInformation(endEntityInformationZ,
+                "CA1", "EEPROFILE", "CERTPROFILE", "HARDTOKENISSUER", "P12");
+        // We expect that the server will respond using UTC
+        assertEquals("CUSTOM_STARTTIME in new format using Zulu was not correctly handled (VO to VOWS).", newTimeFormatResponse,
+                userDataVoWsZ.getStartTime());
+    }
+
+    @Test
+    public void testTimeFormatConversionFromInvalid() throws EjbcaException {
+        final org.ejbca.core.protocol.ws.objects.UserDataVOWS userDataVoWs = new org.ejbca.core.protocol.ws.objects.UserDataVOWS("username",
+                "password", false, "CN=User U", "CA1", null, null, 10, "P12", "EMPTY", "ENDUSER", null);
         // Try some invalid end time date format
         userDataVoWs.setStartTime("2011-02-28 12:32:00+00:00"); // Valid
-        userDataVoWs.setEndTime("12:32 2011-02-28");    // Invalid
+        userDataVoWs.setEndTime("12:32 2011-02-28"); // Invalid
         try {
             ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, false);
             fail("Conversion of illegal time format did not generate exception.");
@@ -1428,14 +1502,12 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         }
         // Try a raw subjectDN
         userDataVoWs.setStartTime(null); // Valid
-        userDataVoWs.setEndTime(null);    // Invalid
+        userDataVoWs.setEndTime(null); // Invalid
         userDataVoWs.setSubjectDN("CN=User U,C=SE,O=Foo"); // not normal order
         EndEntityInformation endEntityInformation4 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, true);
         assertNotNull(endEntityInformation4.getExtendedInformation().getRawSubjectDn());
         endEntityInformation4 = ejbcaWSHelperSession.convertUserDataVOWSInternal(userDataVoWs, 1, 2, 3, 4, 5, true);
-        assertEquals("Raw subject DN is not raw order", "CN=User U,C=SE,O=Foo" ,endEntityInformation4.getExtendedInformation().getRawSubjectDn());
-        
-        log.trace("<test36EjbcaWsHelperTimeFormatConversion()");
+        assertEquals("Raw subject DN is not raw order", "CN=User U,C=SE,O=Foo", endEntityInformation4.getExtendedInformation().getRawSubjectDn());
     }
     
     /** Simulate a simple SQL injection by sending the to-be-escaped char "'". */
@@ -1502,9 +1574,19 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     @Test
     public void test43CertificateRequestWithSpecialChars03() throws Exception {
         long rnd = secureRandom.nextLong();
+        // Behavior changed with introduction of multi-valued RDNs and using IETFUtils.rDNsFromString, in ECA-3934
+        // an unescaped + must now either be a multi-value RDN, or the string is considered illegal directory string
         testCertificateRequestWithSpecialChars(
-                "CN=test43CertificateRequestWithSpecialChars03" + rnd + ", O=foo+bar\\+123, C=SE",
+                "CN=test43CertificateRequestWithSpecialChars03" + rnd + ", O=foo\\+bar\\+123, C=SE",
                 "CN=test43CertificateRequestWithSpecialChars03" + rnd + ",O=foo\\+bar\\+123,C=SE");
+        try {
+            testCertificateRequestWithSpecialChars(
+                    "CN=test43CertificateRequestWithSpecialChars03" + rnd + ", O=foo+bar\\+123, C=SE",
+                    "CN=test43CertificateRequestWithSpecialChars03" + rnd + ",O=foo\\+bar\\+123,C=SE");
+            fail("Test should fail as badly formatted directory string due to non-escaped +");
+        } catch (EjbcaException_Exception e) {
+            assertTrue("Exception must be about badly formatted directory string", e.getMessage().contains("badly formatted directory string"));            
+        }
     }
 
     /**
@@ -1538,9 +1620,11 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     @Test
     public void test46CertificateRequestWithSpecialChars06() throws Exception {
         long rnd = secureRandom.nextLong();
+        // Behavior changed with introduction of multi-valued RDNs and using IETFUtils.rDNsFromString, in ECA-3934
+        // We now handle + signs "correctly
         testCertificateRequestWithSpecialChars(
                 "CN=test46CertificateRequestWithSpecialChars06" + rnd + ", O=\"foo+b\\+ar, C=SE\"",
-                "CN=test46CertificateRequestWithSpecialChars06" + rnd + ",O=foo\\+b\\+ar\\, C\\=SE");
+                "CN=test46CertificateRequestWithSpecialChars06" + rnd + ",O=foo\\+b\\\\\\+ar\\, C\\=SE");
     }
 
     /**
@@ -1550,9 +1634,24 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     @Test
     public void test47CertificateRequestWithSpecialChars07() throws Exception {
         long rnd = secureRandom.nextLong();
+        // Behavior changed with introduction of multi-valued RDNs and using IETFUtils.rDNsFromString, in ECA-3934
+        // We now handle + signs "correctly, it's a multi-value RDN now an 'b' should be an OID, which it's not
+        // = signs must be escaped, or it's truncated
         testCertificateRequestWithSpecialChars(
-                "CN=test47CertificateRequestWithSpecialChars07" + rnd + ", O=\\\"foo+b\\+ar\\, C=SE\\\"",
+                "CN=test47CertificateRequestWithSpecialChars07" + rnd + ", O=\\\"foo\\+b\\+ar\\, C=SE\\\"",
+                "CN=test47CertificateRequestWithSpecialChars07" + rnd + ",O=\\\"foo\\+b\\+ar\\, C");
+        testCertificateRequestWithSpecialChars(
+                "CN=test47CertificateRequestWithSpecialChars07" + rnd + ", O=\\\"foo\\+b\\+ar\\, C\\=SE\\\"",
                 "CN=test47CertificateRequestWithSpecialChars07" + rnd + ",O=\\\"foo\\+b\\+ar\\, C\\=SE\\\"");
+        try {
+            testCertificateRequestWithSpecialChars(
+                    "CN=test47CertificateRequestWithSpecialChars07" + rnd + ", O=\\\"foo+b\\+ar\\, C=SE\\\"",
+                    "CN=test47CertificateRequestWithSpecialChars07" + rnd + ",O=\\\"foo\\+b\\+ar\\, C\\=SE\\\"");
+            fail("Test should fail as unknown oid (b) passed as multi-value RDN");
+        } catch (EjbcaException_Exception e) {
+            assertTrue("Exception must be about Unknown object id", e.getMessage().contains("Unknown object id"));
+            
+        }
     }
 
     /**
@@ -1665,9 +1764,88 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
     
     @Test
-    public void test52GetProfileFromID() throws Exception {
-        getEndEntityProfileFromID();
-        getCertificateProfileFromID();
+    public void testGetCertificateProfile() throws Exception {
+        String profilename = "TESTPROFILEFORGETPROFILECOMMAND";
+
+        if(certificateProfileSession.getCertificateProfile(profilename) != null) {
+            certificateProfileSession.removeCertificateProfile(intAdmin, profilename);
+        }
+        CertificateProfile profile = new CertificateProfile();
+        profile.setAllowValidityOverride(true);
+        profile.setAllowExtensionOverride(true);
+        certificateProfileSession.addCertificateProfile(intAdmin, profilename, profile);
+        int profileid = certificateProfileSession.getCertificateProfileId(profilename);
+
+        try {
+            byte[] profilebytes = ejbcaraws.getProfile(profileid, "cp");
+            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new java.io.ByteArrayInputStream(profilebytes));
+            final Map<?, ?> h = (Map<?, ?>) decoder.readObject();
+            decoder.close();
+
+            // Check that the default data are different from the data in the profile we want to retrieve
+            profile = new CertificateProfile();
+            assertFalse(profile.getAllowValidityOverride());
+            assertFalse(profile.getAllowExtensionOverride());
+
+            // Load the data from the retrieved profile and verify that the data is correct
+            profile.loadData(h);
+            assertTrue(profile.getAllowValidityOverride());
+            assertTrue(profile.getAllowExtensionOverride());
+
+        } finally {
+            certificateProfileSession.removeCertificateProfile(intAdmin, profilename);
+        }
+    }
+    
+    @Test
+    public void testGetEndEntityProfile() throws Exception {
+        String profilename = "TESTPROFILEFORGETPROFILECOMMAND";
+
+        if(endEntityProfileSession.getEndEntityProfile(profilename) != null) {
+            endEntityProfileSession.removeEndEntityProfile(intAdmin, profilename);
+        }
+        if(certificateProfileSession.getCertificateProfile(profilename) != null) {
+            certificateProfileSession.removeCertificateProfile(intAdmin, profilename);
+        }
+        EndEntityProfile profile = new EndEntityProfile();
+        profile.setPrinterName("TestPrinter");
+        profile.addField(DnComponents.COMMONNAME);
+        profile.setUse(EndEntityProfile.KEYRECOVERABLE, 0, true);
+        profile.setValue(EndEntityProfile.KEYRECOVERABLE, 0, EndEntityProfile.TRUE);
+        endEntityProfileSession.addEndEntityProfile(intAdmin, profilename, profile);
+        int profileid = endEntityProfileSession.getEndEntityProfileId(profilename);
+        try {
+            byte[] profilebytes = ejbcaraws.getProfile(profileid, "eep");
+            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new java.io.ByteArrayInputStream(profilebytes));
+            final Map<?, ?> h = (Map<?, ?>)decoder.readObject();
+            decoder.close();
+
+            // Check that the default data are different from the data in the profile we want to retrieve
+            profile = new EndEntityProfile();
+            assertFalse(StringUtils.equals("TestPrinter", profile.getPrinterName()));
+            assertFalse(profile.getUse(EndEntityProfile.KEYRECOVERABLE, 0));
+
+            // Load the data from the retrieved profile and verify that the data is correct
+            profile.loadData(h);
+            assertEquals("TestPrinter", profile.getPrinterName());
+            assertTrue(profile.getUse(EndEntityProfile.KEYRECOVERABLE, 0));
+
+        } finally {
+            endEntityProfileSession.removeEndEntityProfile(intAdmin, profilename);
+        }    
+        
+    }
+    
+    @Test
+    public void testGetProfileWithUnknownType() throws AuthorizationDeniedException_Exception, EjbcaException_Exception {
+        int profileid = 4711;
+        try {
+            ejbcaraws.getProfile(profileid, "foo");
+            fail("Unknown type should have thrown an exception.");
+        } catch(UnknownProfileTypeException_Exception e) {
+            String expectedmsg = "Unknown profile type 'foo'. Recognized types are 'eep' for End Entity Profiles and 'cp' for Certificate Profiles";
+            assertEquals(expectedmsg, e.getMessage());
+        }
     }
 
     @Test
@@ -1706,18 +1884,26 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public void test57CertificateRequestWithDnOverrideFromEndEntityInformation() throws Exception {
         cesecoreConfigurationProxySession.setConfigurationValue(forbiddenCharsKey, "\n\r;!\u0000%`?$~");
         final long rnd = Math.abs(secureRandom.nextLong());
+        // Behavior changed with introduction of multi-valued RDNs and using IETFUtils.rDNsFromString, in ECA-3934
+        // The multi-value RDN SN=12345+JurisdictionCountry=SE is now handled correctly
+        // empty DN component is allowed (CN=) in the core API, but when using AllowDNOverrideByEndEntityInformation empties are remove in X509CA with DNFieldsUtil.removeAllEmpties
+        // equal signs must be escaped in order to work so ';C=SE' gets an escaped ; and the =SE part is truncated
         testCertificateRequestWithEeiDnOverride(true, true,
                 "L=locality,OU=OU1, JURISDICTIONLOCALITY= jlocality ,CN=,CN=rox" + rnd + ".primekey.se;C=SE,ST=Sthlm\n,OU=OU2 ,O=PrimeKey,JURISDICTIONCOUNTRY=SE+SN=12345,BUSINESSCATEGORY=Private Organization",
-                "L=locality,OU=OU1,JurisdictionLocality=jlocality,CN=rox" + rnd + ".primekey.se/C\\=SE,ST=Sthlm/,OU=OU2,O=PrimeKey,JurisdictionCountry=SE\\+SN\\=12345,BusinessCategory=Private Organization");
+                "L=locality,OU=OU1,JurisdictionLocality=jlocality,CN=rox" + rnd + ".primekey.se/C,ST=Sthlm/,OU=OU2,O=PrimeKey,SN=12345+JurisdictionCountry=SE,BusinessCategory=Private Organization");
     }
 
     @Test
     public void test58SoftTokenRequestWithDnOverrideFromEndEntityInformation() throws Exception {
         cesecoreConfigurationProxySession.setConfigurationValue(forbiddenCharsKey, "\n\r;!\u0000%`?$~");
         final long rnd = Math.abs(secureRandom.nextLong());
+        // Behavior changed with introduction of multi-valued RDNs and using IETFUtils.rDNsFromString, in ECA-3934
+        // The multi-value RDN SN=12345+JurisdictionCountry=SE is now handled correctly
+        // empty DN component is allowed (CN=) in the core API, but when using AllowDNOverrideByEndEntityInformation empties are remove in X509CA with DNFieldsUtil.removeAllEmpties
+        // equal signs must be escaped in order to work so ';C=SE' gets an escaped ; and the =SE part is truncated
         testCertificateRequestWithEeiDnOverride(true, false,
                 "L=locality,OU=OU1, JURISDICTIONLOCALITY= jlocality ,CN=,CN=rox" + rnd + ".primekey.se;C=SE,ST=Sthlm\n,OU=OU2 ,O=PrimeKey,JURISDICTIONCOUNTRY=SE+SN=12345,BUSINESSCATEGORY=Private Organization",
-                "L=locality,OU=OU1,JurisdictionLocality=jlocality,CN=rox" + rnd + ".primekey.se/C\\=SE,ST=Sthlm/,OU=OU2,O=PrimeKey,JurisdictionCountry=SE\\+SN\\=12345,BusinessCategory=Private Organization");
+                "L=locality,OU=OU1,JurisdictionLocality=jlocality,CN=rox" + rnd + ".primekey.se/C,ST=Sthlm/,OU=OU2,O=PrimeKey,SN=12345+JurisdictionCountry=SE,BusinessCategory=Private Organization");
     }
 
     /* This is apparently allowed but puts the system in a world of pain, since other functions are not adapted to handle an empty subjectDN
@@ -2054,9 +2240,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     }
 
     /**
-     * Tests that the provided cardnumber is stored in the EndEntityInformation 
-     * and that when querying for EndEntityInformation the cardnumber is 
-     * returned.
+     * Tests a request without subjectDN.
      * @throws Exception in case of error
      */
     @Test
@@ -2335,27 +2519,28 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         GlobalConfiguration globalConfiguration = (GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         globalConfiguration.setEnableEndEntityProfileLimitations(false);
         globalConfigurationSession.saveConfiguration(intAdmin, globalConfiguration);
+        String userName = "eeiDnOverride" + secureRandom.nextLong();
+        final UserDataVOWS userData = new UserDataVOWS();
+        userData.setUsername(userName);
+        userData.setPassword(PASSWORD);
+        userData.setClearPwd(true);
+        userData.setSubjectDN(requestedSubjectDN);
+        userData.setCaName(getAdminCAName());
+        userData.setEmail(null);
+        userData.setSubjectAltName(null);
+        userData.setStatus(EndEntityConstants.STATUS_NEW);
+        userData.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
+        userData.setEndEntityProfileName("EMPTY");
+        userData.setCertificateProfileName(WS_TEST_CERTIFICATE_PROFILE_NAME);
+        final X509Certificate cert;
         try {
-            String userName = "eeiDnOverride" + secureRandom.nextLong();
-            final UserDataVOWS userData = new UserDataVOWS();
-            userData.setUsername(userName);
-            userData.setPassword(PASSWORD);
-            userData.setClearPwd(true);
-            userData.setSubjectDN(requestedSubjectDN);
-            userData.setCaName(getAdminCAName());
-            userData.setEmail(null);
-            userData.setSubjectAltName(null);
-            userData.setStatus(EndEntityConstants.STATUS_NEW);
-            userData.setTokenType(UserDataVOWS.TOKEN_TYPE_P12);
-            userData.setEndEntityProfileName("EMPTY");
-            userData.setCertificateProfileName(WS_TEST_CERTIFICATE_PROFILE_NAME);
-            final X509Certificate cert;
             if (useCsr) {
                 KeyPair keys = KeyTools.genKeys("1024", AlgorithmConstants.KEYALGORITHM_RSA);
-                PKCS10CertificationRequest pkcs10 = CertTools.genPKCS10CertificationRequest("SHA256WithRSA", CertTools.stringToBcX500Name("CN=NOUSED"),
-                        keys.getPublic(), new DERSet(), keys.getPrivate(), null);
+                PKCS10CertificationRequest pkcs10 = CertTools.genPKCS10CertificationRequest("SHA256WithRSA",
+                        CertTools.stringToBcX500Name("CN=NOUSED"), keys.getPublic(), new DERSet(), keys.getPrivate(), null);
                 final String csr = new String(Base64.encode(pkcs10.toASN1Structure().getEncoded()));
-                CertificateResponse response = ejbcaraws.certificateRequest(userData, csr, CertificateHelper.CERT_REQ_TYPE_PKCS10, null, CertificateHelper.RESPONSETYPE_CERTIFICATE);
+                CertificateResponse response = ejbcaraws.certificateRequest(userData, csr, CertificateHelper.CERT_REQ_TYPE_PKCS10, null,
+                        CertificateHelper.RESPONSETYPE_CERTIFICATE);
                 cert = response.getCertificate();
             } else {
                 KeyStore ksenv = ejbcaraws.softTokenRequest(userData, null, "1024", AlgorithmConstants.KEYALGORITHM_RSA);
@@ -2363,23 +2548,23 @@ public class EjbcaWSTest extends CommonEjbcaWS {
                 assertNotNull(keyStore);
                 Enumeration<String> en = keyStore.aliases();
                 String alias = en.nextElement();
-                if(!keyStore.isKeyEntry(alias)) {
+                if (!keyStore.isKeyEntry(alias)) {
                     alias = en.nextElement();
                 }
                 cert = (X509Certificate) keyStore.getCertificate(alias);
             }
-            final List<Certificate> certificates = Arrays.asList(new Certificate[] {cert});
+            final List<Certificate> certificates = Arrays.asList(new Certificate[] { cert });
             log.info(certificates.size() + " certs.\n" + new String(CertTools.getPemFromCertificateChain(certificates)));
             X500Name x500name = new JcaX509CertificateHolder(cert).getSubject();
             String resultingSubjectDN = CeSecoreNameStyle.INSTANCE.toString(x500name);
             log.debug("x500name:           " + resultingSubjectDN);
-            assertEquals("Unexpected transformation.", expectedSubjectDN, resultingSubjectDN);
+            assertEquals("Unexpected transformation.", expectedSubjectDN, resultingSubjectDN);     
+        } finally {
             try {
                 endEntityManagementSession.deleteUser(intAdmin, userName);
             } catch (NoSuchEndEntityException e) {
                 // Ignore
             }
-        } finally {
             if (certificateProfileSession.getCertificateProfileId(WS_TEST_CERTIFICATE_PROFILE_NAME) != 0) {
                 certificateProfileSession.removeCertificateProfile(intAdmin, WS_TEST_CERTIFICATE_PROFILE_NAME);
             }
@@ -2507,13 +2692,16 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     /**
      * Create a user a generate certificate.
      */
-    private X509Certificate createUserAndCert(String username, int caID) throws Exception {
-        EndEntityInformation userdata = new EndEntityInformation(username, "CN=" + username, caID, null, null, new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
+    private X509Certificate createUserAndCert(final String username, final int caID, final boolean deleteFirst) throws Exception {
+        if (deleteFirst) {
+            internalCertificateStoreSession.removeCertificatesByUsername(username);
+        }
+        final EndEntityInformation userdata = new EndEntityInformation(username, "CN=" + username, caID, null, null, new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, SecConst.TOKEN_SOFT_P12, 0, null);
         userdata.setPassword(PASSWORD);
-        endEntityManagementSession.addUser(intAdmin, userdata, true);
+        endEntityManagementSession.addUser(intAdmin, userdata, true);        
         fileHandles.addAll(BatchCreateTool.createAllNew(intAdmin, new File(P12_FOLDER_NAME)));
-        Collection<Certificate> userCerts = EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username));
+        final Collection<Certificate> userCerts = EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username));
         assertEquals("Certificates for user with username " + username + " wasn't exactly one.", 1, userCerts.size());
         return (X509Certificate) userCerts.iterator().next();
     }
@@ -2534,5 +2722,26 @@ public class EjbcaWSTest extends CommonEjbcaWS {
         stream.read(data);
         IOUtils.closeQuietly(stream);
         return data;
+    }
+
+    /** Creates an approvalProfile. Throws an exception, if it exists already. */
+    private int createApprovalProfile(final ApprovalProfile profile, final boolean deleteIfExists) throws ApprovalProfileExistsException, AuthorizationDeniedException {
+        final String name = profile.getProfileName();
+        if (deleteIfExists) {
+            final Map<Integer, String> existingApprovalProfiles = approvalProfileSession.getApprovalProfileIdToNameMap();
+            if (existingApprovalProfiles != null && existingApprovalProfiles.values().contains((name))) {
+                for (Map.Entry<Integer, String> entry : existingApprovalProfiles.entrySet()) {
+                    if (name.equals(entry.getValue())) {
+                        approvalProfileSession.removeApprovalProfile(intAdmin, entry.getKey());
+                        if (log.isDebugEnabled()) {
+                            log.debug( "Removed approval profile '" + entry.getValue() + "' with ID " + entry.getKey() + ".");
+                        }
+                    }
+                }
+            }
+        }
+        final int id = approvalProfileSession.addApprovalProfile(intAdmin, profile);
+        log.info( "Created approval profile '" + name + "' with ID " + id + ".");
+        return id;
     }
 }

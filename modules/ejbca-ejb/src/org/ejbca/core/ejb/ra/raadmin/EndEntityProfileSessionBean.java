@@ -12,14 +12,19 @@
  *************************************************************************/
 package org.ejbca.core.ejb.ra.raadmin;
 
+import java.beans.XMLEncoder;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -39,6 +44,7 @@ import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.ProfileID;
@@ -75,6 +81,8 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
     private CaSessionLocal caSession;
     @EJB
     private SecurityEventsLoggerSessionLocal auditSession;
+    @EJB
+    private CertificateProfileSessionLocal certificateProfileSession;
 
     @Override
     public int addEndEntityProfile(final AuthenticationToken admin, final String profilename, final EndEntityProfile profile) throws AuthorizationDeniedException, EndEntityProfileExistsException {
@@ -99,7 +107,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
             throw new EndEntityProfileExistsException(msg);
         } else {
             // Check authorization before adding
-            authorizedToProfile(admin, profile);
+            authorizedToEditProfile(admin, profile);
             try {
                 entityManager.persist(new EndEntityProfileData(Integer.valueOf(profileid), profilename, profile));
                 flushProfileCache();
@@ -136,7 +144,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
             if (pdl != null) {
                 // Check authorization before cloning
                 final EndEntityProfile profile = pdl.getProfile();
-                authorizedToProfile(admin, profile);
+                authorizedToEditProfile(admin, profile);
             	try {
             		final int profileid = findFreeEndEntityProfileId();
             		entityManager.persist(new EndEntityProfileData(profileid, newname, (EndEntityProfile)profile.clone()));
@@ -293,7 +301,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
             // Check authorization for the endentityAccessRule here. The built in EMPTY EE profile is obviously not included in the cache, so added manually above
             if (authorizationSession.isAuthorizedNoLogging(admin, AccessRulesConstants.ENDENTITYPROFILEBASE + "/" + entry.getKey().toString() + endentityAccessRule)) {
                 authorizedToProfile = true;
-                if (availableCasString != null) {
+                if (StringUtils.isNotBlank(availableCasString)) {
                     for (final String caidString : availableCasString.split(EndEntityProfile.SPLITCHAR)) {
                         try {
                             final int caIdInt = Integer.parseInt(caidString);
@@ -372,6 +380,50 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
             LOG.trace("<getEndEntityProfile(id): " + (returnval == null ? "null" : "not null"));
         }
         return returnval;
+    }
+
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public Map<String, Integer> getAvailableCertificateProfiles(final AuthenticationToken admin, final int entityProfileId) throws EndEntityProfileNotFoundException {
+        final EndEntityProfile profile = getEndEntityProfileNoClone(entityProfileId);
+        final TreeMap<String,Integer> result = new TreeMap<>();
+        if (profile != null) {
+            final Collection<Integer> ids = profile.getAvailableCertificateProfileIds();
+            for (int id : ids) {
+                result.put(certificateProfileSession.getCertificateProfileName(id), id);
+            }
+        } else {
+            throw new EndEntityProfileNotFoundException("End entity profile with ID " + entityProfileId + " could not be found.");
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Found " + result + " certificate profiles for end entity profile with ID " + entityProfileId + " requested by " + admin.getUniqueId());
+        }
+        return result;
+    }
+    
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Override
+    public Map<String, Integer> getAvailableCasInProfile(final AuthenticationToken admin, final int entityProfileId)
+            throws AuthorizationDeniedException, EndEntityProfileNotFoundException {
+        final EndEntityProfile profile = getEndEntityProfileNoClone(entityProfileId);
+        final TreeMap<String,Integer> result = new TreeMap<>();
+        if (profile != null) {
+            final Collection<Integer> ids = profile.getAvailableCAs();
+            final HashMap<Integer,String> map = caSession.getCAIdToNameMap();
+            String name;
+            for (int id : ids) {
+                name = map.get(id);
+                if (name != null) {
+                    result.put(name, id);
+                }
+            }
+        } else {
+            throw new EndEntityProfileNotFoundException("End entity profile with ID " + entityProfileId + " could not be found.");
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Found " + result + " CAs for end entity profile with ID " + entityProfileId + " requested by " + admin.getUniqueId());
+        }
+        return result;
     }
 
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -458,7 +510,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
         	throw new EndEntityProfileNotFoundException("End entity profile of name \"" + profilename + "\" not found.");
         } else {
             // Check authorization before editing
-            authorizedToProfile(admin, profile);
+            authorizedToEditProfile(admin, profile);
             // Get the diff of what changed
             Map<Object, Object> diff = pdl.getProfile().diff(profile);
             pdl.setProfile(profile);
@@ -483,7 +535,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
     			}
     		} else {
     		    // Check authorization before removing
-                authorizedToProfile(admin, pdl.getProfile());
+                authorizedToEditProfile(admin, pdl.getProfile());
     		    try {
     		        entityManager.remove(pdl);
     		        flushProfileCache();
@@ -516,7 +568,7 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
             	LOG.info(msg);
             } else {
                 // Check authorization before renaming
-                authorizedToProfile(admin, pdl.getProfile());
+                authorizedToEditProfile(admin, pdl.getProfile());
                 pdl.setProfileName(newprofilename);
                 flushProfileCache();
                 final String msg = INTRES.getLocalizedMessage("ra.renamedprofile", oldprofilename, newprofilename);
@@ -580,6 +632,26 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
         }
     }
 
+    @Override
+    public byte[] getProfileAsXml(final AuthenticationToken authenticationToken, final int profileId)
+            throws EndEntityProfileNotFoundException, AuthorizationDeniedException {
+        EndEntityProfile profile = null;
+        profile = getEndEntityProfileNoClone(profileId);
+        if (profile == null) {
+            throw new EndEntityProfileNotFoundException("Could not find end entity profile with ID '" + profileId + "' in the database.");
+        }
+        authorizedToViewProfile(authenticationToken, profile);
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); XMLEncoder encoder = new XMLEncoder(baos)) {
+            encoder.writeObject(profile.saveData());
+            encoder.close();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            String msg = "Could not encode profile with ID " + profileId + " to XML: " + e.getMessage();
+            LOG.debug(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
     private boolean isFreeEndEntityProfileId(final int id) {
         boolean foundfree = false;
         if ( (id > 1) && (EndEntityProfileData.findById(entityManager, Integer.valueOf(id)) == null) ) {
@@ -587,12 +659,25 @@ public class EndEntityProfileSessionBean implements EndEntityProfileSessionLocal
         }
         return foundfree;
     }
+    
+    /**
+     * Help function that checks if administrator is authorized to view profile.
+     * @param profile is the end entity profile or null for EndEntityConstants.EMPTY_END_ENTITY_PROFILE
+     */
+    private void authorizedToViewProfile(final AuthenticationToken admin, final EndEntityProfile profile)  throws AuthorizationDeniedException {
+        if (authorizationSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_VIEWENDENTITYPROFILES) && profile != null) {
+            authorizedToProfileCas(admin, profile);
+        } else {
+            final String msg = INTRES.getLocalizedMessage("authorization.notauthorizedtoresource", AccessRulesConstants.REGULAR_VIEWENDENTITYPROFILES, admin.toString());
+            throw new AuthorizationDeniedException(msg);
+        }
+    }
 
     /**
      * Help function that checks if administrator is authorized to edit profile.
      * @param profile is the end entity profile or null for EndEntityConstants.EMPTY_END_ENTITY_PROFILE
      */
-    private void authorizedToProfile(final AuthenticationToken admin, final EndEntityProfile profile)  throws AuthorizationDeniedException {
+    private void authorizedToEditProfile(final AuthenticationToken admin, final EndEntityProfile profile)  throws AuthorizationDeniedException {
         if (authorizationSession.isAuthorizedNoLogging(admin, AccessRulesConstants.REGULAR_EDITENDENTITYPROFILES) && profile != null) {
             authorizedToProfileCas(admin, profile);
         } else {

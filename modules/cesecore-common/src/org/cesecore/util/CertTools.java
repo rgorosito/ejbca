@@ -67,11 +67,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.CharUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -365,98 +367,103 @@ public abstract class CertTools {
             dn = dn.substring(1, dn.length() - 1);
         }
         final X500NameBuilder nameBuilder = new X500NameBuilder(nameStyle);
-        boolean quoted = false;
-        boolean escapeNext = false;
-        int currentStartPosition = -1;
-        String currentPartName = null;
-        for (int i = 0; i < dn.length(); i++) {
-            final char current = dn.charAt(i);
-            // Toggle quoting for every non-escaped "-char
-            if (!escapeNext && current == '"') {
-                quoted = !quoted;
-            }
-            // If there is an unescaped and unquoted =-char the proceeding chars is a part name
-            if (currentStartPosition == -1 && !quoted && !escapeNext && current == '=' && 1 <= i) {
-                // Trim spaces (e.g. "O =value")
-                int endIndexOfPartName = i;
-                while (endIndexOfPartName > 0 && dn.charAt(endIndexOfPartName - 1) == ' ') {
-                    endIndexOfPartName--;
-                }
-                int startIndexOfPartName = endIndexOfPartName - 1;
-                final String endOfPartNameSearchChars = ", +";
-                while (startIndexOfPartName > 0 && (endOfPartNameSearchChars.indexOf(dn.charAt(startIndexOfPartName - 1)) == -1)) {
-                    startIndexOfPartName--;
-                }
-                currentPartName = dn.substring(startIndexOfPartName, endIndexOfPartName);
-                currentStartPosition = i + 1;
-            }
-            // When we have found a start marker, we need to be on the lookout for the ending marker
-            if (currentStartPosition != -1 && ((!quoted && !escapeNext && (current == ',' || current == '+')) || i == dn.length() - 1)) {
-                int endPosition = (i == dn.length() - 1) ? dn.length() - 1 : i - 1;
-                // Remove white spaces from the end of the value
-                while (endPosition > currentStartPosition && dn.charAt(endPosition) == ' ') {
-                    endPosition--;
-                }
-                // Remove white spaces from the beginning of the value
-                while (endPosition > currentStartPosition && dn.charAt(currentStartPosition) == ' ') {
-                    currentStartPosition++;
-                }
-                // Only return the inner value if the part is quoted
-                if (currentStartPosition < dn.length() && dn.charAt(currentStartPosition) == '"' && dn.charAt(endPosition) == '"') {
-                    currentStartPosition++;
-                    endPosition--;
-                }
-                String currentValue = dn.substring(currentStartPosition, endPosition + 1);
-                // Unescape value (except escaped #) since the nameBuilder will double each escape
-                currentValue = unescapeValue(new StringBuilder(currentValue)).toString();
-                try {
-                    // -- First search the OID by name in declared OID's
-                    ASN1ObjectIdentifier oid = DnComponents.getOid(currentPartName);
-                    // -- If isn't declared, we try to create it
-                    if (oid == null) {
-                        oid = new ASN1ObjectIdentifier(currentPartName);
-                    }
-                    nameBuilder.addRDN(oid, currentValue);
-                } catch (IllegalArgumentException e) {
-                    // If it is not an OID we will ignore it
-                    log.warn("Unknown DN component ignored and silently dropped: " + currentPartName);
-                }
-                // Reset markers
-                currentStartPosition = -1;
-                currentPartName = null;
-            }
-            if (escapeNext) {
-                // This character was escaped, so don't escape the next one
-                escapeNext = false;
-            } else {
-                if (!quoted && current == '\\') {
-                    // This escape character is not escaped itself, so the next one should be
-                    escapeNext = true;
+        // split DN string into RDNs, but if it is empty, don't try to split it
+        // this means an empty X500Name will be returned, as according to the javadoc
+        if (dn.length() > 0) {            
+            RDN[] rdns;
+            // Will throw an IllegalArgumentException if the DN is badly formatted
+            rdns = IETFUtils.rDNsFromString(dn, nameStyle);
+
+            for (RDN rdn: rdns) {
+                if (rdn.isMultiValued()) {
+                    AttributeTypeAndValue avas[] = rdn.getTypesAndValues();
+                    nameBuilder.addMultiValuedRDN(avas);
+                } else {
+                    AttributeTypeAndValue ava = rdn.getFirst();
+                    nameBuilder.addRDN(ava);
                 }
             }
+
+            // This was the old legacy way we did the IETFUtils.rDNsFromString manually before
+            // Keep it for reference at until EJBCA 7.2 or something, just to aid in potential support cases
+            //        boolean quoted = false;
+            //        boolean escapeNext = false;
+            //        int currentStartPosition = -1;
+            //        String currentPartName = null;
+            //        for (int i = 0; i < dn.length(); i++) {
+            //            final char current = dn.charAt(i);
+            //            // Toggle quoting for every non-escaped "-char
+            //            if (!escapeNext && current == '"') {
+            //                quoted = !quoted;
+            //            }
+            //            // If there is an unescaped and unquoted =-char the proceeding chars is a part name
+            //            if (currentStartPosition == -1 && !quoted && !escapeNext && current == '=' && 1 <= i) {
+            //                // Trim spaces (e.g. "O =value")
+            //                int endIndexOfPartName = i;
+            //                while (endIndexOfPartName > 0 && dn.charAt(endIndexOfPartName - 1) == ' ') {
+            //                    endIndexOfPartName--;
+            //                }
+            //                int startIndexOfPartName = endIndexOfPartName - 1;
+            //                final String endOfPartNameSearchChars = ", +";
+            //                while (startIndexOfPartName > 0 && (endOfPartNameSearchChars.indexOf(dn.charAt(startIndexOfPartName - 1)) == -1)) {
+            //                    startIndexOfPartName--;
+            //                }
+            //                currentPartName = dn.substring(startIndexOfPartName, endIndexOfPartName);
+            //                currentStartPosition = i + 1;
+            //            }
+            //            // When we have found a start marker, we need to be on the lookout for the ending marker
+            //            if (currentStartPosition != -1 && ((!quoted && !escapeNext && (current == ',' || current == '+')) || i == dn.length() - 1)) {
+            //                int endPosition = (i == dn.length() - 1) ? dn.length() - 1 : i - 1;
+            //                // Remove white spaces from the end of the value
+            //                while (endPosition > currentStartPosition && dn.charAt(endPosition) == ' ') {
+            //                    endPosition--;
+            //                }
+            //                // Remove white spaces from the beginning of the value
+            //                while (endPosition > currentStartPosition && dn.charAt(currentStartPosition) == ' ') {
+            //                    currentStartPosition++;
+            //                }
+            //                // Only return the inner value if the part is quoted
+            //                if (currentStartPosition < dn.length() && dn.charAt(currentStartPosition) == '"' && dn.charAt(endPosition) == '"') {
+            //                    currentStartPosition++;
+            //                    endPosition--;
+            //                }
+            //                String currentValue = dn.substring(currentStartPosition, endPosition + 1);
+            //                // Unescape value (except escaped #) since the nameBuilder will double each escape
+            //                currentValue = unescapeValue(new StringBuilder(currentValue)).toString();
+            //                try {
+            //                    // -- First search the OID by name in declared OID's
+            //                    ASN1ObjectIdentifier oid = DnComponents.getOid(currentPartName);
+            //                    // -- If isn't declared, we try to create it
+            //                    if (oid == null) {
+            //                        oid = new ASN1ObjectIdentifier(currentPartName);
+            //                    }
+            //                    nameBuilder.addRDN(oid, currentValue);
+            //                } catch (IllegalArgumentException e) {
+            //                    // If it is not an OID we will ignore it
+            //                    log.warn("Unknown DN component ignored and silently dropped: " + currentPartName);
+            //                }
+            //                // Reset markers
+            //                currentStartPosition = -1;
+            //                currentPartName = null;
+            //            }
+            //            if (escapeNext) {
+            //                // This character was escaped, so don't escape the next one
+            //                escapeNext = false;
+            //            } else {
+            //                if (!quoted && current == '\\') {
+            //                    // This escape character is not escaped itself, so the next one should be
+            //                    escapeNext = true;
+            //                }
+            //            }
+            //        }
         }
+        
+        // finally builds X500 name 
         final X500Name x500Name = nameBuilder.build();
         if (log.isTraceEnabled()) {
             log.trace("<stringToUnorderedX500Name: x500Name=" + x500Name.toString());
         }
         return x500Name;
-    }
-
-    /** Removes any unescaped '\' character from the provided StringBuilder. Assumes that escaping quotes have been stripped. 
-     * Special treatment of the # sign, which if not escaped will be treated as hex encoded DER value by BC. */
-    private static StringBuilder unescapeValue(final StringBuilder sb) {
-        boolean esq = false;
-        int index = 0;
-        while (index < (sb.length()-1)) {
-            if (!esq && sb.charAt(index) == '\\' && sb.charAt(index+1) != '#') {
-                esq = true;
-                sb.deleteCharAt(index);
-            } else {
-                esq = false;
-                index++;
-            }
-        }
-        return sb;
     }
 
     // Remove extra '+' character escaping
@@ -478,34 +485,6 @@ public abstract class CertTools {
     }
 
     /**
-     * Check if the String contains any unescaped '+'. RFC 2253, section 2.2 states that '+' is used for multi-valued RelativeDistinguishedName.
-     * BC (version 1.45) did not support multi-valued RelativeDistinguishedName, and automatically escaped them instead.
-     * Even though it is now (BC 1.49b15) supported, we want to keep ecaping '+' chars and warn that this might not be supported in the future.
-     */
-    public static String handleUnescapedPlus(final String dn) {
-        if (dn == null) {
-            return dn;
-        }
-        final StringBuilder buf = new StringBuilder(dn);
-        int index = 0;
-        final int end = buf.length();
-        while (index < end) {
-            if (buf.charAt(index) == '+') {
-                // Found an unescaped '+' character.
-                log.warn("DN \"" + dn + "\" contains an unescaped '+'-character that will be automatically escaped. RFC 2253 reservs this "
-                        + "for multi-valued RelativeDistinguishedNames. Encourage clients to use '\\+' instead, since future behaviour might change.");
-                buf.insert(index, '\\');
-                index++;
-            } else if (buf.charAt(index) == '\\') {
-                // Found an escape character.
-                index++;
-            }
-            index++;
-        }
-        return buf.toString();
-    }
-
-    /**
      * Every DN-string should look the same. Creates a name string ordered and looking like we want it...
      * 
      * @param dn String containing DN
@@ -514,7 +493,7 @@ public abstract class CertTools {
      */
     public static String stringToBCDNString(String dn) {
         // BC now seem to handle multi-valued RDNs, but we keep escaping this for now to keep the behavior until support is required
-        dn = handleUnescapedPlus(dn); // Log warning if dn contains unescaped '+'
+        //dn = handleUnescapedPlus(dn); // Log warning if dn contains unescaped '+'
         if (isDNReversed(dn)) {
             dn = reverseDN(dn);
         }
@@ -1680,23 +1659,22 @@ public abstract class CertTools {
 
     /**
      * Checks if a certificate is valid.
-     * Does also print a DEBUG if the certificate is about to expire.
+     * @param warnIfAboutToExpire Also print a WARN log message if the certificate is about to expire. If false, it is still printed at DEBUG level. 
      * 
      * @param signerCert the certificate to be tested
      * @return true if the certificate is valid
      */
-    public static boolean isCertificateValid(final X509Certificate signerCert) {
+    public static boolean isCertificateValid(final X509Certificate certificate, final boolean warnIfAboutToExpire) {
         try {
-            signerCert.checkValidity();
+            certificate.checkValidity();
         } catch (CertificateExpiredException e) {
             if (log.isDebugEnabled()) {
-                log.debug(intres.getLocalizedMessage("ocsp.errorcerthasexpired", signerCert.getSerialNumber().toString(16), signerCert.getIssuerDN()));
+                log.debug(intres.getLocalizedMessage("certificate.errorcerthasexpired", certificate.getSerialNumber().toString(16), certificate.getIssuerDN()));
             }
             return false;
         } catch (CertificateNotYetValidException e) {
             if (log.isDebugEnabled()) {
-
-                log.debug(intres.getLocalizedMessage("ocsp.errornotyetvalid", signerCert.getSerialNumber().toString(16), signerCert.getIssuerDN()));
+                log.debug(intres.getLocalizedMessage("certificate.errornotyetvalid", certificate.getSerialNumber().toString(16), certificate.getIssuerDN()));
             }
             return false;
         }
@@ -1706,18 +1684,19 @@ public abstract class CertTools {
         }
         final Date warnDate = new Date(new Date().getTime() + warnBeforeExpirationTime);
         try {
-            signerCert.checkValidity(warnDate);
+            certificate.checkValidity(warnDate);
         } catch (CertificateExpiredException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(intres.getLocalizedMessage("ocsp.warncertwillexpire", signerCert.getSerialNumber().toString(16), signerCert.getIssuerDN(),
-                        signerCert.getNotAfter()));
+            if (warnIfAboutToExpire || log.isDebugEnabled()) {
+                final Level logLevel = warnIfAboutToExpire ? Level.WARN : Level.DEBUG;
+                log.log(logLevel, intres.getLocalizedMessage("certificate.warncertwillexpire", certificate.getSerialNumber().toString(16), certificate.getIssuerDN(),
+                        certificate.getNotAfter()));
             }
         } catch (CertificateNotYetValidException e) {
             throw new IllegalStateException("This should never happen.", e);
         }
         if (log.isDebugEnabled()) {
             log.debug("Time for \"certificate will soon expire\" not yet reached. You will be warned after: "
-                    + new Date(signerCert.getNotAfter().getTime() - warnBeforeExpirationTime));
+                    + new Date(certificate.getNotAfter().getTime() - warnBeforeExpirationTime));
         }
         return true;
     }
@@ -3898,6 +3877,39 @@ public abstract class CertTools {
     }
 
     /**
+     * EJBCA accepts extension OIDs on different formats, e.g. "1.2.3.4" and "1.2.3.4.value".
+     * Method returns the OID only given any OID string
+     * @param oidString to parse
+     * @return String containing OID only or null if no OID was found in the input string
+     */
+    public static String getOidFromString(final String oidString) {
+        String retval = oidString;
+        // Matches anything but numerical and dots
+        final Pattern pattern = Pattern.compile("[^0-9.]");
+        final Matcher matcher = pattern.matcher(oidString);
+        if (matcher.find()) {
+            int endIndex = matcher.start();
+            if (endIndex == 0) {
+                return null;
+            }
+            retval = oidString.substring(0, endIndex-1);
+        }
+        return retval;
+    }
+    
+    /**
+     * Returns the regex match pattern given an OID wildcard.
+     * @param oidWildcard wildcard. E.g. 1.2.*.3
+     * @return regex match pattern
+     */
+    public static String getOidWildcardPattern(final String oidWildcard) {
+        // First escape all '.' which are interpreted as regex wildcards themselves.
+        // Secondly, generate the pattern where '*' is the wildcard character
+        final String wildcardMatchPattern = oidWildcard.replaceAll("\\.", "\\\\.").replaceAll("\\*", "([0-9.]*)");
+        return wildcardMatchPattern;
+    }
+    
+    /**
      * Obtain a X500Name reordered, if some fields from original X500Name doesn't appear in "ordering" parameter, they will be added at end in the
      * original order.
      * 
@@ -3909,13 +3921,7 @@ public abstract class CertTools {
      * @param nameStyle Controls how the name is encoded. Usually it should be a CeSecoreNameStyle.
      * @return X500Name with ordered conmponents according to the orcering vector
      */
-    private static X500Name getOrderedX500Name(final X500Name x500Name, boolean ldaporder, String[] order, final boolean applyLdapToCustomOrder, final X500NameStyle nameStyle) {
-        // -- New order for the X509 Fields
-        final List<ASN1ObjectIdentifier> newOrdering = new ArrayList<ASN1ObjectIdentifier>();
-        final List<ASN1Encodable> newValues = new ArrayList<ASN1Encodable>();
-        // -- Add ordered fields
-        final ASN1ObjectIdentifier[] allOids = x500Name.getAttributeTypes();
-        
+    private static X500Name getOrderedX500Name(final X500Name x500Name, boolean ldaporder, String[] order, final boolean applyLdapToCustomOrder, final X500NameStyle nameStyle) {        
         // Guess order of the input name
         final boolean isLdapOrder = !isDNReversed(x500Name.toString());
         // If we think the DN is in LDAP order, first order it as a LDAP DN, if we don't think it's LDAP order
@@ -3929,27 +3935,37 @@ public abstract class CertTools {
             ordering = getX509FieldOrder(isLdapOrder);
         }
         
-        final HashSet<ASN1ObjectIdentifier> hs = new HashSet<ASN1ObjectIdentifier>(allOids.length + ordering.size());
+        // -- New order for the X509 Fields
+        final List<ASN1ObjectIdentifier> newOrdering = new ArrayList<ASN1ObjectIdentifier>();
+        final List<RDN> newValues = new ArrayList<RDN>();
+        // -- Add ordered fields
+        final RDN[] allRdns= x500Name.getRDNs();
+
+        final HashSet<ASN1ObjectIdentifier> hs = new HashSet<ASN1ObjectIdentifier>(allRdns.length + ordering.size());
         for (final ASN1ObjectIdentifier oid : ordering) {
             if (!hs.contains(oid)) {
                 hs.add(oid);
-                final RDN[] valueList = x500Name.getRDNs(oid);
+                // We can't use x500Name.getRDNs(oid) because it will also hunt inside multi valued RNDs
+                //final RDN[] valueList = x500Name.getRDNs(oid);
                 // -- Only add the OID if has not null value
-                for (final RDN value : valueList) {
-                    newOrdering.add(oid);
-                    newValues.add(value.getFirst().getValue());
+                for (final RDN value : allRdns) {
+                    if (oid.equals(value.getFirst().getType())) {
+                        newOrdering.add(oid);
+                        newValues.add(value);
+                    }
                 }
             }
         }
         // -- Add unexpected fields to the end
-        for (final ASN1ObjectIdentifier oid : allOids) {
+        for (final RDN rdn : allRdns) {
+            final ASN1ObjectIdentifier oid = rdn.getFirst().getType();
             if (!hs.contains(oid)) {
                 hs.add(oid);
                 final RDN[] valueList = x500Name.getRDNs(oid);
                 // -- Only add the OID if has not null value
                 for (final RDN value : valueList) {
                     newOrdering.add(oid);
-                    newValues.add(value.getFirst().getValue());
+                    newValues.add(value);
                     if (log.isDebugEnabled()) {
                         log.debug("added --> " + oid + " val: " + value);
                     }
@@ -3971,7 +3987,16 @@ public abstract class CertTools {
 
         X500NameBuilder nameBuilder = new X500NameBuilder(nameStyle);
         for (int i = 0; i < newOrdering.size(); i++) {
-            nameBuilder.addRDN(newOrdering.get(i), newValues.get(i));
+            RDN rdn = newValues.get(i);
+            if (rdn.isMultiValued()) {
+                AttributeTypeAndValue avas[] = rdn.getTypesAndValues();
+                if (log.isDebugEnabled()) {
+                    log.debug("Multi-value RDN with "+avas.length+" number of values in it.");
+                }
+                nameBuilder.addMultiValuedRDN(avas);
+            } else {
+                nameBuilder.addRDN(newOrdering.get(i), rdn.getFirst().getValue());
+            }
         }
         // -- Return X500Name with the ordered fields
         return nameBuilder.build();

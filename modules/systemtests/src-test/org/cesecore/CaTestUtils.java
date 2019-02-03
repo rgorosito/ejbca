@@ -29,6 +29,8 @@ import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
@@ -70,6 +72,8 @@ import org.ejbca.cvc.exception.ConstructionException;
  *
  */
 public abstract class CaTestUtils {
+    
+    private static final Logger log = Logger.getLogger(CaTestUtils.class);
 
     /**
      * Creates and stores a simple X509 Root CA
@@ -79,7 +83,7 @@ public abstract class CaTestUtils {
      * @param caName Name of new CA
      * @param cadn Subject DN of new CA
      */
-    public static CA createX509Ca(final AuthenticationToken authenticationToken, final String cryptoTokenName, final String caName, final String cadn)
+    public static X509CA createX509Ca(final AuthenticationToken authenticationToken, final String cryptoTokenName, final String caName, final String cadn)
             throws CryptoTokenOfflineException, CryptoTokenAuthenticationFailedException, CryptoTokenNameInUseException,
             AuthorizationDeniedException, InvalidKeyException, InvalidAlgorithmParameterException, CertificateException, InvalidAlgorithmException,
             IllegalStateException, OperatorCreationException, CAExistsException {
@@ -88,13 +92,13 @@ public abstract class CaTestUtils {
                 .getRemoteSession(CryptoTokenManagementProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
         final int cryptoTokenId = initCryptoTokenId(cryptoTokenManagementProxySession, authenticationToken, cryptoTokenName);
         final CryptoToken cryptoToken = cryptoTokenManagementProxySession.getCryptoToken(cryptoTokenId);
-        final CA x509Ca = createX509Ca(cryptoToken, caName, cadn);
+        final X509CA x509Ca = createX509Ca(cryptoToken, caName, cadn);
         caSession.addCA(authenticationToken, x509Ca);
         // Now our CA should be operational
         return x509Ca;
     }
 
-    private static CA createX509Ca(final CryptoToken cryptoToken, String caName, String cadn) throws CertificateException,
+    private static X509CA createX509Ca(final CryptoToken cryptoToken, String caName, String cadn) throws CertificateException,
             CryptoTokenOfflineException, InvalidAlgorithmException, IllegalStateException, OperatorCreationException {
         CAToken catoken = createCaToken(cryptoToken.getId(), AlgorithmConstants.SIGALG_SHA256_WITH_RSA, AlgorithmConstants.SIGALG_SHA256_WITH_RSA);
         // No extended services
@@ -417,6 +421,54 @@ public abstract class CaTestUtils {
             cryptoTokenManagementSession.createKeyPair(authenticationToken, cryptoTokenId, CAToken.SOFTPRIVATEDECKEYALIAS, "1024");
         }
         return cryptoTokenId;
+    }
+
+    /**
+     * Returns the CA that was used to issue the server TLS certificate.
+     * By default, this method looks for "ManagementCA" and "AdminCA1", but this may
+     * be overridden in systemtests.properties using 'target.servercert.ca'.
+     * <p>
+     * This CA can be an external CA, so don't assume you can issue certificates from it!
+     */
+    public static CAInfo getServerCertCaInfo(final AuthenticationToken authenticationToken) {
+        return getCaInfo(authenticationToken, SystemTestsConfiguration.getServerCertificateCaNames());
+    }
+
+    /**
+     * Returns a CA that is trusted by the application server.
+     * By default, this method looks for "ManagementCA" and "AdminCA1", but this may
+     * be overridden in systemtests.properties using 'target.clientcert.ca'.
+     * <p>
+     * This CA should be an active CA, that we can issue certificates from.
+     */
+    public static CAInfo getClientCertCaInfo(final AuthenticationToken authenticationToken) {
+        final CAInfo caInfo = getCaInfo(authenticationToken, SystemTestsConfiguration.getClientCertificateCaNames());
+        if (caInfo.getStatus() != CAConstants.CA_ACTIVE) {
+            log.warn("CA for issuing client certificates is not active. Please check the following CAs or change '" + SystemTestsConfiguration.TARGET_CLIENTCERT_CA +
+                    "': '" + StringUtils.join(SystemTestsConfiguration.getClientCertificateCaNames(), "', '") + "'");
+        }
+        return caInfo;
+    }
+
+    /**
+     * Returns the first available CA in the list.
+     * @throws IllegalStateException if none exist or if access was denied.
+     */
+    private static CAInfo getCaInfo(final AuthenticationToken authenticationToken, final String[] cas) {
+        final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
+        for (final String ca : cas) {
+            try {
+                final CAInfo caInfo = caSession.getCAInfo(authenticationToken, ca);
+                if (caInfo != null) {
+                    return caInfo;
+                }
+            } catch (AuthorizationDeniedException e) {
+                throw new IllegalStateException("Unable to access CA '" + ca + "': "+ e.getMessage(), e);
+            }
+        }
+        throw new IllegalStateException("Cannot find the required CA. Looked for: '" + StringUtils.join(cas, "', '") +
+                "'. Use '" + SystemTestsConfiguration.TARGET_SERVERCERT_CA + "' and '" + SystemTestsConfiguration.TARGET_CLIENTCERT_CA +
+                "' in systemtests.properties to override.");
     }
 
 }

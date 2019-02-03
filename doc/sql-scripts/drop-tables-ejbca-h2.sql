@@ -34,3 +34,8 @@ drop table ServiceData if exists;
 drop table UserData if exists;
 drop table UserDataSourceData if exists;
 drop table NoConflictCertificateData if exists;
+drop table AcmeAuthorizationData if exists;
+drop table AcmeChallengeData if exists;
+drop table AcmeNonceData if exists;
+drop table AcmeAccountData if exists;
+drop table AcmeOrderData if exists;

@@ -27,17 +27,13 @@
         <H2><c:out value='<%= ejbcawebbean.getText(\"AUTHORIZATIONDENIED\") %>' /></H2>
         <H4><c:out value='<%= ejbcawebbean.getText(\"CAUSE\") + \" : \" + exception.getMessage() %>' /></H4><%
         response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader("X-FRAME-OPTIONS", "SAMEORIGIN" );
-        response.addHeader("content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
-        response.addHeader("x-content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
+        response.addHeader("X-FRAME-OPTIONS", "DENY" );
     } else if (exception instanceof CryptoTokenOfflineException) {
         // Print CryptoTokenOfflineException. %>
         <H2><c:out value='<%= ejbcawebbean.getText(\"CATOKENISOFFLINE\") %>' /></H2>
         <H4><c:out value='<%= ejbcawebbean.getText(\"CAUSE\") + \" : \" + exception.getMessage() %>' /></H4><%
         response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader("X-FRAME-OPTIONS", "SAMEORIGIN" );
-        response.addHeader("content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
-        response.addHeader("x-content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
+        response.addHeader("X-FRAME-OPTIONS", "DENY" );
     } else if (exception instanceof ParameterException) { %>
         <h2><c:out value="<%= exception.getLocalizedMessage() %>" /></h2><%
             response.setStatus(HttpServletResponse.SC_OK);
@@ -47,9 +43,7 @@
         <H4><c:out value="<%= exception.getLocalizedMessage() %>" /></H4><%
         org.apache.log4j.Logger.getLogger("errorpage.jsp").info(exception.getMessage());
         response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader("X-FRAME-OPTIONS", "SAMEORIGIN" );
-        response.addHeader("content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
-        response.addHeader("x-content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
+        response.addHeader("X-FRAME-OPTIONS", "DENY" );
     } else {
         // Other exception occurred, print exception and stack trace.%>
         <H2><c:out value='<%= WebConfiguration.notification(ejbcawebbean.getText(\"EXCEPTIONOCCURED\")) %>' /></H2>
@@ -63,9 +57,7 @@
         }
         org.apache.log4j.Logger.getLogger("errorpage.jsp").error(exception.getMessage(), exception); // Prints in server.log
         response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader("X-FRAME-OPTIONS", "SAMEORIGIN" );
-        response.addHeader("content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
-        response.addHeader("x-content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; frame-src 'self'; reflected-xss block" );
+        response.addHeader("X-FRAME-OPTIONS", "DENY" );
     }
 %>
 </body>

@@ -25,6 +25,9 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ManagedProperty;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
 import javax.faces.event.ValueChangeEvent;
 import javax.faces.model.ListDataModel;
@@ -44,6 +47,8 @@ import org.ejbca.ui.web.admin.BaseManagedBean;
  * @version $Id$
  *
  */
+@ManagedBean
+@SessionScoped
 public class CustomCertExtensionMBean extends BaseManagedBean implements Serializable {
     
     private static final long serialVersionUID = 1L;
@@ -57,6 +62,7 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
         private String oid;
         private String displayName;
         private boolean critical;
+        private boolean required;
         private Map<String, CustomExtensionPropertyGUIInfo> extensionProperties;
         private CustomCertificateExtension extension;
 
@@ -65,7 +71,8 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
             this.id = extension.getId();
             this.oid = extension.getOID();
             this.displayName = getEjbcaWebBean().getText(extension.getDisplayName());
-            this.critical = extension.isCriticalFlag();      
+            this.critical = extension.isCriticalFlag();
+            this.required = extension.isRequiredFlag();
             setExtension(extension);
         }
         
@@ -80,6 +87,9 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
         
         public boolean isCritical() { return this.critical; }
         public void setCritical(boolean critical) { this.critical=critical; }
+        
+        public boolean isRequired() { return this.required; }
+        public void setRequired(final boolean required) { this.required=required; }
         
         public void setProperty(final String key, String value) throws InvalidCustomExtensionPropertyException {
             CustomExtensionPropertyGUIInfo property  = extensionProperties.get(key);
@@ -196,8 +206,7 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
         
     private final AuthorizationSessionLocal authorizationSession = getEjbcaWebBean().getEjb().getAuthorizationSession();
     
-    // Declarations in faces-config.xml
-    //@javax.faces.bean.ManagedProperty(value="#{systemConfigMBean}")
+    @ManagedProperty(value="#{systemConfigMBean}")
     private SystemConfigMBean systemConfigMBean;
     
     private AvailableCustomCertificateExtensionsConfiguration availableExtensionsConfig = null;
@@ -290,7 +299,8 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
         
         AvailableCustomCertificateExtensionsConfiguration cceConfig = getAvailableExtensionsConfig();
         try {
-            cceConfig.addCustomCertExtension(currentExtensionGUIInfo.getId(), currentExtensionGUIInfo.getOid(), currentExtensionGUIInfo.getDisplayName(), currentExtensionGUIInfo.getClassPath(), currentExtensionGUIInfo.isCritical(), properties);
+            cceConfig.addCustomCertExtension(currentExtensionGUIInfo.getId(), currentExtensionGUIInfo.getOid(), currentExtensionGUIInfo.getDisplayName(), 
+                    currentExtensionGUIInfo.getClassPath(), currentExtensionGUIInfo.isCritical(), currentExtensionGUIInfo.isRequired(), properties);
             getEjbcaWebBean().saveAvailableCustomCertExtensionsConfiguration(cceConfig);
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Extension was saved successfully.", null));
         } catch(Exception e) {
@@ -304,10 +314,8 @@ public class CustomCertExtensionMBean extends BaseManagedBean implements Seriali
     //              Current Extension Properties
     // ------------------------------------------------------------    
     public ListDataModel<CustomExtensionPropertyGUIInfo> getCurrentExtensionPropertiesList() {
-        if (currentExtensionProperties == null) {
-            currentExtensionProperties = new ListDataModel<>(new ArrayList<>(getCurrentExtensionGUIInfo()
-                    .getExtensionProperties().values()));
-        }
+        currentExtensionProperties = new ListDataModel<>(new ArrayList<>(getCurrentExtensionGUIInfo()
+                .getExtensionProperties().values()));
         return currentExtensionProperties;
     }
        

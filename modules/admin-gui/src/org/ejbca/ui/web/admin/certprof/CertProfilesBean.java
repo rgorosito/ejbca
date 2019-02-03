@@ -18,7 +18,6 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -30,7 +29,9 @@ import java.util.zip.ZipInputStream;
 
 import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
 import javax.faces.model.ListDataModel;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -43,8 +44,10 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileDoesNotExistException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.util.FileTools;
 import org.cesecore.util.SecureXMLDecoder;
 import org.cesecore.util.StringTools;
+import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ca.publisher.BasePublisher;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 
@@ -104,6 +107,15 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
     private ListDataModel<CertificateProfileItem> certificateProfileItems = null;
 
 
+    // Authentication check and audit log page access request
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.CERTIFICATEPROFILEVIEW.resource());
+        }
+    }
+    
     public Integer getSelectedCertProfileId() {
         return selectedCertProfileId;
     }
@@ -232,15 +244,19 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         if (certProfileName.endsWith(LEGACY_FIXED_MARKER)) {
             addErrorMessage("YOUCANTEDITFIXEDCERTPROFS");
         } else if (certProfileName.length() > 0) {
-            try {
-                final CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
-                certificateProfile.setAvailableCAs(getEjbcaWebBean().getAuthorizedCAIds());
-                getEjbcaWebBean().getEjb().getCertificateProfileSession().addCertificateProfile(getAdmin(), certProfileName, certificateProfile);
-                setCertProfileName("");
-            } catch (CertificateProfileExistsException e) {
-                addErrorMessage("CERTIFICATEPROFILEALREADY");
-            } catch (AuthorizationDeniedException e) {
-                addNonTranslatedErrorMessage(e.getMessage());
+            if (!StringTools.checkFieldForLegalChars(certProfileName)) {
+                addErrorMessage("ONLYCHARACTERS");
+            } else {
+                try {
+                    final CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+                    certificateProfile.setAvailableCAs(getEjbcaWebBean().getAuthorizedCAIds());
+                    getEjbcaWebBean().getEjb().getCertificateProfileSession().addCertificateProfile(getAdmin(), certProfileName, certificateProfile);
+                    setCertProfileName("");
+                } catch (CertificateProfileExistsException e) {
+                    addErrorMessage("CERTIFICATEPROFILEALREADY");
+                } catch (AuthorizationDeniedException e) {
+                    addNonTranslatedErrorMessage(e.getMessage());
+                }
             }
         }
         certificateProfileItems = null;
@@ -262,6 +278,10 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         if (certProfileName.endsWith(LEGACY_FIXED_MARKER)) {
             addErrorMessage("YOUCANTEDITFIXEDCERTPROFS");
         } else if (certProfileName.length() > 0) {
+            if (!StringTools.checkFieldForLegalChars(certProfileName)) {
+                addErrorMessage("ONLYCHARACTERS");
+                return;
+            }
             try {
                 final List<Integer> authorizedCaIds;
                 if (isCertProfileFixed(getSelectedCertProfileId()) && !isAuthorizedTo(StandardRules.ROLE_ROOT.resource())) {
@@ -327,6 +347,10 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         if (certProfileName.endsWith(LEGACY_FIXED_MARKER)) {
             addErrorMessage("YOUCANTEDITFIXEDCERTPROFS");
         } else if (certProfileName.length() > 0) {
+            if (!StringTools.checkFieldForLegalChars(certProfileName)) {
+                addErrorMessage("ONLYCHARACTERS");
+                return;
+            }
             try {
                 getEjbcaWebBean().getEjb().getCertificateProfileSession()
                         .renameCertificateProfile(getAdmin(), getSelectedCertProfileName(), certProfileName);
@@ -430,12 +454,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
     }
 
     public void setCertProfileName(String certProfileName) {
-        certProfileName = certProfileName.trim();
-        if (StringTools.checkFieldForLegalChars(certProfileName)) {
-            addErrorMessage("ONLYCHARACTERS");
-        } else {
-            this.certProfileName = certProfileName;
-        }
+        this.certProfileName = certProfileName.trim();
     }
 
     //----------------------------------------------
@@ -487,7 +506,7 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         ZipEntry ze = zis.getNextEntry();
         if (ze == null) {
             // Print import message if the file header corresponds to an empty zip archive
-            if (Arrays.equals(Arrays.copyOfRange(filebuffer, 0, 4), new byte[] { 80, 75, 5, 6 })) {
+            if (FileTools.isEmptyZipFile(filebuffer)) {
                 printImportMessage(nrOfFiles, importedFiles, ignoredFiles);
             } else {
                 String msg = uploadFile.getName() + " is not a zip file.";

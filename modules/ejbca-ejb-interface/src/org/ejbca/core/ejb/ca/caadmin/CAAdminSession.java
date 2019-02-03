@@ -25,13 +25,14 @@ import javax.ejb.EJBException;
 
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.CesecoreException;
+import org.cesecore.audit.enums.EventType;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAExistsException;
 import org.cesecore.certificates.ca.CAInfo;
-import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.CANameChangeRenewalException;
+import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.InvalidAlgorithmException;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceNotActiveException;
@@ -446,9 +447,7 @@ public interface CAAdminSession {
      *             it the administrator isn't authorized to activate the CA.
      * @throws ApprovalException
      *             if an approval already is waiting for specified action
-     * @throws WaitingForApprovalException
-     *             if approval is required and the action have been added in the
-     *             approval queue.
+     * @throws WaitingForApprovalException  if approval is required and the action have been added in the  approval queue. The request ID will be included as a field in this exception. 
      */
     void activateCAService(AuthenticationToken admin, int caid) throws AuthorizationDeniedException, ApprovalException,
             WaitingForApprovalException, CADoesntExistsException;
@@ -583,6 +582,18 @@ public interface CAAdminSession {
      * @return a Set of IDs of authorized publishers. 
      */
     Set<Integer> getAuthorizedPublisherIds(AuthenticationToken admin);
+
+    /**
+     * This method returns a set containing IDs of authorized publishers, except publishers of excluded types. This set will be the sum of the following:
+     *
+     * * Unassigned publishers
+     * * Publishers assigned to CAs that the admin has access to
+     * * Publishers assigned to Certificate Profiles that the admin has access to
+     * * Publishers assigned to Peers (if Enterprise mode) that the admin has access to
+     *
+     * @return a Set of IDs of authorized publishers.
+     */
+    Set<Integer> getAuthorizedPublisherIds(AuthenticationToken admin, List<Integer> excludedTypes);
     
     /**
      * Method used to create a new CA.
@@ -632,7 +643,7 @@ public interface CAAdminSession {
     void flushCACache();
 
     /** @return the latest link certificate (if any) */
-    byte[] getLatestLinkCertificate(int caId) throws CADoesntExistsException;
+    byte[] getLatestLinkCertificate(int caId);
 
     /**
      * Updates all references to the given CAId/SubjectDN in the database.
@@ -644,4 +655,25 @@ public interface CAAdminSession {
      * @param toDN Subject DN to change to.
      */
     void updateCAIds(AuthenticationToken authenticationToken, int fromId, int toId, String toDN) throws AuthorizationDeniedException;
+    
+    /**
+     * Writes a custom audit log into the database.
+     *
+     * Authorization requirements: <pre>
+     * - /administrator
+     * - /secureaudit/log_custom_events (must be configured in advanced mode when editing access rules)
+     * </pre>
+     *
+     * @param authenticationToken the authentication token.
+     * @param type a user defined string used as a prefix in the log comment.
+     * @param caName the name of the CA related to the event or null for the administrators CA to be used.
+     * @param username the name of the related user or null if no related user exists.
+     * @param certificateSn the certificates SN related to the log event or null if no certificate is related to this log event.
+     * @param msg the message data used in the log comment. The log comment will have a syntax of 'type : msg'.
+     * @param event the event type (log level) of the log entry ({@link org.ejbca.core.ejb.audit.enums.EjbcaEventTypes}).
+     * @throws AuthorizationDeniedException if the administrators isn't authorized to log.
+     * @throws CADoesntExistsException if a referenced CA does not exist.
+     */
+    void customLog(AuthenticationToken authenticationToken, String type, String caName, String username, String certificateSn, String msg, EventType event) 
+            throws AuthorizationDeniedException, CADoesntExistsException;
 }

@@ -63,6 +63,7 @@ public final class StringTools {
 
     private static Pattern VALID_IPV4_PATTERN = null;
     private static Pattern VALID_IPV6_PATTERN = null;
+    private static Pattern windowsOrMacNewlines = Pattern.compile("\r\n?"); // Matches Windows \r\n and Mac \r
     private static final String ipv4Pattern = "(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])";
     private static final String ipv6Pattern = "([0-9a-f]{1,4}:){7}([0-9a-f]){1,4}";
 
@@ -202,6 +203,22 @@ public final class StringTools {
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < str.length(); i++) {
             if (!stripThis.contains(str.charAt(i))) {
+                sb.append(str.charAt(i));
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Removes control characters (characters 0-31) that should not be included in the server log.
+     */
+    public static String stripLog(final String str) {
+        if (str == null) {
+            return null;
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < str.length(); i++) {
+            if (str.charAt(i) >= 32) {
                 sb.append(str.charAt(i));
             }
         }
@@ -493,31 +510,41 @@ public final class StringTools {
     }
 
     /**
-     * Takes input and converts from Base64 if the string begins with B64:, i.e. is on format "B64:<base64 encoded string>".
+     * Takes a string given as input and converts it from Base64 if the string
+     * begins with the case-insensitive prefix b64, i.e. is on format "b64:<base64 encoded string>".
      *
-     * @param s String to Base64 decode
-     * @return Base64 decoded string, or original string if it was not base 64 encoded
+     * @param input String to Base64 decode
+     * @return Base64 decoded string, or original string if it was not base64 encoded
      */
-    public static String getBase64String(final String s) {
-        if (StringUtils.isEmpty(s)) {
-            return s;
+    public static String getBase64String(final String input) {
+        if (StringUtils.isEmpty(input)) {
+            return input;
         }
-        String s1 = null;
-        if (s.startsWith("B64:")) {
-            s1 = new String(s.substring(4));
-            String n = null;
-            try {
-                // Since we used getBytes(s, "UTF-8") in the method putBase64String, we must use UTF-8 when doing the reverse
-                n = new String(Base64.decode(s1.getBytes("UTF-8")), "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                n = s;
-            } catch (DecoderException e) {
-                // We get this if we try to decode something that is not base 64
-                n = s;
-            }
-            return n;
+        if (!input.toLowerCase().startsWith("b64:")) {
+            return input;
         }
-        return s;
+        final String base64Data = input.substring(4);
+        if (base64Data.length() == 0) {
+            return input;
+        }
+        try {
+            // Since we used getBytes(s, "UTF-8") in the method putBase64String, we must use UTF-8 when doing the reverse
+            return new String(Base64.decode(base64Data.getBytes("UTF-8")), "UTF-8");
+        } catch (UnsupportedEncodingException | DecoderException e) {
+            return input;
+        }
+    }
+
+    /**
+     * Converts hexadecimal string to BigInteger. Hex prefix (0x) is ignored
+     * @param hexString HEX value with or without '0x' prefix
+     * @return BigInteger value
+     */
+    public static BigInteger getBigIntegerFromHexString(String hexString) {
+        if (hexString.startsWith("0x") || hexString.startsWith("0X")) {
+            hexString = hexString.substring(2, hexString.length());
+        }
+        return new BigInteger(hexString, 16);
     }
 
     /**
@@ -692,9 +719,8 @@ public final class StringTools {
      * as long as the 'password.encryption.key' is set, otherwise, it won't provide any real encryption more than obfuscation.
      * @throws InvalidKeySpecException
      */
-    public static String pbeEncryptStringWithSha256Aes192(final String in) throws NoSuchAlgorithmException, NoSuchProviderException,
-            NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException,
-            InvalidKeySpecException {
+    public static String pbeEncryptStringWithSha256Aes192(final String in)
+            throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException {
         char[] p = ConfigurationHolder.getString("password.encryption.key").toCharArray();
         return pbeEncryptStringWithSha256Aes192(in, p);
     }
@@ -705,9 +731,8 @@ public final class StringTools {
      * @param p encryption passphrase
      * @return hex encoded encrypted data in form "encryption_version:salt:count:encrypted_data" or clear text string if no strong crypto is available (Oracle JVM without unlimited strength crypto policy files)
      */
-    public static String pbeEncryptStringWithSha256Aes192(final String in, char[] p) throws NoSuchAlgorithmException, NoSuchProviderException,
-    NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException,
-    InvalidKeySpecException {
+    public static String pbeEncryptStringWithSha256Aes192(final String in, char[] p)
+            throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException {
         CryptoProviderTools.installBCProviderIfNotAvailable();
         if (CryptoProviderTools.isUsingExportableCryptography()) {
             log.warn("Encryption not possible due to weak crypto policy.");
@@ -719,10 +744,17 @@ public final class StringTools {
         final PBEKeySpec keySpec = new PBEKeySpec(p, salt, count);
         final Cipher c;
         final String algorithm = "PBEWithSHA256And192BitAES-CBC-BC";
-        c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-        final SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-        c.init(Cipher.ENCRYPT_MODE, fact.generateSecret(keySpec));
-
+        try {
+            c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+            final SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+            c.init(Cipher.ENCRYPT_MODE, fact.generateSecret(keySpec));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Hard coded algorithm " + algorithm + " was not found.", e);
+        } catch(NoSuchProviderException e) {
+            throw new IllegalStateException("BouncyCastle provider was not installed.", e);
+        } catch (NoSuchPaddingException e) {
+            throw new IllegalStateException("Padding for hard coded algorithm " + algorithm + " was not found.", e);
+        }
         final byte[] enc = c.doFinal(in.getBytes(StandardCharsets.UTF_8));
         // Create a return value which is "encryption_version:salt:count:encrypted_data"
         StringBuilder ret = new StringBuilder(64);
@@ -740,13 +772,27 @@ public final class StringTools {
     }
 
     /**
+    *
+    * @param in hex encoded encrypted string in form "encryption_version:salt:count:encrypted_data", or just "encrypted_data" for older versions
+    * @return decrypted clear text string
+     * @throws InvalidKeySpecException 
+     * @throws BadPaddingException 
+     * @throws IllegalBlockSizeException 
+     * @throws InvalidKeyException 
+    */
+   public static String pbeDecryptStringWithSha256Aes192(final String in) throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException {
+       char[] p = ConfigurationHolder.getString("password.encryption.key").toCharArray();
+       return pbeDecryptStringWithSha256Aes192(in, p);
+   }
+    
+    /**
      *
      * @param in hex encoded encrypted string in form "encryption_version:salt:count:encrypted_data", or just "encrypted_data" for older versions
      * @param p decryption passphrase
      * @return decrypted clear text string
      */
     public static String pbeDecryptStringWithSha256Aes192(final String in, char[] p) throws IllegalBlockSizeException, BadPaddingException,
-            InvalidKeyException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException, NoSuchPaddingException {
+            InvalidKeyException, InvalidKeySpecException {
         CryptoProviderTools.installBCProviderIfNotAvailable();
         if (CryptoProviderTools.isUsingExportableCryptography()) {
             log.warn("Decryption not possible due to weak crypto policy.");
@@ -771,15 +817,29 @@ public final class StringTools {
         }
         // We can do different handling here depending on version, but currently we only have one so.
         final String algorithm = "PBEWithSHA256And192BitAES-CBC-BC";
-        final Cipher c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-        final PBEKeySpec keySpec = new PBEKeySpec(p, salt, count);
-        final SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+        try {
+            final Cipher c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+            final PBEKeySpec keySpec = new PBEKeySpec(p, salt, count);
+            final SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+            c.init(Cipher.DECRYPT_MODE, fact.generateSecret(keySpec));
+            final byte[] dec = c.doFinal(Hex.decode(data.getBytes(StandardCharsets.UTF_8)));
+            return new String(dec);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Hard coded algorithm " + algorithm + " was not found.", e);
+        } catch (NoSuchProviderException e) {
+            throw new IllegalStateException("BouncyCastle provider was not installed.", e);
+        } catch (NoSuchPaddingException e) {
+            throw new IllegalStateException("Padding for hard coded algorithm " + algorithm + " was not found.", e);
+        }
 
-        c.init(Cipher.DECRYPT_MODE, fact.generateSecret(keySpec));
-        final byte[] dec = c.doFinal(Hex.decode(data.getBytes(StandardCharsets.UTF_8)));
-        return new String(dec);
     }
 
+    /** Method to handle different versions of password encryption transparently
+     * 
+     * @param in The encrypted or clear text password to try to decrypt
+     * @param sDebug A message to put in the debug log indicating where the password came from, for example 'autoactivation pin', do NOT put the password itself here
+     * @return The decrypted password, or same as input if it was not encrypted
+     */
     public static String passwordDecryption(final String in, final String sDebug) {
         try {
             final String tmp = pbeDecryptStringWithSha256Aes192(in, ConfigurationHolder.getString("password.encryption.key").toCharArray());
@@ -1059,8 +1119,8 @@ public final class StringTools {
      * @return a list of Integer.
      */
     public static final List<Integer> idStringToListOfInteger(final String ids, final String listSeparator) {
-        final ArrayList<Integer> result = new ArrayList<Integer>();
-        if (ids != null) {
+        final ArrayList<Integer> result = new ArrayList<>();
+        if (StringUtils.isNotEmpty(ids)) {
             for (final String id : ids.split(listSeparator)) {
                 result.add(Integer.valueOf(id));
             }
@@ -1074,8 +1134,8 @@ public final class StringTools {
      * @return true if the string only contains legal characters.
      */
     public static boolean checkFieldForLegalChars(final String value) {
-        final String blackList = "/[^\\u0041-\\u005a\\u0061-\\u007a\\u00a1-\\ud7ff\\ue000-\\uffff_ 0-9@\\.\\*\\,\\-:\\/\\?\\'\\=\\(\\)\\|.]/g";
-        return Pattern.matches(blackList, value);
+        final String whiteList = "[\\u0041-\\u005a\\u0061-\\u007a\\u00a1-\\ud7ff\\ue000-\\uffff_ 0-9@\\.\\*\\,\\-:\\/\\?\\'\\=\\(\\)\\|.]+";
+        return Pattern.matches(whiteList, value);
     }
 
     /** @return false of if the string contains any characters that are neither a letter (unicode) or an asciiPrintable character */
@@ -1150,5 +1210,22 @@ public final class StringTools {
         return false;
     }
 
+    /**
+     * Changes Windows (\r\n) and Mac (\r) line endings into \n line endings.
+     * @param s Input string. May be null
+     * @return Output string, or null if input string was null
+     */
+    public static String normalizeNewlines(final String s) {
+        return s != null ? windowsOrMacNewlines.matcher(s).replaceAll("\n") : null;
+    }
+    
+    /**
+     * Splits a string by newlines (may be \n, \r\n or \r).
+     * @param s Input string. May <b>not</b> be null.
+     * @return Array of lines, never null. May be an empty list and may contains empty strings.
+     */
+    public static String[] splitByNewlines(final String s) {
+        return normalizeNewlines(s).split("\n");
+    }
 
 }

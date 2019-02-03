@@ -137,7 +137,9 @@ public class X509CATest {
 	@Test
 	public void testX509CABasicOperationsRSA() throws Exception {
 	    doTestX509CABasicOperations(AlgorithmConstants.SIGALG_SHA256_WITH_RSA);
+        doTestX509CABasicOperations(AlgorithmConstants.SIGALG_SHA512_WITH_RSA);
         doTestX509CABasicOperations(AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1);
+        doTestX509CABasicOperations(AlgorithmConstants.SIGALG_SHA512_WITH_RSA_AND_MGF1);
         // AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1 uses small w in With. Test with capital as well
         // because this was used previously so need to be supported for upgraded systems.
         doTestX509CABasicOperations("SHA256WithRSAandMGF1");
@@ -258,7 +260,7 @@ public class X509CATest {
         assertEquals(X509KeyUsage.digitalSignature|X509KeyUsage.nonRepudiation|X509KeyUsage.keyEncipherment, bcku);
 
         // Create a CRL
-        Collection<RevokedCertInfo> revcerts = new ArrayList<RevokedCertInfo>();
+        Collection<RevokedCertInfo> revcerts = new ArrayList<>();
         X509CRLHolder crl = x509ca.generateCRL(cryptoToken, revcerts, 1);
         assertNotNull(crl);
         X509CRL xcrl = CertTools.getCRLfromByteArray(crl.getEncoded());
@@ -911,7 +913,7 @@ public class X509CATest {
         props1.put("encoding", "DERIA5STRING");
         props1.put("dynamin", "false");
         props1.put("value", "Hello World");
-        cceConfig.addCustomCertExtension(1, "2.16.840.1.113730.1.13", "NetscapeComment", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, props1);
+        cceConfig.addCustomCertExtension(1, "2.16.840.1.113730.1.13", "NetscapeComment", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, true, props1);
 
         // one RAW with proper DER encoding
         Properties props2 = new Properties();
@@ -919,7 +921,7 @@ public class X509CATest {
         props2.put("encoding", "RAW");
         props2.put("dynamin", "false");
         props2.put("value", "301a300c060a2b060104018237140202300a06082b06010505070302");
-        cceConfig.addCustomCertExtension(2, "1.2.3.4", "RawProper", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, props2);
+        cceConfig.addCustomCertExtension(2, "1.2.3.4", "RawProper", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, true, props2);
 
         // one RAW with no DER encoding (actually invalid according to RFC5280)
         Properties props3 = new Properties();
@@ -927,7 +929,7 @@ public class X509CATest {
         props3.put("encoding", "RAW");
         props3.put("dynamin", "false");
         props3.put("value", "aabbccddeeff00");
-        cceConfig.addCustomCertExtension(3, "1.2.3.5", "RawNoDer", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, props3);
+        cceConfig.addCustomCertExtension(3, "1.2.3.5", "RawNoDer", "org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension", false, true, props3);
 
         assertEquals(cceConfig.getCustomCertificateExtension(1).getOID(), "2.16.840.1.113730.1.13");
         assertEquals(cceConfig.getCustomCertificateExtension(2).getOID(), "1.2.3.4");
@@ -1352,7 +1354,10 @@ public class X509CATest {
         if (algName.equals(AlgorithmConstants.SIGALG_GOST3411_WITH_ECGOST3410) ||
             algName.equals(AlgorithmConstants.SIGALG_GOST3411_WITH_DSTU4145) ||
             algName.equals(AlgorithmConstants.SIGALG_SHA224_WITH_ECDSA) ||
-            algName.equalsIgnoreCase(AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1)) {
+            algName.equals(AlgorithmConstants.SIGALG_SHA256_WITH_RSA) ||
+            algName.equals(AlgorithmConstants.SIGALG_SHA512_WITH_RSA) ||
+            algName.equalsIgnoreCase(AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1) ||
+            algName.equalsIgnoreCase(AlgorithmConstants.SIGALG_SHA512_WITH_RSA_AND_MGF1)) {
             return algName;
         } else {
             return "SHA256withRSA";
@@ -1367,6 +1372,8 @@ public class X509CATest {
         } else if (algName.equals(AlgorithmConstants.SIGALG_SHA224_WITH_ECDSA)) {
             return "brainpoolp224r1";
         } else if (algName.equalsIgnoreCase(AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1)) {
+            return "2048"; // RSA-PSS required at least 2014 bits
+        } else if (algName.equalsIgnoreCase(AlgorithmConstants.SIGALG_SHA512_WITH_RSA_AND_MGF1)) {
             return "2048"; // RSA-PSS required at least 2014 bits
         } else {
             return "1024"; // Assume RSA

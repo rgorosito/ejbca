@@ -31,6 +31,7 @@ import javax.persistence.SqlResultSetMappings;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.dbprotection.ProtectionStringBuilder;
@@ -88,6 +89,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
     private Integer endEntityProfileId = null;  // @since EJBCA 6.6.0
     private long updateTime = 0;
     private String subjectKeyId;
+    private String certificateRequest;  // @since EJBCA 7.0.0
     private int rowVersion = 0;
     private String rowProtection;
 
@@ -197,6 +199,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
         setTag(copy.getTag());
         setRowVersion(copy.getRowVersion());
         setRowProtection(copy.getRowProtection());
+        setCertificateRequest(copy.getCertificateRequest());
     }
 
     public CertificateData() {
@@ -483,8 +486,36 @@ public class CertificateData extends BaseCertificateData implements Serializable
         return endEntityProfileId;
     }
     
+    @Override
+    public String getCertificateRequest() {
+        return this.getZzzCertificateRequest();
+    }
+    
+    @Override
+    public void setCertificateRequest(String certificateRequest) {
+        this.setZzzCertificateRequest(certificateRequest);
+    }
+    
+
+    /**
+     * Horrible work-around due to the fact that Oracle needs to have (LONG and) CLOB values last in order to avoid ORA-24816.
+     *
+     * Since Hibernate sorts columns by the property names, naming this Z-something will apparently ensure that this column is used last.
+     * @deprecated Use {@link #getCertificateRequest()} instead
+     */
+    @Deprecated
+    public String getZzzCertificateRequest() {
+        return certificateRequest;
+    }
+    
+    /** @deprecated Use {@link #setCertificateRequest(String)} instead */
+    @Deprecated
+    public void setZzzCertificateRequest(String certificateRequest) {
+        this.certificateRequest = certificateRequest;
+    }
     
     // Comparators
+
 
     @Override
     public boolean equals(Object obj) {
@@ -527,7 +558,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
         if (!fingerprint.equals(certificateData.fingerprint)) {
             return false;
         }
-        if (!cAFingerprint.equals(certificateData.cAFingerprint)) {
+        if (!StringUtils.equals(cAFingerprint, certificateData.cAFingerprint)) {
             return false;
         }
         if (!equalsStatus(certificateData, strictStatus)) {
@@ -557,13 +588,10 @@ public class CertificateData extends BaseCertificateData implements Serializable
         if (revocationReason != certificateData.revocationReason) {
             return false;
         }
-        if (!username.equals(certificateData.username)) {
+        if (!StringUtils.equals(username, certificateData.username)) {
             return false;
         }
-        if (tag == null && certificateData.tag != null) {
-            return false;
-        }
-        if (tag != null && !tag.equals(certificateData.tag)) {
+        if (!StringUtils.equals(tag, certificateData.tag)) {
             return false;
         }
         if (certificateProfileId == null && certificateData.certificateProfileId != null) {
@@ -584,14 +612,11 @@ public class CertificateData extends BaseCertificateData implements Serializable
         if (updateTime != certificateData.updateTime) {
             return false;
         }
-        if (subjectAltName==null) {
-            if (certificateData.subjectAltName!=null) {
-                return false;
-            }
-        } else {
-            if (!subjectAltName.equals(certificateData.subjectAltName)) {
-                return false;
-            }
+        if (!StringUtils.equals(subjectAltName, certificateData.subjectAltName)) {
+            return false;
+        }
+        if (!StringUtils.equals(certificateRequest, certificateData.certificateRequest)) {
+            return false;
         }
         return true;
     }
@@ -617,6 +642,7 @@ public class CertificateData extends BaseCertificateData implements Serializable
         certificateProfileId = certificateData.certificateProfileId;
         updateTime = certificateData.updateTime;
         base64Cert = inclusionMode ? null : certificateData.base64Cert;
+        certificateRequest = certificateData.certificateRequest;
     }
 
     

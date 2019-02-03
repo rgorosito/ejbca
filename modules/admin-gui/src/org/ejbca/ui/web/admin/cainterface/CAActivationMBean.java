@@ -21,11 +21,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
+import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.CryptoTokenRules;
+import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
@@ -45,11 +52,22 @@ import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
  *
  * @version $Id$
  */
+@ManagedBean
+@SessionScoped
 public class CAActivationMBean extends BaseManagedBean implements Serializable {
 
 	private static final Logger log = Logger.getLogger(CAActivationMBean.class);
 
 	private static final long serialVersionUID = -2660384552215596717L;
+	
+    // Authentication check and audit log page access request
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest req = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(req, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.CAVIEW.resource());
+        }
+    }
 	
 	/** GUI representation of a CA for the activation view */
 	public class CaActivationGuiInfo {
@@ -247,7 +265,7 @@ public class CAActivationMBean extends BaseManagedBean implements Serializable {
 	                try {
 	                    caAdminSession.activateCAService(authenticationToken, ca.getCaId());
 	                } catch (Exception e) {
-	                    super.addNonTranslatedErrorMessage(e.getMessage());
+	                    super.addNonTranslatedErrorMessage(e);
 	                }
 	            } 
 	            // Valid transition 2: Currently online, become offline
@@ -255,7 +273,7 @@ public class CAActivationMBean extends BaseManagedBean implements Serializable {
 	                try {
 	                    caAdminSession.deactivateCAService(authenticationToken, ca.getCaId());
 	                } catch (Exception e) {
-	                    super.addNonTranslatedErrorMessage(e.getMessage());
+	                    super.addNonTranslatedErrorMessage(e);
 	                }
 	            }
 	        }
@@ -298,8 +316,6 @@ public class CAActivationMBean extends BaseManagedBean implements Serializable {
         return authorizationSession.isAuthorizedNoLogging(getAdmin(), AccessRulesConstants.REGULAR_ACTIVATECA);
     }
     
-    
-    
-	public void setAuthenticationCode(String authenticationcode) { this.authenticationcode = authenticationcode; }
+    public void setAuthenticationCode(String authenticationcode) { this.authenticationcode = authenticationcode; }
 	public String getAuthenticationCode() { return ""; }
 }

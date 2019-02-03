@@ -34,7 +34,7 @@
             <h:panelGroup layout="block" styleClass="content-body">
                 <h:outputText value="#{msg.search_ees_page_error_unauthorized}" rendered="#{!raAccessBean.authorizedToSearchEndEntities}"/>
                 <h:form id="detailsForm" styleClass="pure-form"
-                    rendered="#{raAccessBean.authorizedToSearchCerts and not empty raSearchEesBean.currentEndEntityDetails}">
+                    rendered="#{raAccessBean.authorizedToSearchEndEntities and not empty raSearchEesBean.currentEndEntityDetails}">
                     <h:panelGroup styleClass="pure-u-1">
                         <h:panelGroup styleClass="pure-u-1-3">
                             <h2><h:outputText value="#{msg.endentity_page_title}"/></h2>
@@ -163,9 +163,9 @@
                                             onerror="function(data){ejbca.ra.onAjaxError(data,'contentForm:filteredResults');}"/>
                                     </h:inputText>
                                 </h:panelGroup>
-                        </h:panelGroup>
-                    </h:panelGroup>
-                </h:panelGroup>
+	                        </h:panelGroup>
+	                    </h:panelGroup>
+	                </h:panelGroup>
     
                     <h:panelGroup id="filteredResults" layout="block" style="margin-top: 10px;">
                         <h:outputText styleClass="fineprint" rendered="#{raSearchEesBean.resultsNone}" value="#{msg.search_ees_page_info_noresult}"/>
@@ -249,14 +249,16 @@
                             </h:column>
                             <h:column>
                                 <f:facet name="header"><h:outputText value="#{msg.search_ees_page_colhead_action}"/></f:facet>
-                                <h:commandButton id="viewButton" action="#{raSearchEesBean.openEndEntityDetails(raSearchEndEntity)}" value="#{msg.search_ees_page_show_command}"/>
+                                <h:commandButton id="viewButton" action="#{raSearchEesBean.openEndEntityDetails(raSearchEndEntity)}" value="#{msg.search_ees_page_show_command}" style="display:block;padding-bottom:5px"/>
+                                <h:commandButton id="editButton" action="#{raSearchEesBean.redirectToEdit(raSearchEndEntity)}" value="#{msg.endentity_page_command_edit}"
+                                    rendered="#{raAccessBean.authorizedToEditEndEntities and raSearchEesBean.apiEditCompatible}" style="display:block;"/> 
                             </h:column>
                         </h:dataTable>
                     </h:panelGroup>
                     <h:panelGroup id="pageButtons" layout="block" style="margin-top: 10px;">
                         <h:commandButton id="previousPageButton" rendered="#{raSearchEesBean.showPreviousPageButton}" value="#{msg.search_previous_page}" styleClass="pure-button ra-button float-left">
                                     <f:ajax event="click" execute="@this" render=":contentForm:pageButtons :contentForm:basic :contentForm:more :contentForm:filteredResults" listener="#{raSearchEesBean.queryPreviousPage}" />
-                         </h:commandButton>
+                        </h:commandButton>
                         <h:commandButton id="nextPageButton" rendered="#{raSearchEesBean.showNextPageButton}" value="#{msg.search_next_page}" styleClass="pure-button ra-button float-right">
                                     <f:ajax event="click" execute="@this" render=":contentForm:pageButtons :contentForm:basic :contentForm:more :contentForm:filteredResults" listener="#{raSearchEesBean.queryNextPage}" />
                         </h:commandButton>

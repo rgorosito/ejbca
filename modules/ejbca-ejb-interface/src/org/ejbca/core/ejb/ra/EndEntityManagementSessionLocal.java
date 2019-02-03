@@ -96,7 +96,4 @@ public interface EndEntityManagementSessionLocal extends EndEntityManagementSess
      * @param newCAId CA id to change to.
      */
     void updateCAId(final AuthenticationToken admin, final String username, int newCAId) throws AuthorizationDeniedException, NoSuchEndEntityException;
-
-
-
 }

@@ -121,8 +121,16 @@ create_mysql_index() {
 wildfly_killall() {
   pidof java > /dev/null 2> /dev/null
   if [ $? -eq 0 ]; then
-    killall -9 java
-    sleep 10
+    echo "There are Java processes running, make sure there is no WildFly, JBoss or Tomcat server already running, installation will fail if so."
+    echo "Are you sure you want to continue?"
+    select yn in "Yes" "No"; do
+      case $yn in
+          Yes ) echo "Continuing..."; break;;
+          No ) exit;;
+      esac
+    done
+#    killall -9 java
+#    sleep 10
   fi
 }
 
@@ -217,8 +225,8 @@ wildfly_setup_https() {
   wildfly_check
   
   wildfly_exec "/core-service=management/security-realm=SSLRealm:add()"
-  wildfly_exec "/core-service=management/security-realm=SSLRealm/server-identity=ssl:add(keystore-path=\"${wildfly_server_config_dir}/keystore/keystore.jks\", keystore-password=\"${keystore_password}\", alias=\"${web_hostname}\")"
-  wildfly_exec "/core-service=management/security-realm=SSLRealm/authentication=truststore:add(keystore-path=\"${wildfly_server_config_dir}/keystore/truststore.jks\", keystore-password=\"${truststore_pass}\")"
+  wildfly_exec "/core-service=management/security-realm=SSLRealm/server-identity=ssl:add(keystore-relative-to=\"jboss.server.config.dir\", keystore-path=\"keystore/keystore.jks\", keystore-password=\"${keystore_password}\", alias=\"${web_hostname}\")"
+  wildfly_exec "/core-service=management/security-realm=SSLRealm/authentication=truststore:add(keystore-relative-to=\"jboss.server.config.dir\", keystore-path=\"keystore/truststore.jks\", keystore-password=\"${truststore_pass}\")"
   wildfly_exec "/socket-binding-group=standard-sockets/socket-binding=httpspriv:add(port="8443",interface=\"httpspriv\")"
   wildfly_exec "/socket-binding-group=standard-sockets/socket-binding=httpspub:add(port="8442", interface=\"httpspub\")"
 
@@ -427,7 +435,6 @@ are_you_sure() {
 
 init_installer() {
   echo "This will destroy your complete EJBCA installation in database $database_name"
-  echo "This will also 'kill -9' all your currently running java processes."
   echo "Do you want this?"
   select yn in "Yes" "No"; do
       case $yn in
@@ -946,7 +953,7 @@ ca.cmskeystorepass=${cmskeystorepass}
 # Text string used to say that every thing is ok with this node.
 # Default=ALLOK
 #healthcheck.okmessage=ALLOK
- 	
+    
 # Parameter saying if a errorcode 500 should be sent in case of error.
 # Default=true
 #healthcheck.sendservererror=true

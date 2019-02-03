@@ -19,15 +19,15 @@
     Cert-cvc library 1.4.5 with support for EAC 2.10 Access Control Templates is now available for <a
     href="https://sourceforge.net/projects/ejbca/files/cert-cvc/cert-cvc-1.4.5/cert-cvc-1.4.5.zip">download</a>.
     <br/>
-    SHA1 checksum: a3871ee57b6751e9b2d0bb1ff1e7b27defeb62cf<br/>
-    SHA256 checksum: 85a53bd769284089de4bdc45583d6ef85c40db8825863f87f0a8fdff31c7b8b0
+    SHA1 checksum: 85a1a9db297af9d7992d2e0250f8daf15ba22a76<br/>
+    SHA256 checksum: ef17cd36074a3e7adb756587b927ddb90f0db730eb6cbd50aba18b40f35acc03
     </note>
   </section>
 
   <section name="Virtual Machine for Testing">
     <p>
     Get a feeling for, and start testing, EJBCA easily by downloading and running our 
-    <a href="https://download.primekey.se/public/ejbcav6ce-vm.zip">EJBCAv6 VM</a>, currently running EJBCA Community 6.5.0.5.
+    <a href="https://download.primekey.se/public/ejbcav6ce-vm.zip">EJBCAv6 VM</a>, currently running EJBCA Community 6.10.
     The VM features a full EJBCA Community v6 install, running on WildFly 10 and Java 8, using a <a href="http://www.mariadb.org/" target="_mariadb">MariaDB</a> database backend. 
     It comes with a readme file with instructions and some usage hints. The VM is a 2.5GB VirtualBox OVA, but can easily be converted to run on KVM and VWware<sup>&#174;</sup>. 
     </p><p>The VM should not be used in production as admin keys are pre-generated, i.e. identical on all VMs, and the image is not hardened for production.

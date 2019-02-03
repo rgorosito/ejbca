@@ -25,23 +25,35 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.cesecore.CaTestUtils;
 import org.cesecore.RoleUsingTestCase;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.control.StandardRules;
+import org.cesecore.certificates.ca.CAConstants;
+import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionRemote;
+import org.cesecore.certificates.ca.X509CAInfo;
+import org.cesecore.certificates.ca.catoken.CAToken;
+import org.cesecore.certificates.certificate.CertificateConstants;
+import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
+import org.cesecore.certificates.certificateprofile.CertificateProfileSessionRemote;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityType;
 import org.cesecore.certificates.endentity.EndEntityTypes;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.DnComponents;
+import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
+import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.roles.AccessRulesHelper;
@@ -50,6 +62,8 @@ import org.cesecore.roles.management.RoleSessionRemote;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
+import org.cesecore.util.SimpleTime;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionRemote;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
@@ -73,9 +87,13 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
     private static final String ROLENAME = "EndEntityProfileSessionTest";
 
     private EndEntityProfileSessionRemote endEntityProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class);;
+    private CertificateProfileSessionRemote certificateProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class);;
+    
     private RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
     private CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
-  
+    private CAAdminSessionRemote caAdminSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
+    private CryptoTokenManagementSessionRemote cryptoTokenManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CryptoTokenManagementSessionRemote.class);
+    
     private final AuthenticationToken alwaysAllowToken = new TestAlwaysAllowLocalAuthenticationToken("EndEntityProfileSessionBeanTest");
     
     @BeforeClass
@@ -206,7 +224,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
      *             error
      */
     @Test
-    public void test05removeEndEntityProfiles() throws Exception {
+    public void test05RemoveEndEntityProfiles() throws Exception {
         log.trace(">test05removeEndEntityProfiles()");
         boolean ret = false;
         try {
@@ -224,6 +242,146 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
         log.trace("<test05removeEndEntityProfiles()");
     }
 
+    private int createCertificateProfile(final AuthenticationToken admin, final String name, final int type) throws Exception {
+        certificateProfileSession.removeCertificateProfile(admin, name);
+        CertificateProfile profile = new CertificateProfile();
+        profile.setType(type);
+        certificateProfileSession.addCertificateProfile(admin, name, profile);
+        int id = certificateProfileSession.getCertificateProfileId(name);
+        assertTrue(id != 0);
+        return id;
+    }
+    
+    /**
+     * Tests fetching all available certificate profiles associated with an end entity profile.
+     * 
+     * @throws Exception any exception.
+     */
+    @Test
+    public void test05GetAvailableCertificateProfiles() throws Exception {
+        final String cpProfileName1 = "test05CertificateProfile1";
+        final String cpProfileName2 = "test05CertificateProfile2";
+        final String eepProfileName = "test05EndEntityProfile";
+        final EndEntityProfile eeProfile = new EndEntityProfile();
+        try {
+            endEntityProfileSession.addEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            final int eepId = endEntityProfileSession.getEndEntityProfileId(eepProfileName);
+            // Test 0 available CPs for this EEP.
+            final int cpId1 = createCertificateProfile(alwaysAllowToken, cpProfileName1, CertificateConstants.CERTTYPE_ENDENTITY);
+            eeProfile.setAvailableCertificateProfileIds(Arrays.asList(new Integer[] { cpId1 }));
+            endEntityProfileSession.changeEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            Map<String, Integer> map = endEntityProfileSession.getAvailableCertificateProfiles(alwaysAllowToken, eepId);
+            assertEquals("getAvailableCertificateProfiles for an EEP with 1 CPs assigned should return 1.", map.size(), 1);
+            
+            // Test n>1 available CPs for this EEP.
+            final int cpId2 = createCertificateProfile(alwaysAllowToken, cpProfileName2, CertificateConstants.CERTTYPE_ENDENTITY);
+            eeProfile.setAvailableCertificateProfileIds(Arrays.asList(new Integer[] { cpId1, cpId2 }));
+            endEntityProfileSession.changeEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            map = endEntityProfileSession.getAvailableCertificateProfiles(alwaysAllowToken, eepId);
+            assertEquals("getAvailableCertificateProfiles for an EEP with 2 CPs assigned should return 2.", map.size(), 2);
+        } finally {
+            endEntityProfileSession.changeEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            endEntityProfileSession.removeEndEntityProfile(alwaysAllowToken, eepProfileName);
+            certificateProfileSession.removeCertificateProfile(alwaysAllowToken, cpProfileName1);
+            certificateProfileSession.removeCertificateProfile(alwaysAllowToken, cpProfileName2);
+        }
+    }
+    
+    /**
+     * Tests fetching all available CAs associated with an end entity profile.
+     * 
+     * @throws Exception any exception.
+     */
+    @Test
+    public void test05GetAvailableCAsInProfile() throws Exception {
+        final String caName1 = "test05CA1";
+        final String caName2 = "test05CA2";
+        final String eepProfileName = "test05EndEntityProfile";
+        final EndEntityProfile eeProfile = new EndEntityProfile();
+        int cryptoTokenId1 = -1; 
+        int cryptoTokenId2 = -1;
+        CAToken catoken1 = null;
+        CAToken catoken2 = null;
+        X509CAInfo caInfo1 = null;
+        X509CAInfo caInfo2 = null;
+        try {
+            endEntityProfileSession.addEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            final int eepId = endEntityProfileSession.getEndEntityProfileId(eepProfileName);
+            
+            // 1. Test results.
+            // 1.1 Test no available CAs for this EEP.
+            Map<String, Integer> map = endEntityProfileSession.getAvailableCasInProfile(alwaysAllowToken, eepId);
+            assertTrue("getAvailableCAsInProfile for an EEP with no CAs assigned should return a map with size 0.", map.size() == 0);
+            
+            // 1.2 Test 1 available CAs for this EEP
+            // Create first CA.
+            cryptoTokenId1 = CryptoTokenTestUtils.createCryptoTokenForCA(alwaysAllowToken, "foo123".toCharArray(), caName1 + "_token", "1024");
+            catoken1 = CaTestUtils.createCaToken(cryptoTokenId1, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
+            caInfo1 = getNewCAInfo(caName1, catoken1);
+            caAdminSession.createCA(alwaysAllowToken, caInfo1);
+            eeProfile.setAvailableCAs(Arrays.asList(new Integer[] { caInfo1.getCAId() }));
+            endEntityProfileSession.changeEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            map = endEntityProfileSession.getAvailableCasInProfile(alwaysAllowToken, eepId);
+            assertTrue("getAvailableCAsInProfile for an EEP with 1 CAs assigned should return a map with size 1.", map.size() == 1);
+            assertTrue("CA name and ID must match.", map.get(caName1) == caInfo1.getCAId());
+                        
+            // 1.3 Test 2 available CAs for this EEP.
+            // Create second CA.
+            cryptoTokenId2 = CryptoTokenTestUtils.createCryptoTokenForCA(alwaysAllowToken, "foo123".toCharArray(), caName2 + "_token", "1024");
+            catoken2 = CaTestUtils.createCaToken(cryptoTokenId2, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
+            caInfo2 = getNewCAInfo(caName2, catoken2);
+            caAdminSession.createCA(alwaysAllowToken, caInfo2);
+            eeProfile.setAvailableCAs(Arrays.asList(new Integer[] { caInfo1.getCAId(), caInfo2.getCAId() }));
+            endEntityProfileSession.changeEndEntityProfile(alwaysAllowToken, eepProfileName, eeProfile);
+            map = endEntityProfileSession.getAvailableCasInProfile(alwaysAllowToken, eepId);
+            assertTrue("getAvailableCAsInProfile for an EEP with 2 CAs assigned should return a map with size 2.", map.size() == 2);
+            assertTrue("CA name and ID must match.", map.get(caName1) == caInfo1.getCAId());
+            assertTrue("CA name and ID must match.", map.get(caName2) == caInfo2.getCAId());
+            
+            // 2. Test exception handling.
+            // 2.1 Test end entity profile not found.
+            final int notExistingEepId = eepId + 1234;
+            try {
+                assertNull(endEntityProfileSession.getEndEntityProfile(notExistingEepId));
+                endEntityProfileSession.getAvailableCasInProfile(alwaysAllowToken, notExistingEepId);
+                fail("Request all CAs associated with an ent entity profile which does not exist must throw an exception.");
+            } catch(Exception e) {
+                assertTrue(
+                        "Request all CAs associated with an ent entity profile which does not exist must throw an EndEntityProfileNotFoundException: "
+                                + notExistingEepId,
+                        e instanceof EndEntityProfileNotFoundException);
+                assertEquals("End entity profile with ID " + notExistingEepId + " could not be found.", e.getMessage());
+            }
+            
+        } finally {
+            endEntityProfileSession.removeEndEntityProfile(alwaysAllowToken, eepProfileName);
+            if (caInfo1 != null) {
+                caSession.removeCA(alwaysAllowToken, caInfo1.getCAId());
+            }
+            if (caInfo2 != null) {
+                caSession.removeCA(alwaysAllowToken, caInfo2.getCAId());
+            }
+            cryptoTokenManagementSession.deleteCryptoToken(alwaysAllowToken, cryptoTokenId1);
+            cryptoTokenManagementSession.deleteCryptoToken(alwaysAllowToken, cryptoTokenId1);
+        }
+    }
+    
+    /**
+     * Creates a CAinfo for testing.
+     *  
+     * @param caname The name this CA-info will be assigned
+     * @param catoken The tokeninfo for this CA-info
+     * @return The new X509CAInfo for testing.
+     */
+    private X509CAInfo getNewCAInfo(String caname, CAToken catoken) {
+        final X509CAInfo cainfo = new X509CAInfo("CN="+caname, caname, CAConstants.CA_ACTIVE, 
+                CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "365d", CAInfo.SELFSIGNED, null, catoken);
+        cainfo.setDescription("Used for testing CA import and export");
+        cainfo.setExpireTime(new Date(System.currentTimeMillis()+364*24*3600*1000));
+        cainfo.setDeltaCRLPeriod(0 * SimpleTime.MILLISECONDS_PER_HOUR);
+        return cainfo;
+    }
+    
     /**
      * Test if dynamic fields behave as expected
      * 
@@ -231,7 +389,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
      *             error
      */
     @Test
-    public void testEndEntityProfilesDynamicFields() throws Exception {
+    public void test06EndEntityProfilesDynamicFields() throws Exception {
         log.trace(">test06testEndEntityProfilesDynamicFields()");
         String testProfileName = "TESTDYNAMICFIELDS";
         String testString1 = "testString1";
@@ -273,7 +431,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
      *             error
      */
     @Test
-    public void testPasswordAutoGeneration() throws Exception {
+    public void test07PasswordAutoGeneration() throws Exception {
         log.trace(">test07PasswordAutoGeneration()");
         // Create testprofile
         EndEntityProfile profile = new EndEntityProfile();
@@ -281,7 +439,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
         profile.setValue(EndEntityProfile.AUTOGENPASSWORDLENGTH, 0, "13");
         final String DIGITS = "0123456789";
         for (int i = 0; i < 100; i++) {
-            String password = profile.getAutoGeneratedPasswd();
+            String password = profile.makeAutoGeneratedPassword();
             assertTrue("Autogenerated password is not of the requested length (was " + password.length() + ".", password.length() == 13);
             for (int j = 0; j < password.length(); j++) {
                 assertTrue("Password was generated with a improper char '" + password.charAt(j) + "'.", DIGITS.contains("" + password.charAt(j)));
@@ -297,7 +455,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
      *             error
      */
     @Test
-   public void testFieldIds() throws Exception {
+   public void test08FieldIds() throws Exception {
         log.trace(">test08FieldIds()");
         EndEntityProfile profile = new EndEntityProfile();
 
@@ -320,7 +478,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test
-    public void testClone() throws Exception {
+    public void test09Clone() throws Exception {
         EndEntityProfile profile = new EndEntityProfile();
         EndEntityProfile clone = (EndEntityProfile)profile.clone();
         HashMap profmap = (HashMap)profile.saveData();
@@ -344,7 +502,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
      * @throws EndEntityProfileNotFoundException 
      */
     @Test
-    public void testCardnumberRequired() throws CertificateProfileExistsException, AuthorizationDeniedException, EndEntityProfileNotFoundException {
+    public void test10CardnumberRequired() throws CertificateProfileExistsException, AuthorizationDeniedException, EndEntityProfileNotFoundException {
  	log.trace(">test10CardnumberRequired()");
 
     	try {
@@ -394,7 +552,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
 
     /** Test if we can detect that a End Entity Profile references to CA IDs and Certificate Profile IDs. */
     @Test
-   public void testEndEntityProfileReferenceDetection() throws Exception {
+   public void test11EndEntityProfileReferenceDetection() throws Exception {
         log.trace(">test11EndEntityProfileReferenceDetection()");
         final String NAME = "EndEntityProfileReferenceDetection";
         try {
@@ -421,7 +579,7 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
 
     /** Test if we can detect that a End Entity Profile references to CA IDs and Certificate Profile IDs. */
     @Test
-   public void testOperationsOnEmptyProfile() throws Exception {
+   public void test12OperationsOnEmptyProfile() throws Exception {
         log.trace(">test12OperationsOnEmptyProfile()");
     	final EndEntityProfile profile = new EndEntityProfile();
         try {
@@ -572,5 +730,4 @@ public class EndEntityProfileSessionBeanTest extends RoleUsingTestCase {
             log.trace("<testAuthorization");
         }
     }
-
 }

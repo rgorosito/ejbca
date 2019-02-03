@@ -27,6 +27,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
@@ -60,7 +61,6 @@ import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.cesecore.CesecoreException;
 import org.cesecore.ErrorCode;
-import org.cesecore.audit.enums.EventStatus;
 import org.cesecore.audit.enums.EventType;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.AuthenticationFailedException;
@@ -78,6 +78,7 @@ import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
 import org.cesecore.certificates.ca.ApprovalRequestType;
+import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -121,6 +122,9 @@ import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.CryptoTokenSessionLocal;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.keys.validation.DnsNameValidator;
+import org.cesecore.keys.validation.KeyValidatorSessionLocal;
+import org.cesecore.keys.validation.Validator;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.RoleExistsException;
 import org.cesecore.roles.management.RoleDataSessionLocal;
@@ -144,6 +148,7 @@ import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
 import org.ejbca.core.ejb.authentication.cli.CliAuthenticationTokenMetaData;
 import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherQueueSessionLocal;
 import org.ejbca.core.ejb.ca.publisher.PublisherSessionLocal;
 import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
@@ -181,6 +186,7 @@ import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
+import org.ejbca.core.model.ca.publisher.PublisherDoesntExistsException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
 import org.ejbca.core.model.ca.store.CertReqHistory;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
@@ -194,7 +200,16 @@ import org.ejbca.core.model.ra.RevokeBackDateNotAllowedForProfileException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
+import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
 import org.ejbca.core.protocol.NoSuchAliasException;
+import org.ejbca.core.protocol.acme.AcmeAccount;
+import org.ejbca.core.protocol.acme.AcmeAccountDataSessionLocal;
+import org.ejbca.core.protocol.acme.AcmeAuthorization;
+import org.ejbca.core.protocol.acme.AcmeAuthorizationDataSessionLocal;
+import org.ejbca.core.protocol.acme.AcmeChallenge;
+import org.ejbca.core.protocol.acme.AcmeChallengeDataSessionLocal;
+import org.ejbca.core.protocol.acme.AcmeOrder;
+import org.ejbca.core.protocol.acme.AcmeOrderDataSessionLocal;
 import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
 import org.ejbca.core.protocol.est.EstOperationsSessionLocal;
 import org.ejbca.core.protocol.rest.EnrollPkcs10CertificateRequest;
@@ -238,6 +253,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     @EJB
     private CaSessionLocal caSession;
     @EJB
+    private CAAdminSessionLocal caAdminSession;
+    @EJB
     private CertificateProfileSessionLocal certificateProfileSession;
     @EJB
     private CertificateRequestSessionLocal certificateRequestSession;
@@ -253,6 +270,16 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private EnterpriseEditionEjbBridgeSessionLocal enterpriseEditionEjbBridgeSession;
     @EJB
     private EjbcaWSHelperSessionLocal ejbcaWSHelperSession;    
+    @EJB
+    private PublisherSessionLocal publisherSession;
+    @EJB
+    private PublisherQueueSessionLocal publisherQueueSession;
+    @EJB
+    private CertReqHistorySessionLocal certreqHistorySession;
+    @EJB
+    private CrlStoreSessionLocal crlStoreSession;
+    @EJB
+    private EjbcaRestHelperSessionLocal ejbcaRestHelperSession;
     @EJB
     private PublisherSessionLocal publisherSession;
     @EJB
@@ -295,11 +322,34 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     private RoleDataSessionLocal roleDataSession;
     @EJB
     private RoleMemberSessionLocal roleMemberSession;
+    @EJB
+    private KeyValidatorSessionLocal keyValidatorSession;
+    @EJB
+    private AcmeAccountDataSessionLocal acmeAccountDataSession;
+    @EJB
+    private AcmeOrderDataSessionLocal acmeOrderDataSession;
+    @EJB
+    private AcmeAuthorizationDataSessionLocal acmeAuthorizationDataSession;
+    @EJB
+    private AcmeChallengeDataSessionLocal acmeChallengeDataSession;
+    
 
     @PersistenceContext(unitName = CesecoreConfiguration.PERSISTENCE_UNIT)
     private EntityManager entityManager;
 
-    private static final int RA_MASTER_API_VERSION = 4;
+    /**
+     * Defines the current RA Master API version.
+     *
+     * <p>List of versions:
+     * <table>
+     * <tr><th>0<td>=<td>6.6.0
+     * <tr><th>1<td>=<td>6.8.0
+     * <tr><th>2<td>=<td>6.11.0
+     * <tr><th>3<td>=<td>6.12.0
+     * <tr><th>4<td>=<td>6.14.0
+     * <tr><th>4<td>=<td>6.15.0
+     */
+    private static final int RA_MASTER_API_VERSION = 6; // v5 = 6.15.0, v6 = 7.0.0
 
     /** Cached value of an active CA, so we don't have to list through all CAs every time as this is a critical path executed every time */
     private int activeCaIdCache = -1;
@@ -1464,15 +1514,15 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
 
         if (authorizedLocalCaIds.isEmpty()) {
-            log.debug("No authorized CAs found for cleint " + authenticationToken + ". Returning empty response in role member search");
+            log.debug("No authorized CAs found for client " + authenticationToken + ". Returning empty response in role member search");
             return response;
         }
         if (authorizedLocalRoleIds.isEmpty()) {
-            log.debug("No authorized Roles found for cleint " + authenticationToken + " Returning empty response in role member search");
+            log.debug("No authorized Roles found for client " + authenticationToken + " Returning empty response in role member search");
             return response;
         }
         if (authorizedLocalTokenTypes.isEmpty()) {
-            log.debug("No authorized token types found for cleint " + authenticationToken + " Returning empty response in role member search");
+            log.debug("No authorized token types found for client " + authenticationToken + " Returning empty response in role member search");
             return response;
         }
 
@@ -1568,7 +1618,6 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             String certificateProfilename = certificateProfileSession.getCertificateProfileName(certificateProfileId);
             authorizedCertificateProfiles.put(certificateProfileId, certificateProfilename, certificateProfile);
         }
-
         return authorizedCertificateProfiles;
     }
 
@@ -1606,15 +1655,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
 
     @Override
     public boolean addUser(final AuthenticationToken admin, final EndEntityInformation endEntity, final boolean clearpwd) throws AuthorizationDeniedException,
-    EjbcaException, WaitingForApprovalException{
-        //Authorization
-        if (!endEntityManagementSession.isAuthorizedToEndEntityProfile(admin, endEntity.getEndEntityProfileId(),
-                AccessRulesConstants.DELETE_END_ENTITY)) {
-            log.warn("Missing *" + AccessRulesConstants.DELETE_END_ENTITY + " rights for user '" + admin
-                    + "' to be able to add an end entity (Delete is only needed for clean-up if something goes wrong after an end-entity has been added)");
-            return false;
-        }
-
+            EjbcaException, WaitingForApprovalException{
         try {
             endEntityManagementSession.addUser(admin, endEntity, clearpwd);
         } catch (CesecoreException e) {
@@ -1643,11 +1684,26 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
 
     
     @Override
+    public boolean addUserFromWS(final AuthenticationToken admin, UserDataVOWS userDataVOWS, final boolean clearpwd)
+            throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
+            CADoesntExistsException, IllegalNameException, CertificateSerialNumberException, EjbcaException {
+        EndEntityInformation endEntityInformation = ejbcaWSHelperSession.convertUserDataVOWS(admin, userDataVOWS);
+        final int profileId = endEntityInformation.getEndEntityProfileId();
+        final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(profileId);
+        if (profile.getAllowMergeDnWebServices()) {
+            endEntityInformation = EndEntityInformationFiller.fillUserDataWithDefaultValues(endEntityInformation, profile);
+        }
+        endEntityManagementSession.addUser(admin, endEntityInformation, clearpwd);
+        return endEntityAccessSession.findUser(endEntityInformation.getUsername()) != null;
+    }
+
+
+    @Override
     public void deleteUser(final AuthenticationToken admin, final String username) throws AuthorizationDeniedException{
         try {
             endEntityManagementSession.deleteUser(admin, username);
         } catch (NoSuchEndEntityException | CouldNotRemoveEndEntityException e) {
-            log.error(e);
+            log.info(e.getMessage());
         }
     }
 
@@ -1706,14 +1762,20 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             final boolean savekeys = data.getKeyRecoverable() && usekeyrecovery && (data.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY);
             final boolean loadkeys = (data.getStatus() == EndEntityConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
             final boolean reusecertificate = endEntityProfile.getReUseKeyRecoveredCertificate();
-            final String encodedValidity = endEntity.getExtendedInformation().getCertificateEndTime();
+            ExtendedInformation ei = endEntity.getExtendedInformation();
+            if (ei == null) {
+                // ExtendedInformation is optional, and we don't want any NPEs here
+            	// Make it easy for ourselves and create a default one if there is none in the end entity
+                ei = new ExtendedInformation();
+            }
+            final String encodedValidity = ei.getCertificateEndTime();
             final Date notAfter = encodedValidity == null ? null : ValidityDate.getDate(encodedValidity, new Date());
             keyStore = keyStoreCreateSessionLocal.generateOrKeyRecoverToken(admin, // Authentication token
                     endEntity.getUsername(), // Username
                     endEntity.getPassword(), // Enrollment code
                     endEntity.getCAId(), // The CA signing the private keys
-                    endEntity.getExtendedInformation().getKeyStoreAlgorithmSubType(), // Keylength
-                    endEntity.getExtendedInformation().getKeyStoreAlgorithmType(), // Signature algorithm
+                    ei.getKeyStoreAlgorithmSubType(), // Keylength
+                    ei.getKeyStoreAlgorithmType(), // Signature algorithm
                     null, // Not valid before
                     notAfter, // Not valid after
                     endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, // Type of token
@@ -1772,20 +1834,20 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             throw new IllegalStateException("Internal error with creating X509Certificate from CertificateResponseMessage");
         }
     }
-    
-    
+
+
     @Override
-    public byte[] createCertificateRest(final AuthenticationToken authenticationToken, EnrollPkcs10CertificateRequest enrollcertificateRequest) 
-            throws CertificateProfileDoesNotExistException, CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileNotFoundException, 
+    public byte[] createCertificateRest(final AuthenticationToken authenticationToken, EnrollPkcs10CertificateRequest enrollcertificateRequest)
+            throws CertificateProfileDoesNotExistException, CADoesntExistsException, AuthorizationDeniedException, EndEntityProfileNotFoundException,
             EjbcaException, EndEntityProfileValidationException {
-    
+
         EndEntityInformation endEntityInformation = ejbcaRestHelperSession.convertToEndEntityInformation(authenticationToken, enrollcertificateRequest);
         try {
-            byte[] certificate = certificateRequestSession.processCertReq(authenticationToken, 
-                    endEntityInformation, 
-                    enrollcertificateRequest.getCertificateRequest(), 
+            byte[] certificate = certificateRequestSession.processCertReq(authenticationToken,
+                    endEntityInformation,
+                    enrollcertificateRequest.getCertificateRequest(),
                     CertificateHelper.CERT_REQ_TYPE_PKCS10,
-                    null, 
+                    null,
                     CertificateConstants.CERT_RES_TYPE_CERTIFICATE);
             return certificate;
         } catch (NotFoundException e) {
@@ -1827,8 +1889,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e.getMessage());
         }
     }
-    
-    
+
+
     @Override
     public byte[] createCertificateWS(final AuthenticationToken authenticationToken, final UserDataVOWS userdata, final String requestData, final int requestType,
             final String hardTokenSN, final String responseType) throws AuthorizationDeniedException, ApprovalException, EjbcaException,
@@ -1956,10 +2018,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         boolean keyRecoverySuccessful;
         boolean authorized = true;
         // If called from the wrong instance, return to proxybean and try next implementation
-        if (endEntityAccessSession.findUser(authenticationToken, username) == null) {
+        final EndEntityInformation endEntityInformation = endEntityAccessSession.findUser(authenticationToken, username);
+        if (endEntityInformation == null) {
             return false;
         }
-        int endEntityProfileId = endEntityAccessSession.findUser(authenticationToken, username).getEndEntityProfileId();
+        int endEntityProfileId = endEntityInformation.getEndEntityProfileId();
         if (((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableEndEntityProfileLimitations()) {
             authorized = authorizationSession.isAuthorized(authenticationToken, AccessRulesConstants.ENDENTITYPROFILEPREFIX + Integer.toString(endEntityProfileId) + AccessRulesConstants.KEYRECOVERY_RIGHTS,
                                                             AccessRulesConstants.REGULAR_RAFUNCTIONALITY + AccessRulesConstants.KEYRECOVERY_RIGHTS);
@@ -1990,7 +2053,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public boolean editUser(AuthenticationToken authenticationToken, EndEntityInformation endEntityInformation)
+    public boolean editUser(AuthenticationToken authenticationToken, EndEntityInformation endEntityInformation, boolean clearPwd)
             throws AuthorizationDeniedException, EndEntityProfileValidationException,
             WaitingForApprovalException, CADoesntExistsException, ApprovalException,
             CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException {
@@ -1998,7 +2061,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             // If called from the wrong instance, return to proxybean and try next implementation
             return false;
         } else {
-            endEntityManagementSession.changeUser(authenticationToken, endEntityInformation, false);
+            endEntityManagementSession.changeUser(authenticationToken, endEntityInformation, clearPwd);
             return true;
         }
     }
@@ -2007,9 +2070,9 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public boolean editUserWs(AuthenticationToken authenticationToken, UserDataVOWS userDataVOWS)
             throws AuthorizationDeniedException, EndEntityProfileValidationException,
             WaitingForApprovalException, CADoesntExistsException, CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, EjbcaException {
-        return editUser(authenticationToken, ejbcaWSHelperSession.convertUserDataVOWS(authenticationToken, userDataVOWS));
+        return editUser(authenticationToken, ejbcaWSHelperSession.convertUserDataVOWS(authenticationToken, userDataVOWS), userDataVOWS.isClearPwd());
     }
-    
+
     @Override
     public List<UserDataVOWS> findUserWS(AuthenticationToken authenticationToken, UserMatch usermatch, int maxNumberOfRows) throws AuthorizationDeniedException, IllegalQueryException, EjbcaException, EndEntityProfileNotFoundException {
         List<UserDataVOWS> retval = null;
@@ -2027,13 +2090,13 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             throw  new EjbcaException(e.getErrorCode(), e);
         }
         return retval;
-    }    
-    
+    }
+
     @Override
-    public int getPublisherQueueLengthWS(AuthenticationToken authenticationToken, String name) throws AuthorizationDeniedException {
+    public int getPublisherQueueLength(AuthenticationToken authenticationToken, String name) throws AuthorizationDeniedException, PublisherDoesntExistsException {
         final int id = publisherSession.getPublisherId(name);
         if (id == 0) {
-            return -4;// No publisher with this name exists.
+            throw new PublisherDoesntExistsException("Publisher does not exist: " + name);
         }
         return publisherQueueSession.getPendingEntriesCountForPublisher(id);
     }
@@ -2108,13 +2171,13 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public byte[] keyRecoverEnrollWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN, String password, String hardTokenSN) 
+    public byte[] keyRecoverEnrollWS(AuthenticationToken authenticationToken, String username, String certSNinHex, String issuerDN, String password, String hardTokenSN)
             throws AuthorizationDeniedException, ApprovalException, CADoesntExistsException, EjbcaException, WaitingForApprovalException {
         keyRecoverWS(authenticationToken, username, certSNinHex, issuerDN);
         EndEntityInformation userData = endEntityAccessSession.findUser(authenticationToken, username);
         userData.setPassword(password);
         byte[] keyStoreBytes = generateKeyStore(authenticationToken, userData);
-        
+
         // Lots of checks. Can't know what WS client sends in.
         if (!StringUtils.isEmpty(hardTokenSN) && !hardTokenSN.equals("NONE") && !hardTokenSN.equals("null")) {
             final KeyStore keyStore;
@@ -2131,7 +2194,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 if (cert != null) {
                     hardTokenSession.addHardTokenCertificateMapping(authenticationToken,hardTokenSN,cert);
                 }
-                
+
             } catch (CertificateParsingException e) {
                 throw new EjbcaException(ErrorCode.CERT_COULD_NOT_BE_PARSED, e.getMessage());
             } catch (NoSuchAlgorithmException e) {
@@ -2144,11 +2207,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 throw new EjbcaException(ErrorCode.NOT_SUPPORTED_KEY_STORE, e.getMessage());
             } catch (NoSuchProviderException e) {
                 throw new EjbcaException(ErrorCode.NOT_SUPPORTED_KEY_STORE, e.getMessage());
-            } 
+            }
         }
-        return keyStoreBytes; 
+        return keyStoreBytes;
     }
-    
+
     /** Help function used to check end entity profile authorization. */
     private boolean endEntityAuthorization(AuthenticationToken admin, int profileid, String rights, boolean log) {
         boolean returnval = false;
@@ -2204,12 +2267,18 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             throws AuthorizationDeniedException, NoSuchEndEntityException, ApprovalException, WaitingForApprovalException,
             RevokeBackDateNotAllowedForProfileException, AlreadyRevokedException, CADoesntExistsException, IllegalArgumentException, CertificateProfileDoesNotExistException {
         // First check if we handle the CA, to fail-fast, and reflect the functionality of remote API (WS)
-        
+
         final int caId = CertTools.stringToBCDNString(certRevocationDto.getIssuerDN()).hashCode();
         caSession.verifyExistenceOfCA(caId);
         endEntityManagementSession.revokeCertWithMetadata(authenticationToken, certRevocationDto);
     }
-    
+
+    @Override
+    public void revokeUser(final AuthenticationToken authenticationToken, final String username, final int reason, final boolean deleteUser) throws AuthorizationDeniedException, CADoesntExistsException,
+        ApprovalException, WaitingForApprovalException, AlreadyRevokedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException, EjbcaException {
+        endEntityManagementSession.revokeUser(authenticationToken, username, reason, deleteUser);
+    }
+
     @Override
     public void revokeUserWS(AuthenticationToken authenticationToken, String username, int reason, boolean deleteUser) throws CADoesntExistsException, AuthorizationDeniedException,
             NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException, AlreadyRevokedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException {
@@ -2244,10 +2313,10 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
             throw new AuthorizationDeniedException(msg);
         }
-        
+
         return noConflictCertificateStoreSession.getStatus(issuerdn, serno);
     }
-    
+
     private GlobalCesecoreConfiguration getGlobalCesecoreConfiguration() {
         return (GlobalCesecoreConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalCesecoreConfiguration.CESECORE_CONFIGURATION_ID);
     }
@@ -2266,14 +2335,14 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public byte[] scepDispatch(final AuthenticationToken authenticationToken, final String operation, final String message, final String scepConfigurationAlias) 
-            throws CertificateEncodingException, NoSuchAliasException, CADoesntExistsException, NoSuchEndEntityException, CustomCertificateSerialNumberException, 
-            CryptoTokenOfflineException, IllegalKeyException, SignRequestException, SignRequestSignatureException, AuthStatusException, AuthLoginException, IllegalNameException, 
-            CertificateCreateException, CertificateRevokeException, CertificateSerialNumberException, IllegalValidityException, CAOfflineException, InvalidAlgorithmException, 
+    public byte[] scepDispatch(final AuthenticationToken authenticationToken, final String operation, final String message, final String scepConfigurationAlias)
+            throws CertificateEncodingException, NoSuchAliasException, CADoesntExistsException, NoSuchEndEntityException, CustomCertificateSerialNumberException,
+            CryptoTokenOfflineException, IllegalKeyException, SignRequestException, SignRequestSignatureException, AuthStatusException, AuthLoginException, IllegalNameException,
+            CertificateCreateException, CertificateRevokeException, CertificateSerialNumberException, IllegalValidityException, CAOfflineException, InvalidAlgorithmException,
             SignatureException, CertificateException, AuthorizationDeniedException, CertificateExtensionException, CertificateRenewalException {
         return scepMessageDispatcherSession.dispatchRequest(authenticationToken, operation, message, scepConfigurationAlias);
     }
-    
+
     @Override
     public byte[] cmpDispatch(final AuthenticationToken authenticationToken, final byte[] pkiMessageBytes, final String cmpConfigurationAlias) throws NoSuchAliasException {
         return cmpMessageDispatcherSession.dispatchRequest(authenticationToken, pkiMessageBytes, cmpConfigurationAlias);
@@ -2287,25 +2356,16 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public Collection<Certificate> getCertificateChain(final AuthenticationToken authenticationToken, int caid) throws AuthorizationDeniedException, CADoesntExistsException {
+    public Collection<CertificateWrapper> getCertificateChain(final AuthenticationToken authenticationToken, int caid) throws AuthorizationDeniedException, CADoesntExistsException {
         if(!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAACCESS.resource() +caid)) {
             final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
             throw new AuthorizationDeniedException(msg);
         }
         CAInfo caInfo = caSession.getCAInfoInternal(caid);
         if(caInfo == null) {
-            throw new CADoesntExistsException("CA doesn't exist");
+            throw new CADoesntExistsException("CA with ID " + caid + " doesn't exist");
         }
-        return caInfo.getCertificateChain();
-    }
-
-    public List<Certificate> getCertificatesByExpirationTime(final AuthenticationToken authenticationToken, long days, int maxNumberOfResults, int offset) throws AuthorizationDeniedException {
-        if(!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAFUNCTIONALITY.resource()+"/view_certificate")) {
-            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", StandardRules.CAFUNCTIONALITY.resource()+"/view_certificate", null);
-            throw new AuthorizationDeniedException(msg);
-        }
-        Date findDate = getDate(days);
-        return certificateStoreSession.findExpiringCertificates(findDate, maxNumberOfResults, offset);
+        return EJBTools.wrapCertCollection(caInfo.getCertificateChain());
     }
 
     private Date getDate(long days) {
@@ -2326,208 +2386,100 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public void customLogWS(AuthenticationToken authenticationToken, int level, String type, String cAName, String username, String certificateSn, 
-            String msg, EventType event) throws AuthorizationDeniedException, CADoesntExistsException, EjbcaException {
-        // Check authorization to perform custom logging.
-        if(!authorizationSession.isAuthorized(authenticationToken, AuditLogRules.LOG_CUSTOM.resource())) {
-            final String authmsg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", AuditLogRules.LOG_CUSTOM.resource(), null);
-            throw new AuthorizationDeniedException(authmsg);
-        }
-        int caId = 0;
-        if(cAName != null){
-            CAInfo cAInfo = caSession.getCAInfo(authenticationToken, cAName);
-            if (cAInfo == null) {
-                throw new CADoesntExistsException("CA with name " + cAName + " doesn't exist.");
-            } 
-            caId = cAInfo.getCAId();
-        } else {
-            caId = ((X509CertificateAuthenticationToken) authenticationToken).getCertificate().getSubjectDN().getName().hashCode();
-        }
-
-        String comment = type + " : " + msg;
-        Map<String, Object> details = new LinkedHashMap<>();
-        details.put("msg", comment);
-        auditSession.log(event, EventStatus.SUCCESS, EjbcaModuleTypes.CUSTOM, EjbcaServiceTypes.EJBCA, authenticationToken.toString(), String.valueOf(caId), username, certificateSn, details);
+    public void customLog(final AuthenticationToken authenticationToken, final String type, final String caName, final String username, final String certificateSn,
+    		final String msg, final EventType event) throws AuthorizationDeniedException, CADoesntExistsException {
+        caAdminSession.customLog(authenticationToken, type, caName, username, certificateSn, msg, event);
     }
 
     @Override
-    public Collection<Certificate> findCertsWS(AuthenticationToken authenticationToken, String username, boolean onlyValid, long now)
-            throws AuthorizationDeniedException, CertificateEncodingException, EjbcaException {
-        // Check authorization on current CA and profiles and view_end_entity by looking up the end entity
-        if (endEntityAccessSession.findUser(authenticationToken,username) == null) {
-            if (log.isDebugEnabled()) {
-                log.debug(intres.getLocalizedMessage("ra.errorentitynotexist", username));
-            }
-        }
-        // Even if there is no end entity, it might be the case that we don't store UserData, so we still need to check CertificateData
-        Collection<java.security.cert.Certificate> certificates;
-        if (onlyValid) {
-            // We will filter out not yet valid certificates later on, but we as the database to not return any expired certificates
-            certificates = certificateStoreSession.findCertificatesByUsernameAndStatusAfterExpireDate(username, CertificateConstants.CERT_ACTIVE, now);
-        } else {
-            certificates = EJBTools.unwrapCertCollection(certificateStoreSession.findCertificatesByUsername(username));
-        }
-        return certificates;
+    public Collection<CertificateWrapper> getCertificatesByUsername(final AuthenticationToken authenticationToken, final String username, final boolean onlyValid, final long now)
+            throws AuthorizationDeniedException, CertificateEncodingException {
+        return endEntityAccessSession.findCertificatesByUsername(authenticationToken, username, onlyValid, now);
     }
-    
+
     @Override
-    public Map<String, Integer> getAvailableCertificateProfilesWS(AuthenticationToken authenticationToken, int entityProfileId)
-            throws AuthorizationDeniedException, EjbcaException {
-        final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(entityProfileId);
-        final TreeMap<String,Integer> result = new TreeMap<>();
-        if (profile != null) {
-            final Collection<Integer> ids = profile.getAvailableCertificateProfileIds();
-            for (int id : ids) {
-                result.put(certificateProfileSession.getCertificateProfileName(id), id);
-            }
-        }
-        return result;
+    public Map<String, Integer> getAvailableCertificateProfiles(final AuthenticationToken authenticationToken, final int entityProfileId)
+            throws AuthorizationDeniedException, EndEntityProfileNotFoundException {
+        return endEntityProfileSession.getAvailableCertificateProfiles(authenticationToken, entityProfileId);
     }
-    
+
     @Override
-    public Map<String, Integer> getAvailableCAsInProfileWS(AuthenticationToken authenticationToken, int entityProfileId)
-            throws AuthorizationDeniedException, EjbcaException {
-        final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(entityProfileId);
-        final TreeMap<String,Integer> result = new TreeMap<>();
-        if (profile != null) {
-            final Collection<Integer> ids = profile.getAvailableCAs();
-            final HashMap<Integer,String> map = caSession.getCAIdToNameMap();
-            String name;
-            for (int id : ids) {
-                name = map.get(id);
-                if (name != null) {
-                    result.put(name, id);
-                }
-            }
-        }
-        return result;
+    public Map<String, Integer> getAvailableCasInProfile(final AuthenticationToken authenticationToken, final int entityProfileId)
+            throws AuthorizationDeniedException, EndEntityProfileNotFoundException {
+        return endEntityProfileSession.getAvailableCasInProfile(authenticationToken, entityProfileId);
     }
-    
+
     @Override
-    public Map<String, Integer> getAuthorizedEndEntityProfilesWS(AuthenticationToken authenticationToken)
-            throws AuthorizationDeniedException, EjbcaException {
-        final TreeMap<String,Integer> result = new TreeMap<>();
-        final Collection<Integer> ids = endEntityProfileSession.getAuthorizedEndEntityProfileIds(authenticationToken, AccessRulesConstants.CREATE_END_ENTITY);
-        final Map<Integer,String> idtonamemap = endEntityProfileSession.getEndEntityProfileIdToNameMap();
-        for (final Integer id : ids) {
-            result.put(idtonamemap.get(id), id);
-        }
-        return result;
-    }
-    
-    @Override
-    public Certificate getCertificateWS(AuthenticationToken authenticationToken, String certSNinHex, String issuerDN)
+    public CertificateWrapper getCertificate(AuthenticationToken authenticationToken, String certSNinHex, String issuerDN)
             throws AuthorizationDeniedException, CADoesntExistsException, EjbcaException {
-        final String bcString = CertTools.stringToBCDNString(issuerDN);
-        int caid = bcString.hashCode();
-        caSession.verifyExistenceOfCA(caid);
-        final String[] rules = {StandardRules.CAFUNCTIONALITY.resource()+"/view_certificate", StandardRules.CAACCESS.resource() + caid};
-        if(!authorizationSession.isAuthorizedNoLogging(authenticationToken, rules)) {
-            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", Arrays.toString(rules), null);
+        return endEntityAccessSession.getCertificate(authenticationToken, certSNinHex, issuerDN);
+    }
+
+    @Override
+    public Collection<CertificateWrapper> getCertificatesByExpirationTime(final AuthenticationToken authenticationToken, final long days,
+            final int maxNumberOfResults, final int offset) throws AuthorizationDeniedException {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate")) {
+            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource",
+                    StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate", null);
             throw new AuthorizationDeniedException(msg);
         }
-        return certificateStoreSession.findCertificateByIssuerAndSerno(issuerDN, new BigInteger(certSNinHex,16));
+        Date findDate = getDate(days);
+        return EJBTools.wrapCertCollection(certificateStoreSession.findExpiringCertificates(findDate, maxNumberOfResults, offset));
     }
-    
+
     @Override
-    public List<Certificate> getCertificatesByExpirationTimeWS(AuthenticationToken authenticationToken, long days, int maxNumberOfResults)
+    public Collection<CertificateWrapper> getCertificatesByExpirationTimeAndType(AuthenticationToken authenticationToken, long days, int certificateType, int maxNumberOfResults)
             throws AuthorizationDeniedException, EjbcaException {
-        final Date findDate = new Date();
-        final long millis = (days * 24 * 60 * 60 * 1000);
-        findDate.setTime(findDate.getTime() + millis);
-        final List<Certificate> result = certificateStoreSession.findCertificatesByExpireTimeWithLimit(findDate, maxNumberOfResults);
-        return result;
-    }
-    
-    @Override
-    public List<Certificate> getCertificatesByExpirationTimeAndTypeWS(AuthenticationToken authenticationToken, long days, int certificateType, int maxNumberOfResults) 
-            throws AuthorizationDeniedException, EjbcaException {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate")) {
+            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource",
+                    StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate", null);
+            throw new AuthorizationDeniedException(msg);
+        }
         final Date findDate = new Date();
         final long millis = (days * 24 * 60 * 60 * 1000);
         findDate.setTime(findDate.getTime() + millis);
         final List<Certificate> result = certificateStoreSession.findCertificatesByExpireTimeAndTypeWithLimit(findDate, certificateType, maxNumberOfResults);
-        return result;
+        return EJBTools.wrapCertCollection(result);
     }
-    
+
     @Override
-    public List<Certificate> getCertificatesByExpirationTimeAndIssuerWS(AuthenticationToken authenticationToken, long days, String issuerDN, int maxNumberOfResults) 
+    public Collection<CertificateWrapper> getCertificatesByExpirationTimeAndIssuer(AuthenticationToken authenticationToken, long days, String issuerDN, int maxNumberOfResults)
             throws AuthorizationDeniedException, EjbcaException {
+        if (!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate")) {
+            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource",
+                    StandardRules.CAFUNCTIONALITY.resource() + "/view_certificate", null);
+            throw new AuthorizationDeniedException(msg);
+        }
         final Date findDate = new Date();
         final long millis = (days * 24 * 60 * 60 * 1000);
         findDate.setTime(findDate.getTime() + millis);
         final List<java.security.cert.Certificate> result = certificateStoreSession.findCertificatesByExpireTimeAndIssuerWithLimit(findDate, issuerDN, maxNumberOfResults);
-        return result;
-    }
-    
-    @Override
-    public List<Certificate> getLastCAChainWS(AuthenticationToken authenticationToken, String caName)
-            throws AuthorizationDeniedException, CADoesntExistsException, EjbcaException, CertificateEncodingException {
-        final CAInfo info = caSession.getCAInfo(authenticationToken, caName);
-        if(info == null) {
-            throw new CADoesntExistsException("CA with name " + caName + " doesn't exist.");
-        }
-        final List<Certificate> result = new ArrayList<>();
-        if (info.getStatus() == CAConstants.CA_WAITING_CERTIFICATE_RESPONSE){
-            return result;
-        }
-        result.addAll(info.getCertificateChain());
-        return result;
-    }
-    
-    @Override
-    public byte[] processCertReqWS(AuthenticationToken authenticationToken, String username, String password, String req, int reqType,
-            String hardTokenSN, String responseType) throws AuthorizationDeniedException, EjbcaException, CesecoreException, CADoesntExistsException, CertificateExtensionException, 
-        InvalidKeyException, SignatureException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException, CertificateException,
-        IOException, ParseException, ConstructionException, NoSuchFieldException, RuntimeException {
-        byte[] retval = null;
-        // check authorization to CAID
-        final EndEntityInformation userdata = endEntityAccessSession.findUser(authenticationToken, username);
-        if (userdata == null) {
-            log.info(intres.getLocalizedMessage("ra.errorentitynotexist", username));
-            String msg = intres.getLocalizedMessage("ra.wrongusernameorpassword");
-            throw new NotFoundException(msg);
-        }
-        final int caId = userdata.getCAId();
-        caSession.verifyExistenceOfCA(caId);
-        // Check token type.
-        if (userdata.getTokenType() != SecConst.TOKEN_SOFT_BROWSERGEN) {
-            // ECA-6685 Re-factor.
-            // Fix at caller EjbcaWS.
-//            throw getEjbcaException("Error: Wrong Token Type of user, must be 'USERGENERATED' for PKCS10/SPKAC/CRMF/CVC requests",
-//                                    null, ErrorCode.BAD_USER_TOKEN_TYPE, null);
-            throw new EjbcaException(ErrorCode.BAD_USER_TOKEN_TYPE, "Error: Wrong Token Type of user, must be 'USERGENERATED' for PKCS10/SPKAC/CRMF/CVC requests");
-        }
-        // Authorization for {StandardRules.CAACCESS.resource() +caid, StandardRules.CREATECERT.resource()} is done in the
-        // CertificateCreateSessionBean.createCertificate call which is called in the end
-        final RequestMessage imsg = RequestMessageUtils.getRequestMessageFromType(username, password, req, reqType);
-        if (imsg != null) {
-            retval = getCertResponseFromPublicKey(authenticationToken, imsg, hardTokenSN, responseType);
-        }
-        return retval;
-    }
-    
-    private byte[] getCertResponseFromPublicKey(final AuthenticationToken admin, final RequestMessage msg, final String hardTokenSN,
-            final String responseType) throws AuthorizationDeniedException, CertificateEncodingException, EjbcaException, CesecoreException,
-            CertificateExtensionException, CertificateParsingException {
-        byte[] result = null;
-        final ResponseMessage resp = signSessionLocal.createCertificate(admin, msg, X509ResponseMessage.class, null);
-        final java.security.cert.Certificate cert = CertTools.getCertfromByteArray(resp.getResponseMessage(), java.security.cert.Certificate.class);
-        if (responseType.equalsIgnoreCase(CertificateHelper.RESPONSETYPE_CERTIFICATE)) {
-            result = cert.getEncoded();
-        } else if (responseType.equalsIgnoreCase(CertificateHelper.RESPONSETYPE_PKCS7)) {
-            result = signSessionLocal.createPKCS7(admin, (X509Certificate) cert, false);
-        } else if (responseType.equalsIgnoreCase(CertificateHelper.RESPONSETYPE_PKCS7WITHCHAIN)) {
-            result = signSessionLocal.createPKCS7(admin, (X509Certificate) cert, true);
-        }
-        if (hardTokenSN != null) {
-            hardTokenSession.addHardTokenCertificateMapping(admin, hardTokenSN, cert);
-        }
-        return result;
+        return EJBTools.wrapCertCollection(result);
     }
 
     @Override
-    public byte[] getLatestCRLWS(AuthenticationToken authenticationToken, String caName, boolean deltaCRL)
-            throws AuthorizationDeniedException, CADoesntExistsException, EjbcaException {
+    public Collection<CertificateWrapper> getLastCaChain(final AuthenticationToken authenticationToken, final String caName)
+            throws AuthorizationDeniedException, CADoesntExistsException {
+        return caSession.getCaChain(authenticationToken, caName);
+    }
+
+    @Override
+    public byte[] processCertificateRequest(final AuthenticationToken authenticationToken, final String username, final String password, final String req, final int reqType,
+            final String hardTokenSN, final String responseType)
+            throws AuthorizationDeniedException, EjbcaException, CesecoreException,
+            CADoesntExistsException, CertificateExtensionException, InvalidKeyException, SignatureException,
+            InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException, CertificateException, IOException,
+            AuthStatusException, AuthLoginException {
+        try {
+            return signSessionLocal.createCertificateWS(authenticationToken, username, password, req, reqType, hardTokenSN, responseType);
+        } catch (ParseException | ConstructionException | NoSuchFieldException e) {
+            throw new EjbcaException(ErrorCode.INTERNAL_ERROR, e.getMessage());
+        }
+    }
+
+    @Override
+    public byte[] getLatestCrl(final AuthenticationToken authenticationToken, final String caName, final boolean deltaCRL)
+            throws AuthorizationDeniedException, CADoesntExistsException {
         final CAInfo cainfo = caSession.getCAInfo(authenticationToken, caName);
         if (cainfo == null) {
             throw new CADoesntExistsException("CA with name " + caName + " doesn't exist.");
@@ -2536,24 +2488,33 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     }
 
     @Override
-    public Integer getRemainingNumberOfApprovalsWS(AuthenticationToken authenticationToken, int requestId)
+    public byte[] getLatestCrlByIssuerDn(AuthenticationToken authenticationToken, String issuerDn, boolean deltaCRL) throws AuthorizationDeniedException, EjbcaException, CADoesntExistsException {
+        final CAInfo cainfo = caSession.getCAInfo(authenticationToken, issuerDn.hashCode());
+        if (cainfo == null) {
+            throw new CADoesntExistsException("CA with subjectDn " + issuerDn + " doesn't exist.");
+        }
+        return crlStoreSession.getLastCRL(issuerDn, deltaCRL);
+    }
+
+    @Override
+    public Integer getRemainingNumberOfApprovals(final AuthenticationToken authenticationToken, final int requestId)
             throws AuthorizationDeniedException, ApprovalException, ApprovalRequestExpiredException {
         return approvalSession.getRemainingNumberOfApprovals(requestId);
     }
 
     @Override
-    public Integer isApprovedWS(AuthenticationToken authenticationToken, int approvalId)
+    public Integer isApproved(final AuthenticationToken authenticationToken, final int approvalId)
             throws AuthorizationDeniedException, ApprovalException, ApprovalRequestExpiredException {
         return approvalSession.isApproved(approvalId);
     }
 
     @Override
-    public boolean isAuthorizedWS(AuthenticationToken authenticationToken, String resource) throws AuthorizationDeniedException {
+    public boolean isAuthorized(final AuthenticationToken authenticationToken, final String... resource) {
         return authorizationSession.isAuthorized(authenticationToken, resource);
     }
 
     @Override
-    public void republishCertificateWS(AuthenticationToken authenticationToken, String serialNumberInHex, String issuerDN)
+    public void republishCertificate(AuthenticationToken authenticationToken, String serialNumberInHex, String issuerDN)
             throws AuthorizationDeniedException, CADoesntExistsException, PublisherException, EjbcaException {
         final String bcIssuerDN = CertTools.stringToBCDNString(issuerDN);
         caSession.verifyExistenceOfCA(bcIssuerDN.hashCode());
@@ -2575,6 +2536,261 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
             }
         } else {
             throw new PublisherException("Error : Certificate profile couldn't be found for the given certificate.");
+        }
+    }
+
+    @Override
+    public byte[] generateOrKeyRecoverToken(final AuthenticationToken authenticationToken, final String username, final String password, final String hardTokenSN, final String keySpecification,
+            final String keyAlgorithm) throws AuthorizationDeniedException, CADoesntExistsException, NotFoundException, EjbcaException {
+        return keyStoreCreateSessionLocal.generateOrKeyRecoverTokenAsByteArray(authenticationToken, username, password, hardTokenSN, keySpecification, keyAlgorithm);
+    }
+
+    @Override
+    public byte[] getEndEntityProfileAsXml(final AuthenticationToken authenticationToken, final int profileId)
+            throws AuthorizationDeniedException, EndEntityProfileNotFoundException {
+        return endEntityProfileSession.getProfileAsXml(authenticationToken, profileId);
+    }
+
+    @Override
+    public byte[] getCertificateProfileAsXml(final AuthenticationToken authenticationToken, final int profileId)
+            throws AuthorizationDeniedException, CertificateProfileDoesNotExistException {
+        return certificateProfileSession.getProfileAsXml(authenticationToken, profileId);
+    }
+
+    @Override
+    public Collection<CertificateWrapper> processCardVerifiableCertificateRequest(final AuthenticationToken authenticationToken, final String username, final String password, final String cvcreq)
+            throws AuthorizationDeniedException, CADoesntExistsException, UserDoesntFullfillEndEntityProfile, NotFoundException,
+            ApprovalException, EjbcaException, WaitingForApprovalException, SignRequestException, CertificateExpiredException, CesecoreException {
+        return signSessionLocal.createCardVerifiableCertificateWS(authenticationToken, username, password, cvcreq);
+    }
+
+    @Override
+    public HashSet<String> getCaaIdentities(final AuthenticationToken authenticationToken, final int caId)
+            throws AuthorizationDeniedException, CADoesntExistsException {
+        final HashSet<String> caaIdentities = new HashSet<String>();
+        final CA ca = caSession.getCA(authenticationToken, caId);
+        if (ca == null) {
+            throw new CADoesntExistsException("The CA with id " + caId + " does not exist on peer.");
+        }
+        for (final int validatorId : ca.getValidators()) {
+            final Validator validator = keyValidatorSession.getValidator(validatorId);
+            if (validator == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Missing validator ID " + validatorId + " in CA '" + ca.getName() + "'");
+                }
+                continue;
+            }
+            if (validator.getValidatorTypeIdentifier().equals(DnsNameValidator.CAA_TYPE_IDENTIFIER)) {
+                caaIdentities.addAll(((DnsNameValidator) validator).getIssuers());
+            }
+        }
+        return caaIdentities;
+    }
+
+    @Override
+    public AcmeAccount getAcmeAccountById(String accountId) {
+        return acmeAccountDataSession.getAcmeAccount(accountId);
+    }
+
+    @Override
+    public AcmeAccount getAcmeAccountByPublicKeyStorageId(final String publicKeyStorageId) {
+        return acmeAccountDataSession.getAcmeAccountByPublicKeyStorageId(publicKeyStorageId);
+    }
+
+    @Override
+    public String persistAcmeAccount(final AcmeAccount acmeAccount) {
+        return acmeAccountDataSession.createOrUpdate(acmeAccount);
+    }
+
+    @Override
+    public AcmeOrder getAcmeOrderById(final String orderId) {
+        return acmeOrderDataSession.getAcmeOrder(orderId);
+    }
+    
+    @Override
+    public Set<AcmeOrder> getAcmeOrdersByAccountId(String accountId) {
+        return acmeOrderDataSession.getAcmeOrdersByAccountId(accountId);
+    }
+
+    @Override
+    public Set<AcmeOrder> getFinalizedAcmeOrdersByFingerprint(String fingerprint) {
+        return acmeOrderDataSession.getFinalizedAcmeOrdersByFingerprint(fingerprint);
+    }
+    
+    @Override
+    public String persistAcmeOrder(final AcmeOrder acmeOrder) {
+        return acmeOrderDataSession.createOrUpdate(acmeOrder);
+    }
+
+    @Override
+    public List<String> persistAcmeOrders(final List<AcmeOrder> acmeOrders) {
+        return acmeOrderDataSession.createOrUpdate(acmeOrders);
+    }
+    
+    @Override
+    public void removeAcmeOrder(String orderId) {
+        acmeOrderDataSession.remove(orderId);
+    }
+    
+    @Override
+    public void removeAcmeOrders(List<String> orderIds) {
+        acmeOrderDataSession.removeAll(orderIds);
+    }
+    
+    @Override
+    public AcmeAuthorization getAcmeAuthorizationById(String authorizationId) {
+        return acmeAuthorizationDataSession.getAcmeAuthorization(authorizationId);
+    }
+
+    @Override
+    public List<AcmeAuthorization> getAcmeAuthorizationsByOrderId(String orderId) {
+        return acmeAuthorizationDataSession.getAcmeAuthorizationsByOrderId(orderId);
+    }
+
+    @Override
+    public List<AcmeAuthorization> getAcmeAuthorizationsByAccountId(String accountId) {
+        return acmeAuthorizationDataSession.getAcmeAuthorizationsByAccountId(accountId);
+    }
+
+    @Override
+    public String persistAcmeAuthorization(AcmeAuthorization acmeAuthorization) {
+        return acmeAuthorizationDataSession.createOrUpdate(acmeAuthorization);
+    }
+
+    @Override
+    public void persistAcmeAuthorizationList(List<AcmeAuthorization> acmeAuthorizations) {
+        acmeAuthorizationDataSession.createOrUpdateList(acmeAuthorizations);
+    }
+
+    @Override
+    public AcmeChallenge getAcmeChallengeById(String challengeId) {
+        return acmeChallengeDataSession.getAcmeChallenge(challengeId);
+    }
+
+    @Override
+    public List<AcmeChallenge> getAcmeChallengesByAuthorizationId(String authorizationId) {
+        return acmeChallengeDataSession.getAcmeChallengesByAuthorizationId(authorizationId);
+    }
+
+    @Override
+    public String persistAcmeChallenge(AcmeChallenge acmeChallenge) {
+        return acmeChallengeDataSession.createOrUpdate(acmeChallenge);
+    }
+
+    @Override
+    public void persistAcmeChallengeList(List<AcmeChallenge> acmeChallenges) {
+        acmeChallengeDataSession.createOrUpdateList(acmeChallenges);
+    }
+
+    @Override
+    public byte[] addUserAndGenerateKeyStore(AuthenticationToken authenticationToken, EndEntityInformation endEntity, boolean clearpwd) throws AuthorizationDeniedException, EjbcaException, WaitingForApprovalException {
+        //Authorization
+        if (!endEntityManagementSession.isAuthorizedToEndEntityProfile(authenticationToken, endEntity.getEndEntityProfileId(),
+                AccessRulesConstants.DELETE_END_ENTITY)) {
+            log.warn("Missing *" + AccessRulesConstants.DELETE_END_ENTITY + " rights for user '" + authenticationToken
+                    + "' to be able to add an end entity (Delete is only needed for clean-up if something goes wrong after an end-entity has been added)");
+            return null;
+        }
+
+        try {
+            endEntity = endEntityManagementSession.addUser(authenticationToken, endEntity, clearpwd);
+        } catch (CesecoreException e) {
+            //Wrapping the CesecoreException.errorCode
+            throw new EjbcaException(e);
+        } catch (EndEntityProfileValidationException e) {
+            //Wraps @WebFault Exception based with @NonSensitive EjbcaException based
+            throw new EndEntityProfileValidationRaException(e);
+        }
+        KeyStore keyStore;
+        try {
+            final EndEntityProfile endEntityProfile = endEntityProfileSession.getEndEntityProfile(endEntity.getEndEntityProfileId());
+            boolean usekeyrecovery = ((GlobalConfiguration) globalConfigurationSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)).getEnableKeyRecovery();
+            EndEntityInformation data = endEntityAccessSession.findUser(endEntity.getUsername());
+            if (data == null) {
+                throw new EjbcaException(ErrorCode.USER_NOT_FOUND, "User '" + endEntity.getUsername() + "' does not exist");
+            }
+            final boolean savekeys = data.getKeyRecoverable() && usekeyrecovery && (data.getStatus() != EndEntityConstants.STATUS_KEYRECOVERY);
+            final boolean loadkeys = (data.getStatus() == EndEntityConstants.STATUS_KEYRECOVERY) && usekeyrecovery;
+            final boolean reusecertificate = endEntityProfile.getReUseKeyRecoveredCertificate();
+            final String encodedValidity = endEntity.getExtendedInformation().getCertificateEndTime();
+            final Date notAfter = encodedValidity == null ? null : ValidityDate.getDate(encodedValidity, new Date());
+            keyStore = keyStoreCreateSessionLocal.generateOrKeyRecoverToken(authenticationToken,
+                    endEntity.getUsername(), // Username
+                    endEntity.getPassword(), // Enrollment code
+                    endEntity.getCAId(), // The CA signing the private keys
+                    endEntity.getExtendedInformation().getKeyStoreAlgorithmSubType(), // Keylength
+                    endEntity.getExtendedInformation().getKeyStoreAlgorithmType(), // Signature algorithm
+                    null, // Not valid before
+                    notAfter, // Not valid after
+                    endEntity.getTokenType() == SecConst.TOKEN_SOFT_JKS, // Type of token
+                    loadkeys, // Perform key recovery?
+                    savekeys, // Save private keys?
+                    reusecertificate, // Reuse recovered cert?
+                    endEntity.getEndEntityProfileId()); // Identifier for end entity
+        } catch (KeyStoreException | InvalidAlgorithmParameterException | CADoesntExistsException | IllegalKeyException
+                | CertificateCreateException | IllegalNameException | CertificateRevokeException | CertificateSerialNumberException
+                | CryptoTokenOfflineException | IllegalValidityException | CAOfflineException | InvalidAlgorithmException
+                | CustomCertificateSerialNumberException | CertificateException | NoSuchAlgorithmException | InvalidKeySpecException
+                | EndEntityProfileValidationException | CertificateSignatureException | NoSuchEndEntityException e) {
+            throw new KeyStoreGeneralRaException(e);
+        }
+        if (endEntity.getTokenType() == EndEntityConstants.TOKEN_SOFT_PEM) {
+            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+                outputStream.write(KeyTools.getSinglePemFromKeyStore(keyStore, endEntity.getPassword().toCharArray()));
+                return outputStream.toByteArray();
+            } catch (IOException | CertificateEncodingException | UnrecoverableKeyException | KeyStoreException | NoSuchAlgorithmException e) {
+                log.error(e); //should never happen if keyStore is valid object
+            }
+        } else {
+            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+                keyStore.store(outputStream, endEntity.getPassword().toCharArray());
+                return outputStream.toByteArray();
+            } catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException e) {
+                log.error(e); //should never happen if keyStore is valid object
+            }
+        }
+        return null;
+    }
+
+
+    @Override
+    public byte[] addUserAndCreateCertificate(AuthenticationToken authenticationToken, EndEntityInformation endEntityInformation, boolean clearpwd) throws AuthorizationDeniedException, EjbcaException, WaitingForApprovalException {
+        if(endEntityInformation.getExtendedInformation() == null || endEntityInformation.getExtendedInformation().getCertificateRequest() == null){
+            throw new IllegalArgumentException("Could not find CSR for end entity with username " + endEntityInformation.getUsername() + " CSR must be set under endEntityInformation.extendedInformation.certificateRequest");
+        }
+        //Authorization
+        if (!endEntityManagementSession.isAuthorizedToEndEntityProfile(authenticationToken, endEntityInformation.getEndEntityProfileId(),
+                AccessRulesConstants.DELETE_END_ENTITY)) {
+            log.warn("Missing *" + AccessRulesConstants.DELETE_END_ENTITY + " rights for user '" + authenticationToken
+                    + "' to be able to add an end entity (Delete is only needed for clean-up if something goes wrong after an end-entity has been added)");
+            return null;
+        }
+
+        try {
+            endEntityInformation = endEntityManagementSession.addUser(authenticationToken, endEntityInformation, clearpwd);
+        } catch (CesecoreException e) {
+            //Wrapping the CesecoreException.errorCode
+            throw new EjbcaException(e);
+        } catch (EndEntityProfileValidationException e) {
+            //Wraps @WebFault Exception based with @NonSensitive EjbcaException based
+            throw new EndEntityProfileValidationRaException(e);
+        }
+        PKCS10RequestMessage req = RequestMessageUtils.genPKCS10RequestMessage(endEntityInformation.getExtendedInformation().getCertificateRequest());
+        req.setUsername(endEntityInformation.getUsername());
+        req.setPassword(endEntityInformation.getPassword());
+        final String encodedValidity = endEntityInformation.getExtendedInformation().getCertificateEndTime();
+        req.setNotAfter(encodedValidity == null ? null : ValidityDate.getDate(encodedValidity, new Date()));
+        try {
+            ResponseMessage resp = signSessionLocal.createCertificate(authenticationToken, req, X509ResponseMessage.class, null);
+            X509Certificate cert = CertTools.getCertfromByteArray(resp.getResponseMessage(), X509Certificate.class);
+            return cert.getEncoded();
+        } catch (NoSuchEndEntityException | CustomCertificateSerialNumberException | CryptoTokenOfflineException | IllegalKeyException
+                | CADoesntExistsException | SignRequestException | SignRequestSignatureException | IllegalNameException | CertificateCreateException
+                | CertificateRevokeException | CertificateSerialNumberException | IllegalValidityException | CAOfflineException
+                | InvalidAlgorithmException | CertificateExtensionException e) {
+            throw new EjbcaException(e);
+        } catch (CertificateParsingException | CertificateEncodingException e) {
+            throw new IllegalStateException("Internal error with creating X509Certificate from CertificateResponseMessage");
         }
     }
 }

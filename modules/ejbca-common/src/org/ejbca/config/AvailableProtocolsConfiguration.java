@@ -37,6 +37,7 @@ public class AvailableProtocolsConfiguration extends ConfigurationBase implement
      */
     public enum AvailableProtocols {
         // If you add a protocol > 6.11.0 it should be disabled by default
+        ACME("ACME", "/ejbca/acme"),
         CERT_STORE("Certstore", "/certificates"),
         CMP("CMP", "/ejbca/publicweb/cmp"),
         CRL_STORE("CRLstore", "/crls"),
@@ -45,6 +46,7 @@ public class AvailableProtocolsConfiguration extends ConfigurationBase implement
         PUBLIC_WEB("Public Web", "/ejbca"),
         SCEP("SCEP", "/ejbca/publicweb/apply/scep"),
         RA_WEB("RA Web", "/ejbca/ra"),
+        REST("REST Certificate Management", "/ejbca/ejbca-rest-api"),
         WEB_DIST("Webdist", "/ejbca/publicweb/webdist"),
         WS("Web Service", "/ejbca/ejbcaws");
 
@@ -95,8 +97,11 @@ public class AvailableProtocolsConfiguration extends ConfigurationBase implement
     public boolean getProtocolStatus(String protocol) {
         Boolean ret = (Boolean)data.get(protocol);
         // All protocols added > 6.11.0 should be disabled by default
-        if (ret == null && protocol.equals(AvailableProtocols.EST.getName())) {
-            setProtocolStatus(AvailableProtocols.EST.getName(), false);
+        if (ret == null && (
+                protocol.equals(AvailableProtocols.ACME.getName())  ||
+                protocol.equals(AvailableProtocols.EST.getName())   || 
+                protocol.equals(AvailableProtocols.REST.getName()))) {
+            setProtocolStatus(protocol, false);
             return false;
         }
         return ret == null ? true : ret;

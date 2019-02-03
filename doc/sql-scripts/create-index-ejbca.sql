@@ -7,6 +7,7 @@ CREATE UNIQUE INDEX auditrecorddata_idx2 ON AuditRecordData (nodeId,sequenceNumb
 -- Selecting log entries from IntegrityProtectedDevice logs in the AdminGUI is usually
 -- done using time constraints.
 CREATE INDEX auditrecorddata_idx3 ON AuditRecordData (timeStamp);
+CREATE INDEX auditrecorddata_idx4 ON AuditRecordData (searchDetail2);
 
 -- unique to ensure that no two CRLs with the same CRLnumber from the same issuer is created
 CREATE UNIQUE INDEX crldata_idx3 ON CRLData (cRLNumber, issuerDN);
@@ -60,3 +61,21 @@ CREATE INDEX noconflictcertificatedata_idx1 ON NoConflictCertificateData (serial
 CREATE INDEX noconflictcertificatedata_idx2 ON NoConflictCertificateData (fingerprint);
 CREATE INDEX noconflictcertificatedata_idx3 ON NoConflictCertificateData (issuerDN,status);
 CREATE INDEX noconflictcertificatedata_idx4 ON NoConflictCertificateData (certificateProfileId);
+
+-- index for searching for ACME accounts by public key
+CREATE INDEX acmeaccountdata_idx1 ON AcmeAccountData (currentKeyId);
+
+-- index for searching for ACME orders by account id
+CREATE INDEX acmeorderdata_idx1 ON AcmeOrderData (accountId);
+
+-- index for searching for ACME orders by fingerprint and status
+CREATE INDEX acmeorderdata_idx2 ON AcmeOrderData (fingerprint, status);
+
+-- index for searching for ACME authorizations by account id
+CREATE INDEX acmeauthorizationdata_idx1 ON AcmeAuthorizationData (accountId);
+
+-- index for searching for ACME authorizations by order id
+CREATE INDEX acmeauthorizationdata_idx2 ON AcmeAuthorizationData (orderId);
+
+-- index for searching for ACME challenges by authorization id
+CREATE INDEX acmechallengedata_idx1 ON AcmeChallengeData (authorizationId);

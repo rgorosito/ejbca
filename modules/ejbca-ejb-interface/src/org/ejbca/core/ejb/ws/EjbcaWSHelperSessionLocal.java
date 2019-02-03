@@ -19,7 +19,6 @@ import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
-import java.util.TreeMap;
 
 import javax.ejb.Local;
 
@@ -41,7 +40,6 @@ import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.protocol.ws.objects.Certificate;
 import org.ejbca.core.protocol.ws.objects.HardTokenDataWS;
-import org.ejbca.core.protocol.ws.objects.NameAndId;
 import org.ejbca.core.protocol.ws.objects.UserMatch;
 import org.ejbca.util.query.Query;
 
@@ -101,7 +99,7 @@ public interface EjbcaWSHelperSessionLocal extends EjbcaWSHelperSession {
      * @throws NoSuchEndEntityException if there's no end entity with the given username
      * @throws AuthorizationDeniedException if not authorized to the given end entity
      * @throws ApprovalException if an approval error occurred while setting end entity status 
-     * @throws WaitingForApprovalException if approval is required for setting the end entity status
+     * @throws WaitingForApprovalException if approval is required for setting the end entity status. The request ID will be included as a field in this exception.
      */
     void checkValidityAndSetUserPassword(AuthenticationToken admin, java.security.cert.Certificate cert, String username, String password) 
             throws CertificateNotYetValidException, CertificateExpiredException, EndEntityProfileValidationException,
@@ -153,7 +151,7 @@ public interface EjbcaWSHelperSessionLocal extends EjbcaWSHelperSession {
       * @throws AuthorizationDeniedException
       * @throws EjbcaException
       * @throws ApprovalException
-      * @throws WaitingForApprovalException
+      * @throws WaitingForApprovalException. The request ID will be included as a field in this exception.
       * @throws CertPathValidatorException
       * @throws CesecoreException
       * @throws CertificateParsingException 
@@ -179,12 +177,4 @@ public interface EjbcaWSHelperSessionLocal extends EjbcaWSHelperSession {
      HardTokenDataWS convertHardTokenToWS(HardTokenInformation data, Collection<java.security.cert.Certificate> certificates, boolean includePUK) throws EjbcaException;
      
      void isAuthorizedToRepublish(AuthenticationToken admin, String username, int caid) throws AuthorizationDeniedException, EjbcaException;
-     
-     /**
-      * Web services does not support Collection type so convert it to array.
-      * 
-      * @param mytree TreeMap of name and id pairs to convert to an array
-      * @return array of NameAndId objects
-      */
-     NameAndId[] convertTreeMapToArray(TreeMap<String, Integer> mytree);
 }

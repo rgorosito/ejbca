@@ -15,11 +15,12 @@
 
  version: $Id$
  -->
-<web-app version="3.0" id="admingui"
+<web-app version="3.1" id="admingui"
+    metadata-complete="false"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-    xmlns="http://java.sun.com/xml/ns/javaee"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
-                        http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+    xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+                        http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
 
     <description><![CDATA[EJBCA Administration web]]></description>
 
@@ -94,42 +95,17 @@
     <filter-mapping>
         <filter-name>extensionsFilter</filter-name>
         <url-pattern>*.jsf</url-pattern>
-        <url-pattern>*.xhtml</url-pattern>
+        <!-- The following JSF pages in the AdminGUI are still using <t:inputFileUpload>. They should be converted to use <h:inputFile> instead (ECA-3658) -->
+        <url-pattern>/sysconfig/editctlog.xhtml</url-pattern> 
+        <url-pattern>/sysconfig/systemconfiguration.xhtml</url-pattern> 
+        <url-pattern>/keybind/keybindings.xhtml</url-pattern>
+        <url-pattern>/ca/editcas/importca.xhtml</url-pattern>
+        <url-pattern>/ca/editcas/editcapage.xhtml</url-pattern>
+        <url-pattern>/ca/editcas/recievefile.xhtml</url-pattern>
+        <url-pattern>/ca/editcas/importcacert.xhtml</url-pattern> 
+        <url-pattern>/ca/cafunctions.xhtml</url-pattern>
+        <url-pattern>/ca/editcertificateprofiles/editcertificateprofiles.xhtml</url-pattern>
     </filter-mapping>
-
-    <!-- Clickjack Filter from OWASP adding X-FRAME-OPTIONS header to pages to prevent including 
-         our pages in other frames. https://www.owasp.org/index.php/Clickjacking_Protection_for_Java_EE -->
-	<filter>
-		<filter-name>ClickjackFilterDeny</filter-name>
-		<filter-class>org.owasp.filters.ClickjackFilter</filter-class>
-		<init-param>
-			<param-name>mode</param-name>
-			<param-value>DENY</param-value>
-		</init-param>
-	</filter>
-
-	<filter>
-		<filter-name>ClickjackFilterSameOrigin</filter-name>
-		<filter-class>org.owasp.filters.ClickjackFilter</filter-class>
-		<init-param>
-			<param-name>mode</param-name>
-			<param-value>SAMEORIGIN</param-value>
-		</init-param>
-	</filter>
-
-    <!--  use the Deny version to prevent anyone, including yourself, from framing the page
-          Since we are using frames in adminweb, we don't use deny.
-	<filter-mapping> 
-		<filter-name>ClickjackFilterDeny</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
-    -->
-
-	<!-- use the SameOrigin version to allow your application to frame, but nobody else -->
-	<filter-mapping> 
-		<filter-name>ClickjackFilterSameOrigin</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
 
 	<filter>
 		<filter-name>ContentSecurityPolicyFilter</filter-name>
@@ -138,6 +114,10 @@
 		    <param-name>unsafeeval</param-name>
 		    <param-value>yes</param-value>
 		</init-param>
+		<init-param>
+            <param-name>frameoptionsmode</param-name>
+            <param-value>SAMEORIGIN</param-value>
+        </init-param>		
 	</filter>
 	
 	<filter-mapping> 
@@ -211,6 +191,12 @@
         <servlet-name>Faces Servlet</servlet-name>
         <servlet-class>javax.faces.webapp.FacesServlet</servlet-class>
         <load-on-startup>1</load-on-startup>
+        <multipart-config>
+            <!-- Upload file size limit. 10485760 = 10 MB -->
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>10485760</max-request-size>
+            <file-size-threshold>10485760</file-size-threshold>
+        </multipart-config>
     </servlet>
     <servlet-mapping>
         <servlet-name>Faces Servlet</servlet-name>
@@ -220,7 +206,7 @@
 
    <servlet-mapping>
       <servlet-name>CryptoTokenDownloadServlet</servlet-name>
-      <url-pattern>/cryptoTokenDownloads</url-pattern>
+      <url-pattern>/cryptotoken/cryptoTokenDownloads</url-pattern>
    </servlet-mapping>
    <servlet-mapping>
    	  <servlet-name>ProfilesExportServlet</servlet-name>
@@ -256,6 +242,19 @@
       <url-pattern>/logout</url-pattern>
    </servlet-mapping>
 
+    <error-page>
+    	<error-code>403</error-code>
+        <location>/error.xhtml</location>
+    </error-page>
+    <error-page>
+    	<error-code>404</error-code>
+        <location>/error.xhtml</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/error.xhtml</location>
+    </error-page>
+
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
@@ -264,18 +263,28 @@
         </cookie-config>
     </session-config>
 
+	<listener>
+    	<listener-class>org.ejbca.ui.web.admin.CaHttpSessionListener</listener-class>
+	</listener>
+
     <welcome-file-list>
-        <welcome-file>index.jsp</welcome-file>
+        <welcome-file>index.xhtml</welcome-file>
     </welcome-file-list>
+
+	<!-- Prevents comments (like this one) from being interpreted and mistakenly rendered in .xhtml files -->
+	<context-param>
+	    <param-name>javax.faces.FACELETS_SKIP_COMMENTS</param-name>
+	    <param-value>true</param-value>
+	</context-param>
+
 
     <security-constraint>
         <web-resource-collection>
             <web-resource-name>restricted methods</web-resource-name>
             <url-pattern>/*</url-pattern>
-            <http-method>PUT</http-method>
-            <http-method>DELETE</http-method>
-            <http-method>OPTIONS</http-method>
-            <http-method>TRACE</http-method>
+            <http-method-omission>HEAD</http-method-omission>
+            <http-method-omission>GET</http-method-omission>
+            <http-method-omission>POST</http-method-omission>
         </web-resource-collection>
         <auth-constraint />
     </security-constraint> 

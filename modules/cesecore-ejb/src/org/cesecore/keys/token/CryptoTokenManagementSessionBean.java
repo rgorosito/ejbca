@@ -20,8 +20,10 @@ import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -132,6 +134,102 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         final Properties cryptoTokenProperties = cryptoToken.getProperties();
         final boolean autoActivation = BaseCryptoToken.getAutoActivatePin(cryptoTokenProperties) != null;
         return new CryptoTokenInfo(cryptoTokenId, cryptoToken.getTokenName(), isActive, autoActivation, cryptoToken.getClass(), cryptoTokenProperties);
+    }
+
+    @Override
+    public List<String> isCryptoTokenSlotUsed(final AuthenticationToken authenticationToken, final String tokenName,
+            final String className, final Properties properties)
+            throws AuthorizationDeniedException, CryptoTokenNameInUseException, CryptoTokenOfflineException,
+            CryptoTokenAuthenticationFailedException, NoSuchSlotException {
+        if (log.isTraceEnabled()) {
+            log.trace(">isCryptoTokenUsed: " + tokenName + ", " + className);
+        }
+        if (CryptoTokenFactory.instance().getAvailableCryptoToken(className) == null) {
+            throw new CryptoTokenClassNotFoundException("Invalid token class name: " + className);
+        }
+        // Creating a duplicate P11 crypto token can be destructive, ideally we would check all crypto tokens, 
+        // but we only check the ones the admin has access to in order to not leak information 
+        List<CryptoTokenInfo> infos = getCryptoTokenInfos(authenticationToken);
+        List<String> providers = new ArrayList<>();
+        String tokenP11Lib = properties.getProperty(PKCS11CryptoToken.SHLIB_LABEL_KEY);
+        final String providerNameToCheck = createProviderName(tokenName, className, properties);
+        if (log.isDebugEnabled()) {
+            log.debug("isCryptoTokenUsed: Provider name to check for: "+providerNameToCheck);
+        }
+        // Return list of Crypto Token name
+        List<String> ret = new ArrayList<>();
+        // Only do this check for P11 tokens
+        if (StringUtils.isNotEmpty(tokenP11Lib)) {
+            for (CryptoTokenInfo cti : infos) {
+                // We are concerned about PKCS#11 usage
+                String ctiP11lib = cti.getP11Library();
+                CryptoToken token = cryptoTokenSession.getCryptoToken(cti.getCryptoTokenId());
+                final String ctiProviderName = token.getSignProviderName();
+                providers.add(ctiProviderName);
+                if (token != null) {
+                    if (isP11SlotSame(tokenP11Lib, providerNameToCheck, ctiP11lib, ctiProviderName, cti.getName())) {
+                        ret.add(ctiProviderName);
+                    }
+                }
+            }
+            // Check for database protection crypto tokens as well, these are not stored as crypto tokens in the database, but only 
+            // as parameters in databaseprotection.properties, and thus requires special handling
+            Provider[] installedProviders = Security.getProviders();
+            if (installedProviders != null) {
+                for (int i = 0; i < installedProviders.length; i++) {
+                    final String installedProviderName = installedProviders[i].getName();
+                    if (log.isDebugEnabled()) {
+                        log.debug("isCryptoTokenUsed: Checking installed provider: "+installedProviderName);
+                    }
+                    if (StringUtils.equals(providerNameToCheck, installedProviderName)) {
+                        // We found a match, but don't add duplicates
+                        if (!providers.contains(installedProviderName)) {
+                            log.debug("isCryptoTokenUsed: Found a match between "+providerNameToCheck+" and installed provider "+installedProviderName+", which was not already listed, must be a database protection token.");
+                            ret.add(installedProviderName+" (database protection?)");
+                        }
+                    }
+                }                
+            }
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("<isCryptoTokenUsed: " + tokenName + ", " + className + ", " + ret.size());
+        }
+        return ret; 
+    }
+
+    private boolean isP11SlotSame(String tokenP11Lib, String providerNameToCheck, String ctiP11lib, String ctiProviderName, String ctiName) throws NoSuchSlotException {
+        boolean ret = false;
+        if (StringUtils.isNotEmpty(ctiP11lib)) {
+            if (StringUtils.equalsIgnoreCase(tokenP11Lib, ctiP11lib)) {
+                // We have a match on the library, watch out...check if we are using the same slot as well
+                // Now it gets exciting, since you can address the slot through different things (slotID, slotName, p11Config)
+                // it is really hard to check easily, we need to create the provider and see if the provider name is the same
+                if (log.isDebugEnabled()) {
+                    log.debug("isCryptoTokenUsed: Provider for token we check for: "+providerNameToCheck);
+                    log.debug("isCryptoTokenUsed Provider for existing token: "+ctiProviderName);
+                }
+                if (StringUtils.equals(providerNameToCheck, ctiProviderName)) {
+                    // We had a match, the caller knows the crypto token name
+                    ret = true;
+                }
+            }
+        }
+        return ret;
+    }
+
+    private String createProviderName(final String tokenName, final String className, final Properties tokenprops) throws NoSuchSlotException {
+        // Make a complete clone of the original properties, as we modify it to be non-addable-provider token properties below
+        // if we did that on the original tokenprops, this method would have a side effect in modifying caller parameters 
+        // (which causes things to break since the provider is not installed)
+        Properties properties = new Properties();
+        properties.putAll(tokenprops);
+        properties.setProperty(PKCS11CryptoToken.DO_NOT_ADD_P11_PROVIDER, "true");                       
+        final CryptoToken cryptoToken = CryptoTokenFactory.createCryptoToken(className, properties, null, -1, tokenName, false);
+        final String providerName = cryptoToken.getSignProviderName();
+        if (log.isDebugEnabled()) {
+            log.debug("isCryptoTokenUsed: Created provider (without installing) to check for collisions: "+providerName);
+        }
+        return providerName;
     }
 
     @Override

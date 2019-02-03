@@ -33,13 +33,11 @@ import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.certificateprofile.CertificateProfileDoesNotExistException;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.endentity.EndEntityInformation;
-import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockRunner;
 import org.easymock.Mock;
 import org.easymock.TestSubject;
-import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.authentication.web.WebAuthenticationProviderSessionLocal;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionLocal;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
@@ -51,6 +49,7 @@ import org.junit.runner.RunWith;
 
 
 /**
+ * This class contains unit tests for EjbcaRestHelper class
  *
  * @version $Id: EjbcaRestHelperUnitTest.java 29025 2018-05-25 08:45:54Z tarmo_r_helmes $
  *
@@ -97,52 +96,24 @@ public class EjbcaRestHelperUnitTest {
             + "-----END CERTIFICATE REQUEST-----\n";
 
 
-    final byte[] testCertificateBytes = Base64.decode((
-            "MIICWzCCAcSgAwIBAgIIJND6Haa3NoAwDQYJKoZIhvcNAQEFBQAwLzEPMA0GA1UE"
-            + "AxMGVGVzdENBMQ8wDQYDVQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMB4XDTAyMDEw"
-            + "ODA5MTE1MloXDTA0MDEwODA5MjE1MlowLzEPMA0GA1UEAxMGMjUxMzQ3MQ8wDQYD"
-            + "VQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMIGdMA0GCSqGSIb3DQEBAQUAA4GLADCB"
-            + "hwKBgQCQ3UA+nIHECJ79S5VwI8WFLJbAByAnn1k/JEX2/a0nsc2/K3GYzHFItPjy"
-            + "Bv5zUccPLbRmkdMlCD1rOcgcR9mmmjMQrbWbWp+iRg0WyCktWb/wUS8uNNuGQYQe"
-            + "ACl11SAHFX+u9JUUfSppg7SpqFhSgMlvyU/FiGLVEHDchJEdGQIBEaOBgTB/MA8G"
-            + "A1UdEwEB/wQFMAMBAQAwDwYDVR0PAQH/BAUDAwegADAdBgNVHQ4EFgQUyxKILxFM"
-            + "MNujjNnbeFpnPgB76UYwHwYDVR0jBBgwFoAUy5k/bKQ6TtpTWhsPWFzafOFgLmsw"
-            + "GwYDVR0RBBQwEoEQMjUxMzQ3QGFuYXRvbS5zZTANBgkqhkiG9w0BAQUFAAOBgQAS"
-            + "5wSOJhoVJSaEGHMPw6t3e+CbnEL9Yh5GlgxVAJCmIqhoScTMiov3QpDRHOZlZ15c"
-            + "UlqugRBtORuA9xnLkrdxYNCHmX6aJTfjdIW61+o/ovP0yz6ulBkqcKzopAZLirX+"
-            + "XSWf2uI9miNtxYMVnbQ1KPdEAt7Za3OQR6zcS0lGKg==")
-            .getBytes());
-
-
     @Test(expected = CADoesntExistsException.class)
     public void shouldFailOnFindingCertificateAuthorityByName() throws Exception {
 
         // given
-        String endEntityProfileName = "eep1";
-        String certificateAuthorityName = "CA1";
-        String certificateProfileName = "CP1";
-        int certificateProfileId = 1;
-        String subjectDn = "mydn=123";
-        String name = "test123";
-        int status = 20;
-        String encodedValidity = "";
-        int signedby = 1;
+        final String endEntityProfileName = "eep1";
+        final String certificateAuthorityName = "CA1";
+        final String certificateProfileName = "CP1";
 
-        X509Certificate mockX509Cert = EasyMock.mock(X509Certificate.class);
+        final X509Certificate mockX509Cert = EasyMock.mock(X509Certificate.class);
 
-        X509Certificate[] certs = new X509Certificate[1];
+        final X509Certificate[] certs = new X509Certificate[1];
         certs[0] = mockX509Cert;
 
-        Collection<Certificate> certificatechain = new ArrayList<>();
-        CAToken caToken = EasyMock.mock(CAToken.class);
-
-        CAInfo caInfo = new X509CAInfo(subjectDn, name, status, certificateProfileId, encodedValidity, signedby, certificatechain, caToken);
-
-        AuthenticationToken authenticationToken = EasyMock.mock(AuthenticationToken.class);
+        final AuthenticationToken authenticationToken = EasyMock.mock(AuthenticationToken.class);
 
         expect(caSessionBean.getCAInfo(authenticationToken, certificateAuthorityName)).andReturn(null);
         replay(caSessionBean);
-        EnrollPkcs10CertificateRequest request = new EnrollPkcs10CertificateRequest.Builder()
+        final EnrollPkcs10CertificateRequest request = new EnrollPkcs10CertificateRequest.Builder()
                 .certificateRequest(csr)
                 .certificateProfileName(certificateProfileName)
                 .endEntityProfileName(endEntityProfileName)
@@ -150,7 +121,7 @@ public class EjbcaRestHelperUnitTest {
                 .build();
 
         // when
-        testClass.createCertificateRest(authenticationToken, request);
+        testClass.convertToEndEntityInformation(authenticationToken, request);
 
         // then
         EasyMock.verify();
@@ -163,7 +134,7 @@ public class EjbcaRestHelperUnitTest {
         String certificateAuthorityName = "CA1";
         String certificateProfileName = "CP1";
         int certificateProfileId = 1;
-        String subjectDn = "mydn=123";
+        String subjectDn = CertTools.stringToBCDNString("CN=mydn"); 
         String name = "test123";
         int status = 20;
         String encodedValidity = "";
@@ -195,7 +166,7 @@ public class EjbcaRestHelperUnitTest {
                 .build();
 
         // when
-        testClass.createCertificateRest(authenticationToken, request);
+        testClass.convertToEndEntityInformation(authenticationToken, request);
 
         // then
         EasyMock.verify();
@@ -209,7 +180,7 @@ public class EjbcaRestHelperUnitTest {
         String certificateAuthorityName = "CA1";
         String certificateProfileName = "CP1";
         int certificateProfileId = 1;
-        String subjectDn = "mydn=123";
+        String subjectDn = CertTools.stringToBCDNString("CN=mydn"); 
         String name = "test123";
         int status = 20;
         String encodedValidity = "";
@@ -243,76 +214,14 @@ public class EjbcaRestHelperUnitTest {
                 .build();
 
         // when
-        testClass.createCertificateRest(authenticationToken, request);
+        testClass.convertToEndEntityInformation(authenticationToken, request);
 
         // then
         EasyMock.verify();
     }
 
-
-
     @Test
-    public void shouldFailOnAddingUserBecauseInputUsernameIsNull() throws Exception {
-        // given
-        String endEntityProfileName = "eep1";
-        int endEntityProfileId = 7;
-
-        String certificateAuthorityName = "CA1";
-        String certificateProfileName = "CP1";
-        int certificateProfileId = 9;
-        String subjectDn = "mydn=123";
-        String name = "test123";
-        int status = 20;
-        String encodedValidity = "";
-        int signedby = 1;
-
-        X509Certificate mockX509Cert = EasyMock.mock(X509Certificate.class);
-
-        X509Certificate[] certs = new X509Certificate[1];
-        certs[0] = mockX509Cert;
-
-        Collection<Certificate> certificatechain = new ArrayList<>();
-        CAToken caToken = EasyMock.mock(CAToken.class);
-
-        CAInfo caInfo = new X509CAInfo(subjectDn, name, status, certificateProfileId, encodedValidity, signedby, certificatechain, caToken);
-
-        EndEntityProfile endEntityProfile = mock(EndEntityProfile.class);
-
-        AuthenticationToken authenticationToken = EasyMock.mock(AuthenticationToken.class);
-
-        expect(caSessionBean.getCAInfo(authenticationToken, certificateAuthorityName)).andReturn(caInfo);
-        expect(certificateProfileSessionBean.getCertificateProfileId(certificateProfileName)).andReturn(certificateProfileId);
-        expect(endEntityProfileSessionBean.getEndEntityProfileId(endEntityProfileName)).andReturn(endEntityProfileId);
-        expect(endEntityProfileSessionBean.getEndEntityProfile(endEntityProfileId)).andReturn(endEntityProfile);
-        expect(endEntityProfile.useAutoGeneratedPasswd()).andReturn(false);
-        expect(endEntityProfile.getValue(EndEntityProfile.SENDNOTIFICATION, 0)).andReturn(EndEntityProfile.TRUE);
-
-        replay(caSessionBean);
-        replay(certificateProfileSessionBean);
-        replay(endEntityProfileSessionBean);
-        replay(endEntityProfile);
-
-        EnrollPkcs10CertificateRequest request = new EnrollPkcs10CertificateRequest.Builder()
-                .certificateRequest(csr)
-                .certificateProfileName(certificateProfileName)
-                .endEntityProfileName(endEntityProfileName)
-                .certificateAuthorityName(certificateAuthorityName)
-                .build();
-
-        // when
-        try {
-            testClass.createCertificateRest(authenticationToken, request);
-            throw new Exception("This unit test is not ecpected to reach here!");
-        } catch (EjbcaException e) {
-            // then
-            assertEquals("Problem with adding end entity with username null", e.getMessage());
-            EasyMock.verify();
-        }
-    }
-
-
-    @Test
-    public void shouldEnrollCertificate() throws Exception {
+    public void shouldConvertToCorrectEndEntityInformation() throws Exception {
         // given
         String endEntityProfileName = "eep1";
         int endEntityProfileId = 7;
@@ -321,7 +230,7 @@ public class EjbcaRestHelperUnitTest {
         String certificateProfileName = "CP1";
         String username = "testuser";
         int certificateProfileId = 9;
-        String subjectDn = "mydn=123";
+        String subjectDn = CertTools.stringToBCDNString("CN=mydn"); 
         String name = "test123";
         int status = 20;
         String encodedValidity = "";
@@ -347,17 +256,11 @@ public class EjbcaRestHelperUnitTest {
         expect(endEntityProfileSessionBean.getEndEntityProfile(endEntityProfileId)).andReturn(endEntityProfile);
         expect(endEntityProfile.useAutoGeneratedPasswd()).andReturn(false);
         expect(endEntityProfile.getValue(EndEntityProfile.SENDNOTIFICATION, 0)).andReturn(EndEntityProfile.TRUE);
-        expect(raMasterApiProxyBean.addUser((AuthenticationToken)EasyMock.anyObject(), (EndEntityInformation)EasyMock.anyObject(), EasyMock.anyBoolean()))
-                .andReturn(true);
-
-        expect(raMasterApiProxyBean.createCertificate((AuthenticationToken)EasyMock.anyObject(), (EndEntityInformation)EasyMock.anyObject()))
-                .andReturn(testCertificateBytes);
 
         replay(caSessionBean);
         replay(certificateProfileSessionBean);
         replay(endEntityProfileSessionBean);
         replay(endEntityProfile);
-        replay(raMasterApiProxyBean);
 
         EnrollPkcs10CertificateRequest request = new EnrollPkcs10CertificateRequest.Builder()
                 .certificateRequest(csr)
@@ -368,10 +271,18 @@ public class EjbcaRestHelperUnitTest {
                 .build();
 
         // when
-        byte[] result = testClass.createCertificateRest(authenticationToken, request);
+        EndEntityInformation endEntityInformation = testClass.convertToEndEntityInformation(authenticationToken, request);
 
         // then
-        assertEquals(testCertificateBytes, result);
+        assertEquals("The injected endentity profile id in 'given' section didnt get converted into result properly",
+                endEntityProfileId, endEntityInformation.getEndEntityProfileId());
+
+        assertEquals("The injected certificate profile id in 'given' section didnt get converted into result properly",
+                certificateProfileId, endEntityInformation.getCertificateProfileId());
+
+        assertEquals("End entiy DN got incorrectly parsed pkcs10 certificate request",
+                "C=EE,ST=Alabama,L=tallinn,O=naabrivalve,CN=hello123server6", endEntityInformation.getDN());
+
         EasyMock.verify();
     }
 
@@ -380,7 +291,7 @@ public class EjbcaRestHelperUnitTest {
         PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(csr);
         String actualResult = testClass.getSubjectDn(pkcs10CertificateRequest);
         String expectedResult = "C=EE,ST=Alabama,L=tallinn,O=naabrivalve,CN=hello123server6";
-        assertEquals(expectedResult, actualResult);
+        assertEquals("End entiy DN got incorrectly parsed from pkcs10 certificate request", expectedResult, actualResult);
     }
 
     @Test
@@ -388,6 +299,6 @@ public class EjbcaRestHelperUnitTest {
         PKCS10CertificationRequest pkcs10CertificateRequest = CertTools.getCertificateRequestFromPem(csr);
         String actualResult = testClass.getSubjectAltName(pkcs10CertificateRequest);
         String expectedResult = "dNSName=somedns.com, iPAddress=192.168.1.7, dNSName=some.other.dns.com, directoryName=CN=Test\\,L=XX";
-        assertEquals(expectedResult, actualResult);
+        assertEquals("Subject AN got incorrectly parsed from pkcs10 certificate request", expectedResult, actualResult);
     }
 }

@@ -77,7 +77,7 @@ public class CrmfRAPbeTcpRequestTest extends CmpTestCase {
     private final GlobalConfigurationSessionRemote globalConfigurationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
 
     @BeforeClass
-    public static void beforeClass() throws Exception {
+    public static void beforeClass() {
         CryptoProviderTools.installBCProvider();
     }
 
@@ -124,22 +124,18 @@ public class CrmfRAPbeTcpRequestTest extends CmpTestCase {
     @After
     public void tearDown() throws Exception {
         super.tearDown();
-        boolean cleanUpOk = true;
         try {
             this.endEntityManagementSession.deleteUser(ADMIN, "cmptest");
         } catch (NoSuchEndEntityException e) {
             // A test probably failed before creating the entity
             log.error("Failed to delete user \"cmptest\".");
-            cleanUpOk = false;
         }
         if (!this.configurationSession.restoreConfiguration()) {
-            cleanUpOk = false;
+            log.error("Failed to restore configuration");
         }
         CryptoTokenTestUtils.removeCryptoToken(null, this.testx509ca.getCAToken().getCryptoTokenId());
         this.caSession.removeCA(ADMIN, this.caid);
-        
-        assertTrue("Unable to clean up properly.", cleanUpOk);
-        
+
         this.cmpConfiguration.removeAlias(cmpAlias);
         if(this.cmpConfiguration.aliasExists("backupTcpAlias")) {
             this.cmpConfiguration.renameAlias("backupTcpAlias", cmpAlias);
@@ -201,7 +197,7 @@ public class CrmfRAPbeTcpRequestTest extends CmpTestCase {
         checkCmpResponseGeneral(resp, issuerDN, userDN, this.cacert, nonce, transid, false, PBEPASSWORD, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
         checkCmpRevokeConfirmMessage(issuerDN, userDN, cert.getSerialNumber(), this.cacert, resp, true);
         int reason = checkRevokeStatus(issuerDN, cert.getSerialNumber());
-        assertEquals(reason, RevokedCertInfo.REVOCATION_REASON_CESSATIONOFOPERATION);
+        assertEquals("Revocation reason should be 'unspecified'", RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED, reason);
 
     }
 

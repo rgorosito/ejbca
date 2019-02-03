@@ -477,6 +477,7 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
 #enrollMakeNewRequestForm\:generateJks,
 #enrollMakeNewRequestForm\:generateP12,
 #enrollMakeNewRequestForm\:updateRequestPreview,
+#requestInfoForm\:addEndEntity,
 #requestInfoForm\:generateKeyStorePem,
 #requestInfoForm\:generateP12,
 #requestInfoForm\:generateJks,
@@ -558,6 +559,7 @@ select#detailsForm\:certDetails\:newRevocationReason ~ input {
 #requestInfoForm\:confirmRequestButton {
   height: 40px; }
 
+#requestInfoForm\:addEndEntity,
 #requestInfoForm\:generateKeyStorePem,
 #requestInfoForm\:generateP12,
 #requestInfoForm\:generateJks {
@@ -1018,7 +1020,7 @@ span.approvalStep {
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(2):before {
         content: "Profile"; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(3):before {
-        content: "Serial number"; }
+        content: "Serial Number"; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(4):before {
         content: "Subject"; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(5):before {
@@ -1028,7 +1030,7 @@ span.approvalStep {
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(7):before {
         content: "Status"; }
       div.content-body #contentForm\:searchCertTable > tbody > tr > td:nth-of-type(8):before {
-        content: "End entity"; }
+        content: "End Entity"; }
   div.content-body #contentForm\:searchEntityTable > tbody > tr > td:nth-of-type(3) > span {
     display: inline-block;
     width: 54%;
@@ -1262,6 +1264,7 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
 
   .pure-form select,
   #keyPairForm\:uploadCsrButton,
+  #requestInfoForm\:addEndEntity,
   #requestInfoForm\:generateKeyStorePem,
   #requestInfoForm\:generateP12,
   #requestInfoForm\:generateJks {
@@ -1465,7 +1468,7 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
     background: #637b98;
     flex: 1;
     margin: 50px auto 30px auto;
-    width: 60em; }
+    width: 70em; }
 
   ul.pure-menu-list > li.pure-menu-item:hover:before {
     /*hover-effekt för pil i dropdown*/
@@ -1577,6 +1580,7 @@ table#contentForm\:searchCertTable > tbody > tr > td > input, #contentForm\:sear
     width: auto; }
 
   #requestInfoForm\:confirmRequestButton,
+  #requestInfoForm\:addEndEntity,
   #requestInfoForm\:generateKeyStorePem,
   #requestInfoForm\:generateP12,
   #requestInfoForm\:generateJks,

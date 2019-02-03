@@ -1162,7 +1162,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
             //If in view mode, only display used values.
             for(int id : usedExtensions) {
                 if (!cceConfig.isCustomCertExtensionSupported(id)) {
-                    String note = id + " (No longer used. Please unselect this option)";
+                    String note = "ID #" + id + " (No longer used. Please unselect this option)";
                     ret.add(new SelectItem(id, note));
                 } else {
                     ret.add(new SelectItem(id, getEjbcaWebBean().getText(cceConfig.getCustomCertificateExtension(id).getDisplayName())));
@@ -1175,7 +1175,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
             }
             for (int id : usedExtensions) {
                 if (!cceConfig.isCustomCertExtensionSupported(id)) {
-                    String note = id + " (No longer used. Please unselect this option)";
+                    String note = "ID #" + id + " (No longer used. Please unselect this option)";
                     ret.add(new SelectItem(id, note));
                 }
             }
@@ -1228,7 +1228,11 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
                 } else {
                     approvalProfileId = -1;
                 }
-                approvalRequestItems.add(new ApprovalRequestItem(approvalRequestType, approvalProfileId));
+                // In certificate profiles we don't want to display the "CA Service Activation" approval type, 
+                // because it is not relevant for certificate profiles But if we have a configuration here, we'll display it
+                if (!approvalRequestType.equals(ApprovalRequestType.ACTIVATECA) || approvalProfileId != -1) {
+                    approvalRequestItems.add(new ApprovalRequestItem(approvalRequestType, approvalProfileId));                    
+                }
             }
         }
         return approvalRequestItems;

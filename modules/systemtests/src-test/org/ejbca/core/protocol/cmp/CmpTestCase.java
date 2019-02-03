@@ -213,6 +213,7 @@ public abstract class CmpTestCase extends CaTestCase {
     @Override
     protected void setUp() throws Exception { // NOPMD: this is a test base class
         super.setUp();
+        cleanup();
         // Configure a Certificate profile (CmpRA) using ENDUSER as template and
         // check "Allow validity override".
         this.cpDnOverrideId = addCertificateProfile(CP_DN_OVERRIDE_NAME);
@@ -273,8 +274,12 @@ public abstract class CmpTestCase extends CaTestCase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        this.endEntityProfileSession.removeEndEntityProfile(ADMIN, EEP_DN_OVERRIDE_NAME);
-        this.certProfileSession.removeCertificateProfile(ADMIN, CP_DN_OVERRIDE_NAME);
+        cleanup();
+    }
+    
+    private void cleanup() throws AuthorizationDeniedException {
+        endEntityProfileSession.removeEndEntityProfile(ADMIN, EEP_DN_OVERRIDE_NAME);
+        certProfileSession.removeCertificateProfile(ADMIN, CP_DN_OVERRIDE_NAME);
     }
 
     public static PKIMessage genCertReq(String issuerDN, X500Name userDN, KeyPair keys, Certificate cacert, byte[] nonce, byte[] transid,
@@ -1177,7 +1182,7 @@ public abstract class CmpTestCase extends CaTestCase {
 
     public static void checkCmpPKIErrorMessage(byte[] pkiMessageBytes, String sender, X500Name recipient, int expectedErrorCode, String errorMsg) throws IOException {
         final PKIMessage pkiMessage = PKIMessage.getInstance(pkiMessageBytes);
-        assertNotNull(pkiMessage);
+        assertNotNull("Response should not be null", pkiMessage);
         final PKIHeader pkiHeader = pkiMessage.getHeader();
         assertEquals(pkiHeader.getSender().getTagNo(), 4);
         final X500Name senderName = X500Name.getInstance(pkiHeader.getSender().getName());
@@ -1232,7 +1237,7 @@ public abstract class CmpTestCase extends CaTestCase {
         return user;
     }
     
-    protected X500Name createCmpUser(String username, String dn, boolean useDnOverride, int caid, int eeProfileID, int certificateProfileID)
+    protected X500Name createCmpUser(String username, String password, String dn, boolean useDnOverride, int caid, int eeProfileID, int certificateProfileID)
             throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException, CADoesntExistsException,
             CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, ApprovalException, CustomFieldException {
         // Make USER that we know...
@@ -1253,7 +1258,7 @@ public abstract class CmpTestCase extends CaTestCase {
         }
         final EndEntityInformation user = new EndEntityInformation(username, dn, caid, null, username + "@primekey.se",
                 new EndEntityType(EndEntityTypes.ENDUSER), eepID, cpID, SecConst.TOKEN_SOFT_PEM, 0, null);
-        user.setPassword("foo123");
+        user.setPassword(password);
         log.debug("Trying to add/edit USER: " + user.getUsername() + ", foo123, " + userDN+", ");
         try {
             this.endEntityManagementSession.addUser(ADMIN, user, true);

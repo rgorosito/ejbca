@@ -14,30 +14,34 @@
 package org.ejbca.core.model.ra.raadmin;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.StringTokenizer;
+import java.util.LinkedHashMap;
 
 import org.apache.commons.lang.StringUtils;
 import org.cesecore.certificates.endentity.EndEntityConstants;
+import org.cesecore.util.StringTools;
 
 /**
  * Class holding information about user notification sent when a user transitions through
- * the work-flow. 
+ * the work-flow.
+ * <p> 
  * This class is implemented on top of a HashMap, so it can easily be upgraded with new features
  * such as different notification actions (apart from email) etc.
+ * <p>
+ * This class used to extend HashMap until EJBCA 7.0.0, which was unnecessary because the
+ * "data" map contains all the information. When deserialized on 7.0.0 and later,
+ * the redundant HashMap superclass will be ignored if present.
  * 
  * @version $Id$
  */
-@SuppressWarnings("rawtypes")
-public class UserNotification extends HashMap implements Serializable, Cloneable {
+public class UserNotification implements Serializable, Cloneable {
 
 	/** This is the data stored in this object.
 	 * A hashmap is good because it serializes nicely and data can be upgraded without changing
 	 * serialversion uid
 	 */
-    private HashMap<String, String> data;
+    private final HashMap<String, String> data = new LinkedHashMap<>();
 
     /**
      * Determines if a de-serialized file is compatible with this class.
@@ -67,11 +71,9 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     private static final String   NOTIFICATIONEVENTS     = "NOTIFICATIONEVENTS";
 
     public UserNotification() {
-    	data = new HashMap<String, String>();
     }
     
     public UserNotification(String sender, String rcpt, String subject, String message, String events) {
-    	data = new HashMap<String, String>();
     	setNotificationSender(sender);
     	setNotificationSubject(subject);
     	setNotificationMessage(message);
@@ -80,11 +82,7 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     }
 
     public String getNotificationSender(){
-    	String ret = "";
-    	if(data.get(NOTIFICATIONSENDER) != null) {
-    		ret = (String) data.get(NOTIFICATIONSENDER);
-    	}
-    	return ret;
+    	return StringUtils.defaultString(data.get(NOTIFICATIONSENDER));
     }
     
     public void setNotificationSender(String sender){
@@ -92,11 +90,7 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     }
     
     public String getNotificationSubject(){
-    	String ret = "";
-    	if(data.get(NOTIFICATIONSUBJECT) != null) {
-    		ret = (String) data.get(NOTIFICATIONSUBJECT);
-    	}
-    	return ret;
+    	return StringUtils.defaultString(data.get(NOTIFICATIONSUBJECT));
     }
     
     public void setNotificationSubject(String subject){
@@ -104,11 +98,7 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     }
         
     public String getNotificationMessage(){
-    	String ret = "";
-    	if(data.get(NOTIFICATIONMESSAGE) != null) {
-    		ret = (String) data.get(NOTIFICATIONMESSAGE);
-    	}
-    	return ret;
+    	return StringUtils.defaultString(data.get(NOTIFICATIONMESSAGE));
     }
     
     public void setNotificationMessage(String message){
@@ -116,11 +106,7 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     }
 
     public String getNotificationRecipient(){
-    	String ret = "";
-    	if(data.get(NOTIFICATIONRECIPIENT) != null) {
-    		ret = (String) data.get(NOTIFICATIONRECIPIENT);
-    	}
-    	return ret;
+    	return StringUtils.defaultString(data.get(NOTIFICATIONRECIPIENT));
     }
     
     /**
@@ -131,41 +117,40 @@ public class UserNotification extends HashMap implements Serializable, Cloneable
     	data.put(NOTIFICATIONRECIPIENT, rcpt);
     }
 
-    /** list of UserDataConstant.STATUS_XX separated by ;. See constants EVENTS_XX for helper events.
-     * example 'String.valueOf(EndEntityConstants.STATUS_NEW)+";"+String.valueOf(EndEntityConstants.STATUS_KEYRECOVERY)'
-     * @return String with integer values separated by ;
-     * @see UserNotification.EVENTS_EDITUSER
-     */
-    public String getNotificationEvents(){
-    	String ret = "";
-    	if(data.get(NOTIFICATIONEVENTS) != null) {
-    		ret = (String) data.get(NOTIFICATIONEVENTS);
-    	}
-    	return ret;
-    }
-
     /** Returns a collection view of getNotificationEvents.
      * 
      * @return A Collection with String values (String.valueOf(EndEntityConstants.STATUS_NEW etc), or an empty Collection, never null.
      */
-    public Collection<String> getNotificationEventsCollection(){
-    	String events = getNotificationEvents();
-    	ArrayList<String> ret = new ArrayList<String>();
-    	if (StringUtils.isNotEmpty(events)) {
-    		StringTokenizer tokenizer = new StringTokenizer(events, ";", false);
-            while (tokenizer.hasMoreTokens()) {
-            	ret.add(tokenizer.nextToken());
-            }
-    	}
-    	return ret;
+    public Collection<Integer> getNotificationEventsCollection() {
+    	final String events = getNotificationEvents();
+    	return StringTools.idStringToListOfInteger(events, EndEntityProfile.SPLITCHAR);
+    }
+    
+    public void setNotificationEventsCollection(final Collection<Integer> notificationEventsCollection){
+        final String notificationEvents = StringUtils.join(notificationEventsCollection, ";");
+        data.put(NOTIFICATIONEVENTS, notificationEvents);
+    }
+
+
+    /** list of UserDataConstant.STATUS_XX separated by ;. See constants EVENTS_XX for helper events.
+     * example 'String.valueOf(EndEntityConstants.STATUS_NEW)+";"+String.valueOf(EndEntityConstants.STATUS_KEYRECOVERY)'
+     * <p>
+     * <strong>Note:</strong> In general, getNotificationEventsCollection should be used instead.
+     * @return String with integer values separated by ;
+     * @see UserNotification.EVENTS_EDITUSER
+     */
+    public String getNotificationEvents() {
+        return StringUtils.defaultString(data.get(NOTIFICATIONEVENTS));
     }
 
     /** list of UserDataConstant.STATUS_XX separated by ;. See constants EVENTS_XX for helper events.
      * example 'String.valueOf(EndEntityConstants.STATUS_NEW)+";"+String.valueOf(EndEntityConstants.STATUS_KEYRECOVERY)'
-     * @param String with integer values separated by ;
+     * <p>
+     * <strong>Note:</strong> In general, setNotificationEventsCollection should be used instead.
+     * @param events String with integer values separated by ;
      * @see UserNotification.EVENTS_EDITUSER
      */
-    public void setNotificationEvents(String events){
+    public void setNotificationEvents(final String events) {
     	data.put(NOTIFICATIONEVENTS, events);
     }
 

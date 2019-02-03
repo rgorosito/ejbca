@@ -72,7 +72,7 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     // Default name of headbanner in web interface.
     public static final  String   DEFAULTHEADBANNER             = "head_banner.jsp";
     // Default name of footbanner page in web interface.
-    public static final  String   DEFAULTFOOTBANNER             = "foot_banner.jsp"; // used from systemconfiguration.jsp
+    public static final  String   DEFAULTFOOTBANNER             = "foot_banner.jsp";
 
     // Default list of nodes in cluster
     private static final Set<String> NODESINCLUSTER_DEFAULT      = new LinkedHashSet<>();
@@ -97,6 +97,13 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     private static final boolean DEFAULTENABLEEXTERNALSCRIPTS = false;
 
     private static final boolean DEFAULTPUBLICWEBCERTCHAINORDEROOTFIRST = true;
+    
+    // Default values for session timeout
+    private static final boolean DEFAULTSESSIONTIMEOUT = false;
+    private static final int DEFAULTSESSIONTIMEOUTTIME = 30;
+    
+    private static final int SESSION_TIMEOUT_MIN = 1;
+    private static final int SESSION_TIMEOUT_MAX = Integer.MAX_VALUE;
 
     // Default CT Logs
     private static final LinkedHashMap<Integer,CTLogInfo> CTLOGS_DEFAULT = new LinkedHashMap<>();
@@ -181,6 +188,8 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     private static final String IS_EXTERNAL_SCRIPTS_WHITELIST_ENABLED = "is_external_scripts_whitelist_enabled";
 
     private static final String PUBLICWEBCERTCHAINORDEROOTFIRST = "publicwebcertchainorderrootfirst";
+    private static final String ENABLESESSIONTIMEOUT = "use_session_timeout";
+    private static final String SESSIONTIMEOUTTIME = "session_timeout_time";
 
     /** Creates a new instance of GlobalConfiguration */
     public GlobalConfiguration()  {
@@ -247,20 +256,26 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
       return data.get(AVAILABLELANGUAGES)!=null;
     }
 
-    /** Method used by the Admin GUI. */
-    public   String getBaseUrl(String requestServerName) {
-    	return (String) data.get(GlobalConfiguration.PRIVATEPROTOCOL) + "://" +
-    	            requestServerName  + "/" +
-    	            InternalConfiguration.getAppNameLower() + "/";
-   }
-
-    public String getBaseUrl() {
-    	return (String) data.get(GlobalConfiguration.PRIVATEPROTOCOL) + "://" +
-    	           WebConfiguration.getHostName() + ":" +
-    	           (String) data.get(GlobalConfiguration.PRIVATEPORT) + "/" +
-    	           InternalConfiguration.getAppNameLower() + "/";
+    /** @return The base URL of the application using the supplied values. */
+    public String getBaseUrl(final String scheme, final String requestServerName, final int port) {
+        return scheme + "://" + requestServerName + ":" + port + "/" + InternalConfiguration.getAppNameLower() + "/";
     }
 
+    /** @return The base path (and not the URL as the name suggests). The name was kept to enable a smaller patch between EJBCA 6.15 and 7.0. */
+    public String getBaseUrl() {
+        return "/" + InternalConfiguration.getAppNameLower() + "/";
+    }
+
+    /** @return The base path derived values in configuration files */
+    public String getBaseUrlFromConfig() {
+        return getBaseUrl((String) data.get(GlobalConfiguration.PRIVATEPROTOCOL), WebConfiguration.getHostName(),
+                Integer.parseInt((String) data.get(GlobalConfiguration.PRIVATEPORT)));
+    }
+
+    public String getBaseUrlPublic() {
+        return getBaseUrl((String) data.get(PUBLICPROTOCOL), WebConfiguration.getHostName(), Integer.parseInt((String) data.get(PUBLICPORT)));
+    }
+    
     public String getAdminWebPath() {
         return getString(ADMINPATH, "adminweb");
     }
@@ -270,11 +285,7 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     }
 
     public String getStandardCRLDistributionPointURINoDN(){
-        String retval = getBaseUrl();
-        retval =retval.replaceFirst((String) data.get(PRIVATEPROTOCOL), (String) data.get(PUBLICPROTOCOL));
-        retval =retval.replaceFirst((String) data.get(PRIVATEPORT), (String) data.get(PUBLICPORT));
-        retval+= DEFAULTCRLDISTURIPATH;
-        return retval;
+        return getBaseUrlPublic() + DEFAULTCRLDISTURIPATH;
     }
 
     public String getStandardCRLIssuer() {
@@ -286,19 +297,11 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
     }
 
     public String getStandardDeltaCRLDistributionPointURINoDN(){
-        String retval = getBaseUrl();
-        retval =retval.replaceFirst((String) data.get(PRIVATEPROTOCOL), (String) data.get(PUBLICPROTOCOL));
-        retval =retval.replaceFirst((String) data.get(PRIVATEPORT), (String) data.get(PUBLICPORT));
-        retval+= DEFAULTDELTACRLDISTURIPATH;
-        return retval;
+        return getBaseUrlPublic() + DEFAULTDELTACRLDISTURIPATH;
     }
 
 	public String getStandardOCSPServiceLocatorURI(){
-		String retval = getBaseUrl();
-		retval =retval.replaceFirst((String) data.get(PRIVATEPROTOCOL), (String) data.get(PUBLICPROTOCOL));
-		retval =retval.replaceFirst((String) data.get(PRIVATEPORT), (String) data.get(PUBLICPORT));
-		retval+= DEFAULTOCSPSERVICELOCATORURIPATH;
-		return retval;
+        return getBaseUrlPublic() + DEFAULTOCSPSERVICELOCATORURIPATH;
 	}
 
      /** Checks the themes path for css files and returns an array of filenames
@@ -350,6 +353,7 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
 
     // Methods for manipulating the title.
     public   String getEjbcaTitle() {return (String) data.get(TITLE);}
+    public   static String getEjbcaDefaultTitle() {return DEFAULTEJBCATITLE;}
     public   void setEjbcaTitle(String ejbcatitle) {data.put(TITLE,ejbcatitle);}
 
 
@@ -523,6 +527,31 @@ public class GlobalConfiguration extends ConfigurationBase implements ExternalSc
         putBoolean(PUBLICWEBCERTCHAINORDEROOTFIRST, value);
     }
 
+    public boolean getUseSessionTimeout() {
+        return getBoolean(ENABLESESSIONTIMEOUT, DEFAULTSESSIONTIMEOUT);
+    }
+    
+    public void setUseSessionTimeout(final boolean value) {
+        putBoolean(ENABLESESSIONTIMEOUT, value);
+    }
+    
+    public int getSessionTimeoutTime() {
+        Object num = data.get(SESSIONTIMEOUTTIME);
+        if(num == null){
+            return DEFAULTSESSIONTIMEOUTTIME;
+        } else {
+            return ((Integer) num).intValue();
+        }
+    }
+    
+    public void setSessionTimeoutTime(int timeInMinutes) {
+        if (timeInMinutes < SESSION_TIMEOUT_MIN || timeInMinutes > SESSION_TIMEOUT_MAX) {
+            data.put(SESSIONTIMEOUTTIME, DEFAULTSESSIONTIMEOUTTIME);
+        } else {
+            data.put(SESSIONTIMEOUTTIME, timeInMinutes);
+        }
+    }
+    
     @SuppressWarnings("unchecked")
     public LinkedHashMap<Integer,CTLogInfo> getCTLogs() {
         final Map<Integer,CTLogInfo> ret = (Map<Integer,CTLogInfo>)data.get(CTLOGS);

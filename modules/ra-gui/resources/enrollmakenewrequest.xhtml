@@ -95,7 +95,8 @@
                                         value="#{enrollMakeNewRequestBean.selectedKeyPairGeneration}" 
                                         layout="lineDirection" style="display: inline-block;"
                                         disabled="#{enrollMakeNewRequestBean.availableKeyPairGenerationSelectItems.size()==1}">
-                                        <f:selectItems value="#{enrollMakeNewRequestBean.availableKeyPairGenerationSelectItems}"/>
+                                        <f:selectItems value="#{enrollMakeNewRequestBean.availableKeyPairGenerationSelectItems}" 
+                                        	itemDescription="#{enrollMakeNewRequestBean.availableKeyPairGenerationSelectItems.description}"/>
                                         <f:validateRequired/>
                                         <f:ajax event="change" execute="@this" render=":globalMessages :keyPairForm :requestInfoForm @form"/>
                                     </h:selectOneRadio>
@@ -233,7 +234,23 @@
 						</fieldset>
 					</h:panelGroup>
 				</h:panelGroup>
-
+				
+				<h:panelGroup layout="block" rendered="#{enrollMakeNewRequestBean.selectTokenRendered}" id="selectTokenOuterPanel">
+					<h2>
+						<h:outputText value="#{msg.enroll_select_token_type}"/>
+					</h2>
+					<h:panelGroup layout="block" styleClass="internal-frame">
+						<h:panelGroup layout="block" styleClass="pure-control-group">
+							<h:outputLabel for="selectTokenOneMenu" value="#{msg.enroll_token}" />
+							<h:selectOneMenu id="selectTokenOneMenu" styleClass="jsAutoFocusLast"
+		                            value="#{enrollMakeNewRequestBean.selectedTokenType}" >
+									<f:selectItems value="#{enrollMakeNewRequestBean.availableTokenTypesSelectItems}" />
+									<f:ajax event="change" execute="@this" render=":globalMessages :requestInfoForm:requestPreviewOuterPanel @form"/>
+							</h:selectOneMenu>
+						</h:panelGroup>
+					</h:panelGroup>
+				</h:panelGroup>
+				
 				<h:panelGroup layout="block"
 					rendered="#{(enrollMakeNewRequestBean.provideRequestInfoRendered and !enrollMakeNewRequestBean.uploadCsrRendered) or enrollMakeNewRequestBean.uploadCsrDoneRendered}"
 					id="requestInfoRendered">
@@ -382,6 +399,20 @@
 								</h:panelGroup>
 							</ui:repeat>
 						</h:panelGroup>
+						<h:panelGroup layout="block" styleClass="internal-frame" rendered="#{enrollMakeNewRequestBean.renderOtherCertificateData}">
+							<h3>
+								<h:outputText value="#{msg.enroll_other_cert_data}" />
+							</h3>
+							<h:panelGroup layout="block" styleClass="pure-control-group">
+								<h:outputLabel for="certExtensionDataField" value="#{msg.enroll_cert_extension_data}"/>
+								<h:inputTextarea id="certExtensionDataField" value="#{enrollMakeNewRequestBean.extensionData}">
+                                	<f:validator validatorId="oidValidator"/>
+                                	<f:attribute name="beginsWith" value="true"/>	
+								</h:inputTextarea>
+								<h:message for="certExtensionDataField" id="certExtensionDataFieldMessage" styleClass="showErrorMessage"/>
+							</h:panelGroup>
+						</h:panelGroup>
+						
                         <fieldset>
     						<h:commandButton id="updateRequestPreview"
     							value="#{msg.enroll_update_request_preview}"
@@ -511,6 +542,14 @@
 						    id="enrollButtons"
 						    layout="block"
 							styleClass="keygeneration-button-group">
+							<h:commandButton id="addEndEntity"
+								value="#{msg.enroll_add_end_endtity}"
+								action="#{enrollMakeNewRequestBean.addEndEntity}"
+								rendered="#{enrollMakeNewRequestBean.addEndEntityButtonRendered}"
+                                disabled="#{!enrollMakeNewRequestBean.requestPreview.anyRequestDataPresent or !enrollMakeNewRequestBean.validityValid}"
+								styleClass="pure-button ra-button">
+								<f:param name="validationRequiredFromRequest" value="true" />
+							</h:commandButton>
 							<h:commandButton id="generateJks"
 								value="#{msg.enroll_generate_jks}"
 								action="#{enrollMakeNewRequestBean.addEndEntityAndGenerateJks}"

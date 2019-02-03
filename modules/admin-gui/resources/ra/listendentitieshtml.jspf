@@ -94,11 +94,11 @@ function confirmrevocation(){
     <div align="right">
      <% if(filtermode == AdminPreference.FILTERMODE_BASIC){ %>
       <input type="hidden" name='<%= ACTION %>' value='<%=ACTION_CHANGEFILTERMODETO_ADVANCED %>'>
-      <A href='javascript:document.changefiltermode.submit();'><u><c:out value="<%= ejbcawebbean.getText(\"ADVANCEDMODE\") %>"/></u></A>
+      <A id="viewModeSwitchBasicOrAdvanced" href='javascript:document.changefiltermode.submit();'><u><c:out value="<%= ejbcawebbean.getText(\"ADVANCEDMODE\") %>"/></u></A>
      <% }
         if(filtermode == AdminPreference.FILTERMODE_ADVANCED){ %>
         <input type="hidden" name='<%= ACTION %>' value='<%=ACTION_CHANGEFILTERMODETO_BASIC %>'>
-        <A href='javascript:document.changefiltermode.submit();'><u><c:out value="<%= ejbcawebbean.getText(\"BASICMODE\") %>"/></u></A>
+        <A id="viewModeSwitchBasicOrAdvanced"  href='javascript:document.changefiltermode.submit();'><u><c:out value="<%= ejbcawebbean.getText(\"BASICMODE\") %>"/></u></A>
      <% } %>
      &nbsp;&nbsp;&nbsp;
   </div>
@@ -380,7 +380,7 @@ function confirmrevocation(){
 				<% } %>
 				<% if ((rabean.authorizedToViewHistory(users[i].getEndEntityProfileId()) || !globalconfiguration.getEnableEndEntityProfileLimitations()) 
 					&& ejbcawebbean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWENDENTITYHISTORY)){ %>
-					<a href='<%= ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() %>audit/search.jsf?username=<%= users[i].getUsername() %>'
+					<a href='<%= ejbcawebbean.getBaseUrl() + globalconfiguration.getAdminWebPath() %>audit/search.xhtml?username=<%= users[i].getUsername() %>'
 						title='<%= ejbcawebbean.getText("VIEW_HISTORY_TITLE") %>'><c:out value='<%= ejbcawebbean.getText("HISTORY") %>' /></a>
 				<% } %>
 					</div></td>

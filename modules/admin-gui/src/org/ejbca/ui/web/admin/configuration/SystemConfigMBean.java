@@ -36,7 +36,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
 import javax.faces.model.ListDataModel;
 import javax.faces.model.SelectItem;
 import javax.servlet.http.HttpServletRequest;
@@ -71,6 +74,7 @@ import org.ejbca.config.AvailableProtocolsConfiguration.AvailableProtocols;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.config.GlobalCustomCssConfiguration;
 import org.ejbca.config.WebConfiguration;
+import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.raadmin.AdminPreference;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.statedump.ejb.StatedumpImportOptions;
@@ -85,6 +89,8 @@ import org.ejbca.ui.web.admin.BaseManagedBean;
  *
  * @version $Id$
  */
+@ManagedBean
+@SessionScoped
 public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     private static final long serialVersionUID = -6653610614851741905L;
@@ -116,6 +122,8 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         private boolean enableExternalScripts;
         private List<CTLogInfo> ctLogs;
         private boolean publicWebCertChainOrderRootFirst;
+        private boolean enableSessionTimeout;
+        private int sessionTimeoutTime;
 
         //Admin Preferences
         private int preferedLanguage;
@@ -156,6 +164,8 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 this.enableCommandLineDefaultUser = globalConfig.getEnableCommandLineInterfaceDefaultUser();
                 this.enableExternalScripts = globalConfig.getEnableExternalScripts();
                 this.publicWebCertChainOrderRootFirst = globalConfig.getPublicWebCertChainOrderRootFirst();
+                this.enableSessionTimeout = globalConfig.getUseSessionTimeout();
+                this.sessionTimeoutTime = globalConfig.getSessionTimeoutTime();
                 this.setEnableIcaoCANameChange(globalConfig.getEnableIcaoCANameChange());
                 this.ctLogs = new ArrayList<>(globalConfig.getCTLogs().values());
                 // Admin Preferences
@@ -222,6 +232,11 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         public void setCtLogs(List<CTLogInfo> ctlogs) { this.ctLogs=ctlogs; }
         public boolean getPublicWebCertChainOrderRootFirst() { return this.publicWebCertChainOrderRootFirst; }
         public void setPublicWebCertChainOrderRootFirst(boolean publicWebCertChainOrderRootFirst) { this.publicWebCertChainOrderRootFirst=publicWebCertChainOrderRootFirst; }
+        public boolean isEnableSessionTimeout() { return enableSessionTimeout; }
+        public void setEnableSessionTimeout(boolean enableSessionTimeout) { this.enableSessionTimeout = enableSessionTimeout;}
+        public int getSessionTimeoutTime() {return sessionTimeoutTime;}
+        public void setSessionTimeoutTime(int sessionTimeoutTime) {this.sessionTimeoutTime = sessionTimeoutTime;}
+
         public boolean getEnableIcaoCANameChange() {return enableIcaoCANameChange;}
         public void setEnableIcaoCANameChange(boolean enableIcaoCANameChange) {this.enableIcaoCANameChange = enableIcaoCANameChange;}
 
@@ -259,6 +274,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         private String oid;
         private String displayName;
         private boolean critical;
+        private boolean required;
         private String encoding;
 
         public CustomCertExtensionInfo(CertificateExtension extension) {
@@ -266,6 +282,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
             this.oid = extension.getOID();
             this.displayName = getEjbcaWebBean().getText(extension.getDisplayName());
             this.critical = extension.isCriticalFlag();
+            this.required = extension.isRequiredFlag();
             Properties props = extension.getProperties();
             this.encoding = props.getProperty("encoding", "");
         }
@@ -276,6 +293,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         public String getDisplayName() { return this.displayName; }
         public void setDisplayName(String displayName) { this.displayName=displayName; }
         public boolean isCritical() { return this.critical; }
+        public boolean isRequired() { return this.required; }
         public String getEncoding() { return this.encoding; }
     }
 
@@ -305,6 +323,34 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     private GoogleCtPolicy googleCtPolicy;
 
 
+    // Authentication check and audit log page access request
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR);
+            if (!authorizationSession.isAuthorized(getAdmin(), StandardRules.SYSTEMCONFIGURATION_VIEW.resource()) &&
+                    !authorizationSession.isAuthorized(getAdmin(), StandardRules.EKUCONFIGURATION_VIEW.resource()) &&
+                    !authorizationSession.isAuthorized(getAdmin(), StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource())) {
+                    throw new AuthorizationDeniedException("Administrator was not authorized to any configuration.");
+                }
+        }
+    }
+    
+    public void authorizeViewCt(ComponentSystemEvent event) throws Exception {
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.SYSTEMCONFIGURATION_VIEW.resource());
+        }
+    }
+    
+    public void authorizeViewCertExtension(ComponentSystemEvent event) throws Exception {
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource());
+        }
+    }
+    
     public SystemConfigMBean() {
         super();
     }
@@ -560,7 +606,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     private void importStatedump(byte[] zip, boolean lockdown) throws IOException, AuthorizationDeniedException {
         // Check that it's a ZIP file
-        if (zip.length < 2 || zip[0] != 'P' || zip[1] != 'K') {
+        if (!FileTools.isZipFile(zip)) {
             throw new IOException("File is not a valid zip file.");
         }
 
@@ -739,6 +785,8 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 globalConfig.setEnableCommandLineInterfaceDefaultUser(currentConfig.getEnableCommandLineDefaultUser());
                 globalConfig.setEnableExternalScripts(currentConfig.getEnableExternalScripts());
                 globalConfig.setPublicWebCertChainOrderRootFirst(currentConfig.getPublicWebCertChainOrderRootFirst());
+                globalConfig.setUseSessionTimeout(currentConfig.isEnableSessionTimeout());
+                globalConfig.setSessionTimeoutTime(currentConfig.getSessionTimeoutTime());
                 globalConfig.setEnableIcaoCANameChange(currentConfig.getEnableIcaoCANameChange());
                 LinkedHashMap<Integer, CTLogInfo> ctlogsMap = new LinkedHashMap<>();
                 for(CTLogInfo ctlog : currentConfig.getCtLogs()) {
@@ -776,7 +824,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 log.info(msg);
                 super.addNonTranslatedErrorMessage(msg);
             }
-            
+
             // GlobalConfiguration validates and modifies some fields when they are set, so these fields need to be updated.
             // Also, this ensures that the values shown are those actually stored in the database.
             flushCache(); // must be done last
@@ -850,23 +898,21 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     }
 
     public List<SelectItem> getAvailableKeyAliases() {
-        if (availableKeyAliases == null) {
-            availableKeyAliases = new ArrayList<>();
-            if (currentConfig.getLocalKeyRecoveryCryptoTokenId() != 0) {
-                try {
-                    final List<String> aliases = new ArrayList<>(cryptoTokenManagementSession.getKeyPairAliases(getEjbcaWebBean().getAdminObject(), currentConfig.getLocalKeyRecoveryCryptoTokenId()));
-                    Collections.sort(aliases);
-                    for (final String keyAlias : aliases) {
-                        if (currentConfig.getLocalKeyRecoveryKeyAlias() == null && keyAlias != null &&
-                                (keyAlias.startsWith("default") || keyAlias.startsWith("privatedec"))) {
-                            currentConfig.setLocalKeyRecoveryKeyAlias(keyAlias);
-                        }
-                        availableKeyAliases.add(new SelectItem(keyAlias));
+        availableKeyAliases = new ArrayList<>();
+        if (currentConfig.getLocalKeyRecoveryCryptoTokenId() != 0) {
+            try {
+                final List<String> aliases = new ArrayList<>(cryptoTokenManagementSession.getKeyPairAliases(getEjbcaWebBean().getAdminObject(), currentConfig.getLocalKeyRecoveryCryptoTokenId()));
+                Collections.sort(aliases);
+                for (final String keyAlias : aliases) {
+                    if (currentConfig.getLocalKeyRecoveryKeyAlias() == null && keyAlias != null &&
+                            (keyAlias.startsWith("default") || keyAlias.startsWith("privatedec"))) {
+                        currentConfig.setLocalKeyRecoveryKeyAlias(keyAlias);
                     }
-                    availableKeyAliases.add(0, new SelectItem(null, getEjbcaWebBean().getText("PLEASE_SELECT_KEY")));
-                } catch (CryptoTokenOfflineException | AuthorizationDeniedException e) {
-                    log.debug("Crypto Token is not usable. Can't list key aliases", e);
+                    availableKeyAliases.add(new SelectItem(keyAlias));
                 }
+                availableKeyAliases.add(0, new SelectItem(null, getEjbcaWebBean().getText("PLEASE_SELECT_KEY")));
+            } catch (CryptoTokenOfflineException | AuthorizationDeniedException e) {
+                log.debug("Crypto Token is not usable. Can't list key aliases", e);
             }
         }
         return availableKeyAliases;
@@ -913,45 +959,29 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     //               Protocol Configuration
     // --------------------------------------------
 
-    private AvailableProtocolsConfiguration protocolsConfiguration = null;
-    private ListDataModel<ProtocolGuiInfo> availableProtocolInfos = null;
-
     public AvailableProtocolsConfiguration getAvailableProtocolsConfiguration() {
-        if (protocolsConfiguration == null) {
-            protocolsConfiguration = (AvailableProtocolsConfiguration) getEjbcaWebBean().getEjb().getGlobalConfigurationSession()
+        return (AvailableProtocolsConfiguration) getEjbcaWebBean().getEjb().getGlobalConfigurationSession()
                     .getCachedConfiguration(AvailableProtocolsConfiguration.CONFIGURATION_ID);
-        }
-        return protocolsConfiguration;
     }
 
-    public ListDataModel<ProtocolGuiInfo> getAvailableProtocols() {
-        if (availableProtocolInfos == null) {
-            availableProtocolInfos = new ListDataModel<>(getNewAvailableProtocolInfos());
-        }
-        return availableProtocolInfos;
-    }
-
-    public void toggleProtocolStatus() {
-        ProtocolGuiInfo protocolToToggle = availableProtocolInfos.getRowData();
+    public void toggleProtocolStatus(final ProtocolGuiInfo protocolToToggle) {
+        final AvailableProtocolsConfiguration availableProtocolsConfiguration = getAvailableProtocolsConfiguration();
         if (protocolToToggle.isEnabled()) {
-            protocolsConfiguration.setProtocolStatus(protocolToToggle.getProtocol(), false);
+            availableProtocolsConfiguration.setProtocolStatus(protocolToToggle.getProtocol(), false);
         } else {
-            protocolsConfiguration.setProtocolStatus(protocolToToggle.getProtocol(), true);
+            availableProtocolsConfiguration.setProtocolStatus(protocolToToggle.getProtocol(), true);
         }
         // Save config
         try {
-            getEjbcaWebBean().getEjb().getGlobalConfigurationSession().saveConfiguration(getAdmin(), protocolsConfiguration);
+            getEjbcaWebBean().getEjb().getGlobalConfigurationSession().saveConfiguration(getAdmin(), availableProtocolsConfiguration);
         } catch (AuthorizationDeniedException e) {
             String msg = "Cannot save System Configuration. " + e.getLocalizedMessage();
             log.info("Administrator '" + getAdmin() + "' " + msg);
             super.addNonTranslatedErrorMessage(msg);
         }
-        // Reload view
-        availableProtocolInfos = null;
-        getAvailableProtocols();
     }
 
-    private ArrayList<ProtocolGuiInfo> getNewAvailableProtocolInfos() {
+    public ArrayList<ProtocolGuiInfo> getAvailableProtocolInfos() {
         ArrayList<ProtocolGuiInfo> protocolInfos = new ArrayList<>();
         LinkedHashMap<String, Boolean> allPC = getAvailableProtocolsConfiguration().getAllProtocolsAndStatus();
         for (Entry<String, Boolean> entry : allPC.entrySet()) {
@@ -972,7 +1002,17 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     /** @return true if EST is enabled. Should be false for EJBCA CE */
     public boolean isEstAvailable() {
-        return getEjbcaWebBean().isEstConfigurationPresent();
+        return getEjbcaWebBean().isRunningEnterprise();
+    }
+
+    /** @return true if REST is enabled. Should be false for EJBCA CE */
+    public boolean isRestAvailable() {
+        return getEjbcaWebBean().isRunningEnterprise();
+    }
+    
+    /** @return true if ACME is enabled. Should be false for EJBCA CE */
+    public boolean isAcmeAvailable() {
+        return getEjbcaWebBean().isRunningEnterprise();
     }
 
     public class ProtocolGuiInfo {
@@ -1014,6 +1054,12 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 available = false;
             }
             if (protocol.equals(AvailableProtocols.EST.getName()) && !isEstAvailable()) {
+                available = false;
+            }
+            if (protocol.equals(AvailableProtocols.REST.getName()) && !isRestAvailable()) {
+                available = false;
+            }
+            if (protocol.equals(AvailableProtocols.ACME.getName()) && !isAcmeAvailable()) {
                 available = false;
             }
             return available;
@@ -1188,10 +1234,14 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     private boolean isOidNumericalOnly(String oid) {
         String[] oidParts = oid.split("\\.");
-        for(int i=0; i<oidParts.length ; i++) {
+        for(int i=0; i < oidParts.length ; i++) {
+            if (oidParts[i].equals("*")) {
+                // Allow wildcard characters
+                continue;
+            }
             try {
                 Integer.parseInt(oidParts[i]);
-            } catch(NumberFormatException e) {
+            } catch (NumberFormatException e) {
                 return false;
             }
         }
@@ -1219,7 +1269,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         return globalCustomCssConfiguration;
     }
-    
+
     public void actionImportRaStyle() {
         // Basic checks
         if (raCssFile == null && raLogoFile == null) {
@@ -1283,7 +1333,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         return false;
     }
-    
+
     private void importLogoFromImageFile() throws IOException {
         String contentType = raLogoFile.getContentType();
         if (!contentType.equals("image/jpeg") && !contentType.equals("image/png")) {
@@ -1522,7 +1572,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
 
         try {
-            cceConfig.addCustomCertExtension(newID, newOID, getNewDisplayName(), DEFAULT_EXTENSION_CLASSPATH, false, new Properties());
+            cceConfig.addCustomCertExtension(newID, newOID, getNewDisplayName(), DEFAULT_EXTENSION_CLASSPATH, false, true, new Properties());
             getEjbcaWebBean().saveAvailableCustomCertExtensionsConfiguration(cceConfig);
         } catch(Exception e) {
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
@@ -1631,21 +1681,15 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         return ret;
     }
-
-    public List<SelectItem> getAvailableLanguages() {
-        final List<SelectItem> ret = new ArrayList<>();
-        final String[] availableLanguages = getEjbcaWebBean().getAvailableLanguages();
-        final String[] availableLanguagesEnglishNames = getEjbcaWebBean().getLanguagesEnglishNames();
-        final String[] availableLanguagesNativeNames = getEjbcaWebBean().getLanguagesNativeNames();
-        for(int i=0; i<availableLanguages.length; i++) {
-            String output = availableLanguagesEnglishNames[i];
-            if (availableLanguagesNativeNames[i] != null) {
-                output += " - " + availableLanguagesNativeNames[i];
-            }
-            output += " [" + availableLanguages[i] + "]";
-            ret.add(new SelectItem(i, output));
+    
+    public List<SelectItem> getAvailableLanguageSelectItems() {
+        final List<SelectItem> selectItems = new ArrayList<>();
+        final List<WebLanguage> availableWebLanguages = getEjbcaWebBean().getWebLanguages();
+        for (final WebLanguage availableWebLanguage : availableWebLanguages) {
+            final SelectItem languageSelectItem = new SelectItem(availableWebLanguage.getId(), availableWebLanguage.toString());
+            selectItems.add(languageSelectItem);
         }
-        return ret;
+        return selectItems;
     }
 
     public List<SelectItem> getAvailableThemes() {

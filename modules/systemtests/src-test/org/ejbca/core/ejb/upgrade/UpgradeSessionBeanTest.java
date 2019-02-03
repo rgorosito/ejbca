@@ -52,6 +52,8 @@ import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.ca.X509CA;
 import org.cesecore.certificates.certificate.certextensions.AvailableCustomCertificateExtensionsConfiguration;
+import org.cesecore.certificates.certificate.certextensions.BasicCertificateExtension;
+import org.cesecore.certificates.certificate.certextensions.CertificateExtension;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
@@ -68,6 +70,7 @@ import org.cesecore.keybind.InternalKeyBindingRules;
 import org.cesecore.keybind.impl.OcspKeyBinding;
 import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
+import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.roles.AccessRulesHelper;
@@ -78,11 +81,13 @@ import org.cesecore.roles.management.RoleSessionRemote;
 import org.cesecore.roles.member.RoleMember;
 import org.cesecore.roles.member.RoleMemberDataProxySessionRemote;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.config.CmpConfiguration;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.approval.ApprovalProfileExistsException;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
+import org.ejbca.core.ejb.ca.publisher.PublisherProxySessionRemote;
 import org.ejbca.core.ejb.ca.publisher.PublisherSessionRemote;
 import org.ejbca.core.ejb.config.GlobalUpgradeConfiguration;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
@@ -99,6 +104,7 @@ import org.ejbca.core.protocol.ocsp.extension.certhash.OcspCertHashExtension;
 import org.ejbca.core.protocol.ocsp.extension.unid.OCSPUnidExtension;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -118,6 +124,7 @@ public class UpgradeSessionBeanTest {
     private EndEntityProfileSessionRemote endEntityProfileSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class);
     private GlobalConfigurationSessionRemote globalConfigSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
     private PublisherSessionRemote publisherSession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublisherSessionRemote.class);
+    private PublisherProxySessionRemote publisherProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(PublisherProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private RoleSessionRemote roleSession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleSessionRemote.class);
     private RoleMemberDataProxySessionRemote roleMemberProxySession = EjbRemoteHelper.INSTANCE.getRemoteSession(RoleMemberDataProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private UpgradeSessionRemote upgradeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(UpgradeSessionRemote.class);
@@ -132,6 +139,11 @@ public class UpgradeSessionBeanTest {
     private AvailableCustomCertificateExtensionsConfiguration cceConfigBackup;
     private GlobalUpgradeConfiguration gucBackup;
     private GlobalConfiguration gcBackup;
+    
+    @BeforeClass
+    public static void beforeClass() {
+        CryptoProviderTools.installBCProviderIfNotAvailable();
+    }
     
     @Before
     public void setUp() {
@@ -891,10 +903,13 @@ public class UpgradeSessionBeanTest {
         // Set OCSP extensions in conf file (OcspUnid, OcspCertHash, OcspCtSct -extension)
         cesecoreConfigSession.setConfigurationValue("ocsp.extensionoid", "*2.16.578.1.16.3.2;1.3.36.8.3.13;1.3.6.1.4.1.11129.2.4.5");
         // Create test key binding and persist it
-        final int cryptoTokenId = cryptoTokenManagementSession.getCryptoTokenIds(alwaysAllowtoken).get(0);
-        final int internalKeyBindingId = OcspTestUtils.createInternalKeyBinding(alwaysAllowtoken, cryptoTokenId, OcspKeyBinding.IMPLEMENTATION_ALIAS,
-                "ocspExtensionUpgradeTest", "RSA2048", AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
+        final String tokenName = "CryptoToken_ocspExtensionUpgradeTest";
+        final String keyBindingName = "ocspExtensionUpgradeTest";
+        int internalKeyBindingId = -1;
         try {
+            final int cryptoTokenId = CryptoTokenTestUtils.createSoftCryptoToken(alwaysAllowtoken, tokenName);
+            internalKeyBindingId = OcspTestUtils.createInternalKeyBinding(alwaysAllowtoken, cryptoTokenId, OcspKeyBinding.IMPLEMENTATION_ALIAS,
+                    keyBindingName, "RSA2048", AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
             // Perform upgrade
             guc.setUpgradedFromVersion("6.11.0");
             globalConfigSession.saveConfiguration(alwaysAllowtoken, guc);
@@ -914,12 +929,13 @@ public class UpgradeSessionBeanTest {
             assertTrue("IKB did not contain CtSct extension after upgrade", ocspKeyExtensionOids.contains(OCSP_SCTLIST_OID));
         } finally {
             // Delete test key binding and restore previous ocsp.extensionoid value
-            internalKeyBindingSession.deleteInternalKeyBinding(alwaysAllowtoken, internalKeyBindingId);
+            OcspTestUtils.removeInternalKeyBinding(alwaysAllowtoken, keyBindingName);
             String ocspExtensionOidRestore = "";
             for (String extension : ocspExtensionBackup) {
                 ocspExtensionOidRestore += extension + ";";
             }
             cesecoreConfigSession.setConfigurationValue("ocsp.extensionoid", ocspExtensionOidRestore);
+            CryptoTokenTestUtils.removeCryptoToken(alwaysAllowtoken, tokenName);
         }
     }
 
@@ -975,6 +991,49 @@ public class UpgradeSessionBeanTest {
         }     
     }
     
+    /**
+     * Tests upgrade to 6.15.0. Any custom certificate extension defined in the previous version should get a required flag set to true.
+     * 
+     * @throws AuthorizationDeniedException
+     */
+    @Test
+    public void testUpgradeCustomCertificateExtension6150() throws AuthorizationDeniedException {
+        GlobalUpgradeConfiguration globalUpgradeConfiguration = (GlobalUpgradeConfiguration) globalConfigSession.getCachedConfiguration(GlobalUpgradeConfiguration.CONFIGURATION_ID);
+        
+        CertificateExtension certificateExtensionOne = new BasicCertificateExtension();
+        certificateExtensionOne.setCriticalFlag(true);
+        certificateExtensionOne.setDisplayName("Custom Certificate Extension One");
+        certificateExtensionOne.setOID("10.1.1.2");
+
+        CertificateExtension certificateExtensionTwo = new BasicCertificateExtension();
+        certificateExtensionTwo.setCriticalFlag(false);
+        certificateExtensionTwo.setDisplayName("Custom Certificate Extension Two");
+        certificateExtensionTwo.setOID("10.1.1.3");
+        
+        AvailableCustomCertificateExtensionsConfiguration availableCustomCertExtensionsConfig = (AvailableCustomCertificateExtensionsConfiguration) globalConfigSession
+                .getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
+        
+        availableCustomCertExtensionsConfig.addCustomCertExtension(certificateExtensionOne);
+        availableCustomCertExtensionsConfig.addCustomCertExtension(certificateExtensionTwo);
+        
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, availableCustomCertExtensionsConfig);
+
+        // Perform upgrade 6.14.0 --> 6.15.0
+        globalUpgradeConfiguration.setUpgradedFromVersion("6.14.0");
+        globalConfigSession.saveConfiguration(alwaysAllowtoken, globalUpgradeConfiguration);
+        upgradeSession.upgrade(null, "6.14.0", false);
+        
+        AvailableCustomCertificateExtensionsConfiguration availableCustomCertExtensionsConfigAfterUpgrade = (AvailableCustomCertificateExtensionsConfiguration) globalConfigSession
+                .getCachedConfiguration(AvailableCustomCertificateExtensionsConfiguration.CONFIGURATION_ID);
+
+        for (CertificateExtension customCertificateExtension : availableCustomCertExtensionsConfigAfterUpgrade.getAllAvailableCustomCertificateExtensions()) {
+            assertTrue("Required flag must be set to true after upgrade!", customCertificateExtension.isRequiredFlag());
+            if (customCertificateExtension.getOID().equals("10.1.1.3")) {
+                assertFalse("Critical flag for CCE with oid " + customCertificateExtension.getOID() + " must be false!", customCertificateExtension.isCriticalFlag());
+            }
+        }
+    }
+    
     @Test
     public void testExternalScriptsSetting() throws AuthorizationDeniedException, PublisherExistsException {
         GlobalConfiguration gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
@@ -999,7 +1058,7 @@ public class UpgradeSessionBeanTest {
             gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
             assertTrue("External scripts should have been enabled when a General Purpose Custom Publisher is present.", gc.getEnableExternalScripts());
         } finally {
-            publisherSession.removePublisher(alwaysAllowtoken, TESTCLASS);
+            publisherProxySession.removePublisherInternal(alwaysAllowtoken, TESTCLASS);
             
             gc = (GlobalConfiguration) globalConfigSession.getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
             gc.setEnableExternalScripts(savedEnableExternalScripts);

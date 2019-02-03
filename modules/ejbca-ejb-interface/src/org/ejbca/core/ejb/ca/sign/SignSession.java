@@ -12,12 +12,21 @@
  *************************************************************************/
 package org.ejbca.core.ejb.ca.sign;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Collection;
 import java.util.Date;
 
+import org.cesecore.CesecoreException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CADoesntExistsException;
@@ -30,6 +39,7 @@ import org.cesecore.certificates.ca.SignRequestException;
 import org.cesecore.certificates.ca.SignRequestSignatureException;
 import org.cesecore.certificates.certificate.CertificateCreateException;
 import org.cesecore.certificates.certificate.CertificateRevokeException;
+import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.certificates.certificate.IllegalKeyException;
 import org.cesecore.certificates.certificate.certextensions.CertificateExtensionException;
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
@@ -41,9 +51,16 @@ import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.PublicKeyWrapper;
+import org.ejbca.core.EjbcaException;
 import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
+import org.ejbca.core.model.approval.ApprovalException;
+import org.ejbca.core.model.approval.WaitingForApprovalException;
 import org.ejbca.core.model.ca.AuthLoginException;
 import org.ejbca.core.model.ca.AuthStatusException;
+import org.ejbca.core.model.ra.NotFoundException;
+import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
+import org.ejbca.cvc.exception.ConstructionException;
+import org.ejbca.cvc.exception.ParseException;
 
 /**
  * @version $Id$
@@ -213,12 +230,6 @@ public interface SignSession {
      * @param admin         Information about the administrator or admin performing the event.
      * @param req           a Certification Request message, containing the public key to be put in the
      *                      created certificate. Currently no additional parameters in requests are considered!
-     * @param keyUsage      integer with bit mask describing desired keys usage. Bit mask is packed in
-     *                      in integer using constants from CertificateDataBean. ex. int keyusage =
-     *                      CertificateDataBean.digitalSignature | CertificateDataBean.nonRepudiation; gives
-     *                      digitalSignature and nonRepudiation. ex. int keyusage = CertificateDataBean.keyCertSign
-     *                      | CertificateDataBean.cRLSign; gives keyCertSign and cRLSign. Keyusage < 0 means that default
-     *                      keyUsage should be used, or should be taken from extensions in the request.
      * @param responseClass The implementation class that will be used as the response message.
      * @param suppliedUserData Optional (can be null) supplied user data, if we are running without storing UserData this will be used. Should only
      *  be supplied when we issue certificates in a single transaction.
@@ -302,7 +313,65 @@ public interface SignSession {
             AuthStatusException, AuthLoginException, IllegalKeyException, CertificateCreateException, IllegalNameException,
             CertificateRevokeException, CertificateSerialNumberException, CryptoTokenOfflineException, IllegalValidityException, CAOfflineException,
             InvalidAlgorithmException, CustomCertificateSerialNumberException, NoSuchEndEntityException;
-
+     
+     /**
+      * Generates a CV certificate for a user.
+      *
+      * @param authenticationToken the administrator performing the action.
+      * @param username the user name of the user requesting the certificate.
+      * @param password the password for initial enrollment, not used for renewal requests that can be authenticated using signatures with keys with valid certificates.
+      * @param cvcreq Base64 encoded CVC request message.
+      * @return the full certificate chain for the IS, with IS certificate in pos 0, DV in 1, CVCA in 2.
+      * @throws AuthorizationDeniedException if administrator is not authorized to edit end entity or if an authenticated request can not be verified.
+      * @throws CADoesntExistsException if a referenced CA does not exist.
+      * @throws UserDoesntFullfillEndEntityProfile if the request data does not full fill the end entity profile restrictions.
+      * @throws NotFoundException if the user could not be found.
+      * @throws ApprovalException if an approval was denied.
+      * @throws EjbcaException any EjbcaException.
+      * @throws WaitingForApprovalException if there is a pending approval.
+      * @throws SignRequestException if the provided request is invalid, for example not containing a username or password.
+      * @throws CertificateExpiredException if the users old certificate has expired.
+      * @throws CesecoreException any CesecoreException.
+      */
+     Collection<CertificateWrapper> createCardVerifiableCertificateWS(AuthenticationToken authenticationToken, String username, String password, String cvcreq) throws 
+            AuthorizationDeniedException, CADoesntExistsException, UserDoesntFullfillEndEntityProfile, NotFoundException,
+            ApprovalException, EjbcaException, WaitingForApprovalException, SignRequestException, CertificateExpiredException, CesecoreException;
+     
+     /**
+      * Creates a certificate for the user with the given name.
+      *
+      * @param authenticationToken the administrator performing the action.
+      * @param username the users name.
+      * @param password the users password
+      * @param req the certificate request.
+      * @param reqType the request type.
+      * @param hardTokenSN the hard token SN, if available.
+      * @param responseType the response type.
+      * @return DER-encoded certificate as byte array.
+      * @throws AuthorizationDeniedException if client isn't authorized to request.
+      * @throws EjbcaException any EjbcaException.
+      * @throws CesecoreException any CesecoreException.
+      * @throws CADoesntExistsException if the issuing CA associated with the user does not exist.
+      * @throws CertificateExtensionException if a certificate extension could not be added to the certificate.
+      * @throws InvalidKeyException if the key is not valid.
+      * @throws SignatureException if a signature does not match (i.e. CSRs POP validation).
+      * @throws InvalidKeySpecException if the key specification is not available.
+      * @throws NoSuchAlgorithmException if the key algorithm is not available.
+      * @throws NoSuchProviderException if the required crypto provider is not installed.
+      * @throws IOException if the certificate could not be encoded.
+      * @throws ParseException if a CVC certificate could not be parsed.
+      * @throws ConstructionException if a CVC could not be assembled.
+      * @throws NoSuchFieldException is thrown if a CVC request can not be parsed.
+      * @throws AuthStatusException if the user has the wrong user status.
+      * @throws AuthLoginException if the users password does not match.
+      */
+     byte[] createCertificateWS(AuthenticationToken authenticationToken, String username, String password, String req, int reqType,
+             String hardTokenSN, String responseType)
+             throws AuthorizationDeniedException, EjbcaException, CesecoreException, 
+             CADoesntExistsException, CertificateExtensionException, InvalidKeyException, SignatureException, 
+             InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException, CertificateException, IOException, 
+             ParseException, ConstructionException, NoSuchFieldException, AuthStatusException, AuthLoginException;
+     
     /**
      * Method that generates a request failed response message. The request
      * should already have been decrypted and verified.
@@ -376,4 +445,19 @@ public interface SignSession {
      * There's no point in accessing it from EJBCA code.
      */
     CertificateGenerationParams fetchCertGenParams();
+    
+    /**
+     * Signs the provided payload using the given CA's signing keys. 
+     * 
+     * @param authenticationToken an authentication token representing the current admin 
+     * @param data a byte array of the data to be signed
+     * @param signingCaName the name of the CA 
+     * @return an encoded CMSSignedData of the original payload
+     * @throws AuthorizationDeniedException if the authentication token was not authorized to the given CA
+     * @throws CryptoTokenOfflineException if the crypto token was offline 
+     * @throws CADoesntExistsException if a CA by the given name doesn't exist.
+     * @throws SignRequestSignatureException if an error occurred during the signature process. 
+     */
+    byte[] signPayload(final AuthenticationToken authenticationToken, byte[] data, final int signingCaId)
+            throws AuthorizationDeniedException, CryptoTokenOfflineException, CADoesntExistsException, SignRequestSignatureException;
 }

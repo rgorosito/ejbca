@@ -20,9 +20,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
 import javax.faces.model.ListDataModel;
 import javax.faces.model.SelectItem;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -46,6 +50,8 @@ import org.ejbca.ui.web.admin.BaseManagedBean;
  * 
  * @version $Id$
  */
+@ManagedBean
+@SessionScoped
 public class ScepConfigMBean extends BaseManagedBean implements Serializable {
 
     /** GUI table representation of a SCEP alias that can be interacted with. */
@@ -64,6 +70,7 @@ public class ScepConfigMBean extends BaseManagedBean implements Serializable {
         private boolean clientCertificateRenewal;
         private boolean allowClientCertificateRenewaWithOldKey;
 
+        
         private ScepAliasGuiInfo(ScepConfiguration scepConfig, String alias) {
             if (alias != null) {
                 this.alias = alias;
@@ -236,6 +243,15 @@ public class ScepConfigMBean extends BaseManagedBean implements Serializable {
     private final EndEntityProfileSessionLocal endentityProfileSession = getEjbcaWebBean().getEjb().getEndEntityProfileSession();
     private final EnterpriseEditionEjbBridgeSessionLocal editionEjbBridgeSession = getEjbcaWebBean().getEnterpriseEjb();
     
+    // Authentication check and audit log page access request
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.SYSTEMCONFIGURATION_VIEW.resource());
+        }
+    }
+    
     public ScepConfigMBean() {
         super();
         scepConfig = (ScepConfiguration) globalConfigSession.getCachedConfiguration(ScepConfiguration.SCEP_CONFIGURATION_ID);
@@ -405,10 +421,6 @@ public class ScepConfigMBean extends BaseManagedBean implements Serializable {
     /** Invoked when admin cancels a SCEP alias create or edit. */
     public void cancelCurrentAlias() {
         flushCache();
-    }
-
-    public void selectUpdate() {
-        // NOOP: Only for page reload
     }
 
     /** @return a list of usable operational modes */

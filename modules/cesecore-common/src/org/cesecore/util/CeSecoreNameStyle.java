@@ -15,6 +15,7 @@ package org.cesecore.util;
 
 import java.util.Hashtable;
 
+import org.apache.commons.lang.StringUtils;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERPrintableString;
@@ -26,7 +27,7 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
 
 /** Class that determines string representations of DNs. Overrides the default BCStyle in order to:
- * - Be consistent for all future for backwards compatibility (serialnumber)
+ * - Be consistent for all future for backwards compatibility (serialnumber is SN in EJBCA, not SERIALNUMBER)
  * - Be able to add fields that does not (yet) exist in BC (like CABForum Jurisdiction* in BC 1.54)
  *
  * @version $Id$
@@ -253,9 +254,13 @@ public class CeSecoreNameStyle extends BCStyle {
     }
 
     @Override
-    public ASN1ObjectIdentifier attrNameToOID(String attrName)
-    {
-        return IETFUtils.decodeAttrName(attrName, DefaultLookUp);
+    public ASN1ObjectIdentifier attrNameToOID(final String attrName) {
+        String attr = attrName;
+        // Legacy, Email has had a couple of different string representations during the years.
+        if (StringUtils.equals(attrName, "EMAIL") || StringUtils.equals(attrName, "EMAILADDRESS")) {
+            attr = "E";
+        }
+        return IETFUtils.decodeAttrName(attr, DefaultLookUp);
     }
 
 }

@@ -25,15 +25,21 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
 import javax.faces.model.ListDataModel;
 import javax.faces.model.SelectItem;
+import javax.servlet.http.HttpServletRequest;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.CryptoTokenRules;
+import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
 import org.cesecore.certificates.util.AlgorithmConstants;
@@ -59,6 +65,7 @@ import org.cesecore.keys.token.p11.Pkcs11SlotLabelType;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.config.WebConfiguration;
+import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
 import org.ejbca.util.SlotList;
@@ -69,9 +76,19 @@ import org.ejbca.util.SlotList;
  * 
  * @version $Id$
  */
+@ManagedBean
+@SessionScoped
 public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
     private static final String CRYPTOTOKEN_LABEL_TYPE_TEXTPREFIX = "CRYPTOTOKEN_LABEL_TYPE_";
+    
+    public void initialize(ComponentSystemEvent event) throws Exception {
+        // Invoke on initial request only
+        if (!FacesContext.getCurrentInstance().isPostback()) {
+            final HttpServletRequest req = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+            getEjbcaWebBean().initialize(req, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.CAVIEW.resource());
+        }
+    }
     
     /** GUI table representation of a CryptoToken that can be interacted with. */
     public class CryptoTokenGuiInfo {
@@ -138,6 +155,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         private boolean referenced = false;
         private String keyPlaceholders;
         private boolean allowExplicitParameters = false;
+        private boolean canGenerateKey= true;
+        private String canGenerateKeyMsg = null;
         
         private CurrentCryptoTokenGuiInfo() {}
         
@@ -179,6 +198,19 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
         public void setAllowExplicitParameters(boolean allowExplicitParameters) {
             this.allowExplicitParameters = allowExplicitParameters;
+        }
+        public boolean isCanGenerateKey() {
+            return canGenerateKey;
+        }
+
+        public void setCanGenerateKey(boolean canGenerateKey) {
+            this.canGenerateKey = canGenerateKey;
+        }
+        public void setCanGenerateKeyMsg(String msg) {
+            this.canGenerateKeyMsg = msg;
+        }
+        public String getCanGenerateKeyMsg() {
+            return canGenerateKeyMsg;
         }
 
         public String getP11LibraryAlias() { return CryptoTokenMBean.this.getP11LibraryAlias(p11Library); }
@@ -258,6 +290,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private String keyPairGuiListError = null;
     private int currentCryptoTokenId = 0;
     private CurrentCryptoTokenGuiInfo currentCryptoToken = null;
+    private boolean p11SlotUsed = false; // Note if the P11 slot is already used by another crypto token, forcing a confirm
     private boolean currentCryptoTokenEditMode = true;  // currentCryptoTokenId==0 from start
 
     private final CryptoTokenManagementSessionLocal cryptoTokenManagementSession = getEjbcaWebBean().getEjb().getCryptoTokenManagementSession();
@@ -282,6 +315,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private void flushCurrent() {
         keyPairGuiList = null;
         currentCryptoToken = null;
+        p11SlotUsed = false;
     }
     
     /** @return a List of all CryptoToken Identifiers referenced by CAs. */
@@ -380,108 +414,128 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     public boolean isAllowedToDelete() {
         return authorizationSession.isAuthorizedNoLogging(authenticationToken, CryptoTokenRules.DELETE_CRYPTOTOKEN.resource());
     }
+
+    public void saveCurrentCryptoTokenWithCheck() throws AuthorizationDeniedException {
+        saveCurrentCryptoToken(true);
+    }
+    public void saveCurrentCryptoToken() throws AuthorizationDeniedException {
+        saveCurrentCryptoToken(false);
+    }
     
     /** Invoked when admin requests a CryptoToken creation. */
-    public void saveCurrentCryptoToken() throws AuthorizationDeniedException {
-        String msg = null;
+    private void saveCurrentCryptoToken(boolean checkSlotInUse) throws AuthorizationDeniedException {
         if (!getCurrentCryptoToken().getSecret1().equals(getCurrentCryptoToken().getSecret2())) {
-            msg = "Authentication codes do not match!";
-        } else {
-            try {
-                final Properties properties = new Properties();
-                String className = null;
-                if (PKCS11CryptoToken.class.getSimpleName().equals(getCurrentCryptoToken().getType())) {
-                    className = PKCS11CryptoToken.class.getName();
-                    String library = getCurrentCryptoToken().getP11Library();
-                    properties.setProperty(PKCS11CryptoToken.SHLIB_LABEL_KEY, library);
-                    String slotTextValue = getCurrentCryptoToken().getP11Slot().trim();
-                    String slotLabelType =   getCurrentCryptoToken().getP11SlotLabelType();
-                    //Perform some name validation
-                    if(slotLabelType.equals(Pkcs11SlotLabelType.SLOT_NUMBER.getKey())) {
-                        if(!Pkcs11SlotLabelType.SLOT_NUMBER.validate(slotTextValue)) {
-                            msg = "Slot must be an absolute number";
-                        }
-                    } else if(slotLabelType.equals(Pkcs11SlotLabelType.SLOT_INDEX.getKey())) {
-                        if(slotTextValue.charAt(0) != 'i') {
-                            slotTextValue = "i" + slotTextValue;
-                        }
-                        if(!Pkcs11SlotLabelType.SLOT_INDEX.validate(slotTextValue)) {
-                            msg = "Slot must be an absolute number or use prefix 'i' for indexed slots.";
-                        }                 
+            addNonTranslatedErrorMessage("Authentication codes do not match!");
+            return;
+        }
+        try {
+            final String name = getCurrentCryptoToken().getName();
+            final Properties properties = new Properties();
+            String className = null;
+            if (PKCS11CryptoToken.class.getSimpleName().equals(getCurrentCryptoToken().getType())) {
+                className = PKCS11CryptoToken.class.getName();
+                String library = getCurrentCryptoToken().getP11Library();
+                properties.setProperty(PKCS11CryptoToken.SHLIB_LABEL_KEY, library);
+                String slotTextValue = getCurrentCryptoToken().getP11Slot().trim();
+                String slotLabelType =   getCurrentCryptoToken().getP11SlotLabelType();
+                //Perform some name validation
+                if(slotLabelType.equals(Pkcs11SlotLabelType.SLOT_NUMBER.getKey())) {
+                    if(!Pkcs11SlotLabelType.SLOT_NUMBER.validate(slotTextValue)) {
+                        addNonTranslatedErrorMessage("Slot must be an absolute number");
+                        return;
                     }
-                 
-                    // Verify that it is allowed
-                    SlotList allowedSlots = getP11SlotList();
-                    if (allowedSlots != null && !allowedSlots.contains(slotTextValue)) {
-                        throw new IllegalArgumentException("Slot number "+slotTextValue+" is not allowed. Allowed slots are: "+allowedSlots);
+                } else if(slotLabelType.equals(Pkcs11SlotLabelType.SLOT_INDEX.getKey())) {
+                    if(slotTextValue.charAt(0) != 'i') {
+                        slotTextValue = "i" + slotTextValue;
                     }
-                    
-                    properties.setProperty(PKCS11CryptoToken.SLOT_LABEL_VALUE, slotTextValue);
-                    properties.setProperty(PKCS11CryptoToken.SLOT_LABEL_TYPE, slotLabelType);
-                    // The default should be null, but we will get a value "default" from the GUI code in this case..
-                    final String p11AttributeFile = getCurrentCryptoToken().getP11AttributeFile();
-                    if (!"default".equals(p11AttributeFile)) {
-                        properties.setProperty(PKCS11CryptoToken.ATTRIB_LABEL_KEY, p11AttributeFile);
+                    if(!Pkcs11SlotLabelType.SLOT_INDEX.validate(slotTextValue)) {
+                        addNonTranslatedErrorMessage("Slot must be an absolute number or use prefix 'i' for indexed slots.");
+                        return;
                     }
-                } else if (SoftCryptoToken.class.getSimpleName().equals(getCurrentCryptoToken().getType())) {
-                    className = SoftCryptoToken.class.getName();
-                    properties.setProperty(SoftCryptoToken.NODEFAULTPWD, "true");
                 }
 
-                if (getCurrentCryptoToken().isAllowExportPrivateKey()) {
-                    properties.setProperty(CryptoToken.ALLOW_EXTRACTABLE_PRIVATE_KEY, String.valueOf(getCurrentCryptoToken().isAllowExportPrivateKey()));
-                }
-                if (getCurrentCryptoToken().getKeyPlaceholders() != null) {
-                    properties.setProperty(CryptoToken.KEYPLACEHOLDERS_PROPERTY, getCurrentCryptoToken().getKeyPlaceholders());
-                }
-                if (getCurrentCryptoToken().isAllowExplicitParameters()) {
-                    properties.setProperty(CryptoToken.EXPLICIT_ECC_PUBLICKEY_PARAMETERS, String.valueOf(getCurrentCryptoToken().isAllowExplicitParameters()));
+                // Verify that it is allowed
+                SlotList allowedSlots = getP11SlotList();
+                if (allowedSlots != null && !allowedSlots.contains(slotTextValue)) {
+                    throw new IllegalArgumentException("Slot number "+slotTextValue+" is not allowed. Allowed slots are: "+allowedSlots);
                 }
                 
-                final char[] secret = getCurrentCryptoToken().getSecret1().toCharArray();
-                final String name = getCurrentCryptoToken().getName();
-                if (getCurrentCryptoTokenId() == 0) {
-                    if (secret.length>0) {
-                        if (getCurrentCryptoToken().isAutoActivate()) {
-                            BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
-                        }
-                        currentCryptoTokenId = cryptoTokenManagementSession.createCryptoToken(authenticationToken, name, className, properties, null, secret);
-                        msg = "CryptoToken created successfully.";
-                    } else {
-                        super.addNonTranslatedErrorMessage("You must provide an authentication code to create a CryptoToken.");
-                    }
-                } else {
-                    if (getCurrentCryptoToken().isAutoActivate()) {
-                        if (secret.length>0) {
-                            BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
-                        } else {
-                            // Indicate that we want to reuse current auto-pin if present
-                            properties.put(CryptoTokenManagementSession.KEEP_AUTO_ACTIVATION_PIN, Boolean.TRUE.toString());
-                        }
-                    }
-                    cryptoTokenManagementSession.saveCryptoToken(authenticationToken, getCurrentCryptoTokenId(), name, properties, secret);
-                    msg = "CryptoToken saved successfully.";
+                properties.setProperty(PKCS11CryptoToken.SLOT_LABEL_VALUE, slotTextValue);
+                properties.setProperty(PKCS11CryptoToken.SLOT_LABEL_TYPE, slotLabelType);
+                // The default should be null, but we will get a value "default" from the GUI code in this case..
+                final String p11AttributeFile = getCurrentCryptoToken().getP11AttributeFile();
+                if (!"default".equals(p11AttributeFile)) {
+                    properties.setProperty(PKCS11CryptoToken.ATTRIB_LABEL_KEY, p11AttributeFile);
                 }
-                flushCaches();
-                setCurrentCryptoTokenEditMode(false);
-            } catch (CryptoTokenOfflineException e) {
-                msg = e.getMessage();
-            } catch (CryptoTokenAuthenticationFailedException e) {
-                msg = e.getMessage();
-            } catch (AuthorizationDeniedException e) {
-                msg = e.getMessage();
-            } catch (IllegalArgumentException e) {
-                msg = e.getMessage();
-            } catch (Throwable e) {
-                msg = e.getMessage();
-                log.info("", e);
+                if (checkSlotInUse) {
+                    log.info("Checking if slot is already used");
+                    List<String> usedBy = cryptoTokenManagementSession.isCryptoTokenSlotUsed(authenticationToken, name, className, properties);
+                    if (!usedBy.isEmpty()) {
+                        String msg = "The P11 slot is already used by other crypto token(s)";
+                        for (String cryptoTokenName : usedBy) {
+                            String usedByName = cryptoTokenName;
+                            if (StringUtils.isNumeric(usedByName)) {
+                                // if the crypto token name is purely numeric, it is likely to be a database protection token
+                                usedByName = usedByName + " (database protection?)";
+                            }
+                            msg += "; "+usedByName;
+                        }
+                        msg += ". Re-using P11 slots in multiple crypto tokens is discouraged, and all parameters must be identical. Re-enter authentication code and Confirm Save to continue.";
+                        p11SlotUsed = true;
+                        addNonTranslatedErrorMessage(msg);
+                        return;
+                    }
+                }
+            } else if (SoftCryptoToken.class.getSimpleName().equals(getCurrentCryptoToken().getType())) {
+                className = SoftCryptoToken.class.getName();
+                properties.setProperty(SoftCryptoToken.NODEFAULTPWD, "true");
             }
-        }
-        if (msg != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("Message displayed to user: " + msg);
+            if (getCurrentCryptoToken().isAllowExportPrivateKey()) {
+                properties.setProperty(CryptoToken.ALLOW_EXTRACTABLE_PRIVATE_KEY, String.valueOf(getCurrentCryptoToken().isAllowExportPrivateKey()));
             }
-            super.addNonTranslatedErrorMessage(msg);
+            if (getCurrentCryptoToken().getKeyPlaceholders() != null) {
+                properties.setProperty(CryptoToken.KEYPLACEHOLDERS_PROPERTY, getCurrentCryptoToken().getKeyPlaceholders());
+            }
+            if (getCurrentCryptoToken().isAllowExplicitParameters()) {
+                properties.setProperty(CryptoToken.EXPLICIT_ECC_PUBLICKEY_PARAMETERS, String.valueOf(getCurrentCryptoToken().isAllowExplicitParameters()));
+            }
+
+            final char[] secret = getCurrentCryptoToken().getSecret1().toCharArray();
+            if (getCurrentCryptoTokenId() == 0) {
+                if (secret.length>0) {
+                    if (getCurrentCryptoToken().isAutoActivate()) {
+                        BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
+                    }
+                    currentCryptoTokenId = cryptoTokenManagementSession.createCryptoToken(authenticationToken, name, className, properties, null, secret);
+                    addNonTranslatedInfoMessage("CryptoToken created successfully.");
+                } else {
+                    addNonTranslatedErrorMessage("You must provide an authentication code to create a CryptoToken.");
+                    return;
+                }
+            } else {
+                if (getCurrentCryptoToken().isAutoActivate()) {
+                    if (secret.length>0) {
+                        BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
+                    } else {
+                        // Indicate that we want to reuse current auto-pin if present
+                        properties.put(CryptoTokenManagementSession.KEEP_AUTO_ACTIVATION_PIN, Boolean.TRUE.toString());
+                    }
+                }
+                cryptoTokenManagementSession.saveCryptoToken(authenticationToken, getCurrentCryptoTokenId(), name, properties, secret);
+                addNonTranslatedInfoMessage("CryptoToken saved successfully.");
+            }
+            flushCaches();
+            setCurrentCryptoTokenEditMode(false);                    
+        } catch (CryptoTokenOfflineException e) {
+            addNonTranslatedErrorMessage(e);
+        } catch (CryptoTokenAuthenticationFailedException e) {
+            addNonTranslatedErrorMessage(e);
+        } catch (AuthorizationDeniedException e) {
+            addNonTranslatedErrorMessage(e);
+        } catch (IllegalArgumentException e) {
+            addNonTranslatedErrorMessage(e);
+        } catch (Exception e) {
+            addNonTranslatedErrorMessage(e);
         }
     }
 
@@ -676,6 +730,10 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                         currentCryptoToken.setP11Library(cryptoTokenInfo.getP11Library());
                         currentCryptoToken.setP11Slot(cryptoTokenInfo.getP11Slot());
                         currentCryptoToken.setP11SlotLabelType(cryptoTokenInfo.getP11SlotLabelType());
+                        // Extra capabilities not stored in the crypto token, but defined for this type of P11 crypto token
+                        WebConfiguration.P11LibraryInfo libinfo = WebConfiguration.getAvailableP11LibraryToAliasMap().get(currentCryptoToken.getP11Library());
+                        currentCryptoToken.setCanGenerateKey(libinfo.isCanGenerateKey());
+                        currentCryptoToken.setCanGenerateKeyMsg(libinfo.getCanGenerateKeyMsg());
                     }
                     currentCryptoToken.setActive(cryptoTokenInfo.isActive());
                     currentCryptoToken.setReferenced(getReferencedCryptoTokenIds().contains(Integer.valueOf(cryptoTokenId)));
@@ -826,15 +884,11 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         try {
             cryptoTokenManagementSession.createKeyPair(getAdmin(), getCurrentCryptoTokenId(), getNewKeyPairAlias(), getNewKeyPairSpec());
         } catch (CryptoTokenOfflineException e) {
-            super.addNonTranslatedErrorMessage("Token is off-line. KeyPair cannot be generated.");
+            addNonTranslatedErrorMessage("Token is off-line. KeyPair cannot be generated.");
         } catch (Exception e) {
-            super.addNonTranslatedErrorMessage(e.getMessage());
+            addNonTranslatedErrorMessage(e);
             final String logMsg = getAdmin().toString() + " failed to generate a keypair:";
-            if (log.isDebugEnabled()) {
-                log.debug(logMsg, e);
-            } else {
-                log.info(logMsg + e.getMessage());
-            }
+            log.info(logMsg + e.getMessage());
         }
         flushCaches();
         if (log.isTraceEnabled()) {
@@ -853,15 +907,11 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         try {
             cryptoTokenManagementSession.createKeyPairFromTemplate(getAdmin(), getCurrentCryptoTokenId(), alias, keyspec);
         } catch (CryptoTokenOfflineException e) {
-            super.addNonTranslatedErrorMessage("Token is off-line. KeyPair cannot be generated.");
+            addNonTranslatedErrorMessage("Token is off-line. KeyPair cannot be generated.");
         } catch (Exception e) {
-            super.addNonTranslatedErrorMessage(e.getMessage());
+            addNonTranslatedErrorMessage(e);
             final String logMsg = getAdmin().toString() + " failed to generate a keypair:";
-            if (log.isDebugEnabled()) {
-                log.debug(logMsg, e);
-            } else {
-                log.info(logMsg + e.getMessage());
-            }
+            log.info(logMsg + e.getMessage());
         }
         flushCaches();
         if (log.isTraceEnabled()) {
@@ -877,7 +927,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             cryptoTokenManagementSession.testKeyPair(getAdmin(), getCurrentCryptoTokenId(), alias);
             super.addNonTranslatedInfoMessage(alias + " tested successfully.");
         } catch (Exception e) {
-            super.addNonTranslatedErrorMessage(e.getMessage());
+            addNonTranslatedErrorMessage(e);
         }
     }
     
@@ -893,7 +943,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             }
             flushCaches();
         } catch (Exception e) {
-            super.addNonTranslatedErrorMessage(e.getMessage());
+            addNonTranslatedErrorMessage(e);
         }
     }
 
@@ -905,7 +955,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                     try {
                         cryptoTokenManagementSession.removeKeyPair(getAdmin(), getCurrentCryptoTokenId(), cryptoTokenKeyPairInfo.getAlias());
                     } catch (Exception e) {
-                        super.addNonTranslatedErrorMessage(e.getMessage());
+                        addNonTranslatedErrorMessage(e);
                     }
                 }
             }
@@ -921,4 +971,11 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         if (libinfo == null) return null;
         return libinfo.getSlotList();
     }
+
+    /** @return true if we have checked and noticed that the P11 slot of the crypto token we try to create is the same as an already existing crypto token (including database protection tokens)
+     */
+    public boolean isP11SlotUsed() {
+        return p11SlotUsed;
+    }
+    
 }

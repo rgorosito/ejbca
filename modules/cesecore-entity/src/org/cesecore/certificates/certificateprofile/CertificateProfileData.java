@@ -26,15 +26,17 @@ import javax.persistence.Table;
 import javax.persistence.Transient;
 
 import org.apache.log4j.Logger;
+import org.cesecore.dbprotection.DatabaseProtectionException;
 import org.cesecore.dbprotection.ProtectedData;
 import org.cesecore.dbprotection.ProtectionStringBuilder;
 import org.cesecore.internal.UpgradeableDataHashMap;
+import org.cesecore.legacy.Eca7277CertificateProfileData;
 import org.cesecore.util.JBossUnmarshaller;
 import org.cesecore.util.QueryResultWrapper;
 
 /**
  * Representation of a certificate profile (template).
- * 
+ *
  * @version $Id$
  */
 @Entity
@@ -149,9 +151,9 @@ public class CertificateProfileData extends ProtectedData implements Serializabl
      * We have an internal method for this read operation with a side-effect. This is because getCertificateProfile() is a read-only method, so the
      * possible side-effect of upgrade will not happen, and therefore this internal method can be called from another non-read-only method,
      * upgradeProfile().
-     * 
+     *
      * @return CertificateProfile
-     * 
+     *
      *         TODO: Verify read-only? apply read-only?
      */
     private CertificateProfile readAndUpgradeProfileInternal() {
@@ -204,13 +206,13 @@ public class CertificateProfileData extends ProtectedData implements Serializabl
     @Transient
     @Override
     protected String getProtectString(final int version) {
-    	final ProtectionStringBuilder build = new ProtectionStringBuilder(2200); // an almost empty profile gives ~2100 chars of protect string
+    	final ProtectionStringBuilder build = new ProtectionStringBuilder(4000); // a normal certificate profile is almost 4000 bytes chars of protect string
         // What is important to protect here is the data that we define, id, name and certificate profile data
         // rowVersion is automatically updated by JPA, so it's not important, it is only used for optimistic locking
         build.append(getId()).append(getCertificateProfileName()).append(getData());
         if (log.isDebugEnabled()) {
             // Some profiling
-            if (build.length() > 2200) {
+            if (build.length() > 4000) {
                 log.debug("CertificateProfileData.getProtectString gives size: " + build.length());
             }
         }
@@ -236,6 +238,33 @@ public class CertificateProfileData extends ProtectedData implements Serializabl
         super.verifyData();
     }
 
+    /**
+     * Due to an issue with db protection between EJBCA 6.12 and 6.14.1 we need special handling to verify protection
+     * created between those versions. If the initial data verification failed, we should to "patch" the protect string
+     * and verify again. If this fails we behave as usual, i.e. throw the original exception if erroronverify is set,
+     * or if not set just log a warning.
+     *
+     * This code can be removed once we are sure that all installations have performed post-upgrade on EJBCA version
+     * 7.x or later.
+     *
+     * @param possibleTamper an exception raised due to a possible database tamper
+     * @throws DatabaseProtectionException possibleTamper is thrown if the exception was not caused by ECA-7277, i.e
+     * the signature did not verify over the "patched" protect string either.
+     */
+    @Transient
+    @Override
+    @Deprecated
+    protected void onDataVerificationError(final DatabaseProtectionException possibleTamper) {
+        try {
+            // Try to verify again with a mocked CertificateProfileData object returning a "patched"
+            // protect string
+            impl.verifyData(new Eca7277CertificateProfileData(this));
+        } catch (final DatabaseProtectionException e) {
+            // Ignore the new exception and fall back to the default behaviour
+            super.onDataVerificationError(possibleTamper);
+        }
+    }
+
     @Override
     @Transient
     protected String getRowId() {
@@ -244,5 +273,4 @@ public class CertificateProfileData extends ProtectedData implements Serializabl
     //
     // End Database integrity protection methods
     //
-
 }

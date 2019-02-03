@@ -50,7 +50,6 @@ import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.ca.X509CAInfo;
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.certificate.CertificateStatus;
-import org.cesecore.certificates.certificate.CertificateStoreSessionRemote;
 import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
@@ -71,6 +70,7 @@ import org.cesecore.util.EJBTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.FileTools;
 import org.ejbca.config.CmpConfiguration;
+import org.ejbca.core.ejb.EnterpriseEditionEjbBridgeProxySessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionRemote;
 import org.ejbca.core.ejb.approval.ApprovalSessionProxyRemote;
@@ -99,8 +99,6 @@ import org.junit.Test;
  * These tests test RA functionality with the CMP protocol, i.e. a "trusted" RA sends CMP messages authenticated using PBE (password based encryption)
  * and these requests are handled by EJBCA without further authentication, end entities are created automatically in EJBCA.
  * 
- * 'ant clean; ant bootstrap' to deploy configuration changes.
- * 
  * @version $Id: CrmfRAPbeRequestTest.java 9435 2010-07-14 15:18:39Z mikekushner$
  */
 public class CrmfRAPbeRequestTest extends CmpTestCase {
@@ -111,11 +109,13 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
 
     private static final String PBEPASSWORD = "password";
 
-    /**
-     * userDN of user used in this test, this contains special, escaped, characters to test that this works with CMP RA operations
-     */
-    private static final X500Name userDN = new X500Name("C=SE,O=PrimeKey'foo'&bar\\,ha\\<ff\\\"aa,CN=cmptest");
-    private static final String issuerDN = "CN=TestCA";
+    /** userDN of user used in this test, this contains special, escaped, characters to test that this works with CMP RA operations */
+    private static X500Name userDN;
+    private static final String USERDN_ENTERPRISE = "C=SE,O=PrimeKey'foo'&bar\\,ha\\<ff\\\"aa,organizationIdentifier=VATAT-U12345678,CN=cmptest";
+    private static final String USERDN_COMMUNITY = "C=SE,O=PrimeKey'foo'&bar\\,ha\\<ff\\\"aa,CN=cmptest";
+    private static String issuerDN;
+    private static final String ISSUERDN_ENTERPRISE = "CN=TestCA,O=PrimeKey,OU=FoooUåäö,organizationIdentifier=VATAT-U87654321";
+    private static final String ISSUERDN_COMMUNITY = "CN=TestCA,O=PrimeKey,OU=FoooUåäö";
     private final KeyPair keys;
     private final int caid;
     private final X509Certificate cacert;
@@ -129,14 +129,22 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
     private final ApprovalSessionProxyRemote approvalSessionProxyRemote = EjbRemoteHelper.INSTANCE.getRemoteSession(ApprovalSessionProxyRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final CAAdminSessionRemote caAdminSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
     private final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
-    private final CertificateStoreSessionRemote certificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateStoreSessionRemote.class);
-
+    private static final EnterpriseEditionEjbBridgeProxySessionRemote enterpriseEjbBridgeSession = EjbRemoteHelper.INSTANCE.getRemoteSession(EnterpriseEditionEjbBridgeProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
     private final GlobalConfigurationSessionRemote globalConfigurationSession = EjbRemoteHelper.INSTANCE.getRemoteSession(GlobalConfigurationSessionRemote.class);
     
     
     @BeforeClass
-    public static void beforeClass() throws Exception {
+    public static void beforeClass() {
         CryptoProviderTools.installBCProvider();
+        if (enterpriseEjbBridgeSession.isRunningEnterprise()) {
+            log.debug("Testing WITH organizationIdentifier");
+            userDN = new X500Name(USERDN_ENTERPRISE);
+            issuerDN = ISSUERDN_ENTERPRISE;
+        } else {
+            log.debug("Testing WITHOUT organizationIdentifier");
+            userDN = new X500Name(USERDN_COMMUNITY);
+            issuerDN = ISSUERDN_COMMUNITY;
+        }
     }
 
     public CrmfRAPbeRequestTest() throws Exception {
@@ -274,8 +282,8 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
             checkCmpResponseGeneral(resp, issuerDN, userDN, this.cacert, nonce, transid, false, PBEPASSWORD, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
             X509Certificate cert = checkCmpCertRepMessage(userDN, this.cacert, resp, reqId);
             String altNames = CertTools.getSubjectAlternativeName(cert);
-            assertTrue(altNames.indexOf("upn=fooupn@bar.com") != -1);
-            assertTrue(altNames.indexOf("rfc822name=fooemail@bar.com") != -1);
+            assertContains("Subject Alt Name", altNames, "upn=fooupn@bar.com");
+            assertContains("Subject Alt Name", altNames, "rfc822name=fooemail@bar.com");
 
             // Ignore sending a confirm message to the CA, it will not care anyhow
 
@@ -385,8 +393,8 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
             checkCmpResponseGeneral(resp, issuerDN, userDN, this.cacert, nonce, transid, false, PBEPASSWORD, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
             X509Certificate cert = checkCmpCertRepMessage(userDN, this.cacert, resp, reqId);
             String altNames = CertTools.getSubjectAlternativeName(cert);
-            assertTrue(altNames.indexOf("upn=fooupn@bar.com") != -1);
-            assertTrue(altNames.indexOf("rfc822name=fooemail@bar.com") != -1);
+            assertContains("Subject Alt Name", altNames, "upn=fooupn@bar.com");
+            assertContains("Subject Alt Name", altNames, "rfc822name=fooemail@bar.com");
             final URL cdpfromcert1 = CertTools.getCrlDistributionPoint(cert);
             assertEquals("CDP is not correct, it probably means it was not the correct 'KeyId' certificate profile that was used", cdp1, cdpfromcert1.toString());
             
@@ -456,7 +464,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
         String approvalProfileName = this.getClass().getName() + "-NrOfApprovalsProfile";
         X509CAInfo cainfo = null;
         int cryptoTokenId = 0;
-        List<File> fileHandles = new ArrayList<File>();
+        List<File> fileHandles = new ArrayList<>();
         AccumulativeApprovalProfile approvalProfile = new AccumulativeApprovalProfile(approvalProfileName);
         approvalProfile.setNumberOfApprovalsRequired(1);
         final int approvalProfileId = approvalProfileSession.addApprovalProfile(ADMIN, approvalProfile);
@@ -484,13 +492,11 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
             // revoke via CMP and verify response
             byte[] nonce = CmpMessageHelper.createSenderNonce();
             byte[] transid = CmpMessageHelper.createSenderNonce();
-            ByteArrayOutputStream bao = new ByteArrayOutputStream();
-            DEROutputStream out = new DEROutputStream(bao);
             PKIMessage rev = genRevReq(cainfo.getSubjectDN(), new X500Name(userdata.getDN()), cert.getSerialNumber(), newCACert, nonce, transid, false, null, null);
             PKIMessage revReq = protectPKIMessage(rev, false, PBEPASSWORD, 567);
             assertNotNull(revReq);
-            bao = new ByteArrayOutputStream();
-            out = new DEROutputStream(bao);
+            ByteArrayOutputStream bao = new ByteArrayOutputStream();
+            DEROutputStream out = new DEROutputStream(bao);
             out.writeObject(revReq);
             byte[] ba = bao.toByteArray();
             byte[] resp = sendCmpHttp(ba, 200, ALIAS);
@@ -613,11 +619,12 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
                 }
                 Query q = new Query(Query.TYPE_APPROVALQUERY);
                 q.add(ApprovalMatch.MATCH_WITH_APPROVALID, BasicMatch.MATCH_TYPE_EQUALS, Integer.toString(approvalID));
-                ApprovalDataVO approvalData = (approvalSessionProxyRemote.query(q, 0, 1, "cAId=" + approvalCAID,
-                        "(endEntityProfileId=" + EndEntityConstants.EMPTY_END_ENTITY_PROFILE + ")").get(0));
+                final List<ApprovalDataVO> approvalRequests = approvalSessionProxyRemote.query(q, 0, 1, "cAId=" + approvalCAID,
+                        "(endEntityProfileId=" + EndEntityConstants.EMPTY_END_ENTITY_PROFILE + ")");
+                assertEquals("Could not find approval by CA ID and EEP ID.", 1, approvalRequests.size());
                 Approval approval = new Approval("Approved during testing.", sequenceId, partitionId);
                 approvalExecutionSession.approve(approvingAdmin, approvalID, approval);
-                approvalData = approvalSession.findApprovalDataVO(approvalID).iterator().next();
+                ApprovalDataVO approvalData = approvalSession.findApprovalDataVO(approvalID).iterator().next();
                 assertEquals(approvalData.getStatus(), ApprovalDataVO.STATUS_EXECUTED);
                 CertificateStatus status = certificateStoreSession.getStatus(issuer, serialNumber);
                 assertEquals(status.revocationReason, reason);
@@ -651,14 +658,13 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
                     PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
             X509Certificate cert = checkCmpCertRepMessage(userDN, this.cacert, resp, reqId);
             // Check that validity override works
-            assertTrue(cert.getNotBefore().equals(cacert.getNotBefore())); // not before is limited by the CA not before date in this case
-            assertTrue(cert.getNotAfter().equals(notAfter));
+            assertEquals("'Not Before' should be limited by the CA not before date.", cacert.getNotBefore(), cert.getNotBefore());
+            assertEquals("Wrong 'Not After' date.", notAfter, cert.getNotAfter());
             String altNames = CertTools.getSubjectAlternativeName(cert);
-
-            assertTrue(altNames.indexOf("upn=fooupn@bar.com") != -1);
-            assertTrue(altNames.indexOf("rfc822name=fooemail@bar.com") != -1);
+            assertContains("Subject Alt Name", altNames, "upn=fooupn@bar.com");
+            assertContains("Subject Alt Name", altNames, "rfc822name=fooemail@bar.com");
             if (SANTest) {
-                assertTrue(altNames.indexOf("directoryName=c=SE\\,cn=foobar") != -1);
+                assertContains("Subject Alt Name", altNames, "directoryName=c=SE\\,cn=foobar");
             }
 
             // Send a confirm message to the CA
@@ -712,5 +718,9 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
                 // NOPMD: ignore
             }
         }
+    }
+
+    private static void assertContains(final String description, final String stringToCheck, final String expectedToContain) {
+        assertTrue(description + " did not contain '" + expectedToContain + "'. Was: '" + stringToCheck + "'", stringToCheck.contains(expectedToContain));
     }
 }

@@ -25,6 +25,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 
+import javax.ejb.EJBTransactionRolledbackException;
+
 import org.apache.log4j.Logger;
 import org.cesecore.certificates.certificate.InternalCertificateStoreSessionRemote;
 import org.cesecore.certificates.endentity.ExtendedInformation;
@@ -35,31 +37,28 @@ import org.ejbca.core.model.ca.publisher.PublisherConst;
 import org.ejbca.core.model.ca.publisher.PublisherQueueData;
 import org.ejbca.core.model.ca.publisher.PublisherQueueVolatileInformation;
 import org.junit.After;
-import org.junit.FixMethodOrder;
 import org.junit.Test;
-import org.junit.runners.MethodSorters;
 
 /**
  * Tests Publisher Queue Data.
- * 
+ *
  * @version $Id$
  */
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class PublisherQueueTest {
 
     private static byte[] testcert = Base64.decode((
             "MIICWzCCAcSgAwIBAgIIJND6Haa3NoAwDQYJKoZIhvcNAQEFBQAwLzEPMA0GA1UE"
-            + "AxMGVGVzdENBMQ8wDQYDVQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMB4XDTAyMDEw" 
+            + "AxMGVGVzdENBMQ8wDQYDVQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMB4XDTAyMDEw"
             + "ODA5MTE1MloXDTA0MDEwODA5MjE1MlowLzEPMA0GA1UEAxMGMjUxMzQ3MQ8wDQYD"
-            + "VQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMIGdMA0GCSqGSIb3DQEBAQUAA4GLADCB" 
+            + "VQQKEwZBbmFUb20xCzAJBgNVBAYTAlNFMIGdMA0GCSqGSIb3DQEBAQUAA4GLADCB"
             + "hwKBgQCQ3UA+nIHECJ79S5VwI8WFLJbAByAnn1k/JEX2/a0nsc2/K3GYzHFItPjy"
-            + "Bv5zUccPLbRmkdMlCD1rOcgcR9mmmjMQrbWbWp+iRg0WyCktWb/wUS8uNNuGQYQe" 
+            + "Bv5zUccPLbRmkdMlCD1rOcgcR9mmmjMQrbWbWp+iRg0WyCktWb/wUS8uNNuGQYQe"
             + "ACl11SAHFX+u9JUUfSppg7SpqFhSgMlvyU/FiGLVEHDchJEdGQIBEaOBgTB/MA8G"
-            + "A1UdEwEB/wQFMAMBAQAwDwYDVR0PAQH/BAUDAwegADAdBgNVHQ4EFgQUyxKILxFM" 
+            + "A1UdEwEB/wQFMAMBAQAwDwYDVR0PAQH/BAUDAwegADAdBgNVHQ4EFgQUyxKILxFM"
             + "MNujjNnbeFpnPgB76UYwHwYDVR0jBBgwFoAUy5k/bKQ6TtpTWhsPWFzafOFgLmsw"
-            + "GwYDVR0RBBQwEoEQMjUxMzQ3QGFuYXRvbS5zZTANBgkqhkiG9w0BAQUFAAOBgQAS" 
+            + "GwYDVR0RBBQwEoEQMjUxMzQ3QGFuYXRvbS5zZTANBgkqhkiG9w0BAQUFAAOBgQAS"
             + "5wSOJhoVJSaEGHMPw6t3e+CbnEL9Yh5GlgxVAJCmIqhoScTMiov3QpDRHOZlZ15c"
-            + "UlqugRBtORuA9xnLkrdxYNCHmX6aJTfjdIW61+o/ovP0yz6ulBkqcKzopAZLirX+" 
+            + "UlqugRBtORuA9xnLkrdxYNCHmX6aJTfjdIW61+o/ovP0yz6ulBkqcKzopAZLirX+"
             + "XSWf2uI9miNtxYMVnbQ1KPdEAt7Za3OQR6zcS0lGKg==").getBytes());
 
     private static final Logger log = Logger.getLogger(PublisherQueueTest.class);
@@ -68,11 +67,11 @@ public class PublisherQueueTest {
 
     @Test
     public void shouldFindNoPendingEntriesWhenNoneIsInserted() {
-        final int publisherId = 11111;
+        final int publisherId = 11110;
         Collection<PublisherQueueData> c = publisherQueueSession.getPendingEntriesForPublisher(publisherId);
         assertEquals(0, c.size());
     }
-    
+
     @Test
     public void testInsertedPendingPublisherQueueHasProperValues() throws Exception {
         final int publisherId = 11111;
@@ -89,18 +88,18 @@ public class PublisherQueueTest {
         assertEquals(0, d.getTryCounter());
         assertNull(d.getVolatileData());
     }
-        
+
     @Test
     public void testQueueDataHasProperValuesAfterUpdate() throws Exception {
-        final int publisherId = 11111;
+        final int publisherId = 11112;
         publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
-        
+
         Collection<PublisherQueueData> c = publisherQueueSession.getPendingEntriesForPublisher(publisherId);
         Iterator<PublisherQueueData> iterator = c.iterator();
         PublisherQueueData publisherQueueData1 = iterator.next();
         assertEquals("XX", publisherQueueData1.getFingerprint());
         Date lastUpdate1 = publisherQueueData1.getLastUpdate();
-        
+
         String xxpk = publisherQueueData1.getPk(); // Keep for later so we can set to success
 
         PublisherQueueVolatileInformation vd = new PublisherQueueVolatileInformation();
@@ -109,7 +108,7 @@ public class PublisherQueueTest {
         ExtendedInformation ei = new ExtendedInformation();
         ei.setSubjectDirectoryAttributes("directoryAttr");
         vd.setExtendedInformation(ei);
-        
+
         publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CRL, "YY", vd, PublisherConst.STATUS_PENDING);
 
         c = publisherQueueSession.getPendingEntriesForPublisher(publisherId);
@@ -145,24 +144,33 @@ public class PublisherQueueTest {
         assertTrue(testedYY);
 
         publisherQueueSession.updateData(xxpk, PublisherConst.STATUS_SUCCESS, 4);
-        
+
         c = publisherQueueSession.getEntriesByFingerprint("XX");
         assertEquals(1, c.size());
         iterator = c.iterator();
         publisherQueueData1 = iterator.next();
         assertEquals("XX", publisherQueueData1.getFingerprint());
         Date lastUpdate2 = publisherQueueData1.getLastUpdate();
-        
+
         assertTrue(lastUpdate2.after(lastUpdate1));
         assertNotNull(publisherQueueData1.getTimeCreated());
         assertEquals(PublisherConst.STATUS_SUCCESS, publisherQueueData1.getPublishStatus());
         assertEquals(4, publisherQueueData1.getTryCounter());
     }
 
-    
+    @Test(expected = EJBTransactionRolledbackException.class)
+    public void shouldFindNothingWhenIntervalsEmpty() throws Exception {
+        final int publisherId = 11113;
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        int[] lowerCreatedTimeSearchCriteria = {};
+        int[] upperCreatedTimeSearchCriteria = {};
+        publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria,
+                upperCreatedTimeSearchCriteria);
+    }
+
     @Test
     public void shouldFindPendingPublisherQueueCountsWithoutCreatedTimeUpperIntervals() throws Exception {
-        final int publisherId = 22222;
+        final int publisherId = 11114;
         // Nothing in the queue from the beginning
         assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
         assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 })[0]);
@@ -194,8 +202,8 @@ public class PublisherQueueTest {
 
     @Test
     public void shouldFindPendingPublisherQueueCountsWithCreatedTimeIntervals() throws Exception {
-	
-        final int publisherId = 33333;
+
+        final int publisherId = 11115;
 
         // verify that there is nothing in the queue in the beginning
         assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
@@ -223,16 +231,177 @@ public class PublisherQueueTest {
         publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
         log.debug("Added new data at: "+System.currentTimeMillis());
 
-        int[] lowerCreatedTimeSearchCriteria = {0, 2, 10, 0};
-        int[] upperCreateTimeSearchCriteria = {2, 10, -1, -1};
+        int[] lowerCreatedTimeSearchCriteria = {0, 0, 2, 10};
+        int[] upperCreateTimeSearchCriteria = {-1, 2, 10, -1};
         actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria, upperCreateTimeSearchCriteria);
         log.debug("Returned at "+System.currentTimeMillis()+", actual=" + Arrays.toString(actual));
 
         assertEquals(4, actual.length);
+        assertEquals(2, actual[0]); // (~, ~) s = 2
+        assertEquals(1, actual[1]); // (~, 2) s  = 1
+        assertEquals(1, actual[2]); // (2, 10) s = 1
+        assertEquals(0, actual[3]); // (10, ~) s = 0
+    }
+
+    @Test
+    public void shouldFindPendingPublisherQueueCountsWithCreatedTimeIntervalsNullAndThree() throws Exception {
+
+        final int publisherId = 11116;
+
+        // verify that there is nothing in the queue in the beginning
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 })[0]);
+
+        // add 1st entry
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added data at: "+System.currentTimeMillis());
+
+        // verify that there is now one entry in the queue
+        assertEquals(1, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        int[] actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 });
+        assertEquals(1, actual.length);
+        assertEquals(1, actual[0]);
+
+        log.debug("Sleeping at: "+System.currentTimeMillis());
+        // wait for a while before adding 2nd entry
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException ex) {
+            fail(ex.getMessage());
+        }
+
+        // add 2nd entry into the queue, at least 3s after the first one
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added new data at: "+System.currentTimeMillis());
+
+        int[] lowerCreatedTimeSearchCriteria = {0};
+        int[] upperCreateTimeSearchCriteria = {2};
+        actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria, upperCreateTimeSearchCriteria);
+        log.debug("Returned at "+System.currentTimeMillis()+", actual=" + Arrays.toString(actual));
+
+        assertEquals(1, actual.length);
         assertEquals(1, actual[0]); // (~, 2) s  = 1
-        assertEquals(1, actual[1]); // (2, 10) s = 1
-        assertEquals(0, actual[2]); // (10, ~) s = 0
-        assertEquals(2, actual[3]); // (~, ~) s = 2
+
+    }
+
+    @Test
+    public void shouldFindPendingPublisherQueueCountsWithCreatedTimeIntervalsThreeAndTen() throws Exception {
+
+        final int publisherId = 11117;
+
+        // verify that there is nothing in the queue in the beginning
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 })[0]);
+
+        // add 1st entry
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added data at: "+System.currentTimeMillis());
+
+        // verify that there is now one entry in the queue
+        assertEquals(1, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        int[] actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 });
+        assertEquals(1, actual.length);
+        assertEquals(1, actual[0]);
+
+        log.debug("Sleeping at: "+System.currentTimeMillis());
+        // wait for a while before adding 2nd entry
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException ex) {
+            fail(ex.getMessage());
+        }
+
+        // add 2nd entry into the queue, at least 3s after the first one
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added new data at: "+System.currentTimeMillis());
+
+        int[] lowerCreatedTimeSearchCriteria = {2};
+        int[] upperCreateTimeSearchCriteria = {10};
+        actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria, upperCreateTimeSearchCriteria);
+        log.debug("Returned at "+System.currentTimeMillis()+", actual=" + Arrays.toString(actual));
+
+        assertEquals(1, actual.length);
+        assertEquals(1, actual[0]); // (2, 10) s = 1
+    }
+
+    @Test
+    public void shouldFindPendingPublisherQueueCountsWithCreatedTimeIntervalsTenAndNull() throws Exception {
+
+        final int publisherId = 11118;
+
+        // verify that there is nothing in the queue in the beginning
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 })[0]);
+
+        // add 1st entry
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added data at: "+System.currentTimeMillis());
+
+        // verify that there is now one entry in the queue
+        assertEquals(1, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        int[] actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 });
+        assertEquals(1, actual.length);
+        assertEquals(1, actual[0]);
+
+        log.debug("Sleeping at: "+System.currentTimeMillis());
+        // wait for a while before adding 2nd entry
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException ex) {
+            fail(ex.getMessage());
+        }
+
+        // add 2nd entry into the queue, at least 3s after the first one
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added new data at: "+System.currentTimeMillis());
+
+        int[] lowerCreatedTimeSearchCriteria = {10};
+        int[] upperCreateTimeSearchCriteria = {-1};
+        actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria, upperCreateTimeSearchCriteria);
+        log.debug("Returned at "+System.currentTimeMillis()+", actual=" + Arrays.toString(actual));
+
+        assertEquals(1, actual.length);
+        assertEquals(0, actual[0]); // (10, ~) s = 0
+    }
+
+    @Test
+    public void shouldFindPendingPublisherQueueCountsWithCreatedTimeIntervalsBothBoundsNull() throws Exception {
+
+        final int publisherId = 11119;
+
+        // verify that there is nothing in the queue in the beginning
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        assertEquals(0, publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 })[0]);
+
+        // add 1st entry
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added data at: "+System.currentTimeMillis());
+
+        // verify that there is now one entry in the queue
+        assertEquals(1, publisherQueueSession.getPendingEntriesCountForPublisher(publisherId));
+        int[] actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, new int[] { 0 }, new int[] { -1 });
+        assertEquals(1, actual.length);
+        assertEquals(1, actual[0]);
+
+        log.debug("Sleeping at: "+System.currentTimeMillis());
+        // wait for a while before adding 2nd entry
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException ex) {
+            fail(ex.getMessage());
+        }
+
+        // add 2nd entry into the queue, at least 3s after the first one
+        publisherQueueSession.addQueueData(publisherId, PublisherConst.PUBLISH_TYPE_CERT, "XX", null, PublisherConst.STATUS_PENDING);
+        log.debug("Added new data at: "+System.currentTimeMillis());
+
+        int[] lowerCreatedTimeSearchCriteria = {0};
+        int[] upperCreateTimeSearchCriteria = {-1};
+        actual = publisherQueueSession.getPendingEntriesCountForPublisherInIntervals(publisherId, lowerCreatedTimeSearchCriteria, upperCreateTimeSearchCriteria);
+        log.debug("Returned at "+System.currentTimeMillis()+", actual=" + Arrays.toString(actual));
+
+        assertEquals(1, actual.length);
+        assertEquals(2, actual[0]); // (~, ~) s = 2
     }
 
     @After

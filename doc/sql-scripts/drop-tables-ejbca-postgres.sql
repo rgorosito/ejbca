@@ -34,3 +34,8 @@ drop table if exists ServiceData cascade;
 drop table if exists UserData cascade;
 drop table if exists UserDataSourceData cascade;
 drop table if exists NoConflictCertificateData cascade;
+drop table if exists AcmeAuthorizationData cascade;
+drop table if exists AcmeChallengeData cascade;
+drop table if exists AcmeNonceData cascade;
+drop table if exists AcmeAccountData cascade;
+drop table if exists AcmeOrderData cascade;

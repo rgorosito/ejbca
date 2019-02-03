@@ -15,46 +15,14 @@
 
  version: $Id$
  -->
-<web-app version="3.0" id="public_web_renew_1"
+<web-app version="3.1" id="public_web_renew_1"
+    metadata-complete="false"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-    xmlns="http://java.sun.com/xml/ns/javaee"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
-                        http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+    xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+                        http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
 
     <display-name>Public web certificate renewal</display-name>
-
-    <!-- Clickjack Filter from OWASP adding X-FRAME-OPTIONS header to pages to prevent including 
-         our pages in other frames. https://www.owasp.org/index.php/Clickjacking_Protection_for_Java_EE -->
-	<filter>
-		<filter-name>ClickjackFilterDeny</filter-name>
-		<filter-class>org.owasp.filters.ClickjackFilter</filter-class>
-		<init-param>
-			<param-name>mode</param-name>
-			<param-value>DENY</param-value>
-		</init-param>
-	</filter>
-
-	<filter>
-		<filter-name>ClickjackFilterSameOrigin</filter-name>
-		<filter-class>org.owasp.filters.ClickjackFilter</filter-class>
-		<init-param>
-			<param-name>mode</param-name>
-			<param-value>SAMEORIGIN</param-value>
-		</init-param>
-	</filter>
-
-    <!--  use the Deny version to prevent anyone, including yourself, from framing the page -->
-	<filter-mapping> 
-		<filter-name>ClickjackFilterDeny</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
-
-	<!-- use the SameOrigin version to allow your application to frame, but nobody else
-	<filter-mapping> 
-		<filter-name>ClickjackFilterSameOrigin</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
-    -->
 
 	<filter>
 		<filter-name>ContentSecurityPolicyFilter</filter-name>
@@ -90,10 +58,9 @@
         <web-resource-collection>
             <web-resource-name>restricted methods</web-resource-name>
             <url-pattern>/*</url-pattern>
-            <http-method>PUT</http-method>
-            <http-method>DELETE</http-method>
-            <http-method>OPTIONS</http-method>
-            <http-method>TRACE</http-method>
+            <http-method-omission>HEAD</http-method-omission>
+            <http-method-omission>GET</http-method-omission>
+            <http-method-omission>POST</http-method-omission>
         </web-resource-collection>
         <auth-constraint />
     </security-constraint>

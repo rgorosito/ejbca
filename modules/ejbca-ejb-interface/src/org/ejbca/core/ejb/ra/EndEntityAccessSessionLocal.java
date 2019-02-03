@@ -105,5 +105,4 @@ public interface EndEntityAccessSessionLocal extends EndEntityAccessSession {
      * @return Collection of EndEntityInformation
      */
     Collection<EndEntityInformation> findAllUsersWithLimit(AuthenticationToken admin);
-    
 }

@@ -14,14 +14,25 @@ package org.ejbca.core.model.ca.publisher;
 
 import java.util.List;
 
+import org.cesecore.authentication.tokens.AuthenticationToken;
+
 /**
  * A publisher that implements this interface should expose the configurable properties in such a
  * way that an UI can parse it.
  * 
  * @version $Id$
  */
-public interface CustomPublisherUiSupport {
+public interface CustomPublisherUiSupport extends ICustomPublisher {
 
     /** @return A list of the publisher's properties in such a way that a UI can parse the information. */
-    List<CustomPublisherProperty> getCustomUiPropertyList();
+    List<CustomPublisherProperty> getCustomUiPropertyList(final AuthenticationToken authenticationToken);
+    
+    List<String> getCustomUiPropertyNames();
+    
+    /**
+     * 
+     * @param label
+     * @return the type of the property (as defined in CustomPublisherProperty), or -1 if no such property exists
+     */
+    int getPropertyType(final String label);
 }

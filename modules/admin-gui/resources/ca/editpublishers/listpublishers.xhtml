@@ -1,0 +1,115 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
+<ui:remove>
+	<!--
+    /*************************************************************************
+     *                                                                       *
+     *  EJBCA: The OpenSource Certificate Authority                          *
+     *                                                                       *
+     *  This software is free software; you can redistribute it and/or       *
+     *  modify it under the terms of the GNU Lesser General Public           *
+     *  License as published by the Free Software Foundation; either         *
+     *  version 2.1 of the License, or any later version.                    *
+     *                                                                       *
+     *  See terms of license at gnu.org.                                     *
+     *                                                                       *
+     *************************************************************************/
+     
+     $Id$
+     -->
+</ui:remove>
+
+<body>
+<ui:composition template="/WEB-INF/include/template.xhtml">
+
+		<ui:define name="metadata">
+			<f:metadata>
+				<f:event type="preRenderView" listener="#{listPublishers.initAccess}" />
+			</f:metadata>
+		</ui:define>
+
+
+	<ui:define name="content">
+		<h1>
+			<h:outputText value="#{web.text.MANAGEPUBLISHERS}" />
+		</h1>
+
+		<h:form id="listPublishers">
+			<h:panelGrid styleClass="list" columns="2"
+				columnClasses="listColumn1,listColumn2">
+				<h:panelGroup>
+					<h3>
+						<h:outputText value="#{web.text.LISTOFPUBLISHERS}" />
+					</h3>
+				</h:panelGroup>
+				<h:panelGroup>
+				</h:panelGroup>
+
+				<h:panelGroup>
+					<h:selectOneListbox styleClass="select-list" id="selectPublisher"
+						value="#{listPublishers.selectedPublisherName}"
+						style="width: 50em" size="15">
+						<f:selectItems
+							value="#{listPublishers.availablePublishers}" />
+					</h:selectOneListbox>
+				</h:panelGroup>
+				<h:panelGroup>
+				</h:panelGroup>
+
+				<h:panelGrid columns="2" width="100%"
+					columnClasses="subTableColumn1,subTableColumn2">
+					<h:panelGroup>
+						<h:commandButton id="editButton"
+							action="#{listPublishers.editPublisher}"
+							value="#{web.text.EDITPUBLISHER}"
+							rendered="#{listPublishers.hasEditRights}" />
+						<h:commandButton id="viewButton"
+							action="#{listPublishers.editPublisher}"
+							value="#{web.text.VIEWPUBLISHER}"
+							rendered="#{!listPublishers.hasEditRights}" />
+					</h:panelGroup>
+					<h:panelGroup>
+						<h:commandButton id="deleteButton"
+							action="#{listPublishers.deletePublisher}"
+							value="#{web.text.DELETEPUBLISHER}"
+							onclick="return confirm('#{web.text.AREYOUSURE}');"
+							rendered="#{listPublishers.hasEditRights}" />
+					</h:panelGroup>
+				</h:panelGrid>
+				<h:panelGroup>
+				</h:panelGroup>
+			</h:panelGrid>
+
+			<h:panelGrid styleClass="actions margin-top" width="100%"
+				rendered="#{listPublishers.hasEditRights}">
+				<h:panelGroup>
+					<h3>
+						<h:outputText value="#{web.text.ADDPUBLISHER}" />
+					</h3>
+				</h:panelGroup>
+				<h:panelGroup>
+					<h:inputText id="newPublisherName"
+						value="#{listPublishers.newPublisherName}" size="40"
+						title="#{web.text.FORMAT_ID_STR}" />
+					<h:commandButton id="addButton"
+						action="#{listPublishers.addPublisher}"
+						value="#{web.text.ADD}" style="margin-left: 3px;" />
+						&#xA0;&#xA0;
+					<h:commandButton id="renameButton"
+						action="#{listPublishers.renamePublisher}"
+						value="#{web.text.RENAME_SELECTED}" />
+						&#xA0;&#xA0;&#xA0;
+					<h:commandButton id="cloneButton"
+						action="#{listPublishers.clonePublisher}"
+						value="#{web.text.CLONE_SELECTED}" />
+				</h:panelGroup>
+			</h:panelGrid>
+		</h:form>
+	</ui:define>
+</ui:composition>
+</body>
+</html>

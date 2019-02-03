@@ -35,7 +35,7 @@ public interface EndEntityProfileSessionLocal extends EndEntityProfileSession {
 
     /** Helper method that checks if an administrator is authorized to all CAs present in the profiles "available CAs"
      * 
-     * @param admin administrator to check
+     * @param admin administrator to check.
      * @param profile the profile to check
      * @throws AuthorizationDeniedException if admin is not authorized to one of the available CAs in the profile
      */
@@ -66,5 +66,4 @@ public interface EndEntityProfileSessionLocal extends EndEntityProfileSession {
      * @return EndEntityProfile (shared in cache) or null if it does not exist
      */
     EndEntityProfile getEndEntityProfileNoClone(java.lang.String profilename);
-
 }
