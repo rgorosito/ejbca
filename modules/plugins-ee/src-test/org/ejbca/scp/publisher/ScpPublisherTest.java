@@ -127,6 +127,7 @@ public class ScpPublisherTest {
         CaTestCase.removeTestCA(caName);
     }
 
+    @Ignore
     @Test
     public void testPublishCertificate() throws PublisherException, OperatorCreationException, CertificateException, InvalidAlgorithmParameterException,
             InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, AuthorizationDeniedException, CADoesntExistsException {
