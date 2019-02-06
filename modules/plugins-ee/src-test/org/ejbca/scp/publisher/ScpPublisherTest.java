@@ -21,17 +21,38 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 
 import org.bouncycastle.operator.OperatorCreationException;
+import org.cesecore.CaTestUtils;
+import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.authentication.tokens.UsernamePrincipal;
+import org.cesecore.authorization.AuthorizationDeniedException;
+import org.cesecore.certificates.ca.CAConstants;
+import org.cesecore.certificates.ca.CADoesntExistsException;
+import org.cesecore.certificates.ca.CAExistsException;
+import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.CaSessionRemote;
+import org.cesecore.certificates.ca.InvalidAlgorithmException;
+import org.cesecore.certificates.ca.X509CAInfo;
+import org.cesecore.certificates.ca.catoken.CAToken;
+import org.cesecore.certificates.ca.catoken.CATokenConstants;
 import org.cesecore.certificates.certificate.CertificateConstants;
+import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.RevocationReasons;
 import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.keys.token.CryptoTokenOfflineException;
+import org.cesecore.keys.token.CryptoTokenTestUtils;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
+import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.StringTools;
 import org.cesecore.util.TraceLogMethodsRule;
+import org.ejbca.core.ejb.ca.CaTestCase;
+import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionRemote;
 import org.ejbca.core.model.ca.publisher.PublisherException;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -65,14 +86,59 @@ public class ScpPublisherTest {
     public static void beforeClass() {
         CryptoProviderTools.installBCProviderIfNotAvailable();
     }
+    private static final String caName = "ScpPublisherTest";
+    private static final String cadn = "CN="+caName;
+    
+    private AuthenticationToken internalAdmin = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("ScpPublisherTest"));
 
-    @Ignore
+    
+    /** @return a CAToken for referencing the specified CryptoToken. */
+    private static CAToken createCaToken(final int cryptoTokenId, String sigAlg, String encAlg) {
+        // Create CAToken (what key in the CryptoToken should be used for what)
+        final Properties caTokenProperties = new Properties();
+        caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_CERTSIGN_STRING, CAToken.SOFTPRIVATESIGNKEYALIAS);
+        caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_CRLSIGN_STRING, CAToken.SOFTPRIVATESIGNKEYALIAS);
+        caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_DEFAULT_STRING, CAToken.SOFTPRIVATEDECKEYALIAS);
+        caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_CERTSIGN_STRING_NEXT , CAToken.SOFTPRIVATEDECKEYALIAS);
+        final CAToken catoken = new CAToken(cryptoTokenId, caTokenProperties);
+        catoken.setSignatureAlgorithm(sigAlg);
+        catoken.setEncryptionAlgorithm(encAlg);
+        catoken.setKeySequence(CAToken.DEFAULT_KEYSEQUENCE);
+        catoken.setKeySequenceFormat(StringTools.KEY_SEQUENCE_FORMAT_NUMERIC);
+        return catoken;
+    }
+    
+    @Before
+    public void setup() throws CAExistsException, CryptoTokenOfflineException, AuthorizationDeniedException {
+        final int cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(internalAdmin, caName, String.valueOf(1024));
+        CAToken catoken = createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
+        X509CAInfo cainfo = new X509CAInfo(cadn, caName, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d",
+                CAInfo.SELFSIGNED, null, catoken);
+        final CAAdminSessionRemote caAdminSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
+        try {
+            caAdminSession.createCA(internalAdmin, cainfo);
+        } catch (InvalidAlgorithmException e) {
+            throw new IllegalArgumentException("Could not create CA.", e);
+        }
+    }
+    
+    @After
+    public void tearDown() throws AuthorizationDeniedException {
+        CaTestCase.removeTestCA(caName);
+    }
+
     @Test
     public void testPublishCertificate() throws PublisherException, OperatorCreationException, CertificateException, InvalidAlgorithmParameterException,
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException {
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, AuthorizationDeniedException, CADoesntExistsException {
+        CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
+        CAInfo cainfo = caSession.getCAInfo(internalAdmin, caName);
+        CAToken catoken = cainfo.getCAToken();
+        catoken.setProperty(CATokenConstants.CAKEYPURPOSE_CERTSIGN_STRING, "foo");
+        cainfo.setCAToken(catoken);
+        caSession.editCA(internalAdmin, cainfo);
         ScpPublisher scpPublisher = new ScpPublisher();
         Properties properties = new Properties();
-        properties.setProperty(ScpPublisher.SIGNING_CA_PROPERTY_NAME, "1652389506");
+        properties.setProperty(ScpPublisher.SIGNING_CA_PROPERTY_NAME, Integer.toString(cadn.hashCode()));
         properties.setProperty(ScpPublisher.ANONYMIZE_CERTIFICATES_PROPERTY_NAME, "false");
         properties.setProperty(ScpPublisher.CERT_SCP_DESTINATION_PROPERTY_NAME, "download.primekey.com:tmp");
         properties.setProperty(ScpPublisher.CRL_SCP_DESTINATION_PROPERTY_NAME, "download.primekey.com:tmp");
