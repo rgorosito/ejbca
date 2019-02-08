@@ -300,6 +300,65 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
      */
     @Override
     public void testConnection() throws PublisherConnectionException {
+        JSch jsch = new JSch();
+        try {
+            if (privateKeyPassword != null) {
+                jsch.addIdentity(scpPrivateKey, privateKeyPassword);
+            } else {
+                jsch.addIdentity(scpPrivateKey);
+            }
+        } catch (JSchException e) {
+            String msg = "Could not access private key. ";
+            log.info(msg + e.getMessage());
+            throw new PublisherConnectionException(msg, e);
+        }
+        try {
+            jsch.setKnownHosts(scpKnownHosts);
+        } catch (JSchException e) {
+            String msg = "Could not access known_hosts file. ";
+            log.info(msg + e.getMessage());
+            throw new PublisherConnectionException(msg, e);
+        }
+
+        List<PublisherConnectionException> caughtExceptions = new ArrayList<>();
+        if (StringUtils.isNotEmpty(certSCPDestination)) {
+            String destination = certSCPDestination;
+            //clean out any usernames which may have been added to the destination by mistake
+            destination = destination.substring(destination.indexOf('@') + 1);
+            String host = (destination.indexOf(':') != -1 ? destination.substring(0, destination.indexOf(':')) : destination);            
+            Session session;
+            try {
+                session = jsch.getSession(sshUsername, host, 22);
+                session.connect();
+            } catch (JSchException e) {
+                String msg = "Could not connect to certificate destination. ";
+                log.info(msg + e.getMessage());
+                caughtExceptions.add(new PublisherConnectionException(msg, e));
+            }
+        }
+        if (StringUtils.isNotEmpty(crlSCPDestination)) {
+            String destination = crlSCPDestination;
+            //clean out any usernames which may have been added to the destination by mistake
+            destination = destination.substring(destination.indexOf('@') + 1);
+            String host = (destination.indexOf(':') != -1 ? destination.substring(0, destination.indexOf(':')) : destination);
+            Session session;
+            try {
+                session = jsch.getSession(sshUsername, host, 22);
+                session.connect();
+            } catch (JSchException e) {
+                String msg = "Could not connect to CRL destination. ";
+                log.info(msg + e.getMessage());
+                caughtExceptions.add(new PublisherConnectionException(msg, e));
+            }
+        }
+        if(!caughtExceptions.isEmpty()) {
+            String msg = "Could not connect to destination(s). Reasons: ";
+            for(PublisherConnectionException e :caughtExceptions) {
+                msg += e.getMessage();
+            }
+            throw new PublisherConnectionException(msg);
+        }
+
 
     }
 
@@ -357,6 +416,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
             //If no signing CA is defined, just publish the ScpContainer in its raw form 
             signedBytes = data;
         } 
+        //clean out any usernames which may have been added to the destination by mistake
         destination = destination.substring(destination.indexOf('@') + 1);
         String host = destination.substring(0, destination.indexOf(':'));
         String rfile = destination.substring(destination.indexOf(':') + 1);
