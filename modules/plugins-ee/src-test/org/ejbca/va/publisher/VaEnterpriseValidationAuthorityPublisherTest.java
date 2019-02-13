@@ -9,6 +9,12 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
+import java.security.cert.Certificate;
+import java.security.cert.CertificateParsingException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.cesecore.CaTestUtils;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -24,16 +30,17 @@ import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.TraceLogMethodsRule;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherExistsException;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TestRule;
 
-import java.security.cert.Certificate;
-import java.security.cert.CertificateParsingException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of system tests for the VA Publisher using EnterpriseValidationAuthorityPublisher, extracted from the org.ejbca.core.model.ca.publisher.PublisherTest and VaPublisherTest.
@@ -255,6 +262,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
                 certificate.getPublicKey(),
                 "OcspSigner",
                 "abcde1234",
+                "csr1234",
                 RevokedCertInfo.NOT_REVOKED,
                 CertificateConstants.CERTTYPE_ENDENTITY,
                 CertificateProfileConstants.CERTPROFILE_FIXED_OCSPSIGNER,
@@ -312,6 +320,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
                 certificate.getPublicKey(),
                 "SubCaEe",
                 "abcde1234",
+                "csr1234",
                 RevokedCertInfo.NOT_REVOKED,
                 CertificateConstants.CERTTYPE_SUBCA,
                 CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA,

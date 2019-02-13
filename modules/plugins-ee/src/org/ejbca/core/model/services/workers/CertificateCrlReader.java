@@ -258,7 +258,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             final int certificateType = scpObject.getCertificateType();
             final int certificateProfile = scpObject.getCertificateProfile();
             final long updateTime = scpObject.getUpdateTime();
-            certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, certificateStatus, certificateType,
+            certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, null, certificateStatus, certificateType,
                     certificateProfile, endEntityProfileId, null, updateTime);          
         }
     }
