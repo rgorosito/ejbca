@@ -9,6 +9,7 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
+import java.math.BigInteger;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
@@ -135,6 +136,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
                 CertificateConstants.CERT_ACTIVE,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                 null,
+                null,
                 System.currentTimeMillis() + 12345,
                 RevokedCertInfo.REVOCATION_REASON_REMOVEFROMCRL,
                 -1L);
@@ -180,6 +182,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
         final String expectedCaFingerprint = "Some CA fingerprint";
         final int expectedStatus = CertificateConstants.CERT_REVOKED;
         final int expectedProfileId = CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER;
+        final String expectedCsr = "someCsr";
         final String expectedTag = "someTag";
         long expectedTime = System.currentTimeMillis();
         final int expectedRevocationReason = RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED;
@@ -190,6 +193,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
                 expectedCaFingerprint,
                 expectedStatus,
                 expectedProfileId,
+                expectedCsr,
                 expectedTag,
                 expectedTime,
                 expectedRevocationReason,
@@ -343,6 +347,42 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
         assertTrue("Error storing Sub CA certificate Publisher", additionResult);
         assertEquals("Unexpected certificate type of published entry", CertificateConstants.CERTTYPE_SUBCA, actualCertificateInfo.getType());
         assertEquals("Unexpected Subject DN of published entry", CertTools.getSubjectDN(testSubCaCertificate), actualCertificateInfo.getSubjectDN());
+    }
+    
+    @Test
+    public void shouldPublishCertificateWithEmptyCertificateRequest() throws PublisherConnectionException, CertificateParsingException, AuthorizationDeniedException {
+        // given
+        publisherProxySession.testConnection(publisherId);
+        final Certificate certificate = CertTools.getCertfromByteArray(testSubCaCertificateBytes, Certificate.class);
+        final CertificateData subCaCert = new CertificateData(
+                certificate,
+                certificate.getPublicKey(),
+                "SubCaEe",
+                "abcde1234",
+                "csr1234",
+                RevokedCertInfo.NOT_REVOKED,
+                CertificateConstants.CERTTYPE_SUBCA,
+                CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA,
+                EndEntityConstants.NO_END_ENTITY_PROFILE,
+                "tag",
+                System.currentTimeMillis() + 12345,
+                true,
+                true);
+        final CertificateDataWrapper certWrapper = createCertificateDataWrapperUsingCertificateData(subCaCert);
+        // when
+        final boolean additionResult = publisherSession.storeCertificate(
+                internalAdminToken,
+                publishers,
+                certWrapper,
+                "foo123",
+                CertTools.getSubjectDN(testSubCaCertificate),
+                null);
+        
+        // then
+        List<CertificateDataWrapper> resultCertificateData = certificateStoreSession.getCertificateDataBySerno(new BigInteger(subCaCert.getSerialNumber()));
+        assertTrue("Error storing Sub CA certificate Publisher", additionResult);
+        assertNull(resultCertificateData.get(0).getCertificateData().getCertificateRequest());
+        
     }
     
     private void switchEnterpriseValidationAuthorityPublisherInNoMetaDataMode() throws AuthorizationDeniedException {
