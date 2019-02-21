@@ -9,6 +9,12 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateData;
@@ -16,20 +22,23 @@ import org.cesecore.certificates.certificate.CertificateInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.util.*;
+import org.cesecore.util.Base64;
+import org.cesecore.util.CertTools;
+import org.cesecore.util.CryptoProviderTools;
+import org.cesecore.util.TraceLogMethodsRule;
 import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherExistsException;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TestRule;
 
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateParsingException;
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of system tests for the VA Publisher using CustomPublisherContainer, extracted from the org.ejbca.core.model.ca.publisher.PublisherTest and VaPublisherTest.
@@ -84,6 +93,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
                 CertificateConstants.CERT_REVOKED,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                 null,
+                null,
                 System.currentTimeMillis(),
                 RevokedCertInfo.REVOCATION_REASON_CACOMPROMISE,
                 System.currentTimeMillis() - 1
@@ -116,6 +126,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
         final String expectedCaFingerprint = "Some CA fingerprint";
         final int expectedStatus = CertificateConstants.CERT_ACTIVE;
         final int expectedProfileId = CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER;
+        final String expectedCsr = "someCsr";
         final String expectedTag = "someTag";
         long expectedTime = System.currentTimeMillis();
         final int expectedRevocationReason = RevokedCertInfo.NOT_REVOKED;
@@ -124,6 +135,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
                 expectedCaFingerprint,
                 expectedStatus,
                 expectedProfileId,
+                expectedCsr,
                 expectedTag,
                 expectedTime,
                 expectedRevocationReason,
@@ -160,6 +172,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
         final String expectedUsername = "someUser";
         final String expectedCaFingerprint = "Some CA fingerprint";
         final int expectedStatus = CertificateConstants.CERT_REVOKED;
+        final String expectedCsr = "someCsr";
         final String expectedTag = "someTag";
         final int expectedCertificateProfileId = 12345;
         long expectedRevocationTime = System.currentTimeMillis() + 12345;
@@ -175,6 +188,7 @@ public class VaCustomPublisherTest extends VaPublisherTestBase {
                 expectedCaFingerprint,
                 CertificateConstants.CERT_REVOKED,
                 expectedCertificateProfileId,
+                expectedCsr,
                 expectedTag,
                 expectedRevocationTime,
                 RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED,

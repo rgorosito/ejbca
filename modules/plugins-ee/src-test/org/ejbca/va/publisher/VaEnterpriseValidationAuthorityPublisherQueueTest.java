@@ -9,11 +9,6 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
@@ -41,6 +36,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of system tests for the VA Queue using EnterpriseValidationAuthorityPublisher, extracted from the Community system tests and VaPublisherQueueTest.java.
@@ -186,6 +186,7 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
                 CertificateConstants.CERT_REVOKED,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                 null,
+                null,
                 System.currentTimeMillis(),
                 RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD,
                 System.currentTimeMillis()-1
@@ -222,6 +223,7 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
                 CertificateConstants.CERT_REVOKED,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
                 null,
+                null,
                 System.currentTimeMillis(),
                 RevokedCertInfo.NOT_REVOKED,
                 -1L
@@ -257,6 +259,7 @@ public class VaEnterpriseValidationAuthorityPublisherQueueTest extends VaPublish
                 null,
                 CertificateConstants.CERT_ACTIVE,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                null,
                 null,
                 System.currentTimeMillis(),
                 RevokedCertInfo.REVOCATION_REASON_REMOVEFROMCRL,
