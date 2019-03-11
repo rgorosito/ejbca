@@ -193,6 +193,7 @@ public class VaPublisherTestBase {
                 CertificateConstants.CERTTYPE_ENDENTITY,
                 certificateProfileId,
                 EndEntityConstants.NO_END_ENTITY_PROFILE,
+                CertificateConstants.NO_CRL_PARTITION,
                 tag,
                 updateTime,
                 true,
