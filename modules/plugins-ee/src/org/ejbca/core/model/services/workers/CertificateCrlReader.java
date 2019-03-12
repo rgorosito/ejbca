@@ -286,10 +286,11 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
         BigInteger crlnumber = CrlExtensions.getCrlNumber(crl);
         final String issuerDn = CertTools.getIssuerDN(crl);
+        final int crlPartitionIndex = CertificateConstants.NO_CRL_PARTITION; // TODO ECA-7940
         int isDeltaCrl = (crl.getExtensionValue(Extension.deltaCRLIndicator.getId()) != null ? -1 : 1);
-        if(crlStoreSession.getCRL(issuerDn, crlnumber.intValue()) == null) {
+        if(crlStoreSession.getCRL(issuerDn, crlPartitionIndex, crlnumber.intValue()) == null) {
             try {
-                crlStoreSession.storeCRL(admin, crlData, caFingerprint, crlnumber.intValue(), issuerDn, crl.getThisUpdate(), crl.getNextUpdate(), isDeltaCrl);
+                crlStoreSession.storeCRL(admin, crlData, caFingerprint, crlnumber.intValue(), issuerDn, crlPartitionIndex, crl.getThisUpdate(), crl.getNextUpdate(), isDeltaCrl);
             } catch (CrlStoreException e) {
                 throw new ServiceExecutionFailedException("An error occurred while storing the CRL.", e);
             } catch (AuthorizationDeniedException e) {
