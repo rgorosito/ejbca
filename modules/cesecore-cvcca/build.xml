@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="cesecore-cvcca" basedir="../.." default="jar">
-	<property environment="env" />
-	<dirname property="cesecore-cvcca.dir" file="${ant.file.cesecore-cvcca}"/>
+    <property environment="env" />
+    <dirname property="cesecore-cvcca.dir" file="${ant.file.cesecore-cvcca}"/>
 
     <import file="${cesecore-cvcca.dir}/../build-helpers.xml"/>
 
-	<property name="cesecore-cvcca.build.dir" location="${cesecore-cvcca.dir}/build"/>
-	<property name="cesecore-cvcca.build-test.dir" location="${cesecore-cvcca.dir}/build-test"/>
-	<property name="cesecore-cvcca.src-test.dir" location="${cesecore-cvcca.dir}/src-test"/>
+    <property name="cesecore-cvcca.build.dir" location="${cesecore-cvcca.dir}/build"/>
+    <property name="cesecore-cvcca.build-test.dir" location="${cesecore-cvcca.dir}/build-test"/>
+    <property name="cesecore-cvcca.src-test.dir" location="${cesecore-cvcca.dir}/src-test"/>
 
 
     <path id="compile.classpath">
@@ -21,102 +21,102 @@
         <path location="${mod.cesecore-common.lib}"/>
     </path>
 
-	<!-- The buildservicemanifest needs additional classes in order to run. 
-	     These are not included in the javac classpath for cesecore-cvcca to ensure that cesecore-cvcca does not depends on that -->
-	<path id="manifest.classpath">
-		<path refid="compile.classpath"/>
-		<path location="${ejbca.home}/src/java"/>
-		<path location="${ejbca.home}/src"/>
-		<path location="${cesecore-cvcca.dir}/build/classes"/>
-	</path>
+    <!-- The buildservicemanifest needs additional classes in order to run. 
+         These are not included in the javac classpath for cesecore-cvcca to ensure that cesecore-cvcca does not depends on that -->
+    <path id="manifest.classpath">
+        <path refid="compile.classpath"/>
+        <path location="${ejbca.home}/src/java"/>
+        <path location="${ejbca.home}/src"/>
+        <path location="${cesecore-cvcca.dir}/build/classes"/>
+    </path>
 
-	<path id="test.classpath">
-		<path location="${cesecore-cvcca.build.dir}/classes"/>
-		<path location="${cesecore-cvcca.build-test.dir}"/>
-		<path refid="compile.classpath"/>
-		<path refid="lib.junit.classpath"/>
-		<path refid="lib.commons-io.classpath"/>
-		<path refid="lib.easymock.classpath"/>
-		<path refid="lib.ldap.classpath"/>
-		<path location="${mod.cesecore-entity.lib}"/>
-		<path refid="lib.commons-codec.classpath"/>
-		<path location="${ejbca.home}/src/java" /> <!-- For profilemappings.properties -->
-	</path>
+    <path id="test.classpath">
+        <path location="${cesecore-cvcca.build.dir}/classes"/>
+        <path location="${cesecore-cvcca.build-test.dir}"/>
+        <path refid="compile.classpath"/>
+        <path refid="lib.junit.classpath"/>
+        <path refid="lib.commons-io.classpath"/>
+        <path refid="lib.easymock.classpath"/>
+        <path refid="lib.ldap.classpath"/>
+        <path location="${mod.cesecore-entity.lib}"/>
+        <path refid="lib.commons-codec.classpath"/>
+        <path location="${ejbca.home}/src/java" /> <!-- For profilemappings.properties -->
+    </path>
 
-	<target name="jar" depends="with.clover">
-		<mkdir dir="${cesecore-cvcca.dir}/build/classes"/>
-		<javac srcdir="${cesecore-cvcca.dir}/src" destdir="${cesecore-cvcca.build.dir}/classes" debug="on" includeantruntime="no" encoding="UTF-8" target="${java.target.version}">
-			<classpath refid="compile.classpath"/>
-		</javac>
-		<!-- generates dynamically META-INF/services for the ServiceLocator to find plugin implementations -->
-		<buildservicemanifest interface="org.cesecore.authentication.tokens.AuthenticationTokenMetaData;org.cesecore.certificates.ca.CvcPlugin;org.cesecore.authorization.rules.AccessRulePlugin;org.cesecore.configuration.ConfigurationCache;org.cesecore.certificates.certificate.certextensions.CustomCertificateExtension;org.cesecore.keys.validation.Validator"
-    		file="${cesecore-cvcca.dir}/build/classes" classpath="manifest.classpath"/>
-		<mkdir dir="${cesecore-cvcca.dir}/dist"/>
-		<jar destfile="${cesecore-cvcca.dir}/dist/cesecore-cvcca.jar">
-			<fileset dir="${cesecore-cvcca.dir}/build" includes="META-INF/**/*"/>
-			<fileset dir="${cesecore-cvcca.dir}/build/classes/" excludes="**/*.java"/>
-			<fileset dir="${cesecore-cvcca.dir}/src/" excludes="**/*.java"/>
-			<fileset dir="${ejbca.home}/src/java">
-				<include name="defaultvalues.properties"/>
-				<include name="dncomponents.properties"/>
-				<include name="profilemappings.properties"/>
-	            <include name="profilemappings_enterprise.properties"/>
-				<include name="certextensions.properties"/> <!-- Used only for upgrade to 6.4.0, file can be dropped in future editions -->
-			</fileset>
-			<fileset dir="${ejbca.home}/src" includes="intresources/**"/>
-		</jar>
-	</target>
+    <target name="jar" depends="with.clover">
+        <mkdir dir="${cesecore-cvcca.dir}/build/classes"/>
+        <javac srcdir="${cesecore-cvcca.dir}/src" destdir="${cesecore-cvcca.build.dir}/classes" debug="on" includeantruntime="no" encoding="UTF-8" target="${java.target.version}">
+            <classpath refid="compile.classpath"/>
+        </javac>
+        <!-- generates dynamically META-INF/services for the ServiceLocator to find plugin implementations -->
+        <buildservicemanifest interface="org.cesecore.authentication.tokens.AuthenticationTokenMetaData;org.cesecore.certificates.ca.CvcPlugin;org.cesecore.authorization.rules.AccessRulePlugin;org.cesecore.configuration.ConfigurationCache;org.cesecore.certificates.certificate.certextensions.CustomCertificateExtension;org.cesecore.keys.validation.Validator"
+            file="${cesecore-cvcca.dir}/build/classes" classpath="manifest.classpath"/>
+        <mkdir dir="${cesecore-cvcca.dir}/dist"/>
+        <jar destfile="${cesecore-cvcca.dir}/dist/cesecore-cvcca.jar">
+            <fileset dir="${cesecore-cvcca.dir}/build" includes="META-INF/**/*"/>
+            <fileset dir="${cesecore-cvcca.dir}/build/classes/" excludes="**/*.java"/>
+            <fileset dir="${cesecore-cvcca.dir}/src/" excludes="**/*.java"/>
+            <fileset dir="${ejbca.home}/src/java">
+                <include name="defaultvalues.properties"/>
+                <include name="dncomponents.properties"/>
+                <include name="profilemappings.properties"/>
+                <include name="profilemappings_enterprise.properties"/>
+                <include name="certextensions.properties"/> <!-- Used only for upgrade to 6.4.0, file can be dropped in future editions -->
+            </fileset>
+            <fileset dir="${ejbca.home}/src" includes="intresources/**"/>
+        </jar>
+    </target>
 
-	<target name="clean" depends="">
-		<delete dir="${cesecore-cvcca.dir}/dist"/>
-		<delete dir="${cesecore-cvcca.build.dir}"/>
-		<delete dir="${cesecore-cvcca.build-test.dir}"/>
+    <target name="clean" depends="">
+        <delete dir="${cesecore-cvcca.dir}/dist"/>
+        <delete dir="${cesecore-cvcca.build.dir}"/>
+        <delete dir="${cesecore-cvcca.build-test.dir}"/>
 
-	</target>
+    </target>
 
-	<target name="compile-tests" depends="jar, with.clover">
-		<mkdir dir="${cesecore-cvcca.build-test.dir}" />
-		<javac srcdir="${cesecore-cvcca.src-test.dir}" destdir="${cesecore-cvcca.build-test.dir}" debug="on" includeantruntime="no"
-	        	encoding="UTF-8" target="${java.target.version}" classpathref="test.classpath"/>
-		<copy file="${log4j.test.file}" tofile="${cesecore-cvcca.build-test.dir}/log4j.xml" failonerror="true"/>
-		<copy todir="${cesecore-cvcca.build-test.dir}" failonerror="true">
-			<fileset dir="${ejbca.home}/src" includes="intresources/**"/>
-			<fileset dir="${ejbca.home}/src/java/" includes="defaultvalues.properties"/>
-		</copy>
-		<!-- systemtests.properties needs to be in the classpath, if it exists for targeting non-default environment-->
-		<copy file="${systemtests.properties.file}" todir="${cesecore-cvcca.build-test.dir}" failonerror="false"/>
-	</target>
+    <target name="compile-tests" depends="jar, with.clover">
+        <mkdir dir="${cesecore-cvcca.build-test.dir}" />
+        <javac srcdir="${cesecore-cvcca.src-test.dir}" destdir="${cesecore-cvcca.build-test.dir}" debug="on" includeantruntime="no"
+                encoding="UTF-8" target="${java.target.version}" classpathref="test.classpath"/>
+        <copy file="${log4j.test.file}" tofile="${cesecore-cvcca.build-test.dir}/log4j.xml" failonerror="true"/>
+        <copy todir="${cesecore-cvcca.build-test.dir}" failonerror="true">
+            <fileset dir="${ejbca.home}/src" includes="intresources/**"/>
+            <fileset dir="${ejbca.home}/src/java/" includes="defaultvalues.properties"/>
+        </copy>
+        <!-- systemtests.properties needs to be in the classpath, if it exists for targeting non-default environment-->
+        <copy file="${systemtests.properties.file}" todir="${cesecore-cvcca.build-test.dir}" failonerror="false"/>
+    </target>
 
-	<target name="test" depends="compile-tests" description="Run tests for this module">
-		<antcall target="showtime" inheritall="true" inheritrefs="true"/>
-		<junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}" dir="${cesecore-cvcca.dir}">
-			<classpath>
-				<path refid="test.classpath"/>
-				<pathelement path="${clover.jar}"/>
-			</classpath>
-			<formatter type="xml" />
-			<batchtest fork="yes" todir="${reports.dir}">
-				<fileset dir="${cesecore-cvcca.build-test.dir}" includes="**/*Test.class">
-				</fileset>
-			</batchtest>
-		</junit>
-		<antcall target="showtime" inheritall="true" inheritrefs="true"/>
-	</target>
+    <target name="test" depends="compile-tests" description="Run tests for this module">
+        <antcall target="showtime" inheritall="true" inheritrefs="true"/>
+        <junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}" dir="${cesecore-cvcca.dir}">
+            <classpath>
+                <path refid="test.classpath"/>
+                <pathelement path="${clover.jar}"/>
+            </classpath>
+            <formatter type="xml" />
+            <batchtest fork="yes" todir="${reports.dir}">
+                <fileset dir="${cesecore-cvcca.build-test.dir}" includes="**/*Test.class">
+                </fileset>
+            </batchtest>
+        </junit>
+        <antcall target="showtime" inheritall="true" inheritrefs="true"/>
+    </target>
 
-	<target name="runone" depends="compile-tests">
-		<fail message="'test.runone' is not set. Example -Dtest.runone=FooTest . You can also use -Dtest.showoutput=true to send test output to console." unless="test.runone" />
-		<junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}" dir="${cesecore-cvcca.dir}">
-			<classpath>
-				<path refid="test.classpath"/>
-				<pathelement path="${clover.jar}"/>
-			</classpath>
-			<formatter type="xml" />
-			<batchtest fork="yes" todir="${reports.dir}">
-				<fileset dir="${cesecore-cvcca.build-test.dir}">
-					<include name="**/${test.runone}.class" />
-				</fileset>
-			</batchtest>
-		</junit>
-	</target>
+    <target name="runone" depends="compile-tests">
+        <fail message="'test.runone' is not set. Example -Dtest.runone=FooTest . You can also use -Dtest.showoutput=true to send test output to console." unless="test.runone" />
+        <junit printsummary="yes" haltonfailure="no" showoutput="${test.showoutput}" dir="${cesecore-cvcca.dir}">
+            <classpath>
+                <path refid="test.classpath"/>
+                <pathelement path="${clover.jar}"/>
+            </classpath>
+            <formatter type="xml" />
+            <batchtest fork="yes" todir="${reports.dir}">
+                <fileset dir="${cesecore-cvcca.build-test.dir}">
+                    <include name="**/${test.runone}.class" />
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
 
 </project>
