@@ -23,6 +23,7 @@
 		<path refid="lib.json-simple.classpath"/>
 		<path refid="lib.jsch.classpath"/>
 		<path refid="lib.ldap.classpath" />
+		<path location="${ejbca.home}/modules/cesecore-x509ca/build/classes"/>
 	</path>
 
 	<path id="compile-ejbca.classpath">
@@ -49,6 +50,7 @@
 		<path location="${mod.systemtest-interface.lib}"/>
 		<path location="${mod.systemtest-ejb.lib}"/>
 		<path location="${mod.ejbca-entity.lib}"/>
+		<path location="${ejbca.home}/modules/cesecore-x509ca/build/classes"/>
 	</path>
 	
     <target name="clean" description="Clean up this module">
