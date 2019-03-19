@@ -13,6 +13,7 @@
     <path id="compile.classpath">
         <path refid="lib.bouncycastle.classpath"/>
         <path refid="lib.log4j.classpath"/>
+        <path refid="lib.cert-cvc.classpath"/>
         <path refid="lib.commons-lang.classpath"/>
         <path refid="lib.commons-logging.classpath"/>
         <path refid="lib.commons-codec.classpath"/>
@@ -48,9 +49,11 @@
         <javac srcdir="${cesecore-cvcca.dir}/src" destdir="${cesecore-cvcca.build.dir}/classes" debug="on" includeantruntime="no" encoding="UTF-8" target="${java.target.version}">
             <classpath refid="compile.classpath"/>
         </javac>
+        
         <!-- generates dynamically META-INF/services for the ServiceLocator to find plugin implementations -->
-        <buildservicemanifest interface="org.cesecore.authentication.tokens.AuthenticationTokenMetaData;org.cesecore.certificates.ca.CvcPlugin;org.cesecore.authorization.rules.AccessRulePlugin;org.cesecore.configuration.ConfigurationCache;org.cesecore.certificates.certificate.certextensions.CustomCertificateExtension;org.cesecore.keys.validation.Validator"
+        <buildservicemanifest interface="org.cesecore.certificates.ca.CACommon;org.cesecore.certificates.ca.CvcPlugin"
             file="${cesecore-cvcca.dir}/build/classes" classpath="manifest.classpath"/>
+        
         <mkdir dir="${cesecore-cvcca.dir}/dist"/>
         <jar destfile="${cesecore-cvcca.dir}/dist/cesecore-cvcca.jar">
             <fileset dir="${cesecore-cvcca.dir}/build" includes="META-INF/**/*"/>
