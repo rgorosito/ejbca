@@ -24,6 +24,7 @@
 		<path refid="lib.jsch.classpath"/>
 		<path refid="lib.ldap.classpath" />
 		<path location="${mod.cesecore-x509ca.lib}"/>
+        <path location="${mod.cesecore-cvcca.lib}"/>
 	</path>
 
 	<path id="compile-ejbca.classpath">
@@ -51,6 +52,7 @@
 		<path location="${mod.systemtest-ejb.lib}"/>
 		<path location="${mod.ejbca-entity.lib}"/>
 		<path location="${mod.cesecore-x509ca.lib}"/>
+        <path location="${mod.cesecore-cvcca.lib}"/>
 	</path>
 	
     <target name="clean" description="Clean up this module">
