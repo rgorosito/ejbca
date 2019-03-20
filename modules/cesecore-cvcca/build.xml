@@ -102,6 +102,7 @@
                 <fileset dir="${cesecore-cvcca.build-test.dir}" includes="**/*Test.class">
                 </fileset>
             </batchtest>
+        	<jvmarg line="${tests.jvmargs}"/>
         </junit>
         <antcall target="showtime" inheritall="true" inheritrefs="true"/>
     </target>
@@ -119,6 +120,7 @@
                     <include name="**/${test.runone}.class" />
                 </fileset>
             </batchtest>
+        	<jvmarg line="${tests.jvmargs}"/>
         </junit>
     </target>
 
