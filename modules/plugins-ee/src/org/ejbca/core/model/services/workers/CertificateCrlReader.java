@@ -52,7 +52,6 @@ import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
-import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateRevokeException;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
@@ -258,7 +257,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             final int certificateStatus = scpObject.getCertificateStatus();
             final int certificateType = scpObject.getCertificateType();
             final int certificateProfile = scpObject.getCertificateProfile();
-            final int crlPartitionIndex = CertificateConstants.NO_CRL_PARTITION; // TODO ECA-7940
+            final int crlPartitionIndex = caInfo.determineCrlPartitionIndex(certificate);
             final long updateTime = scpObject.getUpdateTime();
             certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, null, certificateStatus, certificateType,
                     certificateProfile, endEntityProfileId, crlPartitionIndex, null, updateTime);          
@@ -286,7 +285,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
         BigInteger crlnumber = CrlExtensions.getCrlNumber(crl);
         final String issuerDn = CertTools.getIssuerDN(crl);
-        final int crlPartitionIndex = CertificateConstants.NO_CRL_PARTITION; // TODO ECA-7940
+        final int crlPartitionIndex = caInfo.determineCrlPartitionIndex(crl);
         int isDeltaCrl = (crl.getExtensionValue(Extension.deltaCRLIndicator.getId()) != null ? -1 : 1);
         if(crlStoreSession.getCRL(issuerDn, crlPartitionIndex, crlnumber.intValue()) == null) {
             try {
