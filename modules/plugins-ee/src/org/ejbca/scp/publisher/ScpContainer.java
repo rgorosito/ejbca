@@ -55,11 +55,13 @@ public class ScpContainer extends UpgradeableDataHashMap implements Serializable
 
     }
     
+    /** Issuer DN, BouncyCastle formatted */
     public ScpContainer setIssuer(final String issuer) {
         data.put(ISSUER, issuer);
         return this;
     }
     
+    /** Issuer DN, BouncyCastle formatted */
     public String getIssuer() {
         return (String) data.get(ISSUER);
     }
