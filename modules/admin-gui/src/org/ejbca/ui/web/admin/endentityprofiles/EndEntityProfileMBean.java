@@ -41,6 +41,7 @@ import javax.servlet.http.Part;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
@@ -59,7 +60,7 @@ import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.core.model.ra.raadmin.UserNotification;
 import org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator;
 import org.ejbca.ui.web.admin.BaseManagedBean;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 import org.ejbca.util.HttpTools;
 import org.ejbca.util.PrinterManager;
 
@@ -118,20 +119,27 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         private String helpText;
         private final String name;
         private final boolean emailField;
+        private final boolean dnsField;
         /** Corresponds to the removal checkboxes on the left */
         private boolean shouldRemove = false;
         /** Stores the last used validation regex in case the user mis-clicks and wants to undo */
         private String lastUsedValidationString = "";
 
-        public NameComponentGuiWrapper(final String name, final int[] field, final boolean emailField) {
+        public NameComponentGuiWrapper(final String name, final int[] field, final boolean emailField, final boolean dnsField) {
             this.name = name;
             this.field = field;
             this.emailField = emailField;
+            this.dnsField = dnsField;
             lastUsedValidationString = getValidationString();
         }
 
         public boolean isEmailField() {
             return emailField;
+        }
+
+
+        public boolean isDnsField() {
+            return dnsField;
         }
 
         public String getName() {
@@ -166,7 +174,7 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             this.helpText = helpText;
         }
 
-        /** Used for "Use End Entity E-mail" only */
+        /** Used for "Use End Entity E-mail"  */
         public boolean isUsed() {
             return profiledata.getUse(field[EndEntityProfile.FIELDTYPE], field[EndEntityProfile.NUMBER]);
         }
@@ -175,8 +183,21 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             profiledata.setUse(field[EndEntityProfile.FIELDTYPE], field[EndEntityProfile.NUMBER], use);
         }
 
+        /** Used for  "Use entity CN field" */
+        public boolean isCopy() {
+            return profiledata.getCopy(field[EndEntityProfile.FIELDTYPE], field[EndEntityProfile.NUMBER]);
+        }
+
+        public void setCopy(final boolean copy) {
+            profiledata.setCopy(field[EndEntityProfile.FIELDTYPE], field[EndEntityProfile.NUMBER], copy);
+        }
+
         public boolean getUseEndEntityEmail() {
             return emailField && isUsed();
+        }
+
+        public boolean getUseEndEntityDns() {
+            return dnsField && isCopy();
         }
 
         public boolean isRequired() {
@@ -235,6 +256,10 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         public void setShouldRemove(final boolean shouldRemove) {
             this.shouldRemove = shouldRemove;
         }
+
+        public boolean isSubjectAltComponentPropertyDisabled(){
+            return getUseEndEntityEmail() ||  getUseEndEntityDns()  || isViewOnly();
+        }
     }
 
     @PostConstruct
@@ -247,8 +272,8 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         }
         if (profiledata == null) {
             final String profileIdParam = FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap().get(PARAMETER_PROFILE_ID);
-            if (StringUtils.isEmpty(profileIdParam)) {
-                throw new IllegalStateException("Internal error. Missing " + PARAMETER_PROFILE_ID + " HTTP request parameter.");
+            if (!NumberUtils.isNumber(profileIdParam)) {
+                throw new IllegalStateException("Internal error. Missing or invalid " + PARAMETER_PROFILE_ID + " HTTP request parameter.");
             }
             loadProfile(Integer.valueOf(profileIdParam));
             viewOnly = !authorizationSession.isAuthorizedNoLogging(getAdmin(), AccessRulesConstants.REGULAR_EDITENDENTITYPROFILES);
@@ -466,6 +491,14 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
     public void setEmailModifiable(final boolean emailModifyable) {
         profiledata.setEmailDomainModifiable(emailModifyable);
     }
+    
+    public String getDescription() {
+        return profiledata.getDescription();
+    }
+
+    public void setDescription(final String description) {
+        profiledata.setDescription(StringUtils.trim(description));
+    }
 
     // DIRECTIVES
 
@@ -524,7 +557,7 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             for (int[] field : fieldDataList) {
                 final String fieldName = ejbcaWebBean.getText(DnComponents.getLanguageConstantFromProfileId(field[EndEntityProfile.FIELDTYPE]));
                 final boolean isEmailField = EndEntityProfile.isFieldOfType(field[EndEntityProfile.FIELDTYPE], DnComponents.DNEMAILADDRESS);
-                components.add(new NameComponentGuiWrapper(fieldName, field, isEmailField));
+                components.add(new NameComponentGuiWrapper(fieldName, field, isEmailField, false));
             }
             subjectDnComponentList = components;
         }
@@ -589,7 +622,8 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             for (int[] field : fieldDataList) {
                 final String fieldName = ejbcaWebBean.getText(DnComponents.getLanguageConstantFromProfileId(field[EndEntityProfile.FIELDTYPE]));
                 final boolean isEmailField = EndEntityProfile.isFieldOfType(field[EndEntityProfile.FIELDTYPE], DnComponents.RFC822NAME);
-                final NameComponentGuiWrapper guiWrapper = new NameComponentGuiWrapper(fieldName, field, isEmailField);
+                final boolean isDnsField = EndEntityProfile.isFieldOfType(field[EndEntityProfile.FIELDTYPE], DnComponents.DNSNAME);
+                final NameComponentGuiWrapper guiWrapper = new NameComponentGuiWrapper(fieldName, field, isEmailField, isDnsField);
                 if (EndEntityProfile.isFieldOfType(field[EndEntityProfile.FIELDTYPE], DnComponents.UPN)) {
                     guiWrapper.setHelpText(ejbcaWebBean.getText("ALT_MS_UPN_HELP"));
                 }
@@ -650,7 +684,7 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             }
             for (int[] field : fieldDataList) {
                 final String fieldName = ejbcaWebBean.getText(DnComponents.getLanguageConstantFromProfileId(field[EndEntityProfile.FIELDTYPE]));
-                components.add(new NameComponentGuiWrapper(fieldName, field, false));
+                components.add(new NameComponentGuiWrapper(fieldName, field, false, false));
             }
             subjectDirectoryAttributesComponentList = components;
         }
@@ -924,6 +958,13 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         profiledata.setNameConstraintsExcludedRequired(required);
     }
 
+    public boolean getUsePsd2QcStatement() {
+        return profiledata.isPsd2QcStatementUsed();
+    }
+
+    public void setUsePsd2QcStatement(boolean usePsd2QcStatement) {
+        profiledata.setPsd2QcStatementUsed(usePsd2QcStatement);
+    } 
 
     // OTHER DATA
 
@@ -1033,6 +1074,10 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         return userNotifications;
     }
 
+    public boolean isNotificationAdded() {
+        return getUserNotifications().size() > 0;
+    }
+    
     public void addNotification() {
         log.debug("Adding UserNotification");
         final UserNotification newNotification = new UserNotification();
@@ -1202,6 +1247,7 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
         validateNameComponents(getSubjectDnComponentList());
         validateNameComponents(getSubjectAltNameComponentList());
         validateNameComponents(getSubjectDirectoryAttributeComponentList());
+        validateUseCnForDnsName(getSubjectAltNameComponentList(), getSubjectDnComponentList());
         // Available Certificate Profiles
         final List<Integer> availableCertProfs = profiledata.getAvailableCertificateProfileIds();
         if (!availableCertProfs.contains(profiledata.getDefaultCertificateProfile())) {
@@ -1272,7 +1318,7 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
             final String name = component.getName();
             // empty value + non-modifiable + required = invalid
             // empty value + non-modifiable = could make sense in theory, but most likely a user error, so disallow it as well (consistent with 6.15.x behavior)
-            if (StringUtils.isBlank(component.getValue()) && !component.isModifiable()) {
+            if (StringUtils.isBlank(component.getValue()) && !component.isModifiable() && !component.isUsed() && !component.isCopy()) {
                 if (component.isEmailField()) {
                     editerrors.add(ejbcaWebBean.getText("SUBJECTDNEMAILEMPTY"));
                 } else {
@@ -1290,6 +1336,27 @@ public class EndEntityProfileMBean extends BaseManagedBean implements Serializab
                         editerrors.add(ejbcaWebBean.getText("VALIDATIONREGEXERROR", false, name, e.getMessage()));
                     }
                 }
+            }
+        }
+    }
+
+    private void validateUseCnForDnsName(final List<NameComponentGuiWrapper> subjectAltNameComponentList, final List<NameComponentGuiWrapper> subjectDnComponentList) {
+        boolean dnsIsUsed = false;
+        for (NameComponentGuiWrapper subjectAltNameComponent : subjectAltNameComponentList) {
+            if (subjectAltNameComponent.isDnsField() && subjectAltNameComponent.isCopy()) {
+                dnsIsUsed = true;
+                break;
+            }
+        }
+        if (dnsIsUsed) {
+            boolean commonNameIsPresent = false;
+            for (NameComponentGuiWrapper subjectDnComponent : subjectDnComponentList) {
+                if (EndEntityProfile.isFieldOfType(subjectDnComponent.getFieldType(), DnComponents.COMMONNAME)) {
+                    commonNameIsPresent = true;
+                }
+            }
+            if (!commonNameIsPresent) {
+                editerrors.add(ejbcaWebBean.getText("USECNFORDNSBUTCNEMPTY"));
             }
         }
     }

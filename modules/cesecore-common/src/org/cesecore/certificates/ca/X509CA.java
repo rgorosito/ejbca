@@ -120,6 +120,7 @@ import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceTypes;
 import org.cesecore.certificates.ca.internal.CertificateValidity;
 import org.cesecore.certificates.ca.internal.RequestAndPublicKeySelector;
+import org.cesecore.certificates.ca.internal.SernoGenerator;
 import org.cesecore.certificates.ca.internal.SernoGeneratorRandom;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateCreateException;
@@ -175,7 +176,7 @@ public class X509CA extends CA implements Serializable {
     private static final InternalResources intres = InternalResources.getInstance();
 
     /** Version of this class, if this is increased the upgrade() method will be called automatically */
-    public static final float LATEST_VERSION = 23;
+    public static final float LATEST_VERSION = 24;
 
     // protected fields for properties specific to this type of CA.
     protected static final String POLICIES = "policies";
@@ -236,6 +237,7 @@ public class X509CA extends CA implements Serializable {
         setNameConstraintsExcluded(cainfo.getNameConstraintsExcluded());
         data.put(CA.CATYPE, Integer.valueOf(CAInfo.CATYPE_X509));
         data.put(VERSION, new Float(LATEST_VERSION));
+        setCaSerialNumberOctetSize(cainfo.getCaSerialNumberOctetSize());
     }
 
     /**
@@ -274,6 +276,7 @@ public class X509CA extends CA implements Serializable {
                 .setCertificateChain(getCertificateChain())
                 .setCaToken(getCAToken())
                 .setDescription(getDescription())
+                .setCaSerialNumberOctetSize(getSerialNumberOctetSize())
                 .setRevocationReason(getRevocationReason())
                 .setRevocationDate(getRevocationDate())
                 .setPolicies(getPolicies())
@@ -530,6 +533,14 @@ public class X509CA extends CA implements Serializable {
     public void setExternalCdp(final String externalCdp) {
         data.put(EXTERNALCDP, externalCdp);
     }
+    
+    public Integer getSerialNumberOctetSize() {
+        return (Integer)getMapValueWithDefault(SERIALNUMBEROCTETSIZE, CesecoreConfiguration.getSerialNumberOctetSizeForNewCa());
+    }
+
+    public void setCaSerialNumberOctetSize(int serialNumberOctetSize) {
+        data.put(SERIALNUMBEROCTETSIZE, serialNumberOctetSize);
+    }
 
     private Object getMapValueWithDefault(final String key, final Object defaultValue) {
         final Object o = data.get(key);
@@ -579,6 +590,7 @@ public class X509CA extends CA implements Serializable {
         setNameConstraintsExcluded(info.getNameConstraintsExcluded());
         setExternalCdp(info.getExternalCdp());
         setSubjectAltName(info.getSubjectAltName());
+        setCaSerialNumberOctetSize(new Integer(info.getCaSerialNumberOctetSize()));
     }
 
     /**
@@ -893,7 +905,7 @@ public class X509CA extends CA implements Serializable {
             throws CAOfflineException, InvalidAlgorithmException, IllegalValidityException, IllegalNameException, CertificateExtensionException,
              OperatorCreationException, CertificateCreateException, SignatureException, IllegalKeyException {
 
-    	// We must only allow signing to take place if the CA itself is on line, even if the token is on-line.
+        // We must only allow signing to take place if the CA itself is on line, even if the token is on-line.
         // We have to allow expired as well though, so we can renew expired CAs
         if ((getStatus() != CAConstants.CA_ACTIVE) && ((getStatus() != CAConstants.CA_EXPIRED))) {
             final String msg = intres.getLocalizedMessage("error.caoffline", getName(), getStatus());
@@ -937,14 +949,20 @@ public class X509CA extends CA implements Serializable {
         // Or a custom serial number defined in the end entity object
         final BigInteger serno;
         {
+            
             if (certProfile.getAllowCertSerialNumberOverride()) {
                 if (ei != null && ei.certificateSerialNumber()!=null) {
                     serno = ei.certificateSerialNumber();
                 } else {
-                    serno = SernoGeneratorRandom.instance().getSerno();
+                    SernoGenerator instance = SernoGeneratorRandom.instance();
+                    instance.setSernoOctetSize(getSerialNumberOctetSize());
+                    serno = instance.getSerno();
                 }
             } else {
-                serno = SernoGeneratorRandom.instance().getSerno();
+                SernoGenerator instance = SernoGeneratorRandom.instance();
+                instance.setSernoOctetSize(getSerialNumberOctetSize());
+                serno = instance.getSerno();
+                
                 if ((ei != null) && (ei.certificateSerialNumber() != null)) {
                     final String msg = intres.getLocalizedMessage("createcert.certprof_not_allowing_cert_sn_override_using_normal", ei.certificateSerialNumber().toString(16));
                     log.info(msg);
@@ -1017,10 +1035,10 @@ public class X509CA extends CA implements Serializable {
         // Make sure the DN does not contain dangerous characters
         if (!StringTools.hasStripChars(subjectDNName.toString()).isEmpty()) {
             if (log.isTraceEnabled()) {
-            	log.trace("DN with illegal name: "+subjectDNName);
+                log.trace("DN with illegal name: "+subjectDNName);
             }
             final String msg = intres.getLocalizedMessage("createcert.illegalname");
-        	throw new IllegalNameException(msg);
+            throw new IllegalNameException(msg);
         }
         if (log.isDebugEnabled()) {
             log.debug("Using subjectDN: " + subjectDNName.toString());
@@ -1319,7 +1337,7 @@ public class X509CA extends CA implements Serializable {
                         new JcaContentSignerBuilder(sigAlg).setProvider(provider).build(caPrivateKey), 20480);
                 final X509CertificateHolder certHolder = precertbuilder.build(signer);
                 final X509Certificate cert = CertTools.getCertfromByteArray(certHolder.getEncoded(), X509Certificate.class);
-                // ECA-6051 Re-Factor with Domain Service Layer.
+                // ECA-6051 Re-Factored with Domain Service Layer.
                 if (certGenParams.getAuthenticationToken() != null && certGenParams.getCertificateValidationDomainService() != null) {
                     try {
                         certGenParams.getCertificateValidationDomainService().validateCertificate(certGenParams.getAuthenticationToken(), IssuancePhase.PRE_CERTIFICATE_VALIDATION, this, subject, cert);
@@ -1411,6 +1429,10 @@ public class X509CA extends CA implements Serializable {
         }
         try {
             cert.verify(verifyKey);
+        } catch (SignatureException e) {
+            final String msg = "Public key in the CA certificate does not match the configured certSignKey, is the CA in renewal process? : " + e.getMessage();
+            log.warn(msg);
+            throw new CertificateCreateException(msg, e);
         } catch (InvalidKeyException e) {
             throw new CertificateCreateException("CA's public key was invalid,", e);
         } catch (NoSuchAlgorithmException e) {
@@ -1518,6 +1540,7 @@ public class X509CA extends CA implements Serializable {
                     nrOfRecactedLables.add(new ASN1Integer(0));
                 }
             }
+            // Look for rfc822Name
             if(generalName.getTagNo() == 1) {
                 final String str = CertTools.getGeneralNameString(1, generalName.getName());
                 if(StringUtils.contains(str, "\\+") ) { // if it contains a '+' character that should be unescaped
@@ -1582,6 +1605,8 @@ public class X509CA extends CA implements Serializable {
         return gen;
     }
 
+    
+    
     /**
      * Generate a CRL or a deltaCRL
      *
@@ -1916,11 +1941,11 @@ public class X509CA extends CA implements Serializable {
             }
             // v21, AIA: Copy CA issuer URI to separated AIA field.
             if (data.get(CERTIFICATE_AIA_DEFAULT_CA_ISSUER_URI) == null) {
-            	if (null != getAuthorityInformationAccess()) {
-            	    setCertificateAiaDefaultCaIssuerUri( getAuthorityInformationAccess());
-            	} else {
-            		setCertificateAiaDefaultCaIssuerUri( new ArrayList<String>());
-            	}
+                if (null != getAuthorityInformationAccess()) {
+                    setCertificateAiaDefaultCaIssuerUri( getAuthorityInformationAccess());
+                } else {
+                    setCertificateAiaDefaultCaIssuerUri( new ArrayList<String>());
+                }
             }
             // v22, 'encodedValidity' is derived by the former long value!
             if (null == data.get(ENCODED_VALIDITY)  && null != data.get(VALIDITY)) {
@@ -1929,6 +1954,10 @@ public class X509CA extends CA implements Serializable {
             // v23 'keyValidators' new empty list.
             if (null == data.get(VALIDATORS)) {
                 setValidators(new ArrayList<Integer>());
+            }
+            // v24 'serial number octet size' assign configured value (or default value if not configured)
+            if (data.get(SERIALNUMBEROCTETSIZE) == null) {
+                setCaSerialNumberOctetSize(CesecoreConfiguration.getSerialNumberOctetSizeForExistingCa());
             }
 
             data.put(VERSION, new Float(LATEST_VERSION));

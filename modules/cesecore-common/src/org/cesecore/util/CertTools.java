@@ -855,7 +855,7 @@ public abstract class CertTools {
      * 
      * @param cert Certificate
      * 
-     * @return String containing the issuers DN.
+     * @return String containing the issuers DN, or null if cert is null.
      */
     public static String getIssuerDN(final Certificate cert) {
         return getDN(cert, 2);
@@ -867,7 +867,7 @@ public abstract class CertTools {
      * @param cert X509Certificate
      * @param which 1 = subjectDN, anything else = issuerDN
      * 
-     * @return String containing the DN.
+     * @return String containing the DN, or null if cert is null.
      */
     private static String getDN(final Certificate cert, final int which) {
         String ret = null;
@@ -1030,7 +1030,8 @@ public abstract class CertTools {
      * 
      * @param cert Certificate
      * 
-     * @return String to be displayed, or used in RoleMember objects
+     * @return String to be displayed or used in RoleMember objects
+     * @throws IllegalArgumentException if input is null or certificate type is not implemented
      */
     public static String getSerialNumberAsString(Certificate cert) {
         String ret = null;
@@ -2558,7 +2559,9 @@ public abstract class CertTools {
      * Name, ediPartyName [5] EDIPartyName, uniformResourceIdentifier [6] IA5String, iPAddress [7] OCTET STRING, registeredID [8] OBJECT IDENTIFIER}
      * 
      * SubjectAltName is of form \"rfc822Name=<email>, dNSName=<host name>, uniformResourceIdentifier=<http://host.com/>, iPAddress=<address>,
-     * guid=<globally unique id>, directoryName=<CN=testDirName|dir|name>, permanentIdentifier=<identifierValue/assigner|identifierValue|/assigner|/>
+     * guid=<globally unique id>, directoryName=<LDAP escaped DN>, permanentIdentifier=<identifierValue/assigner|identifierValue|/assigner|/>,
+     * subjectIdentificationMethod=<Subject Identification Method values or parameters>, registeredID=<object identifier>,
+     * xmppAddr=<RFC6120 XmppAddr>, srvName=<RFC4985 SRVName>, fascN=<FIPS 201-2 PIV FASC-N>
      * 
      * Supported altNames are upn, krb5principal, rfc822Name, uniformResourceIdentifier, dNSName, iPAddress, directoryName, permanentIdentifier
      * 
@@ -4569,5 +4572,21 @@ public abstract class CertTools {
             log.warn("Could not create fingerprint for public key ", e);
             return null;
         }
+    }
+
+    /**
+     * Get first commonName value from subjectDn. If none is present, return null
+     * @param subjectDn subjectDn value
+     * @return
+     */
+    public static String getCommonNameFromSubjectDn(String subjectDn) {
+        String commonName = null;
+        if(subjectDn != null) {
+            List<String> commonNames = getPartsFromDN(subjectDn, "CN");
+            if (!commonNames.isEmpty() && StringUtils.isNotEmpty(commonNames.get(0))) {
+                commonName = commonNames.get(0);
+            }
+        }
+        return commonName;
     }
 }

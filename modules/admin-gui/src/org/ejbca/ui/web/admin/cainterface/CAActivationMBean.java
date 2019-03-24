@@ -36,6 +36,7 @@ import org.cesecore.authorization.control.StandardRules;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.ca.CmsCertificatePathMissingException;
 import org.cesecore.keys.token.CryptoTokenAuthenticationFailedException;
 import org.cesecore.keys.token.CryptoTokenInfo;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
@@ -45,7 +46,7 @@ import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionLocal;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.ui.web.admin.BaseManagedBean;
-import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
+import org.ejbca.ui.web.jsf.configuration.EjbcaJSFHelper;
 
 /**
  * JSF Managed Bean or the CA Activation page of the Admin GUI.
@@ -283,7 +284,7 @@ public class CAActivationMBean extends BaseManagedBean implements Serializable {
 	                final CAInfo caInfo = caSession.getCAInfoInternal(ca.getCaId(), null, false);
 	                caInfo.setIncludeInHealthCheck(ca.isMonitoredNewState());
 	                caAdminSession.editCA(authenticationToken, caInfo);
-	            } catch (AuthorizationDeniedException e) {
+	            } catch (AuthorizationDeniedException | CmsCertificatePathMissingException e) {
 	                super.addNonTranslatedErrorMessage(e.getMessage());
 	            }
 	        }

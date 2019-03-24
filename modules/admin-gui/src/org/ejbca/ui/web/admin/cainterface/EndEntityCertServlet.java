@@ -26,10 +26,11 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
 import org.cesecore.util.CertTools;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
+import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.ui.web.CertificateView;
 import org.ejbca.ui.web.RequestHelper;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
 import org.ejbca.ui.web.admin.rainterface.RAInterfaceBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 import org.ejbca.ui.web.pub.ServletUtils;
 
 
@@ -57,7 +58,7 @@ public class EndEntityCertServlet extends HttpServlet {
     private static final String COMMAND_CERT = "cert";
    
     private static final String ISSUER_PROPERTY = "issuer";
-    private static final String CERTIFICATEDN_PROPERTY = "certificatesn";
+    private static final String CERTIFICATESN_PROPERTY = "certificatesn";
 
     @Override
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException, ServletException {
@@ -70,18 +71,17 @@ public class EndEntityCertServlet extends HttpServlet {
     public void doGet(HttpServletRequest req,  HttpServletResponse res) throws IOException, ServletException {
         log.trace(">doGet()");
         // Check if authorized
-        EjbcaWebBean ejbcawebbean= (org.ejbca.ui.web.admin.configuration.EjbcaWebBean)
-                                   req.getSession().getAttribute("ejbcawebbean");
+        EjbcaWebBean ejbcawebbean= (EjbcaWebBean) req.getSession().getAttribute("ejbcawebbean");
         
         RAInterfaceBean rabean =  (org.ejbca.ui.web.admin.rainterface.RAInterfaceBean)
                                    req.getSession().getAttribute("rabean");
         if ( ejbcawebbean == null ){
           try {
-            ejbcawebbean = (org.ejbca.ui.web.admin.configuration.EjbcaWebBean) java.beans.Beans.instantiate(Thread.currentThread().getContextClassLoader(), org.ejbca.ui.web.admin.configuration.EjbcaWebBean.class.getName());
+            ejbcawebbean = (EjbcaWebBean) java.beans.Beans.instantiate(Thread.currentThread().getContextClassLoader(), EjbcaWebBean.class.getName());
            } catch (ClassNotFoundException exc) {
                throw new ServletException(exc.getMessage());
            }catch (Exception exc) {
-               throw new ServletException (" Cannot create bean of class "+ org.ejbca.ui.web.admin.configuration.EjbcaWebBean.class.getName(), exc);
+               throw new ServletException (" Cannot create bean of class "+ EjbcaWebBean.class.getName(), exc);
            }
            req.getSession().setAttribute("ejbcawebbean", ejbcawebbean);
         }
@@ -106,7 +106,7 @@ public class EndEntityCertServlet extends HttpServlet {
         
         RequestHelper.setDefaultCharacterEncoding(req);
         String issuerdn = req.getParameter(ISSUER_PROPERTY);        
-        String certificatesn = req.getParameter(CERTIFICATEDN_PROPERTY);
+        String certificatesn = req.getParameter(CERTIFICATESN_PROPERTY);
 
         String command;
         // Keep this for logging.
@@ -124,9 +124,10 @@ public class EndEntityCertServlet extends HttpServlet {
         	
         	try {
 				rabean.loadCertificates(certsn, issuerdn);
-
 				CertificateView certview = rabean.getCertificate(0);
-				
+				if (certview == null) {
+				    throw new NotFoundException("No certificate exists with issuerDN '" + issuerdn + "', serial " + certsn.toString(16));
+				}
 				Certificate cert = certview.getCertificate();
 				byte[] enccert = cert.getEncoded();
                 // We must remove cache headers for IE
@@ -155,12 +156,11 @@ public class EndEntityCertServlet extends HttpServlet {
 					return;
 				}
             } catch (Exception e) {
-                log.error("Error getting certificates: ", e);
+                log.info("Error getting certificates: ", e);
                 res.sendError(HttpServletResponse.SC_NOT_FOUND, "Error getting certificates.");
                 return;
             }
-        }
-        else {
+        } else {
             res.setContentType("text/plain");
             res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Bad Request format");
             return;

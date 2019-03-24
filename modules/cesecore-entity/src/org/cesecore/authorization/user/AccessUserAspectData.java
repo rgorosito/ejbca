@@ -39,6 +39,7 @@ import org.cesecore.dbprotection.ProtectionStringBuilder;
  */
 @Entity
 @Table(name = "AdminEntityData")
+@Deprecated
 public class AccessUserAspectData extends ProtectedData implements AccessUserAspect, Comparable<AccessUserAspectData> {
 
     private static final Logger log = Logger.getLogger(AccessUserAspectData.class);
@@ -54,6 +55,7 @@ public class AccessUserAspectData extends ProtectedData implements AccessUserAsp
     private Integer matchWith;
     private AccessMatchType matchType;
     private String matchValue;
+    private int adminGroupDataPrimaryKey;
 
     public AccessUserAspectData(final String roleName, final int caId, final AccessMatchValue matchWith, final AccessMatchType matchType,
             final String matchValue) {
@@ -200,6 +202,15 @@ public class AccessUserAspectData extends ProtectedData implements AccessUserAsp
     @Override
     public void setTokenType(String tokenType) {
         this.tokenType = tokenType;
+    }
+
+    // @Column - Before EJBCA 7 this was a @OneToMany mapping from AdminGroupData
+    public int getAdminGroupDataPrimaryKey() {
+        return adminGroupDataPrimaryKey;
+    }
+
+    public void setAdminGroupDataPrimaryKey(final int adminGroupDataPrimaryKey) {
+        this.adminGroupDataPrimaryKey = adminGroupDataPrimaryKey;
     }
 
     /**

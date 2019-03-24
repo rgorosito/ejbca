@@ -66,12 +66,14 @@ import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.X509CAInfo;
+import org.cesecore.certificates.certificate.certextensions.standard.QcStatement;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityType;
 import org.cesecore.certificates.endentity.EndEntityTypes;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.certificates.endentity.PSD2RoleOfPSPStatement;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.certificates.util.AlgorithmTools;
 import org.cesecore.certificates.util.DnComponents;
@@ -155,6 +157,9 @@ public class EnrollMakeNewRequestBean implements Serializable {
     /** Heavy to calculate and needs to be cached. */
     private List<SelectItem> availableAlgorithmSelectItems = null;
 
+    private List<String> selectedPsd2PspRoles;
+    private String psd2NcaId;
+    private String psd2NcaName;
     private String selectedAlgorithm; //GENERATED ON SERVER
     private String algorithmFromCsr; //PROVIDED BY USER
     private int selectedTokenType;
@@ -301,6 +306,14 @@ public class EnrollMakeNewRequestBean implements Serializable {
     public boolean isSelectCertificateProfileRendered() {
         return StringUtils.isNotEmpty(getSelectedEndEntityProfile()) && (getAvailableCertificateProfiles().size()>1 ||
                 (getAvailableCertificateProfiles().size()==1 && isRenderNonModifiableTemplates()));
+    }
+    /** @return true if the description of end entity profile ("certificate type") should be rendered */
+    public boolean isEndEntityProfileDescriptionRendered() {
+        return StringUtils.isNotEmpty(getSelectedCertificateProfile());
+    }
+    /** @return true if the description of certificate profile ("certificate sub-type") should be rendered */
+    public boolean isCertificateProfileDescriptionRendered() {
+        return StringUtils.isNotEmpty(getSelectedEndEntityProfile());
     }
     /** @return true if the selection of certificate authority should be rendered */
     public boolean isSelectCertificateAuthorityRendered() {
@@ -546,7 +559,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
     }
 
     public boolean isRenderOtherCertificateData() {
-        return getEndEntityProfile().getUseExtensiondata();
+        return getEndEntityProfile().getUseExtensiondata() || getEndEntityProfile().isPsd2QcStatementUsed();
     }
     
     public void setRenderCsrDetailedInfo(boolean renderCsrDetailedInfo) {
@@ -737,6 +750,17 @@ public class EnrollMakeNewRequestBean implements Serializable {
                 }
             }
         }
+        // Add PSD2 QC Statement
+        if (selectedPsd2PspRoles != null && !selectedPsd2PspRoles.isEmpty()) {
+            final List<PSD2RoleOfPSPStatement> psd2RoleOfPSPStatements = new ArrayList<>();
+            for (String role : selectedPsd2PspRoles) {
+                psd2RoleOfPSPStatements.add(new PSD2RoleOfPSPStatement(QcStatement.getPsd2Oid(role), role));
+            }
+            extendedInformation.setQCEtsiPSD2NcaName(psd2NcaName);
+            extendedInformation.setQCEtsiPSD2NcaId(psd2NcaId);
+            extendedInformation.setQCEtsiPSD2RolesOfPSP(psd2RoleOfPSPStatements);
+        }
+        
         return extendedInformation;
     }
     
@@ -1215,7 +1239,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
     }
 
     /** @return the current CertificateProfile as determined by state of dependencies */
-    private CertificateProfile getCertificateProfile() {
+    public CertificateProfile getCertificateProfile() {
         if (getSelectedCertificateProfile() != null) {
             KeyToValueHolder<CertificateProfile> temp = authorizedCertificateProfiles.get(Integer.parseInt(getSelectedCertificateProfile()));
             if (temp != null) {
@@ -1395,6 +1419,15 @@ public class EnrollMakeNewRequestBean implements Serializable {
         return ret;
     }
 
+    public List<SelectItem> getAvailablePsd2PspRoles() {
+        final List<SelectItem> pspRoles = new ArrayList<>();
+        pspRoles.add(new SelectItem("PSP_AS", raLocaleBean.getMessage("enroll_psd2_psp_as")));
+        pspRoles.add(new SelectItem("PSP_PI", raLocaleBean.getMessage("enroll_psd2_psp_pi")));
+        pspRoles.add(new SelectItem("PSP_AI", raLocaleBean.getMessage("enroll_psd2_psp_ai")));
+        pspRoles.add(new SelectItem("PSP_IC", raLocaleBean.getMessage("enroll_psd2_psp_ic")));
+        return pspRoles;
+    }
+    
     /** @return the current List of available CA identifiers as determined by state of dependencies */
     private List<Integer> getAvailableCertificateAuthorities() {
         final List<Integer> ret = new ArrayList<>();
@@ -1621,6 +1654,30 @@ public class EnrollMakeNewRequestBean implements Serializable {
         this.extensionData = extensionData;
     }
  
+    public String getPsd2NcaName() {
+        return psd2NcaName;
+    }
+    
+    public void setPsd2NcaName(final String psd2NcaName) {
+        this.psd2NcaName = psd2NcaName;
+    }
+    
+    public String getPsd2NcaId() {
+        return psd2NcaId;
+    }
+    
+    public void setPsd2NcaId(final String psd2NcaId) {
+        this.psd2NcaId = psd2NcaId;
+    }
+    
+    public List<String> getPsd2PspRoles() {
+        return selectedPsd2PspRoles == null ? new ArrayList<>() : selectedPsd2PspRoles;
+    }
+    
+    public void setPsd2PspRoles(List<String> roles) {
+        selectedPsd2PspRoles = new ArrayList<>(roles);
+    }
+    
     /** @return the confirmPassword */
     public String getConfirmPassword() {
         return confirmPassword;
@@ -1750,12 +1807,13 @@ public class EnrollMakeNewRequestBean implements Serializable {
                     " modifiable=" + fieldInstance.isModifiable() + " selectableValues.size=" + (fieldInstance.getSelectableValues()==null?0:fieldInstance.getSelectableValues().size()));
         }
         // For the email fields "used" means use EE email address
-        if (fieldInstance.isUsed() || DnComponents.DNEMAILADDRESS.equals(fieldInstance.getName()) || DnComponents.RFC822NAME.equals(fieldInstance.getName())) {
+        if (fieldInstance.isUsed() || DnComponents.DNEMAILADDRESS.equals(fieldInstance.getName()) || DnComponents.RFC822NAME.equals(fieldInstance.getName())
+                || DnComponents.DNSNAME.equals(fieldInstance.getName()))  {
             if (isRenderNonModifiableFields()) {
                 return true;
             }
             if ((!fieldInstance.isSelectable() && fieldInstance.isModifiable()) || (fieldInstance.isSelectable() && fieldInstance.getSelectableValues().size() > 1)
-                    || (!fieldInstance.isModifiable() && (fieldInstance.getName().equals("RFC822NAME") || fieldInstance.getName().equals("UPN")))) {
+                    || (!fieldInstance.isModifiable() && (fieldInstance.getName().equals("RFC822NAME") || fieldInstance.getName().equals("UPN") || fieldInstance.getName().equals("DNSNAME")))) {
                 return true;
             }
         }
@@ -1842,7 +1900,7 @@ public class EnrollMakeNewRequestBean implements Serializable {
     public RaRequestPreview getRequestPreview() {
         RaRequestPreview requestPreview = new RaRequestPreview();
         requestPreview.updateSubjectDn(getSubjectDn());
-        requestPreview.updateSubjectAlternativeName(getSubjectAlternativeName());
+        requestPreview.updateSubjectAlternativeName(getSubjectAlternativeName(), getEndEntityProfile());
         requestPreview.updateSubjectDirectoryAttributes(getSubjectDirectoryAttributes());
         requestPreview.setPublicKeyAlgorithm(getAlgorithm());
         requestPreview.updateCA(getCAInfo());

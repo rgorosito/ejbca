@@ -24,6 +24,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
@@ -39,6 +40,7 @@ import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.util.encoders.Base64;
+import org.cesecore.ErrorCode;
 import org.cesecore.audit.enums.EventStatus;
 import org.cesecore.audit.enums.EventTypes;
 import org.cesecore.audit.enums.ModuleTypes;
@@ -383,26 +385,31 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
     }
 
     @Override
-    public void validateDnsNames(final AuthenticationToken authenticationToken, final CA ca, final EndEntityInformation endEntityInformation,
-            final RequestMessage requestMessage) throws ValidationException {
+    public List<ValidationResult> validateDnsNames(final AuthenticationToken authenticationToken, final IssuancePhase phase,
+            final CA ca, final EndEntityInformation endEntityInformation, final RequestMessage requestMessage) throws ValidationException {
+        final List<ValidationResult> allResults = new ArrayList<>(); 
         if (!CollectionUtils.isEmpty(ca.getValidators())) {
             Validator baseValidator;
             DnsNameValidator validator;
             for (Integer id : ca.getValidators()) {
                 baseValidator = getValidatorInternal(id, true);
-                if (baseValidator != null && baseValidator.getValidatorSubType().equals(DnsNameValidator.class)) {
+                if (baseValidator == null) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("CA " + ca.getName() + " references a non-existent validator: " + id);
+                    }
+                } else if (baseValidator.getValidatorSubType().equals(DnsNameValidator.class)) {
                     validator = (DnsNameValidator) baseValidator;
                     // Filter for validator criteria.
-                    if (baseValidator instanceof CertificateProfileAwareValidator
-                            && !filterCertificateProfileAwareValidator(validator, endEntityInformation.getCertificateProfileId())) {
+                    if (!filterCertificateProfileAwareValidator(validator, endEntityInformation.getCertificateProfileId()) ||
+                            phase.getIndex() != validator.getPhase()) {
                         continue;
                     }
                     CertificateProfile certificateProfile = certificateProfileSession
                             .getCertificateProfile(endEntityInformation.getCertificateProfileId());
                     final String subjectAltName = endEntityInformation.getSubjectAltName();
                     final List<String> dnsNames = new ArrayList<>();
-                    for (String split : subjectAltName.split(",")) {
-                        if (split.trim().toLowerCase().startsWith(CertTools.DNS.toLowerCase())) {
+                    for (String split : subjectAltName.toLowerCase(Locale.ROOT).split(",")) {
+                        if (split.trim().startsWith(CertTools.DNS.toLowerCase())) {
                             dnsNames.add(split.trim().substring(CertTools.DNS.length() + 1));
                         }
                     }
@@ -413,8 +420,8 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                             Extension extension = extensions.getExtension(Extension.subjectAlternativeName);
                             if (extension != null) {
                                 String extendedSubjectAltName = CertTools.getAltNameStringFromExtension(extension);
-                                for (String split : extendedSubjectAltName.split(",")) {
-                                    if (split.trim().toLowerCase().startsWith(CertTools.DNS.toLowerCase())) {
+                                for (String split : extendedSubjectAltName.toLowerCase(Locale.ROOT).split(",")) {
+                                    if (split.trim().startsWith(CertTools.DNS.toLowerCase())) {
                                         dnsNames.add(split.trim().substring(CertTools.DNS.length() + 1));
                                     }
                                 }
@@ -422,24 +429,25 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                         }
                     }
 
-                    Entry<Boolean, List<String>> result = validator.validate(executorService, dnsNames.toArray(new String[dnsNames.size()]));
+                    final Entry<Boolean, List<String>> result = validator.validate(executorService, dnsNames.toArray(new String[dnsNames.size()]));
+                    final boolean successful = result.getKey();
+                    for (final String message : result.getValue()) {
+                        allResults.add(new ValidationResult(message, successful));
+                    }
 
-                    final String validatorName = validator.getProfileName();
+                    final String validatorType = validator.getValidatorTypeIdentifier();
                     final List<String> messages = result.getValue();
-                    if (!result.getKey()) {
+                    if (!successful) {
                         // Validation has failed. Not security event as such, since it will break issuance and not cause anything important to happen.
                         // We want thorough logging in order to trouble shoot though
-                        final String message = intres.getLocalizedMessage("validator.caa.validation_failed", validatorName,
-                                validator.getIssuer(), messages);
+                        final String message = validator.getLogMessage(false, messages);
                         log.info(EventTypes.VALIDATOR_VALIDATION_FAILED + ";" + EventStatus.FAILURE + ";" + ModuleTypes.VALIDATOR + ";" + ServiceTypes.CORE + ";msg=" + message);
                         final int index = validator.getFailedAction();
-                        performValidationFailedActions(index, message);
+                        performValidationFailedActions(index, message, validatorType);
                     } else {
                         // Validation succeeded, this can be considered a security audit event because CAs may be asked to present this as evidence to an auditor
-                        final String message = intres.getLocalizedMessage("validator.caa.validation_successful", validatorName,
-                                validator.getIssuer(),
-                                messages);
-                        final Map<String, Object> details = new LinkedHashMap<String, Object>();
+                        final String message = validator.getLogMessage(true, messages);
+                        final Map<String, Object> details = new LinkedHashMap<>();
                         details.put("msg", message);
                         auditSession.log(EventTypes.VALIDATOR_VALIDATION_SUCCESS, EventStatus.SUCCESS, ModuleTypes.VALIDATOR, ServiceTypes.CORE,
                                 authenticationToken.toString(), String.valueOf(ca.getCAId()), null, endEntityInformation.getUsername(), details);
@@ -452,6 +460,7 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                 log.debug("No validators configured for CA " + ca.getName() + " (ID=" + ca.getCAId() + ").");
             }
         }
+        return allResults;
     }
 
     @Override
@@ -480,12 +489,10 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                     }
                     try {
                         // Filter for validator criteria.
-                        if (validator instanceof CertificateProfileAwareValidator
-                                && !filterCertificateProfileAwareValidator(validator, endEntityInformation.getCertificateProfileId())) {
+                        if (!filterCertificateProfileAwareValidator(validator, endEntityInformation.getCertificateProfileId())) {
                             continue;
                         }
-                        if (validator instanceof ValidityAwareValidator
-                                && !filterValidityAwareValidator(validator, certificateValidity.getNotBefore(), certificateValidity.getNotAfter())) {
+                        if (!filterValidityAwareValidator(validator, certificateValidity.getNotBefore(), certificateValidity.getNotAfter())) {
                             continue;
                         }
                         final String fingerprint = CertTools.createPublicKeyFingerprint(publicKey, "SHA-256");
@@ -499,7 +506,7 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                             details.put("msg", message);
                             auditSession.log(EventTypes.VALIDATOR_VALIDATION_FAILED, EventStatus.FAILURE, ModuleTypes.VALIDATOR, ServiceTypes.CORE,
                                     admin.toString(), String.valueOf(ca.getCAId()), fingerprint, endEntityInformation.getUsername(), details);
-                            performValidationFailedActions(index, message);
+                            performValidationFailedActions(index, message, validator.getValidatorTypeIdentifier());
                         } else {
                             final byte[] keyBytes = publicKey.getEncoded();
                             final String publicKeyEncoded = (keyBytes != null ? new String(Base64.encode(keyBytes)) : "null");
@@ -513,7 +520,7 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                     } catch (ValidatorNotApplicableException e) {
                         // This methods either throws a KeyValidationException, or just logs a message and validation should be considered successful
                         // use method performValidationFailedActions because it's the same actions
-                        performValidationFailedActions(validator.getNotApplicableAction(), e.getMessage());
+                        performValidationFailedActions(validator.getNotApplicableAction(), e.getMessage(), validator.getValidatorTypeIdentifier());
                     } catch (ValidationException e) {
                         throw e;
                     }
@@ -545,14 +552,6 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                     if (phase.getIndex() != validator.getPhase()) {
                         continue;
                     }
-                    if (validator instanceof CertificateProfileAwareValidator
-                            && !filterCertificateProfileAwareValidator(validator, endEntityInformation.getCertificateProfileId())) {
-                        continue;
-                    }
-                    if (validator instanceof ValidityAwareValidator
-                            && !filterValidityAwareValidator(validator, certificate.getNotBefore(), certificate.getNotAfter())) {
-                        continue;
-                    }
                     try {
                         final String fingerprint = CertTools.createPublicKeyFingerprint(certificate.getPublicKey(), "SHA-256");
                         log.info(intres.getLocalizedMessage("validator.certificate.isbeingprocessed", name, phase, endEntityInformation.getUsername(),
@@ -570,7 +569,7 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                             auditSession.log(EventTypes.VALIDATOR_VALIDATION_FAILED, EventStatus.FAILURE, ModuleTypes.VALIDATOR, ServiceTypes.CORE,
                                     authenticationToken.toString(), String.valueOf(ca.getCAId()), fingerprint, endEntityInformation.getUsername(),
                                     details);
-                            performValidationFailedActions(validator.getFailedAction(), message);
+                            performValidationFailedActions(validator.getFailedAction(), message, validator.getValidatorTypeIdentifier());
                         } else {
                             final String message = intres.getLocalizedMessage("validator.certificate.validation_successful", name, fingerprint);
                             log.info(message);
@@ -582,7 +581,7 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
                     } catch (ValidatorNotApplicableException e) {
                         // This methods either throws a KeyValidationException, or just logs a message and validation should be considered successful
                         // use method performValidationFailedActions because it's the same actions
-                        performValidationFailedActions(validator.getNotApplicableAction(), e.getMessage());
+                        performValidationFailedActions(validator.getNotApplicableAction(), e.getMessage(), validator.getValidatorTypeIdentifier());
                     } catch (CertificateException e) {
                         throw new ValidationException("Certificate to validate could not be parsed or decoded: " + e.getMessage(), e);
                     }
@@ -813,10 +812,11 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
      *
      * @param failedAction
      * @param message
+     * @param validatortype the type of validator that performed the failed validation
      * @throws ValidationException
      */
-    private void performValidationFailedActions(final int failedAction, final String message) throws ValidationException {
-        performValidationFailedActions(failedAction, message, message);
+    private void performValidationFailedActions(final int failedAction, final String message, final String validatorType) throws ValidationException {
+        performValidationFailedActions(failedAction, message, message, validatorType);
     }
 
     /**
@@ -825,9 +825,10 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
      * @param failedAction the failed action index (see {@link KeyValidationFailedActions}).
      * @param message the message to log.
      * @param shortMessage the error message to EJBCA Certificate Enrollment Error page
+     * @param validatorType the type of validator that performed the failed validation
      * @throws ValidationException if a failed validation has to be abort the certificate issuance.
      * */
-    private void performValidationFailedActions(final int failedAction, final String message, final String shortMessage) throws ValidationException {
+    private void performValidationFailedActions(final int failedAction, final String message, final String shortMessage, final String validatorType) throws ValidationException {
         if (log.isDebugEnabled()) {
             log.debug("Perform post action " + failedAction + " - " + message);
         }
@@ -838,7 +839,11 @@ public class KeyValidatorSessionBean implements KeyValidatorSessionLocal, KeyVal
         } else if (KeyValidationFailedActions.LOG_ERROR.getIndex() == failedAction) {
             log.error(message);
         } else if (KeyValidationFailedActions.ABORT_CERTIFICATE_ISSUANCE.getIndex() == failedAction) {
-            throw new ValidationException(shortMessage);
+            if (validatorType.equals("CAA_VALIDATOR")) {
+                throw new ValidationException(ErrorCode.CAA_VALIDATION_FAILED, shortMessage);
+            } else {
+                throw new ValidationException(ErrorCode.VALIDATION_FAILED, shortMessage);
+            }
         } else {
             // NOOP
             log.debug(message);

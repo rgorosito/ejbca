@@ -63,7 +63,7 @@ import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.approval.ApprovalProfileSession;
 import org.ejbca.cvc.AccessRightAuthTerm;
 import org.ejbca.ui.web.admin.BaseManagedBean;
-import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
+import org.ejbca.ui.web.jsf.configuration.EjbcaJSFHelper;
 
 /**
  * JSF MBean backing the certificate profile pages.
@@ -119,11 +119,11 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
     }
 
     public CertificateProfile getCertificateProfile() {
-        if (currentCertProfileId!=-1 && certificateProfile!=null && getSelectedCertProfileId().intValue() != currentCertProfileId) {
+        if (currentCertProfileId!=-1 && certificateProfile!=null && getSelectedCertProfileId() != currentCertProfileId) {
             reset();
         }
         if (certificateProfile==null) {
-            currentCertProfileId = getSelectedCertProfileId().intValue();
+            currentCertProfileId = getSelectedCertProfileId();
             final CertificateProfile certificateProfile = getEjbcaWebBean().getEjb().getCertificateProfileSession().getCertificateProfile(currentCertProfileId);
             try {
                 this.certificateProfile = certificateProfile.clone();
@@ -215,6 +215,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
                         prof.getUseQCEtsiSignatureDevice(),
                         prof.getUseQCEtsiValueLimit(),
                         prof.getUseQCEtsiRetentionPeriod(),
+                        prof.getUseQCPSD2(),
                         !StringUtils.isEmpty(prof.getQCEtsiType()),
                         prof.getQCEtsiPds() != null && prof.getQCEtsiPds().size() > 0 && !(prof.getQCEtsiPds().size() == 1 && prof.getQCEtsiPds().get(0).getUrl() == null),
                         prof.getUseQCCustomString() && !prof.getQCCustomStringOid().isEmpty() && !prof.getQCCustomStringText().isEmpty()
@@ -1053,7 +1054,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         final List<Integer> ret = new ArrayList<>();
         for (int i=0; i<=37; i++) {
             if (arlflags.getFlag(i)) {
-                ret.add(Integer.valueOf(i));
+                ret.add(i);
             }
         }
         return ret;
@@ -1180,7 +1181,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
                 }
             }
         }
-        Collections.sort(ret, new Comparator<SelectItem>() {
+        ret.sort(new Comparator<SelectItem>() {
             @Override
             public int compare(SelectItem first, SelectItem second) {
                 return first.getLabel().compareToIgnoreCase(second.getLabel());
@@ -1255,10 +1256,10 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
             }
         } else {
             for (final Integer caId : allCAs) {
-                ret.add(new SelectItem(caId, caIdToNameMap.get(caId), "", (authorizedCAs.contains(caId) ? false : true)));
+                ret.add(new SelectItem(caId, caIdToNameMap.get(caId), "", (!authorizedCAs.contains(caId))));
             }
         }
-        Collections.sort(ret, new Comparator<SelectItem>() {
+        ret.sort(new Comparator<SelectItem>() {
             @Override
             public int compare(SelectItem first, SelectItem second) {
                 return first.getLabel().compareToIgnoreCase(second.getLabel());
@@ -1278,7 +1279,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
         for (final Integer publisherId : authorizedPublisherIds) {
             ret.add(new SelectItem(publisherId, publisherIdToNameMap.get(publisherId)));
         }
-        Collections.sort(ret, new Comparator<SelectItem>() {
+        ret.sort(new Comparator<SelectItem>() {
             @Override
             public int compare(SelectItem first, SelectItem second) {
                 return first.getLabel().compareToIgnoreCase(second.getLabel());

@@ -18,11 +18,11 @@
 <!--
 	JPA configuration used from ejbca-db-cli.
 -->
-<persistence version="2.0"
-    xmlns="http://java.sun.com/xml/ns/persistence"
+<persistence version="2.1"
+    xmlns="http://xmlns.jcp.org/xml/ns/persistence"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/persistence
-                        http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                        http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
     <!--
         Persistence unit for validating and reading an EJBCA database.
     -->
@@ -129,6 +129,12 @@
             <property name="hibernate.connection.password" value="${database.password}"/>
             <property name="hibernate.hbm2ddl.auto" value="update"/>
             <property name="hibernate.query.jpaql_strict_compliance" value="true"/>
+            <!-- Debug options -->
+            <!-- 
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.format_sql" value="true"/>
+            <property name="hibernate.use_sql_comments" value="true"/>
+             -->
         </properties>
     </persistence-unit>
     

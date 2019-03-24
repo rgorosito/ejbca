@@ -78,7 +78,7 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     /** Default value or null. */
     private T defaultValue;
 
-    /** Property values (or value at index 0). */
+    /** Property values. For single-value properties, non-null values are stored at index 0, and null is represented as an empty list. */
     private List<T> values = new ArrayList<>();
 
     /** Value range or null. */
@@ -89,6 +89,9 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
 
     /** If the UI widget is supposed to be disabled. */
     private boolean disabled = false;
+    
+    /** If the value of a DynamicUiProperty of label type should be escaped. Inverted so "escape" defaults to true when deserializing old objects */
+    private boolean noEscape = false;
 
     /** If the value has to be stored in the domain object properties. */
     private boolean transientValue = false;
@@ -103,7 +106,7 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     private boolean labeled = false;
 
     /** List of I18N keys / labels if available. */
-    private Map<?,String> labels = new LinkedHashMap<Object,String>();
+    private Map<?,String> labels = new LinkedHashMap<>();
 
     /** Flag to indicate that the property is displayed as label in the label column only (there will be no validation if available, etc.).*/
     private boolean labelOnly = false;
@@ -157,9 +160,9 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     public DynamicUiProperty(final String name, final T defaultValue) {
         this.name = name;
         this.defaultValue = defaultValue;
-        this.values.add(defaultValue);
         this.possibleValues = null;
         if (defaultValue != null) {
+            this.values.add(defaultValue);
             this.type = defaultValue.getClass();
         }
     }
@@ -179,7 +182,7 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
             for (String value : StringUtils.split((String) defaultValue, LIST_SEPARATOR)) {
                 this.values.add((T) value);
             }
-        } else {
+        } else if (defaultValue != null) {
             this.values.add(defaultValue);
         }  
         this.possibleValues = null;
@@ -282,6 +285,8 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
         // The defaultValue of the old implementation MUST NOT be null, the one of the new can be!
         if (defaultValue instanceof MultiLineString) {
             return new MultiLineString(value);
+        } else if (defaultValue instanceof UrlString) {
+            return new UrlString(value);
         } else if (defaultValue instanceof String) {
             return value;
         } else if (defaultValue instanceof Boolean) {
@@ -325,6 +330,8 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
         String result = StringUtils.EMPTY;
         if (value instanceof MultiLineString) {
             result = ((MultiLineString) value).getValue();
+        } else if (value instanceof UrlString) {
+            result = ((UrlString)value).getValue();
         } else if (value instanceof String) {
             result = (String) value;
         } else if (value instanceof RadioButton) {
@@ -373,6 +380,22 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
      */
     public void setDisabled(boolean disabled) {
         this.disabled = disabled;
+    }
+
+    /**
+     * Gets if the value should be escaped. Applies to label components only. Default is true.
+     * @return true if the value should be escaped.
+     */
+    public boolean isEscape() {
+        return !noEscape;
+    }
+
+    /**
+     * Sets if the value should be escaped. Applies to label components only. Default is true.
+     * @param escape true if the value should be escaped.
+     */
+    public void setEscape(final boolean escape) {
+        this.noEscape = !escape;
     }
 
     /**
@@ -462,11 +485,11 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
         if (hasMultipleValues) {
             throw new IllegalStateException("Attempted to draw single value from a dynamic property with multiple value for " + getName());
         }
-        return values.get(0);
+        return values.isEmpty() ? null : values.get(0);
     }
 
     public List<String> getPossibleValuesAsStrings() {
-        final List<String> strings = new ArrayList<String>();
+        final List<String> strings = new ArrayList<>();
         for (final T possibleValue : getPossibleValues()) {
             strings.add(possibleValue.toString());
         }
@@ -474,7 +497,7 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     }
 
     public List<String> getValuesAsStrings() {
-        final List<String> strings = new ArrayList<String>();
+        final List<String> strings = new ArrayList<>();
         for (final T value : getValues()) {
             strings.add(value.toString());
         }
@@ -540,7 +563,9 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
         final List<T> newValues;
         if (CollectionUtils.isEmpty(objectsCopy)) {
             newValues = new ArrayList<>();
-            newValues.add(defaultValue);
+            if (defaultValue != null) {
+                newValues.add(defaultValue);
+            }
         } else {
             if (!CollectionUtils.isEmpty(possibleValues)) {
                 newValues = new ArrayList<>();
@@ -639,7 +664,9 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     public void setValueGeneric(final Serializable object) {
         final List<T> newValues = new ArrayList<>();
         if (object == null) {
-            newValues.add(defaultValue);
+            if (defaultValue != null) {
+                newValues.add(defaultValue);
+            }
         } else {
             if (validator != null) {
                 try {
@@ -686,20 +713,16 @@ public class DynamicUiProperty<T extends Serializable> implements Serializable, 
     public void setValuesGeneric(final List<? extends Serializable> list) {
         final List<? extends Serializable> listCopy = new ArrayList<>(list); // extra safety in case list is modified during the function call
         final List<T> newValues = new ArrayList<>();
-        if (CollectionUtils.isEmpty(listCopy)) {
-            newValues.add(defaultValue);
-        } else {
-            for (final Serializable object : listCopy) {
-                if (validator != null) {
-                    try {
-                        validator.validate((T) object);
-                    } catch (PropertyValidationException e) {
-                        throw new IllegalStateException(
-                                "Generic setter is normally only used internally, so an incorrect value should not be passed.", e);
-                    }
+        for (final Serializable object : listCopy) {
+            if (validator != null) {
+                try {
+                    validator.validate((T) object);
+                } catch (PropertyValidationException e) {
+                    throw new IllegalStateException(
+                            "Generic setter is normally only used internally, so an incorrect value should not be passed.", e);
                 }
-                newValues.add((T) object);
             }
+            newValues.add((T) object);
         }
         this.values = newValues;
     }

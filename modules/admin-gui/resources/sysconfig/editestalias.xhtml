@@ -96,7 +96,8 @@
                     <h:inputSecret id="textfieldrequirepassword" size="25" maxlength="150"
                                    redisplay="true"
                                    value="#{editEstConfigMBean.estAlias.password}"
-                                   rendered="#{!editEstConfigMBean.viewOnly}" autocomplete="off"/>
+                                   autocomplete="off"
+                                   rendered="#{!editEstConfigMBean.viewOnly}"/>
                     <h:outputText value="*****" rendered="#{editEstConfigMBean.viewOnly}"/>
                 </h:panelGroup>
 

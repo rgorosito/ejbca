@@ -91,7 +91,10 @@ public class ErrorCode implements Serializable {
     private static final String _CA_NAME_CHANGE_RENEWAL_ERROR = "CA_NAME_CHANGE_RENEWAL_ERROR"; // CA Name Change Renewal could not be completed
     private static final String _USER_DOESNT_FULFILL_END_ENTITY_PROFILE = "USER_DOESNT_FULFILL_END_ENTITY_PROFILE"; // User could not be added cause it doesn't fulfill end entity profile
     private static final String _CUSTOM_CERTIFICATE_EXTENSION_ERROR = "CUSTOM_CERTIFICATE_EXTENSION_ERROR";
-    private static final String _REFERENCES_TO_ITEM_EXIST = "REFERENCES_TO_ITEM_EXIST"; 
+    private static final String _REFERENCES_TO_ITEM_EXIST = "REFERENCES_TO_ITEM_EXIST";
+    private static final String _CMS_CERTIFICATE_PATH_MISSING = "CMS_CERTIFICATE_PATH_MISSING";
+    private static final String _CAA_VALIDATION_FAILED = "CAA_VALIDATION_FAILED"; // CAA Validation Failed
+    private static final String _VALIDATION_FAILED = "VALIDATION_FAILED"; // CAA Validation Failed
 
     /** Default constructor. */
     private ErrorCode() {}
@@ -202,7 +205,12 @@ public class ErrorCode implements Serializable {
     public static final ErrorCode CUSTOM_CERTIFICATE_EXTENSION_ERROR = new ErrorCode(_CUSTOM_CERTIFICATE_EXTENSION_ERROR);
     /** Trying to delete an item when references exist. For example, a deleting publisher when it's used by profiles. */
     public static final ErrorCode REFERENCES_TO_ITEM_EXIST = new ErrorCode(_REFERENCES_TO_ITEM_EXIST);
-
+    public static final ErrorCode CMS_CERTIFICATE_PATH_MISSING = new ErrorCode(_CMS_CERTIFICATE_PATH_MISSING);
+    /** CAA Validation failed, not allowed too issue certificate to issuer. */ 
+    public static final ErrorCode CAA_VALIDATION_FAILED = new ErrorCode(_CAA_VALIDATION_FAILED);
+    /** Generic validation failure (public key, domain name, etc.) */
+    public static final ErrorCode VALIDATION_FAILED = new ErrorCode(_VALIDATION_FAILED);
+    
     /** Get the internal error code. */
     public String getInternalErrorCode() {
         return internalErrorCode;

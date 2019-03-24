@@ -26,7 +26,6 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.DSAPublicKey;
 import java.util.ArrayList;
@@ -55,15 +54,8 @@ import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.PolicyInformation;
 import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.RFC3739QCObjectIdentifiers;
-import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.SignerInformation;
-import org.bouncycastle.cms.jcajce.JcaSignerInfoVerifierBuilder;
 import org.bouncycastle.jce.X509KeyUsage;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentVerifierProvider;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
@@ -1456,7 +1448,49 @@ public class SignSessionWithRsaTest extends SignSessionCommon {
             returnNames = Arrays.asList(retAltNames.split(", "));
             assertTrue(originalNames.containsAll(returnNames));
             // check cert policies, should be there
-            assertNotNull(cert.getExtensionValue(Extension.certificatePolicies.getId()));            
+            assertNotNull(cert.getExtensionValue(Extension.certificatePolicies.getId()));
+            
+            // Check IPv6 extension override
+            //
+            // Create a P10 with extensions, in this case altNames with a lot of DNS names
+            extensionattr = new ASN1EncodableVector();
+            extensionattr.add(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest);
+            san = CertTools.getGeneralNamesFromAltName("ipAddress=10.1.1.2, iPAddress=FE80:0000:0000:0000:0202:B3FF:FE1E:8329");
+            extgen = new ExtensionsGenerator();
+            extgen.addExtension(Extension.subjectAlternativeName, false, san);            
+            exts = extgen.generate();        
+            extensionattr.add(new DERSet(exts));
+            // Complete the Attribute section of the request, the set (Attributes)
+            // contains one sequence (Attribute)
+            v = new ASN1EncodableVector();
+            v.add(new DERSequence(extensionattr));
+            attributes = new DERSet(v);
+            // Create PKCS#10 certificate request
+            req = CertTools.genPKCS10CertificationRequest("SHA256WithRSA", new X500Name("C=SE,CN=extoverride"), rsakeys.getPublic(), attributes,
+                    rsakeys.getPrivate(), null);
+            bOut = new ByteArrayOutputStream();
+            dOut = new DEROutputStream(bOut);
+            dOut.writeObject(req.toASN1Structure());
+            dOut.close();
+            p10bytes = bOut.toByteArray();
+            p10 = new PKCS10RequestMessage(p10bytes);
+            p10.setUsername(RSA_USERNAME);
+            p10.setPassword("foo123");
+            // See if the request message works...
+            p10exts = p10.getRequestExtensions();
+            assertNotNull(p10exts);
+            endEntityManagementSession.changeUser(internalAdmin, user, false);
+            resp = signSession.createCertificate(internalAdmin, p10, X509ResponseMessage.class, null);
+            cert = CertTools.getCertfromByteArray(resp.getResponseMessage(), X509Certificate.class);
+            issuedFingerprints.add(CertTools.getFingerprintAsString(cert));
+            assertNotNull("Failed to create certificate", cert);
+            assertEquals("CN=extoverride,C=SE", cert.getSubjectDN().getName());
+            // check altNames, should be one altName
+            c = cert.getSubjectAlternativeNames();
+            assertNotNull(c);
+            assertEquals(2, c.size());
+            retAltNames = CertTools.getSubjectAlternativeName(cert);
+            assertEquals("Altnames should have proper IP adresses, ipv4 and ipv6", "iPAddress=10.1.1.2, iPAddress=fe80:0:0:0:202:b3ff:fe1e:8329", retAltNames);
         } finally {
             certificateProfileSession.removeCertificateProfile(internalAdmin, profileName);
             endEntityProfileSession.removeEndEntityProfile(internalAdmin, profileName);
@@ -1694,22 +1728,7 @@ public class SignSessionWithRsaTest extends SignSessionCommon {
         log.trace("<test24TestBCPKCS10DSAWithRSACA()");
     }
     
-    /**
-     * This test attempts to sign a payload (as a byte array) using the CA cert 
-     */
-    @Test
-    public void testSignPayload() throws CryptoTokenOfflineException, CADoesntExistsException, SignRequestSignatureException, AuthorizationDeniedException, CertificateException, CMSException, OperatorCreationException {
-        byte[] payload = new byte[]{1, 2, 3, 4};
-        X509Certificate cacert = (X509Certificate) caSession.getCAInfo(internalAdmin, getTestCAName()).getCertificateChain().toArray()[0];
-        //Have the data signed using the CA's signing keys
-        CMSSignedData signedData = new CMSSignedData(signSession.signPayload(internalAdmin, payload, getTestCAId()));
-        //Construct a signer in order to verify the change
-        SignerInformation signer = (SignerInformation) signedData.getSignerInfos().getSigners().iterator().next();
-        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-        JcaSignerInfoVerifierBuilder jcaSignerInfoVerifierBuilder = new JcaSignerInfoVerifierBuilder(calculatorProviderBuilder.build()).setProvider(BouncyCastleProvider.PROVIDER_NAME); 
-        assertTrue("Payload signature couldnt be verified.", signer.verify(jcaSignerInfoVerifierBuilder.build(cacert.getPublicKey())));
-        
-    }
+
     
     @Override
     public String getRoleName() {

@@ -113,4 +113,18 @@ public class EndEntityInformationFillerTest {
     	EndEntityInformationFiller.fillUserDataWithDefaultValues(userData, profile);
     	assertEquals("defaultPassword", userData.getPassword());
     }
+
+    @Test
+    public void testNoCn(){
+        String altName = EndEntityInformationFiller.copyDnsNameValueFromCn(profile, "");
+        assertEquals("Alt name should be empty", "", altName);
+    }
+
+    @Test
+    public void testOneDns(){
+        profile.addField(DnComponents.DNSNAME);
+        profile.setCopy(DnComponents.DNSNAME, 0, true);
+        String altName = EndEntityInformationFiller.copyDnsNameValueFromCn(profile, "CN=commonName");
+        assertEquals("Alt name should contain DNSNAME copied from CN", "DNSNAME=commonName", altName);
+    }
 }

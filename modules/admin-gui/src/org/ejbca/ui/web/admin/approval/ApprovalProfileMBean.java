@@ -46,6 +46,7 @@ import org.cesecore.util.ui.DynamicUiProperty;
 import org.cesecore.util.ui.MultiLineString;
 import org.cesecore.util.ui.PropertyValidationException;
 import org.cesecore.util.ui.RadioButton;
+import org.cesecore.util.ui.UrlString;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.model.approval.profile.ApprovalPartition;
@@ -79,7 +80,8 @@ public class ApprovalProfileMBean extends BaseManagedBean implements Serializabl
         INTEGER(intres.getLocalizedMessage("approval.profile.metadata.field.integer")),
         LONG(intres.getLocalizedMessage("approval.profile.metadata.field.long")),
         RADIOBUTTON(intres.getLocalizedMessage("approval.profile.metadata.field.radio.button")),
-        TEXT(intres.getLocalizedMessage("approval.profile.metadata.field.freetext"));
+        TEXT(intres.getLocalizedMessage("approval.profile.metadata.field.freetext")),
+        EXTURL(intres.getLocalizedMessage("approval.profile.metadata.field.exturl"));
 
        private static List<SelectItem> selectItems;
        private static Map<String, FieldType> nameLookupMap;
@@ -300,6 +302,9 @@ public class ApprovalProfileMBean extends BaseManagedBean implements Serializabl
             break;
         case LONG:
             property = new DynamicUiProperty<>(fieldLabel, Long.valueOf(0L));
+            break;
+        case EXTURL:
+            property = new DynamicUiProperty<>(fieldLabel, new UrlString(""));
             break;
         default:
             return "";

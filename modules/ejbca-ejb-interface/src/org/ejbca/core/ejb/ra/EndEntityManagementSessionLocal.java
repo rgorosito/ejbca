@@ -59,22 +59,22 @@ public interface EndEntityManagementSessionLocal extends EndEntityManagementSess
      * @return true if profileid exists in UserData table.
      */
     boolean checkForHardTokenProfileId(int profileid);
-
-    /**
-     * Cleans the certificate serial number from the user data. Should be called
-     * after the data has been used.
-     * @throws NoSuchEndEntityException if no end entity was found
-     * 
-     */
-    void cleanUserCertDataSN(EndEntityInformation data) throws NoSuchEndEntityException;
-
+    
     /**
      * Removes the certificate serial number from the user data.
-     * @param username the unique username.
+     * @param userName the unique username.
      * @throws NoSuchEndEntityException if the end entity was not found
      */
-    void cleanUserCertDataSN(String username) throws ApprovalException, WaitingForApprovalException, NoSuchEndEntityException;
+    void cleanUserCertDataSN(String userName) throws NoSuchEndEntityException;
+    
+    /**
+     * Cleans the certificate serial number and certificate request (CSR) from database userData table.
+     * @param userName the unique username.
+     * @throws NoSuchEndEntityException if the end entity was not found
+     */
+    void cleanSerialnumberAndCsrFromUserData(String userName) throws NoSuchEndEntityException;
 
+    
     /**
      * Decreases (the optional) request counter by 1, until it reaches 0.
      * Returns the new value. If the value is already 0, -1 is returned, but the

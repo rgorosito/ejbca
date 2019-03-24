@@ -83,6 +83,8 @@ import org.ejbca.statedump.ejb.StatedumpObjectKey;
 import org.ejbca.statedump.ejb.StatedumpResolution;
 import org.ejbca.statedump.ejb.StatedumpSessionLocal;
 import org.ejbca.ui.web.admin.BaseManagedBean;
+import org.ejbca.ui.web.configuration.WebLanguage;
+import org.ejbca.ui.web.configuration.exception.CacheClearException;
 
 /**
  * Backing bean for the various system configuration pages.
@@ -336,21 +338,21 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 }
         }
     }
-    
+
     public void authorizeViewCt(ComponentSystemEvent event) throws Exception {
         if (!FacesContext.getCurrentInstance().isPostback()) {
             final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
             getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.SYSTEMCONFIGURATION_VIEW.resource());
         }
     }
-    
+
     public void authorizeViewCertExtension(ComponentSystemEvent event) throws Exception {
         if (!FacesContext.getCurrentInstance().isPostback()) {
             final HttpServletRequest request = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
             getEjbcaWebBean().initialize(request, AccessRulesConstants.ROLE_ADMINISTRATOR, StandardRules.CUSTOMCERTEXTENSIONCONFIGURATION_VIEW.resource());
         }
     }
-    
+
     public SystemConfigMBean() {
         super();
     }
@@ -1009,7 +1011,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
     public boolean isRestAvailable() {
         return getEjbcaWebBean().isRunningEnterprise();
     }
-    
+
     /** @return true if ACME is enabled. Should be false for EJBCA CE */
     public boolean isAcmeAvailable() {
         return getEjbcaWebBean().isRunningEnterprise();
@@ -1681,10 +1683,10 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         return ret;
     }
-    
+
     public List<SelectItem> getAvailableLanguageSelectItems() {
         final List<SelectItem> selectItems = new ArrayList<>();
-        final List<WebLanguage> availableWebLanguages = getEjbcaWebBean().getWebLanguages();
+        final List<WebLanguage> availableWebLanguages = getEjbcaWebBean().getWebLanguagesList();
         for (final WebLanguage availableWebLanguage : availableWebLanguages) {
             final SelectItem languageSelectItem = new SelectItem(availableWebLanguage.getId(), availableWebLanguage.toString());
             selectItems.add(languageSelectItem);
@@ -1694,7 +1696,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     public List<SelectItem> getAvailableThemes() {
         final List<SelectItem> ret = new ArrayList<>();
-        final String[] themes = globalConfig.getAvailableThemes();
+        final String[] themes = getGlobalConfiguration().getAvailableThemes();
         for(String theme : themes) {
             ret.add(new SelectItem(theme, theme));
         }
@@ -1703,7 +1705,7 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
 
     public List<SelectItem> getPossibleEntriesPerPage() {
         final List<SelectItem> ret = new ArrayList<>();
-        final String[] possibleValues = globalConfig.getPossibleEntiresPerPage();
+        final String[] possibleValues = getGlobalConfiguration().getPossibleEntiresPerPage();
         for(String value : possibleValues) {
             ret.add(new SelectItem(Integer.parseInt(value), value));
         }
@@ -1736,6 +1738,9 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
         if (authorizationSession.isAuthorizedNoLogging(getAdmin(), StandardRules.SYSTEMCONFIGURATION_VIEW.resource())) {
             availableTabs.add("External Scripts");
+        }
+        if (authorizationSession.isAuthorizedNoLogging(getAdmin(), StandardRules.SYSTEMCONFIGURATION_VIEW.resource())) {
+            availableTabs.add("Configuration Checker");
         }
         return availableTabs;
     }

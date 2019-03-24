@@ -47,8 +47,8 @@ public class JsfDynamicUiHtmlOutputLabel extends HtmlOutputText implements Dynam
     @Override
     public void propertyChange(final PropertyChangeEvent event) {
         if (log.isTraceEnabled()) {
-            log.trace("Property change event for dynamic UI property " + dynamicUiProperty != null ? dynamicUiProperty.getName()
-                    : null + " fired: " + event);
+            log.trace("Property change event for dynamic UI property " + (dynamicUiProperty != null ? dynamicUiProperty.getName()
+                    : null) + " fired: " + event);
         }
         if (event.getOldValue() != event.getNewValue()) {
             setValue(event.getNewValue());
@@ -58,5 +58,10 @@ public class JsfDynamicUiHtmlOutputLabel extends HtmlOutputText implements Dynam
     @Override
     public void setDisabled(boolean disabled) {
         // NOOP.   
+    }
+
+    /** Dummy method to prevent NPE in JSF core code. Always returns false. */
+    public boolean isDisabled() {
+        return false;
     }
 }

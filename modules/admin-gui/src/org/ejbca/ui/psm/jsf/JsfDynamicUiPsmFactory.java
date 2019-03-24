@@ -46,7 +46,7 @@ import org.apache.myfaces.custom.fileupload.HtmlInputFileUpload;
 import org.cesecore.util.ui.DynamicUiModel;
 import org.cesecore.util.ui.DynamicUiModelException;
 import org.cesecore.util.ui.DynamicUiProperty;
-import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
+import org.ejbca.ui.web.jsf.configuration.EjbcaJSFHelper;
 
 /**
  * Factory for PSM JSF 2 HTML components.
@@ -155,6 +155,8 @@ public class JsfDynamicUiPsmFactory {
                 component = createIntegerTextFieldInstance(property);
             } else if (DynamicUiProperty.RENDER_SELECT_ONE.equals(hint)) {
                 component = createIntegerDropDownBoxInstance(property);
+            } else if (DynamicUiProperty.RENDER_SELECT_MANY.equals(hint)) {
+                component = createIntegerListBoxInstance(property);
             }
         } else if (property.isBigIntegerType()) {
             if (DynamicUiProperty.RENDER_TEXTFIELD.equals(hint)) {
@@ -186,6 +188,7 @@ public class JsfDynamicUiPsmFactory {
         final JsfDynamicUiHtmlOutputLabel result = new JsfDynamicUiHtmlOutputLabel();
         result.setDynamicUiProperty(property);
         setUIOutputAttributes(result, property);
+        result.setEscape(property.isEscape());
         return result;
     }
 
@@ -306,21 +309,8 @@ public class JsfDynamicUiPsmFactory {
      * @return the drop down box instance.
      */
     public static final HtmlSelectOneMenu createIntegerDropDownBoxInstance(final DynamicUiProperty<?> property) {
-        final JsfDynamicUiHtmlSelectOneMenu result = new JsfDynamicUiHtmlSelectOneMenu();
-        result.setDynamicUiProperty(property);
-        setUIInputAttributes(result, property);
-        result.setDisabled(property.getDynamicUiModel().isDisabled() || property.isDisabled());
+        final HtmlSelectOneMenu result = createDropDownBoxInstance(property);
         result.setConverter(new IntegerConverter());
-        final List<SelectItem> items = new ArrayList<>();
-        final Map<?, String> labels = property.getLabels();
-        for (Entry<?, String> entry : labels.entrySet()) {
-            items.add(new SelectItem(entry.getKey(),
-                    property.isI18NLabeled() ? EjbcaJSFHelper.getBean().getEjbcaWebBean().getText(entry.getValue()) : entry.getValue()));
-        }
-        final UISelectItems selectItems = new UISelectItems();
-        selectItems.setValue(items);
-        addAjaxListener(property, result, "change");
-        result.getChildren().add(selectItems);
         return result;
     }
 
@@ -343,6 +333,17 @@ public class JsfDynamicUiPsmFactory {
         final UISelectItems selectItems = new UISelectItems();
         selectItems.setValue(items);
         result.getChildren().add(selectItems);
+        return result;
+    }
+    
+    /**
+     * Creates a file list box by the given dynamic UI property.
+     * @param property the dynamic UI property.
+     * @return the list box instance.
+     */
+    public static final HtmlSelectManyListbox createIntegerListBoxInstance(final DynamicUiProperty<?> property) {
+        final HtmlSelectManyListbox result = createListBoxInstance(property);
+        result.setConverter(new IntegerConverter());
         return result;
     }
 

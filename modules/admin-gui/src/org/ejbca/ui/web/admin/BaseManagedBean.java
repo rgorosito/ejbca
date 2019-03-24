@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.net.URLEncoder;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +33,8 @@ import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
-import org.ejbca.ui.web.admin.configuration.EjbcaJSFHelper;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaJSFHelper;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 import org.ejbca.util.SelectItemComparator;
 
 /**
@@ -152,19 +151,17 @@ public abstract class BaseManagedBean implements Serializable {
 			String name = field.getName();
 			try {
 				result.put(name, field.get(null));
-			} catch (IllegalArgumentException e) {
-				throw new RuntimeException(e);
-			} catch (IllegalAccessException e) {
+			} catch (IllegalArgumentException | IllegalAccessException e) {
 				throw new RuntimeException(e);
 			}
-		}
+        }
 		publicConstantCache.put(classObject.getName(), result);
 		return result;
 	}
 
 	/** Sort the provided list by the SelectItems' labels. */
 	protected void sortSelectItemsByLabel(List<SelectItem> selectItems) {
-	    Collections.sort(selectItems, new SelectItemComparator());
+	    selectItems.sort(new SelectItemComparator());
 	}
 
     /**

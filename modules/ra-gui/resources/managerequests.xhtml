@@ -1,13 +1,9 @@
 <?xml version='1.0' encoding='UTF-8' ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:component="http://java.sun.com/jsf/composite/component"
-    xmlns:c="http://java.sun.com/jsp/jstl/core"
-    xmlns:fn="http://java.sun.com/jsp/jstl/functions"
-    xmlns:t="http://myfaces.apache.org/tomahawk">
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
 <ui:remove>
     <!--
     /*************************************************************************
@@ -50,12 +46,12 @@
             <h:form id="manageRequestsForm" class="pure-form">
                 
                 <h:panelGroup layout="block" styleClass="tabButtonBar">
-                    <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingNeedsApproval ? 'active' : ''}">
+                    <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingNeedsApproval ? 'active' : ''}" id="tabApproveRequests">
                         <f:param name="tab" value="to_approve"/>
                         <h:outputText value="#{msg.manage_requests_page_view_needs_approval}"/>
                     </h:outputLink>
                     
-                    <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingPendingApproval ? 'active' : ''}">
+                    <h:outputLink value="managerequests.xhtml" styleClass="tabButton #{raManageRequestsBean.viewingPendingApproval ? 'active' : ''}" id="tabPendingRequests">
                         <f:param name="tab" value="pending"/>
                         <h:outputText value="#{msg.manage_requests_page_view_pending_approval}"/>
                     </h:outputLink>

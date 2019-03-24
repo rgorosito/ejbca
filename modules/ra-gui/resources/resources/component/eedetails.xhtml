@@ -1,14 +1,10 @@
 <?xml version='1.0' encoding='UTF-8' ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:composite="http://java.sun.com/jsf/composite" 
-    xmlns:component="http://java.sun.com/jsf/composite/component"
-    xmlns:c="http://java.sun.com/jsp/jstl/core"
-    xmlns:fn="http://java.sun.com/jsp/jstl/functions"
-    xmlns:t="http://myfaces.apache.org/tomahawk">
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:composite="http://xmlns.jcp.org/jsf/composite">
     <ui:remove>
     <!--
     /*************************************************************************
@@ -94,7 +90,7 @@
                 <h:panelGroup
                     styleClass="#{cc.attrs.styleValue} #{cc.attrs.raEndEntityDetails.even ? cc.attrs.styleEven : cc.attrs.styleOdd} ra-editEndEntity"
                     rendered="#{cc.attrs.editMode}">
-                    <h:inputSecret id="enrollmentCode" value="#{cc.attrs.raEndEntityBean.enrollmentCode}">
+                    <h:inputSecret id="enrollmentCode" autocomplete="off" value="#{cc.attrs.raEndEntityBean.enrollmentCode}">
                         <f:ajax event="change" />
                     </h:inputSecret>
                 </h:panelGroup>
@@ -105,7 +101,7 @@
                 <h:panelGroup
                     styleClass="#{cc.attrs.styleValue} #{cc.attrs.raEndEntityDetails.even ? cc.attrs.styleEven : cc.attrs.styleOdd} ra-editEndEntity"
                     rendered="#{cc.attrs.editMode}">
-                    <h:inputSecret id="enrollmentCodeConfirm" value="#{cc.attrs.raEndEntityBean.enrollmentCodeConfirm}">
+                    <h:inputSecret id="enrollmentCodeConfirm" autocomplete="off" value="#{cc.attrs.raEndEntityBean.enrollmentCodeConfirm}">
                         <f:ajax event="change" />
                     </h:inputSecret>
                 </h:panelGroup>
@@ -142,6 +138,10 @@
                 styleClass="#{cc.attrs.styleLabel} #{cc.attrs.raEndEntityDetails.even ? cc.attrs.styleEven : cc.attrs.styleOdd}" rendered="#{cc.attrs.raEndEntityDetails.csrSet}"/>
 			<h:outputText id="csrdn" value="#{cc.attrs.raEndEntityDetails.dnFromCsr}"
                 styleClass="#{cc.attrs.styleValue} #{cc.attrs.raEndEntityDetails.even ? cc.attrs.styleEven : cc.attrs.styleOdd}" rendered="#{cc.attrs.raEndEntityDetails.csrSet}"/>
+            <h:outputLabel for="clearcsrcheckbox" value="#{msg.component_eedetails_field_clearcsr}"
+                styleClass="#{cc.attrs.styleLabel} #{cc.attrs.raEndEntityDetails.even ? cc.attrs.styleEven : cc.attrs.styleOdd}" rendered="#{cc.attrs.raEndEntityDetails.csrSet}"/>
+            <h:selectBooleanCheckbox id="clearcsrcheckbox" value="#{cc.attrs.raEndEntityBean.clearCsrChecked}" rendered="#{cc.attrs.editMode and cc.attrs.raEndEntityDetails.csrSet}"
+                styleClass="ra-clearCsrCheckbox"/>
 			
             <h:outputText styleClass="#{cc.attrs.styleFull} pre" value=" "/>
 

@@ -1,14 +1,10 @@
 <?xml version='1.0' encoding='UTF-8' ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:composite="http://java.sun.com/jsf/composite" 
-    xmlns:component="http://java.sun.com/jsf/composite/component"
-    xmlns:c="http://java.sun.com/jsp/jstl/core"
-    xmlns:fn="http://java.sun.com/jsp/jstl/functions"
-    xmlns:t="http://myfaces.apache.org/tomahawk">
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:composite="http://xmlns.jcp.org/jsf/composite">
     <ui:remove>
     <!--
     /*************************************************************************
@@ -277,6 +273,11 @@
                     <f:param name="format" value="pkcs7"/>
                     <h:outputText value="#{msg.component_certdetails_link_download_pkcs7}"/>
                 </h:outputLink>
+                <h:outputText value=" " styleClass="pre"/>
+                <h:panelGroup>
+	                <h:commandLink action="#{cc.attrs.raCertificateDetails.downloadCsr}" value="#{msg.component_eedetails_link_downloadcsr}" styleClass="fineprint"
+	                    rendered="#{cc.attrs.raCertificateDetails.downloadCsrRendered}"/>
+                </h:panelGroup>
                 <h:outputText value=" " styleClass="pre"/>
                 <h:commandButton id="showMoreLessDetailsButton" value="#{cc.attrs.raCertificateDetails.more ? msg.component_certdetails_show_less : msg.component_certdetails_show_more}"
                     styleClass="pure-button ra-button"

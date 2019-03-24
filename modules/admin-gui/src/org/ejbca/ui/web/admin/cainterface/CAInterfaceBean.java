@@ -107,7 +107,7 @@ import org.ejbca.ui.web.CertificateView;
 import org.ejbca.ui.web.ParameterException;
 import org.ejbca.ui.web.RequestHelper;
 import org.ejbca.ui.web.RevokedInfoView;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 
 /**
  * A class used as an interface between CA jsp pages and CA ejbca functions.
@@ -152,7 +152,7 @@ public class CAInterfaceBean implements Serializable {
     public CAInterfaceBean() { }
 
     // Public methods
-    public void initialize(EjbcaWebBean ejbcawebbean) {
+    public void initialize(final EjbcaWebBean ejbcawebbean) {
         if (!initialized) {
           certificatesession = ejbLocalHelper.getCertificateStoreSession();
           certreqhistorysession = ejbLocalHelper.getCertReqHistorySession();
@@ -336,7 +336,7 @@ public class CAInterfaceBean implements Serializable {
             String extendedServiceSignatureKeySpec,
             String keySequenceFormat, String keySequence, int catype, String subjectdn,
             String certificateProfileIdString, String defaultCertificateProfileIdString, boolean useNoConflictCertificateData, 
-            String signedByString, String description, String validityString,
+            String signedByString, String description, String caSerialNumberOctetSizeString, String validityString,
             Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys,
             boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
             boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationsNonExistingEntry, String subjectaltname,
@@ -407,7 +407,7 @@ public class CAInterfaceBean implements Serializable {
             return actionCreateCaMakeRequestInternal(caName, signatureAlgorithm, extendedServiceSignatureKeySpec,
                     keySequenceFormat, keySequence, catype, subjectdn, certificateProfileIdString, defaultCertificateProfileIdString, 
                     useNoConflictCertificateData, signedByString,
-                    description, validityString, approvals, finishUser,
+                    description, caSerialNumberOctetSizeString, validityString, approvals, finishUser,
                     isDoEnforceUniquePublicKeys, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber,
                     useCertReqHistory, useUserStorage, useCertificateStorage, acceptRevocationsNonExistingEntry, subjectaltname, policyid,
                     useauthoritykeyidentifier, authoritykeyidentifiercritical, crlperiod, crlIssueInterval,
@@ -437,7 +437,7 @@ public class CAInterfaceBean implements Serializable {
 	        String extendedServiceSignatureKeySpec,
 	        String keySequenceFormat, String keySequence, int caType, String subjectDn,
 	        String certificateProfileIdString, String defaultCertificateProfileIdString, boolean useNoConflictCertificateData, 
-	        String signedByString, String description, String validityString,
+	        String signedByString, String description, String caSerialNumberOctetSizeString, String validityString,
 	        Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys,
 	        boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
 	        boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationsNonExistingEntry, String subjectAltName,
@@ -567,7 +567,9 @@ public class CAInterfaceBean implements Serializable {
 	            if (hasNameConstraints && !isNameConstraintAllowedInProfile(certprofileid)) {
 	               throw new ParameterException(ejbcawebbean.getText("NAMECONSTRAINTSNOTENABLED"));
 	            }
-
+	            
+	            final int caSerialNumberOctetSize = (caSerialNumberOctetSizeString != null) ? Integer.parseInt(caSerialNumberOctetSizeString) : CesecoreConfiguration.getSerialNumberOctetSizeForNewCa();
+	            
 	            if (crlPeriod != 0 && !illegaldnoraltname) {
 	                if (buttonCreateCa) {
 	                    List<ExtendedCAServiceInfo> extendedCaServiceInfos = makeExtendedServicesInfos(extendedServiceSignatureKeySpec, subjectDn, serviceCmsActive);
@@ -585,6 +587,7 @@ public class CAInterfaceBean implements Serializable {
                                 .setCertificateChain(null)
                                 .setCaToken(caToken)
                                 .setDescription(description)
+                                .setCaSerialNumberOctetSize(caSerialNumberOctetSize)
                                 .setPolicies(policies)
                                 .setCrlPeriod(crlPeriod)
                                 .setCrlIssueInterval(crlIssueInterval)
@@ -842,8 +845,8 @@ public class CAInterfaceBean implements Serializable {
     }
 
     public CAInfo createCaInfo(int caid, String caname, String subjectDn, int catype,
-	        String keySequenceFormat, String keySequence, String signedByString, String description, String validityString,
-	        long crlperiod, long crlIssueInterval, long crlOverlapTime, long deltacrlperiod, boolean finishUser,
+	        String keySequenceFormat, String keySequence, String signedByString, String description, String caSerialNumberOctetSizeString, 
+	        String validityString, long crlperiod, long crlIssueInterval, long crlOverlapTime, long deltacrlperiod, boolean finishUser,
 	        boolean isDoEnforceUniquePublicKeys, boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
 	        boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationNonExistingEntry,
             int defaultCertprofileId, boolean useNoConflictCertificateData, 
@@ -920,10 +923,13 @@ public class CAInterfaceBean implements Serializable {
                // Create extended CA Service updatedata.
                final int cmsactive = serviceCmsActive ? ExtendedCAServiceInfo.STATUS_ACTIVE : ExtendedCAServiceInfo.STATUS_INACTIVE;
                final ArrayList<ExtendedCAServiceInfo> extendedcaservices = new ArrayList<>();
-               extendedcaservices.add(new CmsCAServiceInfo(cmsactive, false)); 
+               extendedcaservices.add(new CmsCAServiceInfo(cmsactive, false));
+               
+               final int caSerialNumberOctetSize = (caSerialNumberOctetSizeString != null) ? Integer.parseInt(caSerialNumberOctetSizeString) : CesecoreConfiguration.getSerialNumberOctetSizeForNewCa();
+               
                // No need to add the HardTokenEncrypt or Keyrecovery extended service here, because they are only "updated" in EditCA, and there
                // is not need to update them.
-                cainfo = new X509CAInfo(caid, validityString, catoken, description, crlperiod, crlIssueInterval, crlOverlapTime, deltacrlperiod,
+                cainfo = new X509CAInfo(caid, validityString, catoken, description, caSerialNumberOctetSize, crlperiod, crlIssueInterval, crlOverlapTime, deltacrlperiod,
                         crlpublishers, keyValidators, useauthoritykeyidentifier, authoritykeyidentifiercritical, usecrlnumber, crlnumbercritical,
                         defaultcrldistpoint, defaultcrlissuer, defaultocsplocator, authorityInformationAccess, certificateAiaDefaultCaIssuerUri,
                         parseNameConstraintsInput(nameConstraintsPermittedString), parseNameConstraintsInput(nameConstraintsExcludedString),
@@ -1201,7 +1207,7 @@ public class CAInterfaceBean implements Serializable {
     /** Returns true if any CVC CA implementation is available, false otherwise.
      * Used to hide/give warning when no CVC CA implementation is available.
      */
-    public boolean isCVCAvailable() {
+    public boolean isCvcAvailable() {
         boolean ret = false;
         ServiceLoader<? extends CvcPlugin> loader = CvcCA.getImplementationClasses();
         if (loader.iterator().hasNext()) {

@@ -16,9 +16,11 @@
 # - ca.cmskeystorepass
 
 # Application server home directory used during development. The path can not end with a slash or backslash.
+# On windows use / instead of \
 # Default: $APPSRV_HOME
 #appserver.home=/opt/jboss-as-7.1.1.Final
 #appserver.home=/opt/glassfish3/glassfish
+#appserver.home=/Program Files/wildfly-10.1.0Final
 #appserver.home=${env.APPSRV_HOME}
 
 # See also the section 'cluster configuration' for other JBoss options, for example
@@ -153,7 +155,7 @@ ejbca.cli.defaultpassword=ejbca
 #------------------- Debug and special settings -------------
 #
 # Custom Available Access Rules. Use ';' to separate multiple access rules
-# Available values are the Access Rules strings in Advanced mode of 'Access Rules' in 'Administrator Roles'
+# Available values are the Access Rules strings in Advanced mode of 'Access Rules' in 'Roles and Access Rules'
 # Default: ""
 #ejbca.customavailableaccessrules=
 

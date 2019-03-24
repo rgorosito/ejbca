@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
@@ -32,7 +33,7 @@ import org.ejbca.core.ejb.ca.sign.SignSessionLocal;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.cvc.CardVerifiableCertificate;
 import org.ejbca.ui.web.RequestHelper;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 import org.ejbca.ui.web.pub.ServletUtils;
 
 /**
@@ -84,15 +85,14 @@ public class CACertServlet extends HttpServlet {
     public void doGet(HttpServletRequest req,  HttpServletResponse res) throws java.io.IOException, ServletException {
         log.trace(">doGet()");
         // Check if authorized
-        EjbcaWebBean ejbcawebbean= (org.ejbca.ui.web.admin.configuration.EjbcaWebBean)
-                                   req.getSession().getAttribute("ejbcawebbean");
-        if ( ejbcawebbean == null ){
+        EjbcaWebBean ejbcawebbean= (EjbcaWebBean) req.getSession().getAttribute("ejbcawebbean");
+        if ( ejbcawebbean == null ) {
           try {
-            ejbcawebbean = (org.ejbca.ui.web.admin.configuration.EjbcaWebBean) java.beans.Beans.instantiate(Thread.currentThread().getContextClassLoader(), org.ejbca.ui.web.admin.configuration.EjbcaWebBean.class.getName());
+            ejbcawebbean = (EjbcaWebBean) java.beans.Beans.instantiate(Thread.currentThread().getContextClassLoader(), EjbcaWebBean.class.getName());
            } catch (ClassNotFoundException exc) {
                throw new ServletException(exc.getMessage());
            }catch (Exception exc) {
-               throw new ServletException (" Cannot create bean of class "+org.ejbca.ui.web.admin.configuration.EjbcaWebBean.class.getName(), exc);
+               throw new ServletException (" Cannot create bean of class "+EjbcaWebBean.class.getName(), exc);
            }
            req.getSession().setAttribute("ejbcawebbean", ejbcawebbean);
         }
@@ -117,13 +117,10 @@ public class CACertServlet extends HttpServlet {
         if (command == null) {
             command = "";
         }
+        String lev = req.getParameter(LEVEL_PROPERTY);
         if ((command.equalsIgnoreCase(COMMAND_NSCACERT) || command.equalsIgnoreCase(COMMAND_IECACERT) || command.equalsIgnoreCase(COMMAND_JKSTRUSTSTORE)
-        		|| command.equalsIgnoreCase(COMMAND_CACERT)) && issuerdn != null ) {
-            String lev = req.getParameter(LEVEL_PROPERTY);
-            int level = 0;
-            if (lev != null) {
-                level = Integer.parseInt(lev);
-            }
+        		|| command.equalsIgnoreCase(COMMAND_CACERT)) && issuerdn != null && StringUtils.isNumeric(lev)) {
+            final int level = Integer.parseInt(lev);
             // Root CA is level 0, next below root level 1 etc etc
             try {
                 Certificate[] chain = signSession.getCertificateChain(issuerdn.hashCode()).toArray(new Certificate[0]);
@@ -190,8 +187,7 @@ public class CACertServlet extends HttpServlet {
                 res.sendError(HttpServletResponse.SC_NOT_FOUND, "Error getting CA certificates.");
                 return;
             }
-        }
-        else {
+        } else {
             res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Bad Request format");
             return;
         }

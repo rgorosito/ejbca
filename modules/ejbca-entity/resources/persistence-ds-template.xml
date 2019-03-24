@@ -15,24 +15,26 @@
 
  version: $Id$
  -->
-<persistence version="2.0"
-    xmlns="http://java.sun.com/xml/ns/persistence"
+<persistence version="2.1"
+    xmlns="http://xmlns.jcp.org/xml/ns/persistence"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/persistence
-                        http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                        http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+                        
     <persistence-unit name="ejbca" transaction-type="JTA">
         <provider>org.hibernate.ejb.HibernatePersistence</provider>
         <jta-data-source>${datasource.jndi-name-prefix}${datasource.jndi-name}</jta-data-source>
         <mapping-file>META-INF/orm-ejbca-${database.name}.xml</mapping-file>
         <properties>
             <property name="hibernate.dialect" value="${hibernate.dialect}"/>
-            <!--
-            	We don't want Hibernate to go and change the database schema on it's own initiative, since we still use
-            	manual upgrade scripts. But we do want to create a database schema if this is a fresh install.
-            	It would be nice if we could drop manual schema changes and just let Hibernate update the schema...
-            -->
             <property name="hibernate.hbm2ddl.auto" value="update"/> <!-- validate | update | create | create-drop -->
             <property name="hibernate.query.jpaql_strict_compliance" value="true"/>
+            <!-- Debug options -->
+            <!-- 
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.format_sql" value="true"/>
+            <property name="hibernate.use_sql_comments" value="true"/>
+             -->
         </properties>
     </persistence-unit>
 </persistence>

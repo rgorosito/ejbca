@@ -4,14 +4,14 @@
 <%
     response.setContentType("text/html; charset="+org.ejbca.config.WebConfiguration.getWebContentEncoding());
 %>
-<%@page  errorPage="/errorpage.jsp" import="java.util.*, org.ejbca.ui.web.admin.configuration.EjbcaWebBean,org.ejbca.config.GlobalConfiguration, org.ejbca.ui.web.admin.rainterface.UserView,
+<%@page  errorPage="/errorpage.jsp" import="java.util.*, org.ejbca.ui.web.jsf.configuration.EjbcaWebBean,org.ejbca.config.GlobalConfiguration, org.ejbca.ui.web.admin.rainterface.UserView,
     org.ejbca.ui.web.RequestHelper,org.ejbca.ui.web.admin.rainterface.RAInterfaceBean, org.ejbca.core.model.ra.raadmin.EndEntityProfile, org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator, org.cesecore.certificates.endentity.EndEntityConstants,
                  javax.ejb.CreateException, java.io.Serializable, org.cesecore.authorization.AuthorizationDeniedException, org.cesecore.certificates.util.DNFieldExtractor, org.ejbca.core.model.ra.ExtendedInformationFields, org.cesecore.certificates.endentity.EndEntityInformation,
                  org.ejbca.ui.web.admin.hardtokeninterface.HardTokenInterfaceBean, org.ejbca.core.model.hardtoken.HardTokenIssuer,org.ejbca.core.model.hardtoken.HardTokenIssuerInformation,java.math.BigInteger,org.ejbca.core.model.SecConst,org.cesecore.util.StringTools,
                  org.cesecore.certificates.util.DnComponents,org.apache.commons.lang.time.DateUtils,org.cesecore.certificates.endentity.ExtendedInformation,org.cesecore.certificates.crl.RevokedCertInfo,org.cesecore.ErrorCode,org.ejbca.core.model.authorization.AccessRulesConstants,
-                 org.cesecore.certificates.certificate.certextensions.standard.NameConstraint, org.ejbca.util.HTMLTools, org.cesecore.util.CertTools" %>
+                 org.cesecore.certificates.certificate.certextensions.standard.NameConstraint, org.cesecore.certificates.certificate.certextensions.standard.QcStatement, org.cesecore.certificates.endentity.PSD2RoleOfPSPStatement, org.ejbca.util.HTMLTools, org.cesecore.util.CertTools" %>
 <html> 
-<jsp:useBean id="ejbcawebbean" scope="session" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBean" />
+<jsp:useBean id="ejbcawebbean" scope="session" type="org.ejbca.ui.web.jsf.configuration.EjbcaWebBean" class="org.ejbca.ui.web.admin.configuration.EjbcaWebBeanImpl" />
 <jsp:useBean id="rabean" scope="session" class="org.ejbca.ui.web.admin.rainterface.RAInterfaceBean" />
 <jsp:useBean id="tokenbean" scope="session" class="org.ejbca.ui.web.admin.hardtokeninterface.HardTokenInterfaceBean" />
 <jsp:useBean id="editendentitybean" scope="page" class="org.ejbca.ui.web.admin.rainterface.EditEndEntityBean" />
@@ -38,6 +38,8 @@
     static final String TEXTFIELD_CARDNUMBER = "textfieldcardnumber";
     static final String TEXTFIELD_MAXFAILEDLOGINS = "textfieldmaxfailedlogins";
     static final String TEXTFIELD_CERTSERIALNUMBER = "textfieldcertserialnumber";
+	static final String TEXTFIELD_NCANAME = "psd2ncaname";
+	static final String TEXTFIELD_NCAID = "psd2ncaid";
 
     static final String TEXTAREA_EXTENSIONDATA = "textareaextensiondata";
     static final String TEXTAREA_NC_PERMITTED = "textarencpermitted"; // Name Constraints
@@ -58,6 +60,7 @@
     static final String SELECT_CA = "selectca";
     static final String SELECT_ALLOWEDREQUESTS = "selectallowedrequests";
     static final String SELECT_ISSUANCEREVOCATIONREASON = "selectissuancerevocationreason";
+    static final String SELECT_PSD2_PSPROLE = "selectpsd2psprole";
 
     static final String CHECKBOX_CLEARTEXTPASSWORD = "checkboxcleartextpassword";
     static final String CHECKBOX_SUBJECTDN = "checkboxsubjectdn";
@@ -498,6 +501,29 @@
 		                    } else {
 		                        ei.setCertificateSerialNumber(null);
 		                    }
+	                    	value = request.getParameter(TEXTFIELD_NCANAME);
+							if (value != null && value.length() > 0) {
+		                    	ei.setQCEtsiPSD2NcaName(value.trim());
+							} else {
+								ei.setQCEtsiPSD2NcaName(null);
+							}
+							value = request.getParameter(TEXTFIELD_NCAID);
+				            if (value != null && value.length() > 0) {
+				                ei.setQCEtsiPSD2NcaId(value.trim());
+				            } else {
+				            	ei.setQCEtsiPSD2NcaId(null);
+				            }
+				            String[] pspRoleValues = request.getParameterValues(SELECT_PSD2_PSPROLE);
+				            if (pspRoleValues != null && pspRoleValues.length > 0) {
+				                final List<PSD2RoleOfPSPStatement> pspRoles = new ArrayList<>();
+				                for (String role : pspRoleValues) {
+				                    pspRoles.add(new PSD2RoleOfPSPStatement(QcStatement.getPsd2Oid(role), role));
+				                }
+				            	ei.setQCEtsiPSD2RolesOfPSP(pspRoles);
+				            } else {
+				            	ei.setQCEtsiPSD2RolesOfPSP(null);
+				            }
+				            newuser.setExtendedInformation(ei);		                    	
 		                    value = request.getParameter(TEXTAREA_NC_PERMITTED);
 		                    if (value != null && !value.trim().isEmpty()) {
 		                        ei.setNameConstraintsPermitted(NameConstraint.parseNameConstraintsList(value));
@@ -537,7 +563,11 @@
 		                                throw e;
 		                            }
 		                        } catch (org.ejbca.core.model.approval.ApprovalException e) {
-		                            approvalmessage = ejbcawebbean.getText("THEREALREADYEXISTSAPPROVAL");
+		                            if (e.getErrorCode().equals(ErrorCode.VALIDATION_FAILED)){
+		                                approvalmessage = ejbcawebbean.getText("DOMAINBLACKLISTVALIDATOR_VALIDATION_FAILED");
+		                            }else{
+		                                approvalmessage = ejbcawebbean.getText("THEREALREADYEXISTSAPPROVAL");
+		                            }
 		                        } catch (org.ejbca.core.model.approval.WaitingForApprovalException e) {
 		                            approvalmessage = ejbcawebbean.getText("REQHAVEBEENADDEDFORAPPR");
 		                        } catch (org.ejbca.core.EjbcaException e) {
@@ -1550,6 +1580,7 @@ function checkUseInBatch(){
 		  || profile.getUse(EndEntityProfile.CARDNUMBER, 0)
 		  || profile.getUse(EndEntityProfile.NAMECONSTRAINTS_PERMITTED, 0)
           || profile.getUse(EndEntityProfile.NAMECONSTRAINTS_EXCLUDED, 0)
+          || profile.isPsd2QcStatementUsed()
 		   ) { %>
       <tr id="Row<%=(row++)%2%>" class="section">
 	<td align="right"><strong><%= ejbcawebbean.getText("OTHERCERTIFICATEDATA") %></strong></td>
@@ -1724,6 +1755,70 @@ function checkUseInBatch(){
             <td>&nbsp;</td>
         </tr>
     <%  } %>
+    
+    <% if (profile.isPsd2QcStatementUsed()) { 
+    
+        ExtendedInformation ei = userdata.getExtendedInformation(); 
+        if (ei == null) {
+            ei = new ExtendedInformation(); // create empty one if it doens't exist, to avoid NPEs
+        }
+    %>
+		<tr  id="Row<%=(row++)%2%>"> 
+			<td align="right"> 
+				<c:out value="<%= ejbcawebbean.getText(\"PSD2_NCANAME\") %>"/>
+			</td>
+			<td> 
+				<input type="text" name="<%= TEXTFIELD_NCANAME %>" size="30" maxlength="256" tabindex="<%=tabindex++%>" 
+					value="<%=ei.getQCEtsiPSD2NCAName() == null ? "" : ei.getQCEtsiPSD2NCAName()%>" />
+			</td>
+			<td>
+				<input type="checkbox" value="<%= CHECKBOX_VALUE %>" disabled="disabled"/>
+			</td>
+		</tr>
+		<tr  id="Row<%=(row++)%2%>"> 
+			<td align="right"> 
+				<c:out value="<%= ejbcawebbean.getText(\"PSD2_NCAID\") %>"/>
+			</td>
+			<td> 
+				<input type="text" name="<%= TEXTFIELD_NCAID %>" size="30" maxlength="256" tabindex="<%=tabindex++%>" 
+					value="<%=ei.getQCEtsiPSD2NCAId() == null ? "" : ei.getQCEtsiPSD2NCAId()%>" />
+			</td>
+			<td>
+				<input type="checkbox" value="<%= CHECKBOX_VALUE %>" disabled="disabled"/>
+			</td>
+		</tr>
+		
+	  <tr  id="Row<%=row++%2%>"> 
+      	<td align="right"> 
+        	<c:out value="<%= ejbcawebbean.getText(\"PSD2_PSP_ROLES\") %>" />
+      	</td>
+      	<td width="50%"> 
+        	<select class="select-list" name="<%=SELECT_PSD2_PSPROLE%>" size="4" multiple="multiple">
+	        	<% 
+	        	String[] availableRoles = {"PSP_AS", "PSP_PI", "PSP_AI", "PSP_IC"};
+	        	for (String role : availableRoles) { %>
+	            <option 
+	            <% 
+	            if (ei.getQCEtsiPSD2RolesOfPSP() != null) {
+		            for (PSD2RoleOfPSPStatement psd2role : ei.getQCEtsiPSD2RolesOfPSP()) {
+			            if (role.equals(psd2role.getName())) {
+			            	out.write(" selected ");
+			            }
+	            	} 
+	            }
+	           	%>
+	            value="<%=role%>">
+	            <c:out value="<%= ejbcawebbean.getText(\"PSD2_\" + role) %>"/>
+	            </option>
+	            <%}%>
+        	</select>
+      	</td>
+      	<td>
+			<input type="checkbox" value="<%= CHECKBOX_VALUE %>" disabled="disabled"/>
+		</td>
+      </tr>
+    <%	} %> 
+    
 
     <!-- ---------- Other data -------------------- -->
 

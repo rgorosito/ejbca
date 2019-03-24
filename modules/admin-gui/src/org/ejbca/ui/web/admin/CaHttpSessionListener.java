@@ -35,7 +35,7 @@ import org.ejbca.config.WebConfiguration;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
 import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
-import org.ejbca.ui.web.admin.configuration.EjbcaWebBean;
+import org.ejbca.ui.web.jsf.configuration.EjbcaWebBean;
 
 /**
  * Listener detecting individual session timeouts. A session generally times out when after
@@ -91,8 +91,16 @@ public class CaHttpSessionListener implements HttpSessionListener {
         
         final AuthenticationToken admin = ejbcaWebBean.getAdminObject();
         final Certificate x509Certificate= getCertificate(admin);
-        final String issuerDn = Integer.toString(CertTools.getIssuerDN(x509Certificate).hashCode());
-        final String serialNr = CertTools.getSerialNumberAsString(x509Certificate);
+        final String caID;
+        final String serialNr;
+        if (x509Certificate != null) {
+            caID = Integer.toString(CertTools.getIssuerDN(x509Certificate).hashCode());
+            serialNr = CertTools.getSerialNumberAsString(x509Certificate);            
+        } else {
+            // there is no certificate, still destroy the session...but we log 0
+            caID = "0";
+            serialNr = "0";
+        }
         if (WebConfiguration.getAdminLogRemoteAddress()) {
             logDetails.put("remoteip", ejbcaWebBean.getCurrentRemoteIp());
         }
@@ -102,7 +110,7 @@ public class CaHttpSessionListener implements HttpSessionListener {
         }
         // Audit log the event
         auditLogSession.log(EjbcaEventTypes.ADMINWEB_ADMINISTRATORLOGGEDOUT, EventStatus.SUCCESS, EjbcaModuleTypes.ADMINWEB, EjbcaServiceTypes.EJBCA, 
-                admin.toString(), issuerDn, serialNr, null, logDetails);
+                admin.toString(), caID, serialNr, null, logDetails);
     }
     
     private Certificate getCertificate(final AuthenticationToken admin) {
@@ -117,9 +125,7 @@ public class CaHttpSessionListener implements HttpSessionListener {
         if (ejbcawebbean == null) {
             try {
                 ejbcawebbean = (EjbcaWebBean) java.beans.Beans.instantiate(Thread.currentThread().getContextClassLoader(),
-                        org.ejbca.ui.web.admin.configuration.EjbcaWebBean.class.getName());
-            } catch (ClassNotFoundException e) {
-                log.error("Failed to audit log ended session with Id" + session.getId() + "\n" + e.getMessage());
+                        EjbcaWebBean.class.getName());
             } catch (Exception e) {
                 log.error("Failed to audit log ended session with Id" + session.getId() + "\n" + e.getMessage());
             }

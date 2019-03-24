@@ -124,10 +124,20 @@ img.menu_logo {
   background: #000;
   border-radius: 2px;
   margin: 1% 0 4% 0; }
+  
   .internal-frame-black > .keygeneration-button-group:nth-of-type(1) {
     padding: 3% 2% 0 2%; }
   .internal-frame-black > .keygeneration-button-group:nth-of-type(3) {
     padding: 0px 0px 2% 0; }
+
+.internal-frame-warning {
+  background-color: #ee1111;
+  color: #000;
+  border-radius: 2px;
+  margin: 1% 0 4% 0;
+  padding-bottom: 3%;
+  padding-top: 1%;
+}
 
 .topRightButtons {
     text-align: right;
@@ -819,6 +829,12 @@ label[for="requestTemplateForm:selectKeyPairGenerationOneMenu"] {
   border-color: #000;
   list-style: none;
   opacity: 0.8; }
+  
+#requestTemplateForm\:endEntityProfileDescription,
+#requestTemplateForm\:certificateProfileDescription {
+	color: white; 
+	font-size: 80%;
+}
 
 #contentForm > #contentForm\:more,
 #enrollWithRequestIdForm\:requestId,

@@ -26,6 +26,7 @@ import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityType;
 import org.cesecore.certificates.endentity.EndEntityTypes;
+import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.certificates.util.DnComponents;
 import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.ra.raadmin.validators.RegexFieldValidator;
@@ -292,6 +293,106 @@ public class EndEntityProfileTest {
             assertEquals("Error message was not the expected", "Subject DN is illegal.", e.getMessage());
         }
         
+    }
+
+    @Test(expected = EndEntityProfileValidationException.class)
+    public void testUserFulfillEndEntityProfileDnsFromCnNotPresent() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        // CommonName is allowed by default in an end entity profile
+        profile.addField(DnComponents.DNSNAME);
+        profile.setRequired(DnComponents.DNSNAME, 0, true);
+        profile.setCopy(DnComponents.DNSNAME, 0, true);
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=UserDns", 123, "", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        profile.doesUserFulfillEndEntityProfile(userdata, false);
+    }
+
+    @Test
+    public void testUserFulfillEndEntityProfileDnsFromCnPresent() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        // CommonName is allowed by default in an end entity profile
+        profile.addField(DnComponents.DNSNAME);
+        profile.setRequired(DnComponents.DNSNAME, 0, true);
+        profile.setCopy(DnComponents.DNSNAME, 0, true);
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=UserDns", 123, "DNSNAME=UserDns", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        profile.doesUserFulfillEndEntityProfile(userdata, false);
+    }
+
+    @Test(expected = EndEntityProfileValidationException.class)
+    public void testUserFulfillEndEntityProfileDnsFromCnWrongDnsForNonMidifiableField() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        // CommonName is allowed by default in an end entity profile
+        profile.addField(DnComponents.DNSNAME);
+        profile.setRequired(DnComponents.DNSNAME, 0, true);
+        profile.setCopy(DnComponents.DNSNAME, 0, true);
+        profile.setModifyable(DnComponents.DNSNAME, 0, false);
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=UserDns", 123, "DNSNAME=wrong", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        profile.doesUserFulfillEndEntityProfile(userdata, false);
+    }
+
+
+    @Test
+    public void testUserFulfillEndEntityProfileDnsFromCnMultipleDns() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        // CommonName is allowed by default in an end entity profile
+        profile.addField(DnComponents.DNSNAME);
+        profile.setRequired(DnComponents.DNSNAME, 0, true);
+        profile.setCopy(DnComponents.DNSNAME, 0, true);
+        profile.setModifyable(DnComponents.DNSNAME, 0, false);
+
+        profile.addField(DnComponents.DNSNAME);
+        profile.setRequired(DnComponents.DNSNAME, 1, true);
+
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=UserDns", 123, "DNSNAME=UserDns, DNSNAME=wrong", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        profile.doesUserFulfillEndEntityProfile(userdata, false);
+    }
+
+    @Test(expected = EndEntityProfileValidationException.class)
+    public void testUserFulfillEndEntityProfilePsd2QcStatementAssertFailure() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        profile.setPsd2QcStatementUsed(false);
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=Psd2User", 123, "", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        userdata.setExtendedInformation(new ExtendedInformation());
+        userdata.getExtendedInformation().setQCEtsiPSD2NcaName("SomePsd2NCName");
+        profile.doesUserFulfillEndEntityProfile(userdata, false);
+    }
+    
+    @Test
+    public void testUserFulfillEndEntityProfilePsd2QcStatementAssertSuccess() throws EndEntityProfileValidationException {
+        EndEntityProfile profile = new EndEntityProfile();
+        profile.setPsd2QcStatementUsed(true);
+        profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+        EndEntityInformation userdata = new EndEntityInformation("foo", "CN=Psd2User", 123, "", "", new EndEntityType(EndEntityTypes.ENDUSER),
+                123, CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM, 0, null);
+        userdata.setPassword("foo123");
+        userdata.setExtendedInformation(new ExtendedInformation());
+        userdata.getExtendedInformation().setQCEtsiPSD2NcaName("SomePsd2NCName");
+        try {
+            profile.doesUserFulfillEndEntityProfile(userdata, false);
+        } catch (EndEntityProfileValidationException e) {
+            fail("Expected profile validation to success when 'Psd2QcStatement' was allowed");
+            throw e;
+        }
     }
     
     private static Map<String,Serializable> makeRegexValidator(final String regex) {

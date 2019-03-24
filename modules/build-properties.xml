@@ -200,6 +200,11 @@
 
 	<path id="lib.junit.classpath">
 		<fileset dir="${ejbca.home}/lib/ext">
+			<!--
+			Include hamcrest-core before JUnit, as JUnit itself brings along its own version of Hamcrest as a transitive dependency.
+			Reference: https://tedvinke.wordpress.com/2013/12/17/mixing-junit-hamcrest-and-mockito-explaining-nosuchmethoderror/
+			-->
+			<include name="hamcrest-core-*.jar"/>
 			<include name="junit-*.jar"/>
 		</fileset>
 		<fileset dir="${ejbca.home}/lib">
@@ -224,6 +229,12 @@
 			<include name="*.jar"/>
 			<exclude name="*-javadoc.jar"/>
 			<exclude name="*-sources.jar"/>
+		</fileset>
+	</path>
+
+	<path id="lib.test.powermock.classpath">
+		<fileset dir="${ejbca.home}/lib/ext/test/powermock">
+			<include name="*.jar"/>
 		</fileset>
 	</path>
 
@@ -313,7 +324,7 @@
 	</path>
 
 	<path id="lib.javaxejb.classpath">
-		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
+		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-7.0-*.jar"/>
 	</path>
 
 	<!-- Remote EJB requires application specific implementation to be available -->
@@ -334,7 +345,7 @@
 	</path>
 
 	<path id="lib.jee.classpath">
-		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
+		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-7.0-*.jar"/>
 	</path>
 	
 	<path id="lib.servicemanifestbuilder.classpath">
@@ -342,7 +353,7 @@
 	</path>
 
 	<path id="lib.servlet.classpath">
-		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
+		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-7.0-*.jar"/>
 	</path>
 
 	<path id="lib.jsf.classpath">
@@ -350,7 +361,7 @@
 	</path>
 	
 	<path id="lib.jsp.classpath">
-		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-6.0-*.jar"/>
+		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-7.0-*.jar"/>
 	</path>
 	
 	<path id="lib.cesecore-common.classpath"><fileset file="${mod.cesecore-common.lib}"/></path>
@@ -381,7 +392,18 @@
 
 	<path id="lib.jpa.classpath">
         <fileset dir="${ejbca.home}/lib/hibernate">
-            <include name="antlr-*.jar"/>
+        	<include name="classmate*.jar"/>
+        	<include name="byte-buddy*.jar"/>
+        	<include name="FastInfoset*.jar"/>
+        	<include name="istack-commons-runtime*.jar"/>
+        	<include name="jandex*.jar"/>
+        	<include name="javax.activation*.jar"/>
+        	<include name="javax.persistence*.jar"/>
+        	<include name="jaxb-api*.jar"/>
+        	<include name="jaxb-runtime*.jar"/>
+        	<include name="stax-ex*.jar"/>
+        	<include name="txw2*.jar"/>
+        	<include name="antlr-*.jar"/>
             <include name="dom4j-*.jar"/>
             <include name="hibernate-commons-annotations-*.jar"/>
             <include name="hibernate-core-*.jar"/>
