@@ -27,6 +27,8 @@
     <property name="mod.ejbca-db-cli.lib" location="${mod.ejbca-db-cli.dist}/ejbca-db-cli.jar" />
     <property name="mod.cesecore-common.path" location="${mod.path}/cesecore-common" />
     <property name="mod.cesecore-common.lib" location="${mod.dist.path}/cesecore-common.jar" />
+    <property name="mod.cesecore-cvcca.path" location="${mod.path}/cesecore-cvcca" />
+    <property name="mod.cesecore-cvcca.lib" location="${mod.dist.path}/cesecore-cvcca.jar" />
     <property name="mod.cesecore-entity.path" location="${mod.path}/cesecore-entity" />
     <property name="mod.cesecore-entity.lib" location="${mod.dist.path}/cesecore-entity.jar" />
     <property name="mod.cesecore-ejb.path" location="${mod.path}/cesecore-ejb" />
@@ -36,6 +38,8 @@
     <property name="mod.cesecore-other-entity.lib" location="${mod.dist.path}/cesecore-other-entity.jar" />
     <property name="mod.cesecore-other-ejb.lib" location="${mod.dist.path}/cesecore-other-ejb.jar" />
     <property name="mod.cesecore-other-ejb-interface.lib" location="${mod.dist.path}/cesecore-other-ejb-interface.jar" />
+    <property name="mod.cesecore-x509ca.path" location="${mod.path}/cesecore-x509ca" />
+    <property name="mod.cesecore-x509ca.lib" location="${mod.dist.path}/cesecore-x509ca.jar" />
     <property name="mod.ejbca-ejb.lib" location="${mod.dist.path}/ejbca-ejb.jar" />
     <property name="mod.ejbca-ejb.path" location="${mod.path}/ejbca-ejb" />
     <property name="mod.ejbca-ejb-cli.dist" location="${ejbca.dist.path}/ejbca-ejb-cli" />
@@ -241,27 +245,31 @@
     <mkdir dir="${ejbca.home}/lib/ext/resteasy-jaxrs-lib"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.resteasy-jaxrs.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/resteasy-jaxrs-lib">
-			<include name="*.jar"/>
-			<exclude name="*-javadoc.jar"/>
-			<exclude name="*-sources.jar"/>
+			<include name="geronimo-osgi-locator-1.1.jar"/>
+			<include name="resteasy-jackson2-provider-3.0.26.Final.jar"/>
+			<include name="resteasy-jaxrs-3.0.26.Final.jar"/>
+			<include name="scannotation-1.0.3.jar"/>
+			<include name="tjws-3.0.26.Final.jar"/>
+		</fileset>
+		<fileset dir="${ejbca.home}/lib/ext/jackson2">
+			<include name="jackson-jaxrs-base-2.9.8.jar"/>
+			<include name="jackson-jaxrs-json-provider-2.9.8.jar"/>
+			<include name="jackson-module-jaxb-annotations-2.9.8.jar"/>
 		</fileset>
 	</path>
 
 	<mkdir dir="${ejbca.home}/lib/ext/swagger"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.swagger.classpath">
-		<fileset dir="${ejbca.home}/lib/ext/swagger">
-			<include name="*.jar"/>
-			<exclude name="*-javadoc.jar"/>
-			<exclude name="*-sources.jar"/>
-		</fileset>
+		<fileset dir="${ejbca.home}/lib/ext/swagger" includes="*.jar"/>
 	</path>
 
     <mkdir dir="${ejbca.home}/lib/ext/jackson2"/> <!-- Avoid failure when this directory is excluded from a release. -->
 	<path id="lib.jackson2.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/jackson2">
-			<include name="*.jar"/>
-			<exclude name="*-javadoc.jar"/>
-			<exclude name="*-sources.jar"/>
+			<include name="jackson-annotations-2.9.8.jar"/>
+			<include name="jackson-databind-2.9.8.jar"/>
+			<include name="jackson-core-2.9.8.jar"/>
+			<include name="jackson-dataformat-yaml-2.9.8.jar"/>
 		</fileset>
 	</path>
 
@@ -341,6 +349,9 @@
 			<!-- Glassfish 4.0 -->
 			<include name="glassfish/lib/gf-client.jar"/>			
 			<include name="glassfish/lib/jndi.properties.jar"/>			
+		</fileset>
+		<fileset dir="${ejbca.home}">
+			<include name="lib/jee-client/*.jar"/>
 		</fileset>
 	</path>
 
@@ -468,7 +479,23 @@
 			</not>
 		</and>
     </condition>
+	
+    <condition property="mod.cesecore-x509ca.exists">
+        <available file="${mod.cesecore-x509ca.path}/build.xml" />
+    </condition>
+	
+    <condition property="mod.cesecore-cvcca.exists">
+        <available file="${mod.cesecore-cvcca.path}/build.xml" />
+    </condition>
+    
+    <condition property="mod.va.exists">
+        <available file="${mod.va.path}/build.xml" />
+    </condition>
 
+    <condition property="mod.ra.exists">
+        <available file="${mod.ra-gui.path}/build.xml" />
+    </condition>
+        
 	<condition property="mod.externalra.exists">
 		<available file="${mod.externalra.path}/build.xml" />
     </condition>

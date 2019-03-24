@@ -350,7 +350,7 @@
 		<war-replacement-in-module
 			replacement-tag="!--@status.war@-->"
 			replacement-file="${application.xml}"
-			replacement-enabled="${ocsp.enabled}"
+			replacement-enabled="${ocsp.enabled} and ${build.contains.va}"
 			replacement-web-uri="status.war"
 			replacement-context-root="${ocsp.contextroot}"
 		/>
@@ -447,7 +447,19 @@
 			replacement-file="${eardd.src}/META-INF/application.xml"
 			replacement-enabled="${mod.peerconnector.exists}"
 			replacement-ejb="peerconnector-ejb.jar"
-			/>
+		/>
+        <jar-replacement-in-module
+            replacement-tag="!--@cesecore-cvcca.jar@-->"
+            replacement-file="${eardd.src}/META-INF/application.xml"
+            replacement-enabled="${mod.cesecore-cvcca.exists}"
+            replacement-ejb="cesecore-cvcca.jar"
+        />
+        <jar-replacement-in-module
+            replacement-tag="!--@cesecore-x509ca.jar@-->"
+            replacement-file="${eardd.src}/META-INF/application.xml"
+            replacement-enabled="${mod.cesecore-x509ca.exists}"
+            replacement-ejb="cesecore-x509ca.jar"
+        />
 		<jar-replacement-in-module
 			replacement-tag="!--@unidfnr-ejb.jar@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
@@ -471,7 +483,7 @@
 		<war-replacement-in-module
 			replacement-tag="!--@ra-gui.war@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
-			replacement-enabled="true"
+			replacement-enabled="${build.contains.ra}"
 			replacement-web-uri="ra-gui.war"
 			replacement-context-root="/ejbca/ra"
 		/>
@@ -557,20 +569,15 @@
                 <include name="ctlog-*.jar" />
                 <include name="protobuf-java-*.jar" />
             </zipfileset>
-			<zipfileset prefix="lib" dir="${lib}/ext/swagger" erroronmissingdir="false">
-				<include name="*.jar"/>
-				<exclude name="*-javadoc.jar"/>
-				<exclude name="*-sources.jar"/>
-			</zipfileset>
+        	<!-- Swagger is included in each module.war/WEB-INF/lib/ instead,
+        	     since it is not designed for multiple APIs in the same class loader.
+			<zipfileset prefix="lib" dir="${lib}/ext/swagger" erroronmissingdir="false" includes="*.jar"/>
+			-->
 			<zipfileset prefix="lib" dir="${lib}/ext/jackson2" erroronmissingdir="false">
-				<include name="*.jar"/>
-				<exclude name="*-javadoc.jar"/>
-				<exclude name="*-sources.jar"/>
-			</zipfileset>
-			<!-- JAX-RS and Jackson2 provider to support old application servers -->
-			<zipfileset prefix="lib" dir="${lib}/ext/resteasy-jaxrs-lib" erroronmissingdir="false">
-				<include name="resteasy-jackson2-provider-3.0.1.Final.jar"/>
-				<include name="jaxrs-api-3.0.1.Final.jar"/>
+				<include name="jackson-annotations-2.9.8.jar"/>
+				<include name="jackson-core-2.9.8.jar"/>
+				<include name="jackson-databind-2.9.8.jar"/>
+				<include name="jackson-dataformat-yaml-2.9.8.jar"/>
 			</zipfileset>
             <zipfileset prefix="lib" dir="${lib}/batik" includes="*.jar" excludes="${bundle-xerces-exclude}"/>
             <fileset dir="${dist.dir}" includes="doc*.war"/>
@@ -617,6 +624,8 @@
                 <include name="cesecore-ejb-interface.jar" />
                 <include name="cesecore-common.jar" />
                 <include name="cesecore-entity.jar" />
+        		<include name="cesecore-x509ca.jar" />
+        		<include name="cesecore-cvcca.jar" />
         		<include name="ejbca-extensions.jar" />
                 <include name="ejbca-properties.jar" />
                 <include name="log4jconfig.jar" unless="jbosseap6-specials"/>
@@ -711,9 +720,11 @@
         <javadoc packagenames="org.ejbca.*,org.cesecore.*" maxmemory="256m" destdir="${apidoc}" classpathref="javadoc-dependencies.classpath" 
         	author="true" version="true" use="true" windowtitle="EJBCA API" bottom="Copyright &#169; PrimeKey Solutions AB." >
             <sourcepath location="${ejbca.home}/modules/cesecore-common/src"/>
+        	<sourcepath location="${ejbca.home}/modules/cesecore-cvcca/src"/>
             <sourcepath location="${ejbca.home}/modules/cesecore-ejb/src"/>
             <sourcepath location="${ejbca.home}/modules/cesecore-ejb-interface/src"/>
             <sourcepath location="${ejbca.home}/modules/cesecore-entity/src"/>
+        	<sourcepath location="${ejbca.home}/modules/cesecore-x509ca/src"/>
         	<sourcepath location="${ejbca.home}/modules/cli-util/src"/>
            	<sourcepath location="${ejbca.home}/modules/clientToolBox/src"/>
         	<sourcepath location="${ejbca.home}/modules/edition-specific/src-ejb/"/>
@@ -878,8 +889,17 @@
 	<!-- The ZIP file contains all the files used, but not temporary or compile files etc -->
     <!-- ======================================================================= -->
 	<property name="edition" value="ce"/> <!-- ce if edition not set on command line with -Dedition=xyz" -->
+	<property name="variant" value=""/> <!-- If we are running on a full EJBCA instance! -->
+
+	<!-- This property is used to distinguish if we are running in full EJBCA or on a VA/RA only instance. To exclude parts from ejbca.sh accordingly -->
+    <condition property="running.full.ejbca" value="true">
+         <and>
+            <not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
+            <not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
+         </and>
+    </condition>	
 	
-	<target name="ziprelease" depends="deprecated:check" description="Make a zip file for EJBCA release. -Dedition=ee or ce (default)">
+	<target name="ziprelease" depends="deprecated:check" description="Make a zip file for EJBCA release. -Dedition=ee or ce (default) -Dvariant=ra or va">
 		<antcall target="clean" />
 		<!-- Always retrieve current version from Confluence -->
 		<antcall target="doc" inheritAll="true">
@@ -910,6 +930,32 @@
         <condition property="edition.is.ee" value="true">
             <equals arg1="${edition}" arg2="ee" casesensitive="true"/>
         </condition>
+		
+        <condition property="build.contains.va" value="true">
+            <not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
+        </condition>
+		
+        <condition property="build.contains.ra" value="true">
+        	<not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
+        </condition>
+		
+        <condition property="build.contains.cesecore-x509ca" value="true">
+            <or>
+                <not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
+            	<not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
+            </or>
+        </condition>
+        
+        <condition property="build.contains.cesecore-cvcca" value="true">
+        	<and>
+        		<equals arg1="${edition}" arg2="ee" casesensitive="true"/>
+                <or>
+                	<not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
+                	<not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
+                </or>
+        	</and>	
+        </condition>
+		
 		<zip destfile="../${basezipfile}.zip">
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="600" dirmode="700" > 
 		    	<include name="**/**" />
@@ -973,6 +1019,8 @@
                 <exclude unless="edition.is.ee" name="modules/cmpProxy/**"/>
                 <exclude unless="edition.is.ee" name="modules/ct/**"/>
                 <exclude unless="edition.is.ee" name="lib/ct/**"/>
+		    	<exclude unless="build.contains.cesecore-cvcca" name="modules/cesecore-cvcca/**"/>
+		    	<exclude unless="build.contains.cesecore-x509ca" name="modules/cesecore-x509ca/**"/>
                 <exclude unless="edition.is.ee" name="modules/peerconnector/**"/>
                 <exclude unless="edition.is.ee" name="modules/peerconnector/src-interface/org/ejbca/peerconnector/**"/>
                 <exclude unless="edition.is.ee" name="modules/peerconnector/src-ejb/org/ejbca/peerconnector/**"/>
@@ -1004,6 +1052,28 @@
                 <exclude unless="edition.is.ee" name="lib/ext/swagger docs/**"/>
                 <exclude unless="edition.is.ee" name="lib/ext/swagger/**"/>
                 <exclude unless="edition.is.ee" name="modules/plugins-ee/**"/>
+		    	
+		    	<exclude unless="build.contains.ra" name="modules/peerconnector/src-ra/org/ejbca/peerconnector/ra/RaMasterApiPeerImpl.java"/>
+		    	<exclude unless="build.contains.ra" name="modules/peerconnector/src-ra/org/ejbca/peerconnector/ra/RaMasterApiPeerDownstreamImpl.java"/>
+		    	<exclude unless="build.contains.ra" name="modules/peerconnector/src-ra/org/ejbca/peerconnector/ra/RaMasterApiPeerUpstreamImpl.java"/>
+		    		
+		    	<exclude unless="build.contains.ra" name="modules/ra-gui/**"/>
+		    	
+		    	<exclude unless="build.contains.va" name="modules/va/src-war/org/ejbca/ui/web/protocol/OCSPServlet.java"/>
+		    	<exclude unless="build.contains.va" name="modules/va/resources/WEB-INF/web-status-ejbca.xml"/>
+		    	
+				<!-- List of subcommands for ejbca.sh script that must be hidden when we are running on limited ejbca (va/ra) installation. -->
+		    	<!-- The excluded parts are listed in the ticket ECA-7904 and could be updated accordingly if needed.   -->
+				<exclude name="org/ejbca/ui/cli/hardtoken/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/config/est/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/config/cmp/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/ca/**/CaEditCaCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/ca/**/CaRenewCACommand.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/ca/**/CaDeactivateCACommand.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/ca/**/CaInitCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="org/ejbca/ui/cli/ca/**/CARepublishCommand.java.java" unless="running.full.ejbca"/>
+				<!-- End of the list of subcommands of ejbca.sh that must be hidden when we are running on limited ejbca (va/ra) installation -->
+		    	
 		    </zipfileset>
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="700" dirmode="700"> 
 		    	<include name="**/*.sh" />
@@ -1362,7 +1432,7 @@ SHA-256 checksum: ${cesecorebinSHA256}
     	<ant dir="modules" target="admin-gui" />
     </target>
 	
-    <target name="raweb.war">
+    <target name="raweb.war" if="build.contains.ra">
     	<ant dir="modules" target="ra-gui" />
     </target>
 

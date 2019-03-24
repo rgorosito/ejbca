@@ -35,7 +35,7 @@ pipeline {
                     sh "chmod 777 " + "$env.WORKSPACE/ejbca/p12"
                     
                     // set it running on background (-d parameter). needs to stay up, until selniumtests use it. will be killed later at cleanup phase.
-                    sh "docker run --name mypeer --net=selenium-network -p 28443:8443 -p 28080:8080 -v " + "$env.WORKSPACE" + ":/app -d mypeer"
+                    sh "docker run --name mypeer --net=selenium-network -p 28443:8443 -p 28080:8080 -p 24447:4447 -v " + "$env.WORKSPACE" + ":/app -d mypeer"
                     
                     timeout(10) {
                         waitUntil {
@@ -70,10 +70,15 @@ pipeline {
                 sh "mkdir -p " + "$env.WORKSPACE/ejbca/reports"
                 sh "chmod 777 " + "$env.WORKSPACE/ejbca/reports"
                 sh "chmod 777 $env.WORKSPACE/ejbca/modules/ejbca-webtest"
+                sh "chmod 777 " + "$env.WORKSPACE/ejbca/modules/ejbca-webtest/resources"
+
+                // copy Remote EJB client JAR (jboss-client.jar)
+                sh "mkdir -p -m 755 " + "$env.WORKSPACE/ejbca/lib/jee-client"
+                sh "docker cp mypeer:/opt/jboss/wildfly/bin/client/jboss-client.jar $env.WORKSPACE/ejbca/lib/jee-client/jboss-client.jar"
 
                 dir ('ejbca/jenkins-files/EE_UBUNTU16_OpenJDK8_WF12_SELENIUMTESTS/selenium_image') {
-                    sh "docker build -t seleniumtests -m 2GB ."
-                    sh "docker run --name seleniumtests --net=selenium-network -p 4444:4444 --shm-size=2g -v " + "$env.WORKSPACE" + ":/app seleniumtests"
+                    sh "docker build -t seleniumtests -m 5GB ."
+                    sh "docker run --name seleniumtests --net=selenium-network -p 4444:4444 --shm-size=5g -v " + "$env.WORKSPACE" + ":/app seleniumtests"
                 }
             }
         }
@@ -81,6 +86,7 @@ pipeline {
     post {
         always {
             junit "ejbca/**/reports/**/TEST-*.xml"
+            
             sh "docker stop --time=1 seleniumtests || true"
             sh "docker rm -f seleniumtests || true"
             

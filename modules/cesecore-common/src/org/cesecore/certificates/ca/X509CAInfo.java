@@ -15,6 +15,7 @@ package org.cesecore.certificates.ca;
 import java.security.NoSuchProviderException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,9 +23,14 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
+import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificateprofile.CertificatePolicy;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.util.CertTools;
@@ -39,6 +45,8 @@ import org.cesecore.util.StringTools;
  */
 public class X509CAInfo extends CAInfo {
 
+    private static final Logger log = Logger.getLogger(X509CAInfo.class);
+    
 	private static final long serialVersionUID = 2L;
 	private List<CertificatePolicy> policies;
 	private boolean useauthoritykeyidentifier;
@@ -63,6 +71,9 @@ public class X509CAInfo extends CAInfo {
 	private String externalCdp;
 	private boolean nameChanged;
 	private int caSerialNumberOctetSize;
+	private boolean usePartitionedCrl;
+	private int crlPartitions;
+	private int retiredCrlPartitions;
 
     /**
      * This constructor can be used when creating a CA.
@@ -122,7 +133,11 @@ public class X509CAInfo extends CAInfo {
              true, // useCertificateStorage
              false, // acceptRevocationNonExistingEntry
              null, // cmpRaAuthSecret
-             false // keepExpiredCertsOnCRL
+             false, // keepExpiredCertsOnCRL
+             false, // Use partitioned crls
+             0, // Number of crl partitons
+             0  // Number of retired crl partitions
+            
         );
     }
 
@@ -184,6 +199,9 @@ public class X509CAInfo extends CAInfo {
      * @param _acceptRevocationNonExistingEntry
      * @param _cmpRaAuthSecret
      * @param keepExpiredCertsOnCRL
+     * @param usePartitionedCrl boolean specifying partitioned crl usage
+     * @param crlPartitions the number of crl partitions (if any) used currently by this ca 
+     * @param retiredCrlPartitions the number of retired crl partitions (if any) currently used for this ca
      */
     private X509CAInfo(final String subjectDn, final String name, final int status, final Date updateTime, final String subjectaltname,
             final int certificateprofileid, final int defaultCertprofileId, final boolean useNoConflictCertificateData, final String encodedValidity, final Date expiretime, final int catype, final int signedBy,
@@ -201,7 +219,7 @@ public class X509CAInfo extends CAInfo {
     		final boolean useLdapDnOrder, final boolean useCrlDistributionPointOnCrl, final boolean crlDistributionPointOnCrlCritical, final boolean includeInHealthCheck,
     		final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName, final boolean _doEnforceUniqueSubjectDNSerialnumber,
     		final boolean _useCertReqHistory, final boolean _useUserStorage, final boolean _useCertificateStorage, final boolean _acceptRevocationNonExistingEntry,
-            final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL) {
+            final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL, final boolean usePartitionedCrl, final int crlPartitions, final int retiredCrlPartitions) {
         this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectDn));
         this.caid = CertTools.stringToBCDNString(this.subjectdn).hashCode();
         this.name = name;
@@ -273,6 +291,9 @@ public class X509CAInfo extends CAInfo {
         this.nameConstraintsExcluded = nameConstraintsExcluded;
         this.useNoConflictCertificateData = useNoConflictCertificateData;
         this.caSerialNumberOctetSize = caSerialNumberOctetSize;
+        this.usePartitionedCrl = usePartitionedCrl;
+        this.crlPartitions = crlPartitions;
+        this.retiredCrlPartitions = retiredCrlPartitions;
     }
 
     /** Constructor that should be used when updating CA data. */
@@ -289,7 +310,7 @@ public class X509CAInfo extends CAInfo {
             final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName,
             final boolean _doEnforceUniqueSubjectDNSerialnumber, final boolean _useCertReqHistory, final boolean _useUserStorage,
             final boolean _useCertificateStorage, final boolean _acceptRevocationNonExistingEntry, final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL,
-            final int defaultCertprofileId, final boolean useNoConflictCertificateData) {
+            final int defaultCertprofileId, final boolean useNoConflictCertificateData, final boolean usePartitionedCrl, final int crlPartitions, final int retiredCrlPartitions) {
         this.caid = caid;
         this.encodedValidity = encodedValidity;
         this.catoken = catoken;
@@ -333,6 +354,9 @@ public class X509CAInfo extends CAInfo {
         this.nameConstraintsExcluded = nameConstraintsExcluded;
         this.defaultCertificateProfileId = defaultCertprofileId;
         this.useNoConflictCertificateData = useNoConflictCertificateData;
+        this.usePartitionedCrl = usePartitionedCrl;
+        this.crlPartitions = crlPartitions;
+        this.retiredCrlPartitions = retiredCrlPartitions;
     }
 
   public List<CertificatePolicy> getPolicies() {
@@ -358,6 +382,131 @@ public class X509CAInfo extends CAInfo {
 
   public void setDefaultCRLDistPoint(String defaultCRLDistPoint) {
       this.defaultcrldistpoint = defaultCRLDistPoint;
+  }
+ 
+  /**
+   * A method returning all CDP URLs to currently used CRL partitions for this CA  
+   * @param crlUrl is the URL to the CRL CDP for this CA, in the format "http://example.com/CA*.crl", 
+   * where any '*' will be replaced by an index number (or removed for the first partition)
+   * @return a list of CDP URLs with index numbers for currently used CRL partitions for this CA 
+   */
+  public List<String> getAllCrlPartitionUrls(final String crlUrl) {
+      List<String> crlUrlsReturned = new ArrayList<String>();
+      if (getUsePartitionedCrl()) {
+          int partitionUrlsToGenerate = (getCrlPartitions() - getRetiredCrlPartitions());
+          crlUrlsReturned.add(crlUrl.replace("*", ""));
+          Integer partitionIndex = getRetiredCrlPartitions() < 1 ? 1 : 1 + getRetiredCrlPartitions();  
+          for (int generatedUrls = 0; generatedUrls < partitionUrlsToGenerate; generatedUrls++) {
+              crlUrlsReturned.add(crlUrl.replace("*", partitionIndex.toString()));
+              partitionIndex++;
+          }
+      } else {
+          crlUrlsReturned.add(crlUrl.replace("*", ""));
+      }
+      return crlUrlsReturned;
+  }
+
+  /**
+   * A method returning a CDP URL with the given CRL partition index number for this CA 
+   * @param crlUrl is the URL to the CRL CDP for this CA, in the format "http://example.com/CA*.crl", 
+   * where any '*' will be replaced by given index number (or removed for the first partition)
+   * @param index is the index of the CRL partition asked for
+   * @return the URL for the specific CRL partition CDP with the given index number 
+   */
+  public String getCrlPartitionUrl(final String crlUrl, final int index) {
+      Integer partitionIndex = index;
+      if (index == 0 || !getUsePartitionedCrl()) {
+          return crlUrl.replace("*", "");
+      }
+      return crlUrl.replace("*", partitionIndex.toString());
+  }
+
+  /**
+   * Determines which CRL Partition Index a given certificate belongs to. This check is based on the URI in the CRL Distribution Point extension.
+   * @param cert Certificate
+   * @return Partition number, or {@link CertificateConstants#NO_CRL_PARTITION} if partitioning is not enabled / not applicable.
+   */
+  @Override
+  public int determineCrlPartitionIndex(final Certificate cert) {
+      if (getUsePartitionedCrl() && cert instanceof X509Certificate) {
+          final Collection<String> uris = CertTools.getCrlDistributionPoints((X509Certificate) cert);
+          return determineCrlPartitionIndex(uris);
+      } else {
+          return CertificateConstants.NO_CRL_PARTITION;
+      }
+  }
+
+  /**
+   * Determines which CRL Partition Index a given CRL belongs to. This check is based on the URI in the Issuing Distribution Point extension.
+   * @param crl CRL
+   * @return Partition number, or {@link CertificateConstants#NO_CRL_PARTITION} if partitioning is not enabled / not applicable.
+   */
+  @Override
+  public int determineCrlPartitionIndex(final X509CRL crl) {
+      if (getUsePartitionedCrl()) {
+          final Collection<String> uris = CertTools.getCrlDistributionPoints(crl);
+          return determineCrlPartitionIndex(uris);
+      } else {
+          return CertificateConstants.NO_CRL_PARTITION;
+      }
+  }
+
+  private int determineCrlPartitionIndex(final Collection<String> uris) {
+      for (final String uri : uris) {
+          final int partition = determineCrlPartitionIndex(uri);
+          if (partition != CertificateConstants.NO_CRL_PARTITION) {
+              return partition;
+          }
+      }
+      return CertificateConstants.NO_CRL_PARTITION;
+  }
+
+  /** Creates a regex that matches all Default CRL Distribution Points. Partition numbers (if any) are matched in groups. */
+  private String getRegexForCrlDistPoints() {
+      // \E and \Q are "end quote" and "start quote", see the javadoc of Pattern
+      return Pattern.quote(StringUtils.trim(defaultcrldistpoint))
+              .replace("*", "\\E(\\d+)\\Q") // match digits where there is a "*"
+              .replaceAll("\\s*;\\s*", "\\\\E|\\\\Q"); // match multiple different URIs separated with ";"
+  }
+
+  /**
+   * Determines which CRL Partition Index by a CRL Distribution Point URIs.
+   * @param uri URI to extract partition index from.
+   * @return Partition number, or {@link CertificateConstants#NO_CRL_PARTITION} if partitioning is not enabled / not applicable.
+   */
+  protected int determineCrlPartitionIndex(final String uri) {
+      if (!getUsePartitionedCrl() || StringUtils.isBlank(defaultcrldistpoint)) {
+          return CertificateConstants.NO_CRL_PARTITION;
+      }
+      final String regex = getRegexForCrlDistPoints();
+      if (log.isTraceEnabled()) {
+          log.trace("Using regex '" + regex +"' to match URI '" + uri + "'");
+      }
+      final Matcher matcher = Pattern.compile(regex).matcher(uri);
+      if (!matcher.matches()) {
+          final String msg = "CRL Distribution Point URI '" + uri + "' does not match '" + defaultcrldistpoint + "'";
+          log.debug(msg);
+          return CertificateConstants.NO_CRL_PARTITION;
+      }
+      final int groupCount = matcher.groupCount();
+      int partition = CertificateConstants.NO_CRL_PARTITION;
+      try {
+          for (int i = 1; i <= groupCount; i++) {
+              if (matcher.group(i) != null) {
+                  final int numberFromUri = Integer.parseInt(matcher.group(i));
+                  if (partition != CertificateConstants.NO_CRL_PARTITION && numberFromUri != partition) {
+                      log.info("Ambiguous CRL Partition Indexes in URI: " + uri);
+                      return CertificateConstants.NO_CRL_PARTITION;
+                  }
+                  partition = numberFromUri;
+              }
+          }
+          return partition;
+      } catch (NumberFormatException e) {
+          final String msg = "Bad number format in CRL Partition Indexes in URI: " + uri;
+          log.info(msg);
+          return CertificateConstants.NO_CRL_PARTITION;
+      }
   }
 
   public String getDefaultCRLIssuer(){ return defaultcrlissuer; }
@@ -477,6 +626,57 @@ public class X509CAInfo extends CAInfo {
         this.caSerialNumberOctetSize = caSerialNumberOctetSize;
     }
     
+    /** 
+     * Partitioned crls are used by CAs with very large crls.  
+     * It is CA specific configuration using multiple partitions to which certificates randomly are assigned. 
+     * When these partitions grow too large they are discontinued and set as retired partitions.
+     * @return true if a partitioned crl is used 
+     */
+    public boolean getUsePartitionedCrl() {
+        return this.usePartitionedCrl;
+    }
+    
+    /** 
+     *  Set use partitioned crl for this ca.
+     *  This implies that a set of non-retired crl partitions will be available for this ca. 
+     *  @see #getUsePartitionedCrl() 
+     */
+    public void setUsePartitionedCrl(final boolean usePartitionedCrl) {
+        this.usePartitionedCrl = usePartitionedCrl;  
+    }
+    
+    /** 
+     * @return how many crl partitions are being used in total by this ca 
+     *  @see #getUsePartitionedCrl() 
+     */
+    public int getCrlPartitions() {
+        return crlPartitions;
+    }
+    
+    /** 
+     * Set the number of crl partitions that should be used by this ca. 
+     * @see #getUsePartitionedCrl() 
+     */
+    public void setCrlPartitions(final int crlPartitions) {
+        this.crlPartitions = crlPartitions;  
+    }
+    
+    /** 
+     * Retired crls are discontinued crls, certificates will not be added to retired crls.  
+     * @return the number of retired crl partitions for this ca.
+     * @see #getUsePartitionedCrl() 
+     */
+    public int getRetiredCrlPartitions() {
+        return retiredCrlPartitions;
+    }
+    
+    /** 
+     * Set the number of retired crl partitions for this ca.
+     * @see #getUsePartitionedCrl() 
+     */
+    public void setRetiredCrlPartitions(final int retiredCrlPartitions) {
+        this.retiredCrlPartitions = retiredCrlPartitions;  
+    }
     
     public static class X509CAInfoBuilder {
         private String subjectDn;
@@ -534,6 +734,9 @@ public class X509CAInfo extends CAInfo {
         private boolean acceptRevocationNonExistingEntry = false;
         private String cmpRaAuthSecret = null;
         private boolean keepExpiredCertsOnCRL = false;
+        private boolean usePartitionedCrl = false;
+        private int crlPartitions;
+        private int retiredCrlPartitions;
         
         public X509CAInfoBuilder setSubjectDn(String subjectDn) {
             this.subjectDn = subjectDn;
@@ -809,6 +1012,21 @@ public class X509CAInfo extends CAInfo {
             this.caSerialNumberOctetSize = caSerialNumberOctetSize;
             return this;
         }
+        
+        public X509CAInfoBuilder setUsePartitionedCrl(boolean usePartitionedCrl) {
+            this.usePartitionedCrl = usePartitionedCrl;
+            return this;
+        }
+        
+        public X509CAInfoBuilder setCrlPartitions(int crlPartitions) {
+            this.crlPartitions = crlPartitions;
+            return this;
+        }
+        
+        public X509CAInfoBuilder setRetiredCrlPartitions(int retiredCrlPartitions) {
+            this.retiredCrlPartitions = retiredCrlPartitions;
+            return this;
+        }
 
         public X509CAInfo build() {
             return new X509CAInfo(subjectDn, name, status, updateTime, subjectAltName, certificateProfileId, defaultCertProfileId, useNoConflictCertificateData,
@@ -824,8 +1042,7 @@ public class X509CAInfo extends CAInfo {
                     useLdapDnOrder, useCrlDistributionPointOnCrl, crlDistributionPointOnCrlCritical, includeInHealthCheck,
                     doEnforceUniquePublicKeys, doEnforceUniqueDistinguishedName, doEnforceUniqueSubjectDNSerialnumber,
                     useCertReqHistory, useUserStorage, useCertificateStorage, acceptRevocationNonExistingEntry,
-                    cmpRaAuthSecret, keepExpiredCertsOnCRL);
+                    cmpRaAuthSecret, keepExpiredCertsOnCRL, usePartitionedCrl, crlPartitions, retiredCrlPartitions);
         }
-
     }
 }

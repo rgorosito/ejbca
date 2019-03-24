@@ -14,6 +14,10 @@ package org.cesecore.internal;
 
 import static org.junit.Assert.assertEquals;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.util.Properties;
+
 import org.cesecore.config.ConfigurationHolder;
 import org.junit.After;
 import org.junit.Before;
@@ -87,22 +91,42 @@ public class InternalResourcesTest {
     }
 
     @Test
-    public void testMessageStringWithExtraParameter() {
+    public void testMessageStringWithExtraParameter() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
         InternalResources intres = new InternalResources(TEST_RESOURCE_LOCATION);
-        String res = intres.getLocalizedMessage("raadmin.testmsgsv");
-        assertEquals("Test sv-SE", res);
-        assertEquals("Test sv-SE", intres.getLocalizedMessageCs("raadmin.testmsgsv").toString());
-        res = intres.getLocalizedMessage("raadmin.testmsgsv", "foo $bar \\haaaar");
-        assertEquals("Test sv-SE", res);
-        assertEquals("Test sv-SE", intres.getLocalizedMessageCs("raadmin.testmsgsv", "foo $bar \\haaaar").toString());
+        Field primaryResource = InternalResources.class.getDeclaredField("primaryResource");
+        primaryResource.setAccessible(true);
+        Properties intresource = new Properties();
+        final String testMessage = "test";
+        final String testMessageParams = testMessage + " {0}";
+        final String testMessageKey = "test.message";
+        final String param = "foo";
+        final String extraParam = "bar";
+        intresource.setProperty(testMessageKey, testMessageParams);
+        primaryResource.set(intres, intresource);
+        assertEquals("Extra params were not correctly handled.", testMessage + " " + param + ", " + extraParam, intres.getLocalizedMessage(testMessageKey, param, extraParam).toString());
     }
 
-    /** Test that we don't allow unlimited recursion in the language strings */
+    /** Test that we don't allow unlimited recursion in the language strings 
+     * @throws SecurityException 
+     * @throws NoSuchFieldException */
     @Test
-    public void testMessageStringWithRecursive() {
+    public void testMessageStringWithRecursive() throws NoSuchFieldException, SecurityException {
         InternalResources intres = new InternalResources(TEST_RESOURCE_LOCATION);
-        String res = intres.getLocalizedMessage("raadmin.testparams", "recurse {0}", Integer.valueOf(3), null, Boolean.TRUE, "bye");
-        assertEquals("Test recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse {0} 3  true bye message {0} ", res);
+        Field primaryResource = InternalResources.class.getDeclaredField("primaryResource");
+        primaryResource.setAccessible(true);
+        Properties intresource = new Properties();
+        final String testMessage = "test";
+        final String testMessageParams = testMessage + " {0}";
+        final String testMessageKey = "test.message";
+        final String param0 = "recurse {0}";
+        final String param1 = Integer.valueOf(3).toString();
+        final String param2 = "bar";
+        final String param3 = Boolean.TRUE.toString();
+        final String param4 = "bye";
+        intresource.setProperty(testMessageKey, testMessageParams);
+        String res = intres.getLocalizedMessage(testMessageParams, param0 , param1, param2, param3, param4);
+        assertEquals(testMessage + " recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse recurse " + param0 + ", " + param1 + ", "
+                + param2 + ", " + param3 + ", " + param4, res);
     }
 
 }

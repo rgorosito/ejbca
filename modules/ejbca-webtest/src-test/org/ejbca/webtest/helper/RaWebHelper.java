@@ -37,10 +37,11 @@ public class RaWebHelper extends BaseHelper {
      */
     public static class Page {
         public static final String PAGE_URI = "/ejbca/ra/";
-        //
+
         static final By BUTTON_MAKE_NEW_REQUEST = By.id("makeRequestButton");
         static final By SELECT_CERTIFICATE_TYPE = By.id("requestTemplateForm:selectEEPOneMenu");
         static final By SELECT_CERTIFICATE_SUBTYPE = By.id("requestTemplateForm:selectCPOneMenu");
+        static final By SELECT_CA_TYPE = By.id("requestTemplateForm:selectCAOneMenu");
         static final By SELECT_KEY_ALGORITHM = By.id("requestInfoForm:selectAlgorithmOneMenu");
         static final By RADIO_BUTTON_KEY_PAIR_ON_SERVER = By.id("requestTemplateForm:selectKeyPairGeneration:0");
         static final By RADIO_BUTTON_KEY_PAIR_PROVIDED = By.id("requestTemplateForm:selectKeyPairGeneration:1");
@@ -52,9 +53,11 @@ public class RaWebHelper extends BaseHelper {
         static final By BUTTON_UPLOAD_CSR = By.id("keyPairForm:uploadCsrButton");
         static final By TEXT_ERROR_MESSAGE = By.xpath("//li[@class='errorMessage']");
         // Manage Requests
+        static final By BUTTON_TAB_CONFIRM_REQUESTS = By.id("requestInfoForm:confirmRequestButton");
         static final By BUTTON_MENU_MANAGE_REQUESTS = By.id("menuManageRequests");
         static final By BUTTON_TAB_APPROVE_REQUESTS = By.id("manageRequestsForm:tabApproveRequests");
         static final By BUTTON_TAB_PENDING_REQUESTS = By.id("manageRequestsForm:tabPendingRequests");
+        static final By BUTTON_DOWNLOAD_PEM = By.id("requestInfoForm:generatePem");
         static final By TABLE_REQUESTS = By.id("manageRequestsForm:manageRequestTable");
         static final By TABLE_REQUEST_ROWS = By.xpath("//tbody/tr");
         static final By TABLE_REQUEST_ROW_CELLS = By.xpath(".//td");
@@ -62,7 +65,8 @@ public class RaWebHelper extends BaseHelper {
         static final By BUTTON_REQUEST_APPROVE = By.id("manageRequestForm:commandApprove");
         static final By BUTTON_REQUEST_REJECT = By.id("manageRequestForm:commandReject");
         static final By BUTTON_REQUEST_EDIT = By.id("manageRequestForm:commandEditData");
-        static final By INPUT_REQUEST_EDIT_FORM_CN = By.xpath("//label[contains(text(), 'CN, Common Name')]/../span/input");
+        static final By INPUT_REQUEST_EDIT_FORM_CN = By.id("requestInfoForm:subjectDn:0:subjectDnField");
+        static final By INPUT_DNS_NAME = By.id("requestInfoForm:subjectAlternativeName:0:subjectAltNameField");
         static final By BUTTON_REQUEST_EDIT_SAVE = By.id("manageRequestForm:commandSaveData");
         static final By TEXT_REQUEST_FORM_SUBJECT_DISTINGUISHED_NAME = By.xpath("//span[contains(@id, ':subjectdn')]");
         static final By TEXT_REQUEST_FORM_APPROVE_MESSAGE = By.id("manageRequestForm:requestApproveMessage");
@@ -88,6 +92,10 @@ public class RaWebHelper extends BaseHelper {
         clickLink(Page.BUTTON_MENU_MANAGE_REQUESTS);
     }
 
+    public void clickConfirmRequest() {
+        clickLink(Page.BUTTON_TAB_CONFIRM_REQUESTS);
+    }
+
     /**
      * Clicks the tab 'To Approve'.
      */
@@ -104,6 +112,10 @@ public class RaWebHelper extends BaseHelper {
 
     public void selectCertificateTypeByEndEntityName(final String endEntityProfileName) {
         selectOptionByName(Page.SELECT_CERTIFICATE_TYPE, endEntityProfileName);
+    }
+
+    public void selectCertificationAuthorityByName(final String ca) {
+        selectOptionByName(Page.SELECT_CA_TYPE, ca);
     }
 
     public void selectKeyPairGenerationOnServer() {
@@ -157,8 +169,19 @@ public class RaWebHelper extends BaseHelper {
         fillTextarea(Page.TEXTAREA_CERTIFICATE_REQUEST, csr, true);
     }
 
+    /**
+     * Click to upload Csr
+     */
     public void clickUploadCsrButton() {
         clickLink(Page.BUTTON_UPLOAD_CSR);
+    }
+
+    /**
+     * Click to download pem
+     */
+
+    public void clickDownloadPem() {
+        clickLink(Page.BUTTON_DOWNLOAD_PEM);
     }
 
     public void assertCsrUploadError() {
@@ -309,6 +332,15 @@ public class RaWebHelper extends BaseHelper {
     }
 
     /**
+     * Fills the 'DNS Name' with text in the request edit form.
+     *
+     * @param cnDnsName
+     */
+    public void fillDnsName(final String cnDnsName) {
+        fillInput(Page.INPUT_DNS_NAME, cnDnsName);
+    }
+
+    /**
      * Triggers the link 'Save data' in request review form.
      */
     public void triggerRequestEditSaveForm() {
@@ -340,5 +372,13 @@ public class RaWebHelper extends BaseHelper {
                 getElementText(Page.TEXT_REQUEST_FORM_APPROVE_MESSAGE)
         );
     }
+
+    /**
+     * Asserts the 'Approve Message' does not appear.
+     */
+    public void assertApproveMessageDoesNotExist() {
+                assertElementDoesNotExist(Page.TEXT_REQUEST_FORM_APPROVE_MESSAGE, "There was Approve message displayed upon creation of EE");
+    }
+
 
 }

@@ -34,6 +34,8 @@
 		<path refid="lib.commons-io.classpath"/>
 		<path refid="lib.easymock.classpath"/>
 		<path refid="lib.commons-codec.classpath"/>
+		<path location="${mod.cesecore-x509ca.lib}"/>
+        <path location="${mod.cesecore-cvcca.lib}"/>
 	</path>
 
 	<target name="jar" depends="with.clover">
@@ -79,6 +81,7 @@
 				<fileset dir="${cesecore-ejb.build-test.dir}" includes="**/*Test.class">
 				</fileset>
 			</batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 		</junit>
 		<antcall target="showtime" inheritall="true" inheritrefs="true"/>
 	</target>
@@ -96,6 +99,7 @@
 					<include name="**/${test.runone}.class" />
 				</fileset>
 			</batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 		</junit>
 	</target>
 

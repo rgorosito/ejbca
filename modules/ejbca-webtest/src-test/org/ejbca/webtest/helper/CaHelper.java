@@ -78,6 +78,12 @@ public class CaHelper extends BaseHelper {
          */
         static final By SELECT_APPROVALPROFILES = By.xpath("//select[contains(@name, ':approvalProfile')]");
 
+        /**
+         * Select validator from Other Data list.
+         *
+         */
+        static final By SELECT_VALIDATOR = By.name("editcapage:selectValidator");
+
         static final By INPUT_CANAME = By.id("managecas:textfieldcaname");
         /**
          * CA Certificate Data / Validity(*y *mo *d *h *m *s) or end date of the certificate
@@ -111,6 +117,17 @@ public class CaHelper extends BaseHelper {
          * CA Life Cycle / New Subject DN
          */
         static final By INPUT_NEWSUBJECTDN = By.id("editcapage:idnewsubjectdn");
+
+        /**
+         * Directives / Enforce Unique Public Keys
+         */
+        static final By INPUT_CHECKBOXENFORCEUNIQUEPUBLICKEYS = By.id("editcapage:isdoenforceuniquepublickeys");
+
+        /**
+         * Directives / Enforce Unique DN
+         */
+        static final By INPUT_CHECKBOXENFORCEUNIQUEDN = By.id("editcapage:isdoenforceuniquedn");
+
         /**
          * certSignKey
          */
@@ -220,6 +237,16 @@ public class CaHelper extends BaseHelper {
      */
     public void setCertificateProfile(final String profileName) {
         selectOptionByName(Page.SELECT_CERT_PROFILE, profileName);
+    }
+
+    /**
+     * Select the validator from other data.
+     *
+     * @param validatorName
+     */
+
+    public void setOtherData(final String validatorName) {
+        selectOptionByName(Page.SELECT_VALIDATOR, validatorName);
     }
 
     /**
@@ -478,5 +505,18 @@ public class CaHelper extends BaseHelper {
      */
     public void assertNewSubjectDnNotPresent() {
         assertNull(findElementWithoutWait(Page.INPUT_NEWSUBJECTDN));
+    }
+
+    /**
+     * Check or uncheck Enforce Unique Public Keys
+     *
+     * @param check
+     */
+    public void checkEnforceUniquePublicKeys(Boolean check) {
+        toggleCheckbox(Page.INPUT_CHECKBOXENFORCEUNIQUEPUBLICKEYS, check);
+    }
+
+    public void checkEnforceUniqueDN(Boolean check) {
+        toggleCheckbox(Page.INPUT_CHECKBOXENFORCEUNIQUEDN, check);
     }
 }

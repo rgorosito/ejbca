@@ -12,6 +12,7 @@
  *************************************************************************/
 package org.ejbca.webtest;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,8 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileSessionRem
 import org.cesecore.common.exception.ReferencesToItemExistException;
 import org.cesecore.configuration.GlobalConfigurationSessionRemote;
 import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
+import org.cesecore.keys.validation.CouldNotRemoveKeyValidatorException;
+import org.cesecore.keys.validation.KeyValidatorSessionRemote;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.management.RoleSessionRemote;
@@ -42,6 +45,7 @@ import org.ejbca.core.ejb.ra.NoSuchEndEntityException;
 import org.ejbca.core.ejb.ra.raadmin.EndEntityProfileSessionRemote;
 import org.ejbca.webtest.utils.ConfigurationConstants;
 import org.ejbca.webtest.utils.ConfigurationHolder;
+import org.ejbca.webtest.utils.ExtentReportCreator;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxDriverLogLevel;
@@ -54,7 +58,7 @@ import org.openqa.selenium.firefox.internal.ProfilesIni;
  *
  * @version $Id: WebTestBase.java 30768 2018-12-06 08:06:23Z andrey_s_helmes $
  */
-public abstract class WebTestBase {
+public abstract class WebTestBase extends ExtentReportCreator {
 
     private static final Logger log = Logger.getLogger(WebTestBase.class);
 
@@ -124,6 +128,7 @@ public abstract class WebTestBase {
         webDriver.manage().timeouts().implicitlyWait(5, TimeUnit.SECONDS);
         // Add to array
         webDrivers.add(webDriver);
+        ExtentReportCreator.setBrowser(getWebDriver());
     }
 
     /**
@@ -280,6 +285,20 @@ public abstract class WebTestBase {
             }
             cryptoTokenManagementSessionRemote.deleteCryptoToken(ADMIN_TOKEN, cryptoTokenId);
         } catch (AuthorizationDeniedException e) {
+            throw new IllegalStateException(e); // Should never happen with always allow token
+        }
+    }
+
+    /**
+     * Removes the Validator using EJB instance.
+     *
+     * @param validatorName CA name.
+     */
+    protected static void removeValidatorByName(final String validatorName) {
+        final KeyValidatorSessionRemote validatorSession = EjbRemoteHelper.INSTANCE.getRemoteSession(KeyValidatorSessionRemote.class);
+        try {
+            validatorSession.removeKeyValidator(ADMIN_TOKEN, validatorName);
+        } catch (AuthorizationDeniedException | CouldNotRemoveKeyValidatorException e) {
             throw new IllegalStateException(e); // Should never happen with always allow token
         }
     }

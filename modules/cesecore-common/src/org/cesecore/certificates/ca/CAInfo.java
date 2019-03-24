@@ -14,6 +14,7 @@ package org.cesecore.certificates.ca;
 
 import java.io.Serializable;
 import java.security.cert.Certificate;
+import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -23,6 +24,7 @@ import java.util.Map;
 
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.extendedservices.ExtendedCAServiceInfo;
+import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateWrapper;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
@@ -550,5 +552,25 @@ public abstract class CAInfo implements Serializable {
      */
     public boolean isDoEnforceUniqueDistinguishedName() {
         return this.doEnforceUniqueDistinguishedName;
+    }
+    
+    /**
+     * Determines which CRL Partition Index a given certificate belongs to. This check is based on the URI in the CRL Distribution Point extension.
+     * @param cert Certificate
+     * @return Partition number, or {@link CertificateConstants#NO_CRL_PARTITION} if partitioning is not enabled / not applicable.
+     */
+    public int determineCrlPartitionIndex(final Certificate cert) {
+        // Overridden in X509CAInfo
+        return CertificateConstants.NO_CRL_PARTITION;
+    }
+
+    /**
+     * Determines which CRL Partition Index a given CRL belongs to. This check is based on the URI in the Issuing Distribution Point extension.
+     * @param crl CRL
+     * @return Partition number, or {@link CertificateConstants#NO_CRL_PARTITION} if partitioning is not enabled / not applicable.
+     */
+    public int determineCrlPartitionIndex(final X509CRL crl) {
+        // Overridden in X509CAInfo
+        return CertificateConstants.NO_CRL_PARTITION;
     }
 }

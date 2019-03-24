@@ -249,6 +249,8 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
             return CommandResult.FUNCTIONAL_FAILURE;
         }
 
+        final int crlPartitionIndex = cainfo.determineCrlPartitionIndex(certificate);
+
         final Certificate cacert = cainfo.getCertificateChain().iterator().next();
         log.info("Trying to add user:");
         log.info("Username: " + username);
@@ -260,6 +262,9 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
                 + EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class).getCertificateProfileName(certificateprofileid));
         log.info("End Entity Profile: "
                 + EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class).getEndEntityProfileName(endentityprofileid));
+        if (crlPartitionIndex != CertificateConstants.NO_CRL_PARTITION) {
+            log.info("CRL Partition Index: " + crlPartitionIndex);
+        }
 
         String subjectAltName = CertTools.getSubjectAlternativeName(certificate);
         if (subjectAltName != null) {
@@ -337,7 +342,8 @@ public class CaImportCertCommand extends BaseCaAdminCommand {
         int certificateType = CertificateConstants.CERTTYPE_ENDENTITY;
         try {
             EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateStoreSessionRemote.class).storeCertificateRemote(getAuthenticationToken(), EJBTools.wrap(certificate),
-                    username, CertTools.getFingerprintAsString(cacert), CertificateConstants.CERT_ACTIVE, certificateType, certificateprofileid, endentityprofileid, null, new Date().getTime());
+                    username, CertTools.getFingerprintAsString(cacert), CertificateConstants.CERT_ACTIVE, certificateType, certificateprofileid, endentityprofileid,
+                    crlPartitionIndex, null, new Date().getTime());
             if (status == CertificateConstants.CERT_REVOKED) {
                 try {
                     endEntityManagementSession.revokeCert(getAuthenticationToken(), CertTools.getSerialNumber(certificate), revocationTime, CertTools.getIssuerDN(certificate),

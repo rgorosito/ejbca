@@ -283,7 +283,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             // If no CAid in the supplied userdata
             ca = getCAFromRequest(admin, req);
         } else {
-            ca = caSession.getCA(admin, userData.getCAId());
+            ca = (CA) caSession.getCA(admin, userData.getCAId());
         }
 
         if (log.isTraceEnabled()) {
@@ -304,7 +304,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         // See if we can get issuerDN directly from request
         if (req.getIssuerDN() != null) {
             String dn = certificateStoreSession.getCADnFromRequest(req);
-            ca = caSession.getCA(admin, dn.hashCode());
+            ca = (CA) caSession.getCA(admin, dn.hashCode());
             if (log.isDebugEnabled()) {
                 log.debug("Using CA (from issuerDN) with id: " + ca.getCAId() + " and DN: " + ca.getSubjectDN());
             }
@@ -477,13 +477,16 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                 if (StringUtils.isEmpty(certificateRequest)) {
                     certificateRequest = getCsrFromRequestMessage(request);
                 }
-                
+
+                final int crlPartitionIndex = ca.getCAInfo().determineCrlPartitionIndex(cert);
+
                 // Store certificate in the database, if this CA is configured to do so.
                 if (!ca.isUseCertificateStorage() || !certProfile.getUseCertificateStorage()) {
                     // We still need to return a CertificateData object for publishers
                     final CertificateData throwAwayCertData = new CertificateData(cert, cert.getPublicKey(), endEntityInformation.getUsername(), 
                             cafingerprint, null, CertificateConstants.CERT_ACTIVE, certProfile.getType(), certProfileId,
-                            endEntityInformation.getEndEntityProfileId(), null, updateTime, false, certProfile.getStoreSubjectAlternativeName());
+                            endEntityInformation.getEndEntityProfileId(), crlPartitionIndex,
+                            null, updateTime, false, certProfile.getStoreSubjectAlternativeName());
                     result = new CertificateDataWrapper(cert, throwAwayCertData, null);
                     // Always Store full certificate for OCSP signing certificates.
                     boolean isOcspSigner = certProfile.getExtendedKeyUsageOids().contains("1.3.6.1.5.5.7.3.9");
@@ -501,7 +504,8 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                     // Authorization was already checked by since this is a private method, the CA parameter should
                     // not be possible to get without authorization
                     result = certificateStoreSession.storeCertificateNoAuth(admin, cert, endEntityInformation.getUsername(), cafingerprint, certificateRequest, 
-                            CertificateConstants.CERT_ACTIVE, certProfile.getType(), certProfileId, endEntityInformation.getEndEntityProfileId(), tag, updateTime);
+                            CertificateConstants.CERT_ACTIVE, certProfile.getType(), certProfileId, endEntityInformation.getEndEntityProfileId(),
+                            crlPartitionIndex, tag, updateTime);
                     storeEx = null;
                     break;
                 } catch (CertificateSerialNumberException e) {

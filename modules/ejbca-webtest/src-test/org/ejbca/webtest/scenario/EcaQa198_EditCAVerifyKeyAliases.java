@@ -8,14 +8,10 @@ import org.ejbca.webtest.utils.CommandLineHelper;
 import org.ejbca.webtest.utils.RemoveDir;
 import org.junit.*;
 import org.junit.runners.MethodSorters;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
-
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
+
 
 /**
  * The CA can be both edited and restored.  When a CA is restored,
@@ -54,9 +50,11 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
     }
 
     @AfterClass
-    public static void exit() throws AuthorizationDeniedException {
+    public static void exit() throws AuthorizationDeniedException, IOException {
         // Remove generated artifacts
         removeCaAndCryptoToken(EcaQa198_EditCAVerifyKeyAliases.TestData.CA_NAME);
+        new RemoveDir("test-statedump").deleteDirectoryStream();
+        new RemoveDir("dist/statedump").deleteDirectoryStream();
         // super
         afterClass();
     }
@@ -67,6 +65,8 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
         cryptoTokenHelper.openPage(getAdminWebUrl());
         cryptoTokenHelper.assertTokenExists("ManagementCA");
     }
+
+
 
     @Test
     public void stepB_createCAUsingCryptoToken() {
@@ -79,7 +79,8 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
 
     }
 
-    @Test(timeout=20000)
+
+    @Test(timeout=30000)
     public void stepC_buildStatedump() {
         //Run the designated ant command
         Assert.assertTrue(commandLineHelper.runCommand("ant statedump"));
@@ -89,8 +90,14 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
         Assert.assertTrue(statedumpDir.exists());
     }
 
-    @Test(timeout=20000)
-    public void stepD_exportCAssertStatedump() {
+    @Test(timeout=30000)
+    public void stepD_unlockStatedump() {
+        commandLineHelper.runCommand("sh dist/statedump/statedump.sh lockdown --unlock");
+    }
+
+
+    @Test(timeout=30000)
+    public void stepE_exportCAssertStatedumpCmdLine() {
         //Export the CA
         commandLineHelper.runCommand("sh dist/statedump/statedump.sh export -l test-statedump --exclude '*:*' --include='CA:StatedumpExportTest'");
 
@@ -100,15 +107,27 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
     }
 
 
-    @Test(timeout=20000)
-    public void stepE_importCA() {
-        //Reimport the CA
+    @Test
+    public void stepF_deleteCA() {
+        //Remove the CA
         caHelper.openPage(getAdminWebUrl());
+        caHelper.deleteCaAndAssert(deleteAlert, false, null, EcaQa198_EditCAVerifyKeyAliases.TestData.CA_NAME);
+    }
+
+    @Test(timeout=30000)
+    public void stepG_unlockStatedumpBeforeImport() {
+        commandLineHelper.runCommand("sh dist/statedump/statedump.sh lockdown --unlock");
+    }
+
+
+    @Test(timeout=30000)
+    public void stepH_importCACmdLine() {
+        //Reimport the CA
         commandLineHelper.runCommand("sh dist/statedump/statedump.sh import -l test-statedump");
     }
 
     @Test
-    public void stepF_editCA() {
+    public void stepI_editCA() {
         //Edit the reimported CA
         caHelper.openPage(getAdminWebUrl());
         caHelper.edit(TestData.CA_NAME);
@@ -116,26 +135,12 @@ public class EcaQa198_EditCAVerifyKeyAliases extends WebTestBase {
 
 
     @Test
-    public void stepG_assertKeyAliasesRestored() {
+    public void stepJ_assertKeyAliasesRestored() {
         //Assert Key values are restored.
         caHelper.assertCrlSignKeyValue("signKey");
         caHelper.assertDefaultKeyValue("defaultKey");
         caHelper.assertTestKeyValue("testKey");
     }
 
-
-    @Test
-    public void stepH_deleteCA() {
-        //Remove the CA
-        caHelper.openPage(getAdminWebUrl());
-        caHelper.deleteCaAndAssert(deleteAlert, false, null, EcaQa198_EditCAVerifyKeyAliases.TestData.CA_NAME);
-    }
-
-    @Test(timeout=10000)
-    public void stepI_cleanDumps() throws IOException {
-        //Remove statedump module and test statedump
-        new RemoveDir("test-statedump").deleteDirectoryStream();
-        new RemoveDir("dist/statedump").deleteDirectoryStream();
-    }
 
 }

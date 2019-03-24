@@ -87,9 +87,9 @@ public class JsfDynamicUiValueChangeListener implements Serializable, ValueChang
         } else {
             if (value instanceof UploadedFile) {
                 final String fileName = ((UploadedFile) value).getName();
-                File file;
                 try {
-                    file = ExternalProcessTools.writeTemporaryFileToDisk(((UploadedFile) value).getBytes(), fileName, "");
+                    final File file = ExternalProcessTools.writeTemporaryFileToDisk(fileName, /* use .tmp as file extension */ null,
+                            ((UploadedFile) value).getBytes());
                     property.setValueGenericIncludeNull(file);
                 } catch (ExternalProcessException | IOException e) {
                     if (log.isTraceEnabled()) {

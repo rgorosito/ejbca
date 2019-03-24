@@ -64,7 +64,7 @@ public interface CaSession {
      * @throws CAExistsException if CA already exists
      * @throws AuthorizationDeniedException if not authorized to add CA
      */
-     void addCA(AuthenticationToken admin, CA ca) throws CAExistsException, AuthorizationDeniedException;
+     void addCA(AuthenticationToken admin, CACommon ca) throws CAExistsException, AuthorizationDeniedException;
     
     /** Changes a CA in the database. Can change mostly everything except caid, caname and subject DN. When editing a CA the CA token will usually be taken off line.
      * So you need to activate the CA token after editing, if auto-activation of the CA token is not enabled. 
@@ -254,4 +254,12 @@ public interface CaSession {
      * @throws CADoesntExistsException If no CA with the given CA Id exists.
      */
     Certificate getFutureRolloverCertificate(int caid) throws CADoesntExistsException;
+
+    /**
+     * Determines which CRL Partition Index a given certificate belongs to. This check is based on the URI in the Issuing Distribution Point extension.
+     * @param caId the CA ID
+     * @param cert Certificate to check
+     * @return Partition index, or zero if not using partitioning.
+     */
+    int determineCrlPartitionIndex(int caId, CertificateWrapper cert);
 }

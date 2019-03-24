@@ -21,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.math.BigInteger;
-import java.net.URL;
 import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -35,9 +34,12 @@ import java.util.Random;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.DEROutputStream;
+import org.bouncycastle.asn1.cmp.CertRepMessage;
+import org.bouncycastle.asn1.cmp.CertResponse;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.PKIStatusInfo;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -207,7 +209,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
     }
     
     @Test
-    public void test01CrmfHttpOkUser() throws Exception {
+    public void testCrmfHttpOkUser() throws Exception {
 
         byte[] nonce = CmpMessageHelper.createSenderNonce();
         byte[] transid = CmpMessageHelper.createSenderNonce();
@@ -233,7 +235,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
     }
 
     @Test
-    public void test01CrmfHttpOkUserWithSAN() throws Exception {
+    public void testCrmfHttpOkUserWithSAN() throws Exception {
         byte[] nonce = CmpMessageHelper.createSenderNonce();
         byte[] transid = CmpMessageHelper.createSenderNonce();
 
@@ -258,9 +260,93 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
         runCrmfHttpOkUser(certRequest, nonce, transid, notAfter, true);
     }
     
+    /** Tests issuance of certificates with multi-value RDN using CMP.
+     * In order for this to success multi-value RDN must be enabled in the end entity profile and all DN components making up the RDN must be
+     * added as fields in the profile
+     */
+    @Test
+    public void testCrmfHttpOkUserWithMultiValueRDN() throws Exception {
+
+        byte[] nonce = CmpMessageHelper.createSenderNonce();
+        byte[] transid = CmpMessageHelper.createSenderNonce();
+
+        // We should be able to back date the start time when allow validity
+        // override is enabled in the certificate profile
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_WEEK, -1);
+        cal.set(Calendar.MILLISECOND, 0); // Certificates don't use milliseconds
+        // in validity
+        Date notBefore = cal.getTime();
+        cal.add(Calendar.DAY_OF_WEEK, 3);
+        cal.set(Calendar.MILLISECOND, 0); // Certificates don't use milliseconds
+        // in validity
+        Date notAfter = cal.getTime();
+
+        // Create our request message with multi-value RDN
+        final String mvdn = "CN=Tomas+UID=12345,O=Test,C=SE";
+        final X500Name user = new X500Name(mvdn);
+        final PKIMessage certRequest = genCertReq(issuerDN, user, this.keys, this.cacert, nonce, transid, true, null, notBefore, notAfter, null, null, null);
+        
+        // In this test userDN contains multi-value RDN, which needs to be enabled in the EE profile
+        EndEntityProfile eep = this.endEntityProfileSession.getEndEntityProfile(EEP_DN_OVERRIDE_NAME);
+        eep.setAllowMultiValueRDNs(false);
+        eep.removeField(DnComponents.UID, 0);
+        this.endEntityProfileSession.changeEndEntityProfile(ADMIN, EEP_DN_OVERRIDE_NAME, eep);
+
+        PKIMessage req = protectPKIMessage(certRequest, false, PBEPASSWORD, 567);
+        assertNotNull(req);
+        CertReqMessages ir = (CertReqMessages) req.getBody().getContent();
+        int reqId = ir.toCertReqMsgArray()[0].getCertReq().getCertReqId().getValue().intValue();
+        byte[] ba = CmpMessageHelper.pkiMessageToByteArray(req);
+        // Send request and receive response
+        byte[] resp = sendCmpHttp(ba, 200, ALIAS);
+        assertNotNull(resp);
+        assertTrue(resp.length > 0);
+        // We expect a response that is rejected
+        checkCmpCertRepMessage(userDN, cacert, resp, reqId, ResponseStatus.FAILURE.getValue());
+        PKIMessage pkiMessage = PKIMessage.getInstance(resp);
+        PKIBody pkiBody = pkiMessage.getBody();
+        CertRepMessage certRepMessage = (CertRepMessage) pkiBody.getContent();
+        CertResponse certResponse = certRepMessage.getResponse()[0];
+        PKIStatusInfo pkiStatusInfo = certResponse.getStatus();
+        assertEquals("Wrong error", "Subject DN has multi value RDNs, which is not allowed.", pkiStatusInfo.getStatusString().getStringAt(0).toString());
+        
+        // Enable multi-value RDNs in the EE profile and try again, should still fail due to no UID allowed in profile
+        eep = this.endEntityProfileSession.getEndEntityProfile(EEP_DN_OVERRIDE_NAME);
+        eep.setAllowMultiValueRDNs(true);
+        this.endEntityProfileSession.changeEndEntityProfile(ADMIN, EEP_DN_OVERRIDE_NAME, eep);
+
+        resp = sendCmpHttp(ba, 200, ALIAS);
+        assertNotNull(resp);
+        assertTrue(resp.length > 0);
+        // We expect a response that is rejected
+        checkCmpCertRepMessage(userDN, cacert, resp, reqId, ResponseStatus.FAILURE.getValue());
+        pkiMessage = PKIMessage.getInstance(resp);
+        pkiBody = pkiMessage.getBody();
+        certRepMessage = (CertRepMessage) pkiBody.getContent();
+        certResponse = certRepMessage.getResponse()[0];
+        pkiStatusInfo = certResponse.getStatus();
+        assertEquals("Wrong error", "Wrong number of UID fields in Subject DN.", pkiStatusInfo.getStatusString().getStringAt(0).toString());
+        
+        // Add UID to profile, so the request will succeed
+        eep = this.endEntityProfileSession.getEndEntityProfile(EEP_DN_OVERRIDE_NAME);
+        eep.addField(DnComponents.UID);
+        this.endEntityProfileSession.changeEndEntityProfile(ADMIN, EEP_DN_OVERRIDE_NAME, eep);
+
+        resp = sendCmpHttp(ba, 200, ALIAS);
+        assertNotNull(resp);
+        assertTrue(resp.length > 0);
+        // Should be an OK response
+        checkCmpResponseGeneral(resp, issuerDN, user, this.cacert, nonce, transid, false, PBEPASSWORD,
+                PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+        X509Certificate cert = checkCmpCertRepMessage(user, this.cacert, resp, reqId);
+        // Get the returned certificate and verify that it is multi-value
+        assertEquals("DN should be with multi-value RDN", mvdn, cert.getSubjectDN().toString());
+    }
+
     /** Tests a revocation without revocation reasons and without KeyId */
     @Test
-    public void test01CrmfHttpOkUser2NoRevocationReason() throws Exception {
+    public void testCrmfHttpOkUser2NoRevocationReason() throws Exception {
         try {
             byte[] nonce = CmpMessageHelper.createSenderNonce();
             byte[] transid = CmpMessageHelper.createSenderNonce();
@@ -320,7 +406,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
      * ProfileDefault means that the certificate profile used is taken from the default certificate profile in the end entity profile.
      */
     @Test
-    public void test02KeyIdProfiles() throws Exception {
+    public void testKeyIdProfiles() throws Exception {
         final String keyId = "CmpTestKeyIdProfileName";
         final String keyIdDefault = "CmpTestKeyIdProfileNameDefault";
         
@@ -395,8 +481,8 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
             String altNames = CertTools.getSubjectAlternativeName(cert);
             assertContains("Subject Alt Name", altNames, "upn=fooupn@bar.com");
             assertContains("Subject Alt Name", altNames, "rfc822name=fooemail@bar.com");
-            final URL cdpfromcert1 = CertTools.getCrlDistributionPoint(cert);
-            assertEquals("CDP is not correct, it probably means it was not the correct 'KeyId' certificate profile that was used", cdp1, cdpfromcert1.toString());
+            final String cdpfromcert1 = CertTools.getCrlDistributionPoint(cert);
+            assertEquals("CDP is not correct, it probably means it was not the correct 'KeyId' certificate profile that was used", cdp1, cdpfromcert1);
             
             // Update property on server so that we use ProfileDefault as certificate profile, should give a little different result
             this.cmpConfiguration.setRACertProfile(ALIAS, "ProfileDefault");
@@ -419,8 +505,8 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
             cert = checkCmpCertRepMessage(userDN, this.cacert, resp, reqId);
             altNames = CertTools.getSubjectAlternativeName(cert);
             assertNull(altNames);
-            final URL cdpfromcert2 = CertTools.getCrlDistributionPoint(cert);
-            assertEquals("CDP is not correct, it probably means it was not the correct 'KeyId' certificate profile that was used", cdp2, cdpfromcert2.toString());            
+            final String cdpfromcert2 = CertTools.getCrlDistributionPoint(cert);
+            assertEquals("CDP is not correct, it probably means it was not the correct 'KeyId' certificate profile that was used", cdp2, cdpfromcert2);            
         } finally {
             try {
                 this.endEntityManagementSession.deleteUser(ADMIN, "cmptest");
@@ -434,7 +520,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
     }
 
     @Test
-    public void test03CrmfHttpTooManyIterations() throws Exception {
+    public void testCrmfHttpTooManyIterations() throws Exception {
         log.trace(">test03CrmfHttpTooManyIterations");
         byte[] nonce = CmpMessageHelper.createSenderNonce();
         byte[] transid = CmpMessageHelper.createSenderNonce();
@@ -456,7 +542,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
     }
 
     @Test
-    public void test04RevocationApprovals() throws Exception {
+    public void testRevocationApprovals() throws Exception {
         // Generate random username and CA name
         String randomPostfix = Integer.toString((new Random(new Date().getTime() + 4711)).nextInt(999999));
         String caname = "cmpRevocationCA" + randomPostfix;
@@ -565,7 +651,7 @@ public class CrmfRAPbeRequestTest extends CmpTestCase {
 
     
     @Test
-    public void test05CrmfEmptyDN() throws Exception {
+    public void testCrmfEmptyDN() throws Exception {
         try {
             byte[] nonce = CmpMessageHelper.createSenderNonce();
             byte[] transid = CmpMessageHelper.createSenderNonce();

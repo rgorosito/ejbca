@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Options for test JVM. The browser runs in a separate process, so it shouldn't need much memory
+export TEST_OPTS="-XX:+UseG1GC -XX:+UseCompressedOops -XX:OnOutOfMemoryError='kill -9 %p' -Xms64m -Xmx256m"
+# Options for ant itself. The report building can be memory heavy, otherwise it shouldn't need much memory
+export ANT_OPTS="-XX:+UseG1GC -XX:+UseCompressedOops -XX:OnOutOfMemoryError='kill -9 %p' -Xms64m -Xmx1536m"
 
 # try those with sudo
 # add the seluser guy to root group
@@ -15,8 +19,14 @@ sleep 10
 cd /app/ejbca
 
 # needs to be *clean* build, because otherwise the ejb remote configs won't be built into the package
-sudo -E env "PATH=$PATH" ant clean build
+sudo -E env "PATH=$PATH" "ANT_OPTS=$ANT_OPTS" "JAVA_OPTS=$JAVA_OPTS" ant clean build
 
 echo '=================== build finished ========================'
- 
-ant test:webtest
+
+ls -la /app/ejbca/modules/ejbca-webtest/resources
+
+ant test:webtest -Dtests.jvmargs="$TEST_OPTS"
+
+
+echo '=================== fixing permissions ================================='
+sudo -E env "PATH=$PATH" chown -R 1001:1001 .

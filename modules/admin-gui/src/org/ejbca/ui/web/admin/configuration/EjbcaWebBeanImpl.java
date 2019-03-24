@@ -61,7 +61,7 @@ import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.control.StandardRules;
-import org.cesecore.certificates.ca.CA;
+import org.cesecore.certificates.ca.CACommon;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -1441,7 +1441,7 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
         }
         final List<String> certificateAuthorities = new ArrayList<>();
         for (final int id : certificateAuthorityIds) {
-            final CA ca = caSession.getCANoLog(administrator, id);
+            final CACommon ca = caSession.getCANoLog(administrator, id);
             certificateAuthorities.add(ca.getName());
         }
         return addKeyIdAndSort(certificateAuthorities);
@@ -1559,6 +1559,33 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
         return enterpriseEjbLocalHelper.isRunningEnterprise();
     }
 
+    /** @return true if we are running an EJBCA build that has CA functionality enabled. */
+    @Override
+    public boolean isRunningBuildWithCA() {
+        try {
+            Class.forName("org.cesecore.certificates.ca.X509CAImpl");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+    
+    /** @return true if we are running an EJBCA build that has RA functionality enabled. 
+     * The check is implemented to look for RaMasterApiPeerImpl, as it is excluded from the "variant=va ziprelease.
+     * We decided to use RaMasterApiPeerImpl for this check, because it seemd the most painless one among 
+     * the excluded classes to perform this check against: it is visible here in EjbcaWebBeanImpl and it doesn't have 
+     * many dependencies to disturb the exclusion.
+     * */
+    @Override
+    public boolean isRunningBuildWithRA() {
+        try {
+            Class.forName("org.ejbca.peerconnector.ra.RaMasterApiPeerImpl");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+    
     @Override
     public EstConfiguration getEstConfiguration() {
         if (estconfiguration == null) {

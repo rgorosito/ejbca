@@ -16,6 +16,7 @@
 	<property name="webtest.resources.dir" location="${webtest.dir}/resources"/>
 	<property name="webtest.conf.dir" location="${webtest.dir}/conf"/>
 	<property name="webtest.lib.webtest" value="${webtest.dir}/../../lib/ext/webtest"/>
+	<property name="reports.dir" value="${webtest.dir}/../../reports"/>
 	
 	<path id="compile.classpath">
 		<path refid="lib.commons-lang.classpath"/>
@@ -98,6 +99,7 @@
 			<batchtest fork="yes" todir="${reports.dir}">
                 <fileset dir="${webtest.build-test.dir}" includes="**/EcaQa*.class" excludes="**/*EcaQa*$*"/>
             </batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 		</junit>
     </target>
 	
@@ -119,6 +121,7 @@
 					<include name="**/${test.runone}.class" />
 				</fileset>
 			</batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 			<jvmarg value="${remoteDebugJvmArgs}"/>
 		</junit>
 	</target>
@@ -126,6 +129,14 @@
 	<target name="clean" description="Clean up this module">
 		<delete dir="${webtest.build.dir}" />
 		<delete dir="${webtest.build-test.dir}"/>
+		<delete dir="${reports.dir}/images"/>
+		<delete file="${reports.dir}/QaEjbcaTestReport.html" />
+
 	</target>
 
+	<target name="cleanReports" description="Clean up this module">
+		<delete dir="${reports.dir}/images"/>
+		<delete file="${reports.dir}/QaEjbcaTestReport.html" />
+
+	</target>
 </project>

@@ -108,11 +108,13 @@ import org.bouncycastle.asn1.x509.AccessDescription;
 import org.bouncycastle.asn1.x509.AuthorityInformationAccess;
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
 import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.DistributionPointName;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.GeneralSubtree;
+import org.bouncycastle.asn1.x509.IssuingDistributionPoint;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.asn1.x509.NameConstraints;
 import org.bouncycastle.asn1.x509.PolicyInformation;
@@ -1906,16 +1908,14 @@ public abstract class CertTools {
             publicKey = pubKey;
         }
 
-        // Serialnumber is random bits, where random generator is initialized with Date.getTime() when this
-        // bean is created.
-        byte[] serno = new byte[8];
+        // Serial number is random bits
+        byte[] serno = new byte[16];
         SecureRandom random;
         try {
             random = SecureRandom.getInstance("SHA1PRNG");
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA1PRNG was not a known algorithm", e);
         }
-        random.setSeed(new Date().getTime());
         random.nextBytes(serno);
 
         final SubjectPublicKeyInfo pkinfo = SubjectPublicKeyInfo.getInstance(publicKey.getEncoded());
@@ -2963,8 +2963,8 @@ public abstract class CertTools {
     /**
      * Check the certificate with CA certificate.
      * 
-     * @param certificate certificate to verify
-     * @param caCertChain collection of X509Certificates
+     * @param certificate X.509 certificate to verify. May not be null.
+     * @param caCertChain Collection of X509Certificates. May not be null, an empty list or a Collection with null entries.
      * @param date Date to verify at, or null to use current time.
      * @param pkixCertPathCheckers optional PKIXCertPathChecker implementations to use during cert path validation
      * @return true if verified OK
@@ -3012,8 +3012,8 @@ public abstract class CertTools {
     /**
      * Check the certificate with CA certificate.
      * 
-     * @param certificate certificate to verify
-     * @param caCertChain collection of X509Certificates
+     * @param certificate X.509 certificate to verify. May not be null.
+     * @param caCertChain Collection of X509Certificates. May not be null, an empty list or a Collection with null entries.
      * @return true if verified OK
      * @throws CertPathValidatorException if verification failed
      */
@@ -3135,12 +3135,13 @@ public abstract class CertTools {
      * tags are read.
      * 
      * @param certificate
-     * @return A URL, or null if no CRL distribution points were found
+     * @return A URI, or null if no CRL distribution points were found. It is returned as a string, because it is used to
+     *         identify a DP and must match exactly (no normalization allowed).
      */
-    public static URL getCrlDistributionPoint(final Certificate certificate) {
+    public static String getCrlDistributionPoint(final Certificate certificate) {
         if(certificate instanceof X509Certificate) {
             final X509Certificate x509cert = (X509Certificate) certificate;
-            final Collection<URL> cdps = getCrlDistributionPoints(x509cert, true);
+            final Collection<String> cdps = getCrlDistributionPoints(x509cert, true);
             if(!cdps.isEmpty()) {
                 return cdps.iterator().next();
             }
@@ -3149,7 +3150,7 @@ public abstract class CertTools {
     }
     
     /**
-     * Return a list of CRL distribution points. The CRL distributions points are URL specified in the certificate extension 
+     * Return a list of CRL distribution points. The CRL distributions points are URIs specified in the certificate extension 
      * CRLDistributionPoints with OID 2.5.29.31.
      * 
      * The CRLDistributionPoints extension contains a sequece of DistributionPoint, which has the following structure:
@@ -3164,20 +3165,32 @@ public abstract class CertTools {
      * tags are read.
      * 
      * @param x509cert
-     * @return A list of URLs
+     * @return A list of URIs
      */
-    public static Collection<URL> getCrlDistributionPoints(final X509Certificate x509cert) {
+    public static Collection<String> getCrlDistributionPoints(final X509Certificate x509cert) {
         return getCrlDistributionPoints(x509cert, false);
     }
-    
-    private static Collection<URL> getCrlDistributionPoints(final X509Certificate x509cert, final boolean onlyfirst) {
-        ArrayList<URL> cdps = new ArrayList<URL>();
-        final ASN1Primitive obj = getExtensionValue(x509cert, Extension.cRLDistributionPoints.getId());
-        if (obj == null) {
-            return cdps;
+
+    /**
+     * Extracts the URIs from a CRL Issuing Distribution Point extension of a CRL.
+     * @param extensionValue Extension value of a CRL Issuing Distribution Point extension
+     * @return List of URIs
+     */
+    public static Collection<String> getCrlDistributionPoints(final ASN1Primitive extensionValue) {
+        return getCrlDistributionPoints(extensionValue, false);
+    }
+
+    private static Collection<String> getCrlDistributionPoints(final X509Certificate x509cert, final boolean onlyfirst) {
+        final ASN1Primitive extensionValue = getExtensionValue(x509cert, Extension.cRLDistributionPoints.getId());
+        if (extensionValue == null) {
+            return new ArrayList<>();
         }
-            
-        final ASN1Sequence crlDistributionPoints = (ASN1Sequence) obj;
+        return getCrlDistributionPoints(extensionValue, onlyfirst);
+    }
+
+    private static Collection<String> getCrlDistributionPoints(final ASN1Primitive extensionValue, final boolean onlyfirst) {
+        final ArrayList<String> cdps = new ArrayList<>();
+        final ASN1Sequence crlDistributionPoints = (ASN1Sequence) extensionValue;
         for (int i = 0; i < crlDistributionPoints.size(); i++) {
             ASN1Sequence distributionPoint = (ASN1Sequence) crlDistributionPoints.getObjectAt(i);
             for (int j = 0; j < distributionPoint.size(); j++) {
@@ -3186,7 +3199,8 @@ public abstract class CertTools {
                     String url = getStringFromGeneralNames(tagged.getObject());
                     if(url!=null) {
                         try {
-                            cdps.add(new URL(url));
+                            new URL(url); // Syntax check
+                            cdps.add(url);
                         } catch (MalformedURLException e) {
                             if(log.isDebugEnabled()) {
                                 log.debug("Error parsing '" + url + "' as a URL. " + e.getLocalizedMessage());
@@ -3200,6 +3214,40 @@ public abstract class CertTools {
             }
         }
         return cdps;
+    }
+
+    /**
+     * Return a list of CRL Issuing Distribution Points URIs from a CRL.
+     * @see #getCrlDistributionPoints(X509Certificate)
+     * @param crl CRL
+     * @return A list of URIs
+     */
+    public static Collection<String> getCrlDistributionPoints(final X509CRL crl) {
+        final ArrayList<String> uris = new ArrayList<>();
+        try {
+            final ASN1Primitive extensionValue = getExtensionValue(crl, Extension.issuingDistributionPoint.getId());
+            if (extensionValue == null) {
+                return uris;
+            }
+            final IssuingDistributionPoint idp = IssuingDistributionPoint.getInstance(extensionValue);
+            if (idp == null) {
+                return uris;
+            }
+            final DistributionPointName dpName = idp.getDistributionPoint();
+            if (dpName == null || dpName.getType() != DistributionPointName.FULL_NAME) { // Relative names are not implemented
+                return uris;
+            }
+            final GeneralNames generalNames = GeneralNames.getInstance(dpName.getName());
+            for (final GeneralName generalName : generalNames.getNames()) {
+                if (generalName.getTagNo() == GeneralName.uniformResourceIdentifier) {
+                    final DERIA5String asn1Value = DERIA5String.getInstance(generalName.getName());
+                    uris.add(asn1Value.getString());
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            log.debug("Malformed CRL Issuance Distribution Point", e);
+        }
+        return uris;
     }
 
     

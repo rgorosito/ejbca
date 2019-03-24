@@ -336,7 +336,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             caSession.addCA(intAdmin, rootCA);
             X509Certificate cacert = (X509Certificate) rootCA.getCACertificate();
             certificateStoreSession.storeCertificateRemote(intAdmin, EJBTools.wrap(cacert), "testuser", "1234",  CertificateConstants.CERT_ACTIVE,
-                    CertificateConstants.CERTTYPE_ROOTCA, CertificateProfileConstants.CERTPROFILE_NO_PROFILE, EndEntityConstants.NO_END_ENTITY_PROFILE, null, new Date().getTime());
+                    CertificateConstants.CERTTYPE_ROOTCA, CertificateProfileConstants.CERTPROFILE_NO_PROFILE, EndEntityConstants.NO_END_ENTITY_PROFILE,
+                    CertificateConstants.NO_CRL_PARTITION, null, new Date().getTime());
             //Create a SubCA for this test.
             subCA = CryptoTokenTestUtils.createTestCAWithSoftCryptoToken(intAdmin, subCaSubjectDn, rootCA.getCAId());
             int cryptoTokenId = subCA.getCAToken().getCryptoTokenId();
@@ -344,7 +345,8 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             X509Certificate subCaCertificate = (X509Certificate) subCA.getCACertificate();
             //Store the CA Certificate.
             certificateStoreSession.storeCertificateRemote(intAdmin, EJBTools.wrap(subCaCertificate), "foo", "1234", CertificateConstants.CERT_ACTIVE,
-                    CertificateConstants.CERTTYPE_SUBCA, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, EndEntityConstants.NO_END_ENTITY_PROFILE, "footag", new Date().getTime());
+                    CertificateConstants.CERTTYPE_SUBCA, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, EndEntityConstants.NO_END_ENTITY_PROFILE,
+                    CertificateConstants.NO_CRL_PARTITION, "footag", new Date().getTime());
             final EndEntityInformation endentity = new EndEntityInformation(subCaName, subCaSubjectDn, rootCA.getCAId(), null, null, new EndEntityType(EndEntityTypes.ENDUSER), EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
                     CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER, EndEntityConstants.TOKEN_USERGEN, 0, null);
             endentity.setStatus(EndEntityConstants.STATUS_NEW);
@@ -485,6 +487,59 @@ public class EjbcaWSTest extends CommonEjbcaWS {
             fail("Should have failed because of invalid RESPONSETYPE value.");
         } catch (EjbcaException_Exception e) {
             assertEquals(ErrorCode.INTERNAL_ERROR.getInternalErrorCode(), e.getFaultInfo().getErrorCode().getInternalErrorCode());
+        }
+    }
+
+    @Test
+    public void test03_10MultiValueRDN() throws Exception {
+        final String username = "test03_9MultiValueRDN";
+        final UserDataVOWS user = new UserDataVOWS();
+        user.setUsername(username);
+        user.setPassword(PASSWORD);
+        user.setClearPwd(false);
+        user.setSubjectDN("CN=Tomas+UID=12334,O=Test,C=SE");
+        user.setCaName(CA1);
+        user.setSubjectAltName(null);
+        user.setStatus(EndEntityConstants.STATUS_NEW);
+        user.setTokenType(UserDataVOWS.TOKEN_TYPE_USERGENERATED);
+        user.setEndEntityProfileName(WS_EEPROF_EI);
+        user.setCertificateProfileName(WS_CERTPROF_EI);
+        
+        try {
+            // First try to issue the certificate without having it allowed in the EED profile, that should not be possible
+            try {
+                ejbcaraws.certificateRequest(user, super.getP10(), CertificateHelper.CERT_REQ_TYPE_PKCS10, null, CertificateHelper.RESPONSETYPE_CERTIFICATE);
+                fail("Should not be possible to create certificate with multi-value RDN when it is not enabled in EE profile");
+            } catch (UserDoesntFullfillEndEntityProfile_Exception e) {
+                assertTrue("Error message does not relate to multi-value RDN. Message is: "+e.getMessage(), e.getMessage().endsWith("Subject DN has multi value RDNs, which is not allowed."));
+            }
+            
+            // Allow multi-value RDNs in the EE profile and try again, it should fail now as well, as the EE profile does not have UID as field (default created WS_EEPROF_EI in the beginning)
+            EndEntityProfile prof = endEntityProfileSession.getEndEntityProfile(WS_EEPROF_EI);
+            prof.setAllowMultiValueRDNs(true);
+            endEntityProfileSession.changeEndEntityProfile(intAdmin, WS_EEPROF_EI, prof);
+            try {
+                ejbcaraws.certificateRequest(user, super.getP10(), CertificateHelper.CERT_REQ_TYPE_PKCS10, null, CertificateHelper.RESPONSETYPE_CERTIFICATE);
+                fail("Should not be possible to create certificate with multi-value RDN when it is not enabled in EE profile");
+            } catch (UserDoesntFullfillEndEntityProfile_Exception e) {
+                assertTrue("Error message does not relate to multi-value RDN. Message is: "+e.getMessage(), e.getMessage().endsWith("Wrong number of UID fields in Subject DN."));
+            }
+
+            // Add UID as allowed field in the EE profile
+            prof = endEntityProfileSession.getEndEntityProfile(WS_EEPROF_EI);
+            prof.addField(DnComponents.UID);
+            endEntityProfileSession.changeEndEntityProfile(intAdmin, WS_EEPROF_EI, prof);
+            try {
+                CertificateResponse response = ejbcaraws.certificateRequest(user, super.getP10(), CertificateHelper.CERT_REQ_TYPE_PKCS10, null, CertificateHelper.RESPONSETYPE_CERTIFICATE);
+                X509Certificate cert = response.getCertificate();
+                assertEquals("SubjectDN should be multi-value RDN", "CN=Tomas+UID=12334,O=Test,C=SE", cert.getSubjectDN().toString());
+            } catch (UserDoesntFullfillEndEntityProfile_Exception e) {
+                fail("Should be possible to create certificate with multi-value RDN when EE profile is configured correctly: "+e.getMessage());
+            }
+        } finally {
+            if (endEntityManagementSession.existsUser(username)) {
+                endEntityManagementSession.revokeAndDeleteUser(intAdmin, username, RevokedCertInfo.REVOCATION_REASON_UNSPECIFIED);
+            }
         }
     }
 
@@ -1301,7 +1356,7 @@ public class EjbcaWSTest extends CommonEjbcaWS {
     public void testEjbcaVersion() {
         final String version = ejbcaraws.getEjbcaVersion();
         // We don't know which specific version we are testing
-        final String expectedSubString = "EJBCA 7.0";
+        final String expectedSubString = "EJBCA 7.1";
         assertTrue("Wrong version: "+version + " (expected to contain " + expectedSubString + ")", version.contains(expectedSubString));    }
 
     @Test

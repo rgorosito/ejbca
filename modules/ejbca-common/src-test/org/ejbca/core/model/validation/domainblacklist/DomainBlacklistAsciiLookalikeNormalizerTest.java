@@ -14,13 +14,12 @@
 package org.ejbca.core.model.validation.domainblacklist;
 
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
 import java.net.IDN;
-import java.text.ParseException;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Tests DomainBlacklistAsciiLookalikeNormalizer functions.
@@ -50,7 +49,7 @@ public class DomainBlacklistAsciiLookalikeNormalizerTest  {
     }
 
     @Test
-    public void testNormalizePunicode() throws ParseException {
+    public void testNormalizePunicode() {
         String punycode = IDN.toASCII("котикg009levv");
         String punycodeNormalized = normalizer.normalize(punycode);
 
@@ -60,7 +59,7 @@ public class DomainBlacklistAsciiLookalikeNormalizerTest  {
     }
 
     @Test
-    public void testNormalizePunicodeUnicodeCharsInMiddle() throws ParseException {
+    public void testNormalizePunicodeUnicodeCharsInMiddle() {
         String punycode = IDN.toASCII("ama20nкотикg009levv");
         String punycodeNormalized = normalizer.normalize(punycode);
 
@@ -70,7 +69,7 @@ public class DomainBlacklistAsciiLookalikeNormalizerTest  {
     }
 
     @Test
-    public void testNormalizePunicodeAsciCharsInMiddle() throws ParseException {
+    public void testNormalizePunicodeAsciCharsInMiddle() {
         String punycode = IDN.toASCII("котикg009levvчеширик");
         String punycodeNormalized = normalizer.normalize(punycode);
 
@@ -80,7 +79,7 @@ public class DomainBlacklistAsciiLookalikeNormalizerTest  {
     }
 
     @Test
-    public void testNormalizePunicodeDots() throws ParseException {
+    public void testNormalizePunicodeDots() {
         String punycode = IDN.toASCII("чеширик.g009leмяуvv.vv0rid");
         String punycodeNormalized = normalizer.normalize(punycode);
 

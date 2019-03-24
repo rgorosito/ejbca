@@ -8,6 +8,13 @@ JBOSS_STANDALONE=$JBOSS_HOME/standalone
 JBOSS_STANDALONE_CONF=$JBOSS_STANDALONE/configuration
 JBOSS_STANDALONE_DEPLOYMENTS=$JBOSS_STANDALONE/deployments
 
+# Options for JUnit JVM
+export TEST_OPTS="-XX:+UseG1GC -XX:+UseCompressedOops -XX:OnOutOfMemoryError='kill -9 %p' -Xms64m -Xmx512m"
+# Options for ant itself. The report building can be memory heavy, otherwise it shouldn't need much memory
+export ANT_OPTS="-XX:+UseG1GC -XX:+UseCompressedOops -XX:OnOutOfMemoryError='kill -9 %p' -Xms64m -Xmx512m"
+# Options for the CLI tools that require little memory, like the JBoss CLI
+export CLI_OPTS="-XX:+UseG1GC -XX:+UseCompressedOops -XX:OnOutOfMemoryError='kill -9 %p' -Xms64m -Xmx128m"
+
 # Functions
 wait_for_deployment() {
 	DEPLOY_SUCCESSFUL=0
@@ -39,7 +46,6 @@ echo '=================== Copying Configuration ================================
 cp /opt/standalone1.xml $JBOSS_STANDALONE_CONF/standalone.xml
 cp /opt/conf/* /app/ejbca/conf/
 
-
 echo '=================== Starting WildFly ======================================='
 $JBOSS_BIN/standalone.sh -b 0.0.0.0 -bmanagement 0.0.0.0 &
 
@@ -60,7 +66,7 @@ echo '=================== ant deploy-keystore done! ============================
 
 echo '=================== Replacing Configuration and Reloading =================='
 cp /opt/standalone2.xml $JBOSS_STANDALONE_CONF/standalone.xml
-$JBOSS_CLI -c --command=:reload
+JAVA_OPTS="$CLI_OPTS" $JBOSS_CLI -c --command=:reload
 
 # wait for reload to kick in and start undeploying and drop ejbca.ear.deployed file (otherwise we'd detect ejbca.ear.deployed file immediately again)
 sleep 10
@@ -70,5 +76,9 @@ wait_for_deployment
 echo '=================== Deployment is done ====================================='
 
 echo '=================== Starting system tests =================================='
-ant test:runsys
+ant test:runsys -Dtests.jvmargs="$TEST_OPTS"
 echo '=================== System tests are done =================================='
+
+
+echo '=================== fixing permissions ================================='
+chown -R 1001:1001 .

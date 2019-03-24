@@ -51,6 +51,8 @@
         <path location="${admin-gui.build-test.dir}" />
         <path location="${admin-gui.build.dir}/WEB-INF/classes" />
         <path refid="lib.junit.classpath"/>
+    	<path refid="lib.easymock.classpath"/>
+    	<path refid="lib.commons-logging.classpath"/>
     </path>
 	
     <target name="clean" description="Clean up this module">
@@ -106,6 +108,7 @@
 	                 <include name="**/*Test.class" />
 	             </fileset>
 	         </batchtest>
+	     	<jvmarg line="${tests.jvmargs}"/>
 	     </junit>
 	</target>
 
@@ -122,6 +125,7 @@
 	                <include name="**/${test.runone}.class" />
 	            </fileset>
 	        </batchtest>
+	    	<jvmarg line="${tests.jvmargs}"/>
 	    </junit>
 	</target>
 

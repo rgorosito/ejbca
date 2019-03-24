@@ -62,7 +62,7 @@ import org.ejbca.ui.web.admin.BaseManagedBean;
 public class CertProfilesBean extends BaseManagedBean implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(CertProfilesBean.class);
-
+    
     // This restriction in certificate profile naming can be removed when the current running version no longer has
     // to be able to run side by side (share the db) with an EJBCA 6.1.x or earlier
     @Deprecated
@@ -224,6 +224,21 @@ public class CertProfilesBean extends BaseManagedBean implements Serializable {
         } else {
             return "";
         }
+    }
+    
+    public void actionExportProfile() {
+        selectCurrentRowData();
+        redirect(getEjbcaWebBean().getBaseUrl() + getEjbcaWebBean().getGlobalConfiguration().getAdminWebPath() + "profilesexport", "profileType",
+                "cp", "profileId", getSelectedCertProfileId().toString());
+    }
+
+    public void actionExportProfiles() {
+        redirect(getEjbcaWebBean().getBaseUrl() + getEjbcaWebBean().getGlobalConfiguration().getAdminWebPath() + "profilesexport", "profileType",
+                "cp");
+    }
+    
+    public boolean isRunningBuildWithCA() {
+        return getEjbcaWebBean().isRunningBuildWithCA();
     }
     
     public boolean getViewOnly() {

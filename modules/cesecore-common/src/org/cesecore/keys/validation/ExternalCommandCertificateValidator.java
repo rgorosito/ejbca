@@ -149,7 +149,7 @@ public class ExternalCommandCertificateValidator extends CertificateValidatorBas
                 final Map<Object, Object> oldValues = (Map<Object, Object>) data.clone();
                 final Map<Object, Object> newValues = (Map<Object, Object>) data.clone();
                 newValues.put("testOut", StringUtils.join(out, System.getProperty("line.separator")));
-                newValues.put("testPath", "");
+                newValues.put("testPath", null);
                 uiModel.firePropertyChange(oldValues, newValues);
                 setTestCertificates(ListUtils.EMPTY_LIST);
             }
@@ -184,8 +184,8 @@ public class ExternalCommandCertificateValidator extends CertificateValidatorBas
     public List<String> validate(final CA ca, final Certificate certificate, final ExternalScriptsWhitelist externalScriptsWhitelist)
             throws ValidatorNotApplicableException, ValidationException, CertificateException {
         final List<String> messages = new ArrayList<String>();
-        log.debug("Validating certificate with external command " + getExternalCommand());
         if (log.isDebugEnabled()) {
+            log.debug("Validating certificate with external command: " + getExternalCommand());
             log.debug("Validating certificate with external command (cert):" + certificate);
         }
         // Add CA certificate chain, that may be processed.
@@ -359,7 +359,7 @@ public class ExternalCommandCertificateValidator extends CertificateValidatorBas
      */
     @SuppressWarnings("unchecked")
     public List<String> testCommand() throws DynamicUiCallbackException {
-        log.info("Test external command certificate validator " + getProfileName());
+        log.info("Test external command certificate validator: " + getProfileName());
         final DynamicUiProperty<File> property = (DynamicUiProperty<File>) uiModel.getProperties().get("testPath");
         final List<String> out = new ArrayList<String>();
         File file = null;
@@ -470,8 +470,8 @@ public class ExternalCommandCertificateValidator extends CertificateValidatorBas
         final List<String> out = new ArrayList<String>();
         try {
             out.addAll(ExternalProcessTools.launchExternalCommand(cmd, certificates.get(0).getEncoded(),
-                    isFailOnErrorCode(), isFailOnStandardError(), isLogStandardOut(), isLogErrorOut(), arguments, ExternalCommandCertificateValidator.class.getName()));
-        } catch(ExternalProcessException e) {
+                    isFailOnErrorCode(), isFailOnStandardError(), isLogStandardOut(), isLogErrorOut(), arguments, this.getClass().getSimpleName()));
+        } catch (ExternalProcessException e) {
             log.info("Could not call external command '" + cmd + "' with arguments " + arguments + " sucessfully: " + e.getMessage());
             if (log.isDebugEnabled()) {
                 log.debug("Failed with exception: ", e);

@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import java.util.List;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
@@ -46,7 +47,11 @@ public class ValidatorsHelper extends BaseHelper {
         static final By INPUT_CLONE_NEW_NAME = By.id("editvalidators:addFromTemplateValidatorNew");
         static final By INPUT_RENAME_NEW_NAME = By.id("editvalidators:renameValidatorNew");
         static final By INPUT_DESCRIPTION = By.id("kvf:description");
-        
+        static final By INPUT_BROWSE_BLACKLIST_FILE = By.id("kvf:blacklist_upload");
+        static final By INPUT_BLACKLIST_SITE = By.id("kvf:test_domainentry");
+        static final By INPUT_BLACKLIST_RESULT = By.id("kvf:test_result");
+
+
         // Buttons
         static final By BUTTON_ADD = By.xpath("//input[@value='Add']");
         static final By BUTTON_RENAME_CONFIRM = By.xpath("//input[@value='Confirm new name']");
@@ -57,7 +62,8 @@ public class ValidatorsHelper extends BaseHelper {
         static final By BUTTON_DELETE_CANCEL = By.xpath("//input[@value='Cancel']");
         static final By BUTTON_SAVE_EDIT = By.xpath("//input[@value='Save']");
         static final By BUTTON_CANCEL_EDIT = By.xpath("//input[@value='Cancel']");
-        
+        static final By BUTTON_TEST_DOMAIN = By.cssSelector("input[name='kvf:test_button']");
+
         // Check boxes
         static final By CHECKBOX_APPLY_FOR_ALL_PROFILES = By.id("kvf:allcertificateprofiles");
         
@@ -66,8 +72,9 @@ public class ValidatorsHelper extends BaseHelper {
         static final By TEXT_TITLE_DELETE_VALIDATOR = By.id("editvalidators:deleteValidatorName");
         static final By TEXT_TITLE_CLONE_VALIDATOR = By.id("editvalidators:addFromTemplateValidatorOld");
         static final By TEXT_TITLE_RENAME_VALIDATOR = By.id("editvalidators:renameValidatorOld");
-        
+
         // Select
+        static final By SELECT_BLACKLIST_PERFORM = By.id("kvf:checks");
         static final By SELECT_VALIDATOR_TYPE = By.id("kvf:validatorType");
         static final By SELECT_ISSUANCE_PHASE = By.id("kvf:applicablePhase");
         static final By SELECT_APPLY_FOR_PROFILES = By.id("kvf:selectapplicablecertificateprofiles");
@@ -118,6 +125,16 @@ public class ValidatorsHelper extends BaseHelper {
         // Assert correct edit page
         assertValidatorTitleExists(Page.TEXT_TITLE_EDIT_VALIDATOR, "Validator: ", validatorName);
     }
+
+    /**
+     * Click the test domain button
+     *
+     */
+    public void testBlacklistSite() {
+        WebElement element = findElement(Page.BUTTON_TEST_DOMAIN);
+        element.sendKeys(Keys.ENTER);
+        //clickLink(Page.BUTTON_TEST_DOMAIN);
+    }
     
     /**
      * Opens the view page for a Validator, then asserts that the correct Validator is being viewed.
@@ -151,6 +168,7 @@ public class ValidatorsHelper extends BaseHelper {
     public void deleteValidator(final String validatorName) {
         // Click 'Delete' button
         clickLink(Page.getDeleteButtonFromValidatorsTableRowContainingText(validatorName));
+        clickLink(Page.BUTTON_DELETE_CONFIRM);
         // Assert that the correct Validator is being deleted
         assertValidatorTitleExists(Page.TEXT_TITLE_DELETE_VALIDATOR, validatorName);
     }
@@ -193,6 +211,10 @@ public class ValidatorsHelper extends BaseHelper {
         assertValidatorNameExists(validatorName);
         assertValidatorNameExists(newValidatorName);
     }
+
+    public void setBlacklistPerformOption(final String performType) {
+        selectOptionByName(Page.SELECT_BLACKLIST_PERFORM, performType, true);
+    }
     
     /**
      * Changes the Validator type to validatorType by selecting from the drop-down list of Validators.
@@ -201,7 +223,27 @@ public class ValidatorsHelper extends BaseHelper {
     public void setValidatorType(final String validatorType) {
         selectOptionByName(Page.SELECT_VALIDATOR_TYPE, validatorType);
     }
-    
+
+    /**
+     * Select a blacklist validator filename.
+     *
+     * @param filename
+     */
+
+    public void setBlacklistFile(final String filename) {
+        fillInput(Page.INPUT_BROWSE_BLACKLIST_FILE, filename);
+    }
+
+    /**
+     * Sets the sitename to be used with the validator
+     *
+     * @param siteName
+     */
+
+    public void setBlackListSite(final String siteName) {
+        fillInput(Page.INPUT_BLACKLIST_SITE, siteName + Keys.TAB);
+    }
+
     /**
      * Sets the description for the currently validator being edited.
      * @param description free text
@@ -307,6 +349,15 @@ public class ValidatorsHelper extends BaseHelper {
                 prefixString + validatorName,
                 validatorTitle.getText()
         );
+    }
+
+    public void assertBlackListResultsIsCorrect(final String resultMessage) {
+        final WebElement validatorResults = findElement(Page.INPUT_BLACKLIST_RESULT);
+        if (!validatorResults.getText().contains(resultMessage)) {
+            fail("Blacklist validator results is incorrect");
+        }
+        assertEquals(resultMessage,
+                validatorResults.getText());
     }
 }
 

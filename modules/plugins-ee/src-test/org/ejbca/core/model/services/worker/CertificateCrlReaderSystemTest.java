@@ -299,7 +299,7 @@ public class CertificateCrlReaderSystemTest {
     private boolean waitForCrlToExist(final String issuerDn, final int crlNumber) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() < startTime + WAIT_TIME) {
-            final byte[] crl = crlStoreSession.getCRL(issuerDn, crlNumber);
+            final byte[] crl = crlStoreSession.getCRL(issuerDn, CertificateConstants.NO_CRL_PARTITION, crlNumber);
             if (crl != null) {
                 if (log.isDebugEnabled()) {
                     log.debug("CRL found after " + (System.currentTimeMillis() - startTime) + " ms");

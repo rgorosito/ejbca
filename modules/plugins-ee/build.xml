@@ -23,6 +23,8 @@
 		<path refid="lib.json-simple.classpath"/>
 		<path refid="lib.jsch.classpath"/>
 		<path refid="lib.ldap.classpath" />
+		<path location="${mod.cesecore-x509ca.lib}"/>
+        <path location="${mod.cesecore-cvcca.lib}"/>
 	</path>
 
 	<path id="compile-ejbca.classpath">
@@ -49,6 +51,8 @@
 		<path location="${mod.systemtest-interface.lib}"/>
 		<path location="${mod.systemtest-ejb.lib}"/>
 		<path location="${mod.ejbca-entity.lib}"/>
+		<path location="${mod.cesecore-x509ca.lib}"/>
+        <path location="${mod.cesecore-cvcca.lib}"/>
 	</path>
 	
     <target name="clean" description="Clean up this module">
@@ -107,6 +111,7 @@
 			<batchtest fork="yes" todir="${reports.dir}">
 				<fileset dir="${plugins-ee.build-test.dir}" includes="**/*Test.class" />
 			</batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 		</junit>
 		<antcall target="showtime" inheritall="true" inheritrefs="true"/>
 	</target>
@@ -126,6 +131,7 @@
 			<batchtest fork="yes" todir="${reports.dir}">
 				<fileset dir="${plugins-ee.build-test.dir}" includes="**/${test.runone}.class"/>
 			</batchtest>
+			<jvmarg line="${tests.jvmargs}"/>
 		</junit>
 	</target>
 </project>

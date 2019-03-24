@@ -238,6 +238,18 @@ public class EndEntityProfilesMBean extends BaseManagedBean implements Serializa
         }
         nonAjaxPostRedirectGet(null);
     }
+    
+    public void actionExportProfile() {
+        clearMessages();
+        redirect(getEjbcaWebBean().getBaseUrl() + getEjbcaWebBean().getGlobalConfiguration().getAdminWebPath() + "/profilesexport", "profileType",
+                "eep", "profileId", getSelectedEndEntityProfileId().toString());
+    }
+
+    public void actionExportProfiles() {
+        clearMessages();
+        redirect(getEjbcaWebBean().getBaseUrl() + getEjbcaWebBean().getGlobalConfiguration().getAdminWebPath() + "/profilesexport", "profileType",
+                "eep");
+    }
 
     public void reset() {
         deleteInProgress = false;

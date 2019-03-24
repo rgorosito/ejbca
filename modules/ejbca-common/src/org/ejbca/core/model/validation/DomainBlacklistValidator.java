@@ -22,9 +22,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +40,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.keys.validation.DnsNameValidator;
@@ -50,6 +52,8 @@ import org.cesecore.util.CertTools;
 import org.cesecore.util.MapTools;
 import org.cesecore.util.NameTranslatable;
 import org.cesecore.util.ValidityDate;
+import org.cesecore.util.ui.DynamicUiActionCallback;
+import org.cesecore.util.ui.DynamicUiCallbackException;
 import org.cesecore.util.ui.DynamicUiModel;
 import org.cesecore.util.ui.DynamicUiProperty;
 import org.cesecore.util.ui.PropertyValidationException;
@@ -90,6 +94,13 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
     private static final String BLACKLIST_SHA256_KEY = "blacklist_sha256"; // Persisted
     /** File upload of new existing blacklist. Not persisted */
     private static final String BLACKLIST_UPLOAD_KEY = "blacklist_upload";
+    /** Text field that allow for testing of domains. Not persisted. */
+    private static final String TEST_DOMAINENTRY_KEY = "test_domainentry";
+    private static final String TEST_BUTTON_KEY = "test_button";
+    private static final String TEST_BUTTON_TEXT = "test_button_text";
+    private static final String TEST_RESULT_KEY = "test_result";
+
+    private static final int MAX_LOG_DOMAINS = 100;
 
     /** Dynamic UI model extension. */
     protected DynamicUiModel uiModel;
@@ -115,7 +126,13 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
     public void init() {
         super.init();
         // Add fields that have been upgraded and need default values here
-        // Load blacklist data
+    }
+
+    @Override
+    protected void loadTransientObjects() {
+        if (log.isDebugEnabled()) {
+            log.debug("loadTransientObjects was called for validator " + getProfileName());
+        }
         loadBlacklistData();
     }
 
@@ -142,7 +159,7 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
 
     /** Replaces the existing domain blacklist with the uploaded one. Takes a byte array. */
     public void changeBlacklist(final byte[] bytes) {
-        final Set<String> domainSet = new HashSet<>();
+        final Set<String> domainSet = new TreeSet<>(); // store entries sorted in database
         try {
             try (final InputStream domainBlacklistInputStream = new ByteArrayInputStream(bytes);
                  final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(domainBlacklistInputStream, StandardCharsets.UTF_8))) {
@@ -160,6 +177,9 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
                     }
                     validateDomain(line, lineNumber);
                     domainSet.add(line.toLowerCase(Locale.ROOT));
+                }
+                if (log.isDebugEnabled()) {
+                    log.debug("Parsed domain blacklist with " + domainSet.size() + " entries (" + lineNumber + " lines)");
                 }
                 setBlacklist(domainSet);
                 setBlacklistDate(new Date());
@@ -213,22 +233,25 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
             }
         }
         // Create combined blacklist
-        final Set<String> combinedBlacklist = new HashSet<>();
-        Set<String> domainSetNotNormalized = getBlacklist(); 
-        for (String domain : domainSetNotNormalized) {
+        final Collection<String> domainSetNotNormalized = getBlacklist(); 
+        final HashMap<String,String> domainMap = new HashMap<>((int)(domainSetNotNormalized.size()/0.75)+1); // keys: normalized domains. values: unmodified blacklisted domains
+        if (log.isDebugEnabled()) {
+            log.debug("Normalizing " + domainSetNotNormalized.size() + " domains for Validator '" + getProfileName() + "'");
+        }
+        for (final String domain : domainSetNotNormalized) {
             // Normalize before adding to combined list
             final String normalizedDomain = normalizeDomain(newNormalizers, domain);
-            combinedBlacklist.add(normalizedDomain);
+            domainMap.put(normalizedDomain, domain);
             if (log.isTraceEnabled()) {
                 log.trace("Normalized domain '" + domain + "' to '" + normalizedDomain + "'");
             }
         }
         // Initialize checkers
         for (final DomainBlacklistChecker checker : newCheckers) {
-            checker.initialize(data, combinedBlacklist);
+            checker.initialize(data, domainMap);
         }
         if (log.isDebugEnabled()) {
-            log.debug("Initialized cache with " + combinedBlacklist.size() + " domains, " + newCheckers.size() + " checkers, " + newNormalizers.size() + " normalizers.");
+            log.debug("Initialized cache for Validator '" + getProfileName() + "' with " + domainMap.size() + " domains, " + newCheckers.size() + " checkers, " + newNormalizers.size() + " normalizers.");
         }
         cache = new Cache(newInitializationFailure, newNormalizers, newCheckers); 
         log.trace("<reloadBlacklistData");
@@ -238,13 +261,15 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
      *  Clears caches. This will trigger a re-build of the combined in-memory blacklist.
      */
     private void clearCache() {
-        log.debug("Clearing domain blacklist cache for validator '" + getProfileName() + "'");
+        if (log.isDebugEnabled()) {
+            log.debug("Clearing domain blacklist cache for validator '" + getProfileName() + "'");
+        }
         cache = null;
     }
 
     @Override
     public void initDynamicUiModel() {
-        uiModel = new DynamicUiModel(data) {
+        uiModel = new DynamicUiModel(data, getFilteredDataMapForLogging()) {
             @Override
             public Map<String, Object> getRawData() {
                 final Map<String, Object> rawData = super.getRawData();
@@ -271,6 +296,9 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
         addClassSelection(DomainBlacklistChecker.class, CHECKS_KEY, true, getChecks(), DomainBlacklistExactMatchChecker.class.getName());
         addBlacklistInfo();
         uploadBlacklistFile();
+        if (getBlacklistDate() != null) {
+            addTestControls();
+        }
     }
 
     private <T extends NameTranslatable> void addClassSelection(final Class<T> clazz, final String dataMapKey, final boolean required, final List<String> currentValues, final String defaultValue) {
@@ -326,6 +354,71 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
         uiModel.add(uiProperty);
     }
 
+    private void addTestControls() {
+        final DynamicUiProperty<String> testEntry = new DynamicUiProperty<>(String.class, TEST_DOMAINENTRY_KEY, "");
+        testEntry.setRenderingHint(DynamicUiProperty.RENDER_TEXTFIELD);
+        testEntry.setTransientValue(true);
+        testEntry.setRequired(false);
+        try {
+            testEntry.setValue("");
+        } catch (PropertyValidationException e) {
+            throw new IllegalStateException(e);
+        }
+        uiModel.add(testEntry);
+        final DynamicUiProperty<String> testButton = new DynamicUiProperty<>(String.class, TEST_BUTTON_KEY, TEST_BUTTON_TEXT);
+        testButton.setRenderingHint(DynamicUiProperty.RENDER_BUTTON);
+        testButton.setTransientValue(true);
+        testButton.setActionCallback(new DynamicUiActionCallback() {
+            @Override
+            public void action(final Object parameter) throws DynamicUiCallbackException {
+                final DynamicUiProperty<?> domainEntryProperty = uiModel.getProperties().get(TEST_DOMAINENTRY_KEY);
+                uiModel.writeProperties(getRawData());
+                reloadBlacklistData();
+                final String resultText = testDomain((String) domainEntryProperty.getValue());
+                uiModel.firePropertyChange(TEST_RESULT_KEY, "x", resultText);
+            }
+            @Override
+            public List<String> getRender() {
+                return new ArrayList<>(Collections.singleton(TEST_RESULT_KEY));
+            }
+        });
+        uiModel.add(testButton);
+        final DynamicUiProperty<String> resultLabel = new DynamicUiProperty<>(String.class, TEST_RESULT_KEY, "");
+        resultLabel.setRenderingHint(DynamicUiProperty.RENDER_LABEL);
+        resultLabel.setEscape(false);
+        resultLabel.setTransientValue(true);
+        uiModel.add(resultLabel);
+    }
+
+    /**
+     * Performs a test validation of a domain
+     * @param domain Domain to test
+     * @return HTML message.
+     */
+    private String testDomain(final String domain) {
+        if (log.isDebugEnabled()) {
+            log.debug("Testing domain: " + domain);
+        }
+        if (StringUtils.isBlank(domain)) {
+            return "";
+        }
+        final Entry<Boolean,List<String>> result = validate(null, domain.trim());
+        if (result.getKey()) {
+            return StringEscapeUtils.escapeHtml(intres.getLocalizedMessage("validator.domainblacklist.validation_successful", getProfileName()));
+        } else if (CollectionUtils.isEmpty(result.getValue())) {
+            return "Failed to checked domain"; // Bug. Should never happen
+        } else {
+            final StringBuilder sb = new StringBuilder();
+            for (final String message : result.getValue()) {
+                if (sb.length() != 0) {
+                    sb.append("<br />");
+                }
+                sb.append(StringEscapeUtils.escapeHtml(message));
+            }
+            return sb.toString();
+        }
+    }
+
     @Override
     public DynamicUiModel getDynamicUiModel() {
         return uiModel;
@@ -375,8 +468,9 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
                 log.debug("Normalized domain '" + domainName + "' to '" + normalizedDomain + "'. Checking with " + cache.checkers.size() + " checkers.");
             }
             for (final DomainBlacklistChecker checker : cache.checkers) {
-                if (!checker.check(normalizedDomain)) {
-                    messages.add("Domain '" + domainName + "' is blacklisted.");
+                final String matchingBlacklistedDomain = checker.check(normalizedDomain);
+                if (matchingBlacklistedDomain != null) {
+                    messages.add("Domain '" + domainName + "' is blacklisted. Matching domain on blacklist: '" + matchingBlacklistedDomain +"'");
                     result = false;
                 }
             }
@@ -405,12 +499,12 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
     }
 
 
-    public Set<String> getBlacklist() {
-        return getData(BLACKLISTS_KEY, Collections.emptySet());
+    public Collection<String> getBlacklist() {
+        return getData(BLACKLISTS_KEY, Collections.emptyList());
     }
 
-    public void setBlacklist(final Set<String> domainMap) {
-        putData(BLACKLISTS_KEY, new TreeSet<>(domainMap));
+    public void setBlacklist(final Collection<String> domainMap) {
+        putData(BLACKLISTS_KEY, new ArrayList<>(domainMap));
         clearCache();
     }
 
@@ -431,9 +525,30 @@ public class DomainBlacklistValidator extends ValidatorBase implements DnsNameVa
     }
 
     @Override
+    public LinkedHashMap<Object,Object> getFilteredDataMapForLogging() {
+        LinkedHashMap<Object,Object> map = getDataMap();
+        final Collection<?> blacklists = (Collection<?>) map.get(BLACKLISTS_KEY);
+        if (blacklists == null || blacklists.size() <= MAX_LOG_DOMAINS) {
+            return map; // Just log as is
+        } else {
+            map = new LinkedHashMap<>(map);
+            map.put(BLACKLISTS_KEY, "(" + blacklists.size() + " entries, not shown in the log)");
+            return map;
+        }
+    }
+
+    @Override
     public String getLogMessage(final boolean successful, final List<String> messages) {
         final String validatorName = getProfileName();
         final String languageKey = successful ? "validator.domainblacklist.validation_successful" : "validator.domainblacklist.validation_failed";
         return intres.getLocalizedMessage(languageKey, validatorName, messages);
+    }
+
+    @Override
+    public DomainBlacklistValidator clone() {
+        final DomainBlacklistValidator clone = new DomainBlacklistValidator();
+        clone.data = new LinkedHashMap<>(data);
+        clone.cache = cache; // cache is not modified, so it can be referenced.
+        return clone;
     }
 }

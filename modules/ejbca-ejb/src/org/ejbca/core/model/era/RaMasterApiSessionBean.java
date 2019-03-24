@@ -79,6 +79,7 @@ import org.cesecore.authorization.user.matchvalues.AccessMatchValue;
 import org.cesecore.authorization.user.matchvalues.AccessMatchValueReverseLookupRegistry;
 import org.cesecore.certificates.ca.ApprovalRequestType;
 import org.cesecore.certificates.ca.CA;
+import org.cesecore.certificates.ca.CACommon;
 import org.cesecore.certificates.ca.CAConstants;
 import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.ca.CAInfo;
@@ -122,6 +123,7 @@ import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.CryptoTokenSessionLocal;
 import org.cesecore.keys.util.KeyTools;
+import org.cesecore.keys.validation.CaaIdentitiesValidator;
 import org.cesecore.keys.validation.DnsNameValidator;
 import org.cesecore.keys.validation.KeyValidatorSessionLocal;
 import org.cesecore.keys.validation.Validator;
@@ -201,7 +203,6 @@ import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileNotFoundException;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException;
 import org.ejbca.core.model.ra.raadmin.UserDoesntFullfillEndEntityProfile;
-import org.ejbca.core.model.validation.CaaValidator;
 import org.ejbca.core.protocol.NoSuchAliasException;
 import org.ejbca.core.protocol.acme.AcmeAccount;
 import org.ejbca.core.protocol.acme.AcmeAccountDataSessionLocal;
@@ -2485,7 +2486,8 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         if (cainfo == null) {
             throw new CADoesntExistsException("CA with name " + caName + " doesn't exist.");
         }
-        return crlStoreSession.getLastCRL(cainfo.getSubjectDN(), deltaCRL);
+        // This method is used from the EjbcaWS.getLatestCRL Web Service method, and it does not allow specifying a partition.
+        return crlStoreSession.getLastCRL(cainfo.getSubjectDN(), CertificateConstants.NO_CRL_PARTITION, deltaCRL);
     }
 
     @Override
@@ -2494,8 +2496,11 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         if (cainfo == null) {
             throw new CADoesntExistsException("CA with subjectDn " + issuerDn + " doesn't exist.");
         }
-        return crlStoreSession.getLastCRL(issuerDn, deltaCRL);
+        // This method is used from the EjbcaWS.getLatestCRL Web Service method, and it does not allow specifying a partition.
+        return crlStoreSession.getLastCRL(issuerDn, CertificateConstants.NO_CRL_PARTITION, deltaCRL);
     }
+
+    // TODO Add new method for Partitioned CRL support for Web Service and REST API (ECA-7966)
 
     @Override
     public Integer getRemainingNumberOfApprovals(final AuthenticationToken authenticationToken, final int requestId)
@@ -2569,7 +2574,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public HashSet<String> getCaaIdentities(final AuthenticationToken authenticationToken, final int caId)
             throws AuthorizationDeniedException, CADoesntExistsException {
         final HashSet<String> caaIdentities = new HashSet<String>();
-        final CA ca = caSession.getCA(authenticationToken, caId);
+        final CACommon ca = caSession.getCA(authenticationToken, caId);
         if (ca == null) {
             throw new CADoesntExistsException("The CA with id " + caId + " does not exist on peer.");
         }
@@ -2582,7 +2587,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
                 continue;
             }
             if (validator.getValidatorTypeIdentifier().equals(DnsNameValidator.CAA_TYPE_IDENTIFIER)) {
-                caaIdentities.addAll(((CaaValidator) validator).getIssuers());
+                caaIdentities.addAll(((CaaIdentitiesValidator) validator).getIssuers());
             }
         }
         return caaIdentities;

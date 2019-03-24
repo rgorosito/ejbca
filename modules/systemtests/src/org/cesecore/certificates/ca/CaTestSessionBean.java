@@ -35,11 +35,11 @@ public class CaTestSessionBean implements CaTestSessionRemote {
 
 	@Override
 	public CA getCA(AuthenticationToken admin, int caid) throws AuthorizationDeniedException {
-		return caSession.getCA(admin, caid);
+		return (CA)caSession.getCA(admin, caid);
 	}
 
 	@Override
 	public CA getCA(AuthenticationToken admin, String name) throws AuthorizationDeniedException {
-		return caSession.getCA(admin, name);
+		return (CA)caSession.getCA(admin, name);
 	}
 }
