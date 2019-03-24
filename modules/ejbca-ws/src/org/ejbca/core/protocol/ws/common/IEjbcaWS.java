@@ -799,7 +799,7 @@ public interface IEjbcaWS {
 	 *     until an instance with an active CA was found there the authorization can be verified. </p>
      * 
 	 * @param resource the access rule to test
-	 * @return true if the user is authorized to the resource otherwise false. If the request was proxied to a CA instance, and the request fails, false is returned.
+	 * @return true if the user is authorized to the resource otherwise false.
 	 * @throws EjbcaException
 	 * @see RevokeStatus
 	 */

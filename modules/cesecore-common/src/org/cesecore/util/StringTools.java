@@ -564,18 +564,6 @@ public final class StringTools {
         return new BigInteger(hexString, 16);
     }
 
-    /**
-     * Converts hexadecimal string to BigInteger. Hex prefix (0x) is ignored
-     * @param hexString HEX value with or without '0x' prefix
-     * @return BigInteger value
-     */
-    public static BigInteger getBigIntegerFromHexString(String hexString) {
-        if (hexString.startsWith("0x") || hexString.startsWith("0X")) {
-            hexString = hexString.substring(2, hexString.length());
-        }
-        return new BigInteger(hexString, 16);
-    }
-
     /** Obfuscates a String if it does not already start with "OBF:"
      * @see #obfuscate(String)
      * @param s string to obfuscate

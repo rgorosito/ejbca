@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -68,7 +67,6 @@ import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.PublicAccessAuthenticationTokenMetaData;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
-import org.cesecore.authentication.tokens.X509CertificateAuthenticationToken;
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.cesecore.authorization.AuthorizationSessionLocal;
 import org.cesecore.authorization.access.AccessSet;
@@ -104,7 +102,6 @@ import org.cesecore.certificates.certificate.certextensions.CertificateExtension
 import org.cesecore.certificates.certificate.exception.CertificateSerialNumberException;
 import org.cesecore.certificates.certificate.exception.CustomCertificateSerialNumberException;
 import org.cesecore.certificates.certificate.request.PKCS10RequestMessage;
-import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.certificate.request.RequestMessageUtils;
 import org.cesecore.certificates.certificate.request.ResponseMessage;
 import org.cesecore.certificates.certificate.request.X509ResponseMessage;
@@ -145,8 +142,6 @@ import org.ejbca.core.ejb.EnterpriseEditionEjbBridgeSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalExecutionSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalProfileSessionLocal;
 import org.ejbca.core.ejb.approval.ApprovalSessionLocal;
-import org.ejbca.core.ejb.audit.enums.EjbcaModuleTypes;
-import org.ejbca.core.ejb.audit.enums.EjbcaServiceTypes;
 import org.ejbca.core.ejb.authentication.cli.CliAuthenticationTokenMetaData;
 import org.ejbca.core.ejb.authorization.AuthorizationSystemSessionLocal;
 import org.ejbca.core.ejb.ca.auth.EndEntityAuthenticationSessionLocal;
@@ -271,17 +266,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     @EJB
     private EnterpriseEditionEjbBridgeSessionLocal enterpriseEditionEjbBridgeSession;
     @EJB
-    private EjbcaWSHelperSessionLocal ejbcaWSHelperSession;    
-    @EJB
-    private PublisherSessionLocal publisherSession;
-    @EJB
-    private PublisherQueueSessionLocal publisherQueueSession;
-    @EJB
-    private CertReqHistorySessionLocal certreqHistorySession;
-    @EJB
-    private CrlStoreSessionLocal crlStoreSession;
-    @EJB
-    private EjbcaRestHelperSessionLocal ejbcaRestHelperSession;
+    private EjbcaWSHelperSessionLocal ejbcaWSHelperSession;
     @EJB
     private PublisherSessionLocal publisherSession;
     @EJB
@@ -1669,22 +1654,7 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
         }
         return endEntityAccessSession.findUser(endEntity.getUsername()) != null;
     }
-    
-    @Override
-    public boolean addUserFromWS(final AuthenticationToken admin, UserDataVOWS userDataVOWS, final boolean clearpwd)
-            throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
-            CADoesntExistsException, IllegalNameException, CertificateSerialNumberException, EjbcaException {
-        EndEntityInformation endEntityInformation = ejbcaWSHelperSession.convertUserDataVOWS(admin, userDataVOWS);
-        final int profileId = endEntityInformation.getEndEntityProfileId();
-        final EndEntityProfile profile = endEntityProfileSession.getEndEntityProfileNoClone(profileId);
-        if (profile.getAllowMergeDnWebServices()) {
-            endEntityInformation = EndEntityInformationFiller.fillUserDataWithDefaultValues(endEntityInformation, profile);
-        }
-        endEntityManagementSession.addUser(admin, endEntityInformation, clearpwd);
-        return endEntityAccessSession.findUser(endEntityInformation.getUsername()) != null;
-    }
 
-    
     @Override
     public boolean addUserFromWS(final AuthenticationToken admin, UserDataVOWS userDataVOWS, final boolean clearpwd)
             throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
@@ -2279,30 +2249,6 @@ public class RaMasterApiSessionBean implements RaMasterApiSessionLocal {
     public void revokeUser(final AuthenticationToken authenticationToken, final String username, final int reason, final boolean deleteUser) throws AuthorizationDeniedException, CADoesntExistsException,
         ApprovalException, WaitingForApprovalException, AlreadyRevokedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException, EjbcaException {
         endEntityManagementSession.revokeUser(authenticationToken, username, reason, deleteUser);
-    }
-
-    @Override
-    public void revokeUserWS(AuthenticationToken authenticationToken, String username, int reason, boolean deleteUser) throws CADoesntExistsException, AuthorizationDeniedException,
-            NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException, AlreadyRevokedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException {
-        // Check username.
-        final EndEntityInformation userdata = endEntityAccessSession.findUser(authenticationToken,username);
-        if(userdata == null){
-            log.info(intres.getLocalizedMessage("ra.errorentitynotexist", username));
-            String msg = intres.getLocalizedMessage("ra.wrongusernameorpassword");
-            throw new NotFoundException(msg);
-        }
-        // Check CA ID.
-        int caid = userdata.getCAId();
-        caSession.verifyExistenceOfCA(caid);
-        if(!authorizationSession.isAuthorizedNoLogging(authenticationToken, StandardRules.CAACCESS.resource() +caid)) {
-            final String msg = intres.getLocalizedMessage("authorization.notauthorizedtoresource", StandardRules.CAACCESS.resource() +caid, null);
-            throw new AuthorizationDeniedException(msg);
-        }
-        if (deleteUser) {
-            endEntityManagementSession.revokeAndDeleteUser(authenticationToken,username,reason);
-        } else {
-            endEntityManagementSession.revokeUser(authenticationToken,username,reason);
-        }
     }
 
     @Override

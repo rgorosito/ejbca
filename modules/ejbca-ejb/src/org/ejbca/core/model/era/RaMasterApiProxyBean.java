@@ -152,7 +152,7 @@ import org.ejbca.util.query.IllegalQueryException;
  * Proxy implementation of the the RaMasterApi that will get the result of the most preferred API implementation
  * or a mix thereof depending of the type of call.
  *
- * @version $Id$
+ * @version $Id: RaMasterApiProxyBean.java 31935 2019-03-22 07:33:49Z henriks $
  */
 @Singleton
 @Startup
@@ -996,32 +996,6 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
 
     @Override
-    public boolean addUserFromWS(final AuthenticationToken admin, UserDataVOWS userDataVOWS, final boolean clearpwd)
-            throws AuthorizationDeniedException, EndEntityProfileValidationException, EndEntityExistsException, WaitingForApprovalException,
-            CADoesntExistsException, IllegalNameException, CertificateSerialNumberException, EjbcaException {
-        AuthorizationDeniedException authorizationDeniedException = null;
-        for (final RaMasterApi raMasterApi : raMasterApis) {
-            try {
-                if (raMasterApi.isBackendAvailable() && raMasterApi.getApiVersion() >= 4) {
-                    return raMasterApi.addUserFromWS(admin, userDataVOWS, clearpwd);
-                }
-            } catch (AuthorizationDeniedException e) {
-                if (authorizationDeniedException == null) {
-                    authorizationDeniedException = e;
-                }
-                // Just try next implementation
-            } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
-                // Just try next implementation
-            }
-        }
-        if (authorizationDeniedException != null) {
-            throw authorizationDeniedException;
-        }
-        return false;
-        
-    }
-    
-    @Override
     public void checkSubjectDn(AuthenticationToken admin, EndEntityInformation endEntity) throws AuthorizationDeniedException, EjbcaException{
         AuthorizationDeniedException authorizationDeniedException = null;
         for (final RaMasterApi raMasterApi : raMasterApis) {
@@ -1666,24 +1640,6 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
     }
 
     @Override
-    public void revokeUserWS(AuthenticationToken authenticationToken, String username, int reason, boolean deleteUser) throws CADoesntExistsException, AuthorizationDeniedException,
-            NotFoundException, EjbcaException, ApprovalException, WaitingForApprovalException, AlreadyRevokedException, NoSuchEndEntityException, CouldNotRemoveEndEntityException {
-        // Try over all instances.
-        for (final RaMasterApi raMasterApi : raMasterApis) {
-            if (raMasterApi.isBackendAvailable()) {
-                try {
-                    raMasterApi.revokeUserWS(authenticationToken, username, reason, deleteUser);
-                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
-                    // Just try next implementation
-                } catch (CouldNotRemoveEndEntityException e) {
-                	log.info( "End entity for proxied request on CA could not be removed: " + e.getMessage());
-                	// Try next implementation.
-                }
-            }
-        }
-    }
-    
-    @Override
     public CertificateStatus getCertificateStatus(AuthenticationToken authenticationToken, String issuerDN, BigInteger serno) throws CADoesntExistsException, AuthorizationDeniedException{
         CertificateStatus ret = null;
         // Try remote first, since the certificate might be present in the RA database but the admin might not authorized to revoke it there
@@ -1788,26 +1744,6 @@ public class RaMasterApiProxyBean implements RaMasterApiProxyBeanLocal {
         if (caDoesntExistException != null) {
             throw caDoesntExistException;
         }
-        return false;
-    }
-    
-    @Override
-    public boolean editUserWs(AuthenticationToken authenticationToken, UserDataVOWS userDataVOWS)
-            throws AuthorizationDeniedException, EndEntityProfileValidationException, WaitingForApprovalException, CADoesntExistsException,
-            CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, EjbcaException {
-        for (final RaMasterApi raMasterApi : raMasterApis) {
-            if (raMasterApi.isBackendAvailable() && raMasterApi.getApiVersion() >= 4) {
-                try {
-                    if (raMasterApi.editUserWs(authenticationToken, userDataVOWS)) {
-                        // Successfully edited the user
-                        return true;
-                    }
-                } catch (UnsupportedOperationException | RaMasterBackendUnavailableException e) {
-                    // Just try next implementation
-                }
-            }
-        }
-        // Editing was unsuccessful
         return false;
     }
 

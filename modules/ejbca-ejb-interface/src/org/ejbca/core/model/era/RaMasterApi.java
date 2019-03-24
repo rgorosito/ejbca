@@ -716,27 +716,6 @@ public interface RaMasterApi {
             throws AuthorizationDeniedException, EndEntityProfileValidationException,
             WaitingForApprovalException, CADoesntExistsException, ApprovalException,
             CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException;
-    
-    /**
-     * Edit End Entity information. Can only be used with API version 2 and later.
-     * 
-     * @param authenticationToken the administrator performing the action
-     * @param userDataVOWS an UserDataVOWS object with the new information
-     * @throws AuthorizationDeniedException administrator not authorized to edit user
-     * @throws EndEntityProfileValidationException data doesn't fulfill EEP requirements
-     * @throws ApprovalException if an approval already is waiting for specified action
-     * @throws WaitingForApprovalException if the action has been added in the approval queue
-     * @throws CADoesntExistsException if the user's CA doesn't exist
-     * @throws IllegalNameException if the Subject DN failed constraints
-     * @throws CertificateSerialNumberException if SubjectDN serial number already exists
-     * @throws NoSuchEndEntityException if the EE was not found
-     * @throws CustomFieldException if the EE was not validated by a locally defined field validator
-     * @throws EjbcaException if userDataVOWS couldn't be converted to an EndEntityInformation 
-     */
-    boolean editUserWs(AuthenticationToken authenticationToken, UserDataVOWS userDataVOWS)
-            throws AuthorizationDeniedException, EndEntityProfileValidationException,
-            WaitingForApprovalException, CADoesntExistsException, ApprovalException,
-            CertificateSerialNumberException, IllegalNameException, NoSuchEndEntityException, CustomFieldException, EjbcaException;
 
     /**
      * Edit End Entity information (version for EjbcaWS, that takes a UserDataVOWS)

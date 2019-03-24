@@ -124,13 +124,6 @@ httpsserver.dn=CN=${httpsserver.hostname},O=EJBCA Sample,C=SE
 #web.docbaseuri=internal
 #web.docbaseuri=https://www.ejbca.org/docs
 
-# Enforce secure authentication by client TLS certificate to access the Admin GUI.
-# WARNING: Disabling this is a really good way to get completely pwnd/hacked/compromised and render any support contract invalid.
-# Note that this is different from web.reqcertindb, which still requires a client certificate by a trusted CA.
-# This property disables the client certificate check entirely.
-# Default: true
-#web.reqcert=true
-
 # Require administrator certificates to be available in database for revocation
 # checks. Set this to false, if you want to be able to use admin certificates
 # issued by external CAs.

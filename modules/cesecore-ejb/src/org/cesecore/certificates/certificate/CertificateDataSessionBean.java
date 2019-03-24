@@ -280,28 +280,6 @@ public class CertificateDataSessionBean extends BaseCertificateDataSessionBean i
     }
 
     @Override
-    public List<CertificateData> findByExpireDateWithLimitAndOffset(long expireDate, int maxNumberOfResults, int offset) {
-        final TypedQuery<CertificateData> query = entityManager
-                .createQuery("SELECT a FROM CertificateData a WHERE a.expireDate<:expireDate AND (a.status=:status1 OR a.status=:status2) order by a.expireDate asc", CertificateData.class);
-        query.setParameter("expireDate", expireDate);
-        query.setParameter("status1", CertificateConstants.CERT_ACTIVE);
-        query.setParameter("status2", CertificateConstants.CERT_NOTIFIEDABOUTEXPIRATION);
-        query.setMaxResults(maxNumberOfResults);
-        query.setFirstResult(offset);
-        return query.getResultList();
-    }
-
-
-    @Override
-    public int countByExpireDate(long expireDate) {
-        Query query = entityManager.createQuery("SELECT count(a) FROM CertificateData a WHERE a.expireDate<:expireDate AND (a.status=:status1 OR a.status=:status2) ");
-        query.setParameter("expireDate", expireDate);
-        query.setParameter("status1", CertificateConstants.CERT_ACTIVE);
-        query.setParameter("status2", CertificateConstants.CERT_NOTIFIEDABOUTEXPIRATION);
-        return ((Long) query.getSingleResult()).intValue();
-    }
-
-    @Override
     public List<CertificateData> findByExpireDateAndIssuerWithLimit(final long expireDate, final String issuerDN, final int maxNumberOfResults) {
         final long now = System.currentTimeMillis();
         final TypedQuery<CertificateData> query = entityManager

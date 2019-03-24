@@ -199,6 +199,7 @@ import org.ejbca.core.protocol.ws.client.gen.HardTokenExistsException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.IllegalQueryException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.KeyStore;
 import org.ejbca.core.protocol.ws.client.gen.NameAndId;
+import org.ejbca.core.protocol.ws.client.gen.NotFoundException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.PinDataWS;
 import org.ejbca.core.protocol.ws.client.gen.RevokeBackDateNotAllowedForProfileException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.RevokeStatus;
