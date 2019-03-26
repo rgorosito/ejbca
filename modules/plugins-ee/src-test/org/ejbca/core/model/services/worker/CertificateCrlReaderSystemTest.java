@@ -215,7 +215,7 @@ public class CertificateCrlReaderSystemTest {
             revcerts.add(new RevokedCertInfo(CertTools.getFingerprintAsString(usercert).getBytes(), CertTools.getSerialNumber(usercert).toByteArray(),
                     revDate.getTime(), RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD, CertTools.getNotAfter(usercert).getTime()));
             final int crlNumber = 1337;
-            X509CRLHolder x509crlHolder = testCa.generateCRL(cryptoToken, revcerts, crlNumber);
+            X509CRLHolder x509crlHolder = testCa.generateCRL(cryptoToken, CertificateConstants.NO_CRL_PARTITION, revcerts, crlNumber);
             X509CRL crl = CertTools.getCRLfromByteArray(x509crlHolder.getEncoded());
             final String serviceName = "testReadCrlFromDisk";
             File crlFolder = folder.newFolder();
