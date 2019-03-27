@@ -51,7 +51,7 @@ public class CRLData extends ProtectedData implements Serializable {
 
     private int cRLNumber;
     private int deltaCRLIndicator;
-    private int crlPartitionIndex; // Since EJBCA 7.1.0
+    private Integer crlPartitionIndex; // Since EJBCA 7.1.0
     private String issuerDN;
     private String fingerprint;
     private String cAFingerprint;
@@ -115,11 +115,11 @@ public class CRLData extends ProtectedData implements Serializable {
     /** @since EJBCA 7.1.0 */
     // @Column
     public int getCrlPartitionIndex() {
-        return crlPartitionIndex;
+        return crlPartitionIndex != null ? crlPartitionIndex : 0;
     }
 
     /** @since EJBCA 7.1.0 */
-    public void setCrlPartitionIndex(final int crlPartitionIndex) {
+    public void setCrlPartitionIndex(final Integer crlPartitionIndex) {
         this.crlPartitionIndex = crlPartitionIndex;
     }
 
@@ -276,7 +276,13 @@ public class CRLData extends ProtectedData implements Serializable {
      * @return the found entity instance or null if the entity does not exist
      */
     public static CRLData findByIssuerDNAndCRLNumber(EntityManager entityManager, String issuerDN, int crlPartitionIndex, int crlNumber) {
-        final Query query = entityManager.createQuery("SELECT a FROM CRLData a WHERE a.issuerDN=:issuerDN AND a.crlNumber=:crlNumber AND a.crlPartitionIndex=:crlPartitionIndex");
+        StringBuilder builder = new StringBuilder("SELECT a FROM CRLData a WHERE a.issuerDN=:issuerDN AND a.crlNumber=:crlNumber AND ");
+        if (crlPartitionIndex != 0) {
+            builder.append("a.crlPartitionIndex=:crlPartitionIndex");
+        } else {
+            builder.append("(a.crlPartitionIndex=:crlPartitionIndex or a.crlPartitionIndex is NULL)");
+        }
+        final Query query = entityManager.createQuery(builder.toString());
         query.setParameter("issuerDN", issuerDN);
         query.setParameter("crlNumber", crlNumber);
         query.setParameter("crlPartitionIndex", crlPartitionIndex);

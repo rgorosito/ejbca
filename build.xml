@@ -345,12 +345,12 @@
 		    }
     ]]> </script>
     </target>
-
+    
 	<target name="va_replacings_in_application.xml">
 		<war-replacement-in-module
 			replacement-tag="!--@status.war@-->"
 			replacement-file="${application.xml}"
-			replacement-enabled="${ocsp.enabled} and ${build.contains.va}"
+			replacement-enabled="${status.war.enabled}"
 			replacement-web-uri="status.war"
 			replacement-context-root="${ocsp.contextroot}"
 		/>
@@ -483,7 +483,7 @@
 		<war-replacement-in-module
 			replacement-tag="!--@ra-gui.war@-->"
 			replacement-file="${eardd.src}/META-INF/application.xml"
-			replacement-enabled="${build.contains.ra}"
+			replacement-enabled="${variant.ra.enabled}"
 			replacement-web-uri="ra-gui.war"
 			replacement-context-root="/ejbca/ra"
 		/>
@@ -940,19 +940,23 @@
         </condition>
 		
         <condition property="build.contains.cesecore-x509ca" value="true">
-            <or>
-                <not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
-            	<not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
-            </or>
+        	<not>
+        	    <or>
+        		    <equals arg1="${variant}" arg2="ra" casesensitive="false"/>
+        			<equals arg1="${variant}" arg2="va" casesensitive="false"/>
+    	        </or>
+    		</not>
         </condition>
         
         <condition property="build.contains.cesecore-cvcca" value="true">
         	<and>
         		<equals arg1="${edition}" arg2="ee" casesensitive="true"/>
-                <or>
-                	<not><equals arg1="${variant}" arg2="ra" casesensitive="false"/></not>
-                	<not><equals arg1="${variant}" arg2="va" casesensitive="false"/></not>
-                </or>
+                <not>
+                    <or>
+                        <equals arg1="${variant}" arg2="ra" casesensitive="false"/>
+                        <equals arg1="${variant}" arg2="va" casesensitive="false"/>
+                    </or>
+                </not>
         	</and>	
         </condition>
 		
@@ -1064,14 +1068,14 @@
 		    	
 				<!-- List of subcommands for ejbca.sh script that must be hidden when we are running on limited ejbca (va/ra) installation. -->
 		    	<!-- The excluded parts are listed in the ticket ECA-7904 and could be updated accordingly if needed.   -->
-				<exclude name="org/ejbca/ui/cli/hardtoken/**/*.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/config/est/**/*.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/config/cmp/**/*.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/ca/**/CaEditCaCommand.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/ca/**/CaRenewCACommand.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/ca/**/CaDeactivateCACommand.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/ca/**/CaInitCommand.java" unless="running.full.ejbca"/>
-	            <exclude name="org/ejbca/ui/cli/ca/**/CARepublishCommand.java.java" unless="running.full.ejbca"/>
+				<exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/hardtoken/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/config/est/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/config/cmp/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaEditCaCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaRenewCACommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaDeactivateCACommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaInitCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CARepublishCommand.java.java" unless="running.full.ejbca"/>
 				<!-- End of the list of subcommands of ejbca.sh that must be hidden when we are running on limited ejbca (va/ra) installation -->
 		    	
 		    </zipfileset>
@@ -1432,7 +1436,7 @@ SHA-256 checksum: ${cesecorebinSHA256}
     	<ant dir="modules" target="admin-gui" />
     </target>
 	
-    <target name="raweb.war" if="build.contains.ra">
+    <target name="raweb.war" if="${variant.ra.enabled}">
     	<ant dir="modules" target="ra-gui" />
     </target>
 

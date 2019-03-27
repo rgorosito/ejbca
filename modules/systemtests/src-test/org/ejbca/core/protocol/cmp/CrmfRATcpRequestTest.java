@@ -171,7 +171,7 @@ public class CrmfRATcpRequestTest extends CmpTestCase {
         byte[] ba = bao.toByteArray();
         // Send request and receive response
         byte[] resp = sendCmpTcp(ba, 5);
-        checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, true, null,PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+        checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, true, null,PKCSObjectIdentifiers.sha256WithRSAEncryption.getId());
         checkCmpCertRepMessage(dn, this.cacert, resp, reqId);
     }
 
@@ -197,12 +197,12 @@ public class CrmfRATcpRequestTest extends CmpTestCase {
             byte[] ba = bao.toByteArray();
             // Send request and receive response
             byte[] resp = sendCmpTcp(ba, 5);
-            checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, true, null, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+            checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, true, null, PKCSObjectIdentifiers.sha256WithRSAEncryption.getId());
             checkCmpCertRepMessage(dn, this.cacert, resp, reqId);
 
             // Send a confirm message to the CA
             String hash = "foo123";
-            PKIMessage confirm = genCertConfirm(dn, this.cacert, nonce, transid, hash, reqId);
+            PKIMessage confirm = genCertConfirm(dn, this.cacert, nonce, transid, hash, reqId, null);
             assertNotNull(confirm);
             bao = new ByteArrayOutputStream();
             out = new DEROutputStream(bao);
@@ -210,7 +210,7 @@ public class CrmfRATcpRequestTest extends CmpTestCase {
             ba = bao.toByteArray();
             // Send request and receive response
             resp = sendCmpTcp(ba, 5);
-            checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, false, null, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+            checkCmpResponseGeneral(resp, issuerDN, dn, this.cacert, nonce, transid, false, null, PKCSObjectIdentifiers.sha256WithRSAEncryption.getId());
             checkCmpPKIConfirmMessage(dn, this.cacert, resp);
         } finally {
             this.endEntityManagementSession.deleteUser(ADMIN, CMP_USERNAME);
@@ -290,12 +290,12 @@ public class CrmfRATcpRequestTest extends CmpTestCase {
         byte[] ba = bao.toByteArray();
         // Send request and receive response
         byte[] resp = sendCmpTcp(ba, 5);
-        checkCmpResponseGeneral(resp, issuerDN, subjectDN, this.cacert, nonce, transid, true, null, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+        checkCmpResponseGeneral(resp, issuerDN, subjectDN, this.cacert, nonce, transid, true, null, PKCSObjectIdentifiers.sha256WithRSAEncryption.getId());
         checkCmpCertRepMessage(subjectDN, this.cacert, resp, reqId);
 
         // Send a confirm message to the CA
         String hash = "foo123";
-        PKIMessage confirm = genCertConfirm(subjectDN, this.cacert, nonce, transid, hash, reqId);
+        PKIMessage confirm = genCertConfirm(subjectDN, this.cacert, nonce, transid, hash, reqId, null);
         assertNotNull(confirm);
         bao = new ByteArrayOutputStream();
         out = new DEROutputStream(bao);
@@ -303,7 +303,7 @@ public class CrmfRATcpRequestTest extends CmpTestCase {
         ba = bao.toByteArray();
         // Send request and receive response
         resp = sendCmpTcp(ba, 5);
-        checkCmpResponseGeneral(resp, issuerDN, subjectDN, this.cacert, nonce, transid, false, null, PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
+        checkCmpResponseGeneral(resp, issuerDN, subjectDN, this.cacert, nonce, transid, false, null, PKCSObjectIdentifiers.sha256WithRSAEncryption.getId());
         checkCmpPKIConfirmMessage(subjectDN, this.cacert, resp);
        } finally {
            this.endEntityManagementSession.deleteUser(ADMIN, "Göran Strömförare");
