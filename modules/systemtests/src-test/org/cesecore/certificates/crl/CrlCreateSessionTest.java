@@ -12,12 +12,6 @@
  *************************************************************************/
 package org.cesecore.certificates.crl;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -92,6 +86,12 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
 /**
  * Basic vanilla tests for CrlCreateSession. Contains quite some code lifted from PublishingCrlSession that doesn't belong under the CESeCore
  * package. 
@@ -131,9 +131,9 @@ public class CrlCreateSessionTest {
     @Test
     public void createCrl() throws AuthorizationDeniedException, CryptoTokenOfflineException {
         int caid = caSession.getCAInfo(authenticationToken, className).getCAId();
-        CA ca = caTestSessionRemote.getCA(authenticationToken, caid);
+        CA ca = (CA)caTestSessionRemote.getCA(authenticationToken, caid);
         final String certSubjectDN = CertTools.getSubjectDN(ca.getCACertificate());
-        Collection<RevokedCertInfo> revcerts = noConflictCertificateStoreSession.listRevokedCertInfo(certSubjectDN, -1);
+        Collection<RevokedCertInfo> revcerts = noConflictCertificateStoreSession.listRevokedCertInfo(certSubjectDN, CertificateConstants.NO_CRL_PARTITION, -1);
         int fullnumber = getLastCrlNumber(certSubjectDN, false);
         int deltanumber = getLastCrlNumber(certSubjectDN, true);
         // nextCrlNumber: The highest number of last CRL (full or delta) and increased by 1 (both full CRLs and deltaCRLs share the same series of CRL Number)
@@ -161,7 +161,7 @@ public class CrlCreateSessionTest {
     @Test
     public void testCreateNewDeltaCRL() throws Exception {
         int caid = caSession.getCAInfo(authenticationToken, className).getCAId();
-        CA ca = caTestSessionRemote.getCA(authenticationToken, caid);
+        CA ca = (CA)caTestSessionRemote.getCA(authenticationToken, caid);
         X509CAInfo cainfo = (X509CAInfo) ca.getCAInfo();
         cainfo.setDeltaCRLPeriod(1); // Issue very often..
         caSession.editCA(authenticationToken, cainfo);
@@ -272,7 +272,7 @@ public class CrlCreateSessionTest {
     @Test
     public void testRemoveFromCRL() throws Exception {
         final int caid = caSession.getCAInfo(authenticationToken, className).getCAId();
-        final CA ca = caTestSessionRemote.getCA(authenticationToken, caid);
+        final CA ca = (CA)caTestSessionRemote.getCA(authenticationToken, caid);
         final X509CAInfo cainfo = (X509CAInfo) ca.getCAInfo();
         final long savedDeltaCRLPeriod = cainfo.getDeltaCRLPeriod();
         cainfo.setDeltaCRLPeriod(1); // Issue very often..
@@ -288,7 +288,7 @@ public class CrlCreateSessionTest {
     @Test
     public void testRemoveFromCRLThrowAwayCA() throws Exception {
         final int caid = caSession.getCAInfo(authenticationToken, className).getCAId();
-        final CA ca = caTestSessionRemote.getCA(authenticationToken, caid);
+        final CA ca = (CA)caTestSessionRemote.getCA(authenticationToken, caid);
         final X509CAInfo cainfo = (X509CAInfo) ca.getCAInfo();
         final long savedDeltaCRLPeriod = cainfo.getDeltaCRLPeriod();
         cainfo.setDeltaCRLPeriod(1); // Issue very often..
@@ -454,7 +454,7 @@ public class CrlCreateSessionTest {
             long crlperiod = cainfo.getCRLPeriod();
             // Find all revoked certificates for a complete CRL
 
-            Collection<RevokedCertInfo> revcerts = noConflictCertificateStoreSession.listRevokedCertInfo(caCertSubjectDN, -1);
+            Collection<RevokedCertInfo> revcerts = noConflictCertificateStoreSession.listRevokedCertInfo(caCertSubjectDN, CertificateConstants.NO_CRL_PARTITION, -1);
             Date now = new Date();
             Date check = new Date(now.getTime() - crlperiod);
             AuthenticationToken archiveAdmin = new AlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("CrlCreateSession.archive_expired"));
@@ -505,7 +505,7 @@ public class CrlCreateSessionTest {
             baseCrlNumber = basecrlinfo.getLastCRLNumber();
         }
         // Find all revoked certificates
-        Collection<RevokedCertInfo> revcertinfos = noConflictCertificateStoreSession.listRevokedCertInfo(caCertSubjectDN, baseCrlCreateTime);
+        Collection<RevokedCertInfo> revcertinfos = noConflictCertificateStoreSession.listRevokedCertInfo(caCertSubjectDN, CertificateConstants.NO_CRL_PARTITION, baseCrlCreateTime);
         if (log.isDebugEnabled()) {
             log.debug("Found " + revcertinfos.size() + " revoked certificates.");
         }

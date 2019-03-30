@@ -120,7 +120,7 @@ public class HttpTools {
      * @return Decoded string or null on error.
      */
     public static String decodeRfc5987(final String encoded) {
-        if (encoded == null) {
+        if (StringUtils.isEmpty(encoded)) {
             return null;
         }
         final String[] pieces = encoded.split("'", 3); // format is:  charset'language'data
