@@ -931,10 +931,8 @@
 	    </scriptdef>
 		<antcall target="update-svnrev" /> <!-- update svn revision version property -->
 		<antcall target="update-edition" />
-		<convertdot/> <!-- convert dots to underscores in version string -->
-        <!-- <input message="Version tag for zipfile (ex 3_2_1):" addproperty="ejbca.zipversion" /> -->
-		<property name="basezipfile" value="ejbca_${edition}_${ejbca.zipversion}"/>
-        <condition property="edition.is.ee" value="true">
+        
+		<condition property="edition.is.ee" value="true">
             <equals arg1="${edition}" arg2="ee" casesensitive="true"/>
         </condition>
 		
@@ -956,6 +954,22 @@
         		<istrue value="${running.full.ejbca}" />
         	</and>	
         </condition>
+		
+		<condition property="variant.suffix" value="_RA">
+            <equals arg1="${variant}" arg2="ra" casesensitive="false"/>
+        </condition>
+        
+        <condition property="variant.suffix" value="_VA">
+            <equals arg1="${variant}" arg2="va" casesensitive="false"/>
+        </condition>
+		
+		<condition property="variant.suffix" value="">
+			<istrue value="${running.full.ejbca}" />
+        </condition>
+		
+		<convertdot/> <!-- convert dots to underscores in version string -->
+        <!-- <input message="Version tag for zipfile (ex 3_2_1):" addproperty="ejbca.zipversion" /> -->
+		<property name="basezipfile" value="ejbca_${edition}_${ejbca.zipversion}${variant.suffix}"/>
 		
 		<zip destfile="../${basezipfile}.zip">
 		    <zipfileset dir="." prefix="${basezipfile}" filemode="600" dirmode="700" > 
@@ -1066,13 +1080,17 @@
 				<!-- List of subcommands for ejbca.sh script that must be hidden when we are running on limited ejbca (va/ra) installation. -->
 		    	<!-- The excluded parts are listed in the ticket ECA-7904 and could be updated accordingly if needed.   -->
 				<exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/hardtoken/**/*.java" unless="running.full.ejbca"/>
-	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/config/est/**/*.java" unless="running.full.ejbca"/>
-	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/config/cmp/**/*.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/config/**/*.java" unless="running.full.ejbca"/>
 	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaEditCaCommand.java" unless="running.full.ejbca"/>
 	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaRenewCACommand.java" unless="running.full.ejbca"/>
 	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaDeactivateCACommand.java" unless="running.full.ejbca"/>
 	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaInitCommand.java" unless="running.full.ejbca"/>
-	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CARepublishCommand.java.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CARepublishCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaEditCertificateProfileCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaCreateCrlCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaExportProfilesCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/ca/**/CaImportProfilesCommand.java" unless="running.full.ejbca"/>
+	            <exclude name="modules/ejbca-ejb-cli/src/org/ejbca/ui/cli/CreateCertCommand.java" unless="running.full.ejbca"/>
 				<!-- End of the list of subcommands of ejbca.sh that must be hidden when we are running on limited ejbca (va/ra) installation -->
 		    	
 		    </zipfileset>

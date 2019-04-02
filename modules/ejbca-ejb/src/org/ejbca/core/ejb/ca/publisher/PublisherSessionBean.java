@@ -16,6 +16,8 @@ package org.ejbca.core.ejb.ca.publisher;
 import java.beans.XMLDecoder;
 import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;
+import java.security.cert.CRLException;
+import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,12 +49,15 @@ import org.cesecore.certificates.certificate.BaseCertificateData;
 import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
+import org.cesecore.certificates.crl.CrlStoreSessionRemote;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.certificates.util.cert.CrlExtensions;
 import org.cesecore.common.exception.ReferencesToItemExistException;
 import org.cesecore.configuration.GlobalConfigurationSessionLocal;
 import org.cesecore.jndi.JndiConstants;
 import org.cesecore.util.Base64GetHashMap;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.ProfileID;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.ejb.audit.enums.EjbcaEventTypes;
@@ -301,7 +306,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
                     pqvd.setUserDN(issuerDn);
                     String fp = CertTools.getFingerprintAsString(incrl);
                     try {
-                        publisherQueueSession.addQueueData(id.intValue(), PublisherConst.PUBLISH_TYPE_CRL, fp, pqvd, PublisherConst.STATUS_PENDING);
+                        publisherQueueSession.addQueueData(id, PublisherConst.PUBLISH_TYPE_CRL, fp, pqvd, PublisherConst.STATUS_PENDING);
                         String msg = intres.getLocalizedMessage("publisher.storequeue", name, fp, "CRL");
                         log.info(msg);
                     } catch (CreateException e) {
@@ -322,11 +327,36 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
     }
 
     @Override
+    public boolean republishCrl(AuthenticationToken admin, Collection<Integer> publisherids, String caFingerprint, String issuerDn) throws AuthorizationDeniedException {
+        boolean result = false;
+        final CertificateDataWrapper certificateDataWrapper = certificateStoreSession.getCertificateData(caFingerprint);
+        Integer crlPartitionIndex = certificateDataWrapper.getCertificateData().getCrlPartitionIndex();
+        final byte[] crlbytes = EjbRemoteHelper.INSTANCE.getRemoteSession(CrlStoreSessionRemote.class).getLastCRL(issuerDn,
+                crlPartitionIndex, false);
+        // Get the CRLnumber
+        X509CRL crl;
+        try {
+            crl = CertTools.getCRLfromByteArray(crlbytes);
+        } catch (CRLException e) {
+            throw new IllegalStateException("Couldn't deserialize CRL", e);
+        }
+        int crlNumber = CrlExtensions.getCrlNumber(crl).intValue();
+        if (crlbytes != null && crlbytes.length > 0 && crlNumber > 0) {
+            log.info("Publishing CRL to CA publishers.");
+            result = storeCRL(admin, publisherids, crlbytes, caFingerprint, crlNumber, issuerDn);
+            log.info("CRL with number " + crlNumber + " published.");
+        } else {
+            log.info("CRL not published, no CRL exists for CA.");
+        }
+        return result;
+    }
+
+    @Override
     public void testConnection(int publisherid) throws PublisherConnectionException { // NOPMD: this is not a JUnit test
         if (log.isTraceEnabled()) {
             log.trace(">testConnection(id: " + publisherid + ")");
         }
-        PublisherData pdl = PublisherData.findById(entityManager, Integer.valueOf(publisherid));
+        PublisherData pdl = PublisherData.findById(entityManager, publisherid);
         if (pdl != null) {
             String name = pdl.getName();
             try {
@@ -339,7 +369,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
                 throw new PublisherConnectionException(pe.getMessage());
             }
         } else {
-            String msg = intres.getLocalizedMessage("publisher.nopublisher", Integer.valueOf(publisherid));
+            String msg = intres.getLocalizedMessage("publisher.nopublisher", publisherid);
             log.info(msg);
         }
         if (log.isTraceEnabled()) {
@@ -381,7 +411,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
     @Override
     public void addPublisherFromData(AuthenticationToken admin, int id, String name, Map<?, ?> data) throws PublisherExistsException,
             AuthorizationDeniedException {
-        final BasePublisher publisher = constructPublisher(((Integer) (data.get(BasePublisher.TYPE))).intValue());
+        final BasePublisher publisher = constructPublisher((Integer) (data.get(BasePublisher.TYPE)));
         if (publisher != null) {
             publisher.setPublisherId(id);
             publisher.setName(name);
@@ -394,8 +424,8 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             PublisherExistsException {
         authorizedToEditPublishers(admin);
         if (PublisherData.findByName(entityManager, name) == null) {
-            if (PublisherData.findById(entityManager, Integer.valueOf(id)) == null) {
-                entityManager.persist(new PublisherData(Integer.valueOf(id), name, publisher));
+            if (PublisherData.findById(entityManager, id) == null) {
+                entityManager.persist(new PublisherData(id, name, publisher));
             } else {
                 final String msg = intres.getLocalizedMessage("publisher.erroraddpublisher", id);
                 log.info(msg);
@@ -652,7 +682,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
     @Override
     public int getPublisherUpdateCount(int publisherid) {
         int returnval = 0;
-        PublisherData pd = PublisherData.findById(entityManager, Integer.valueOf(publisherid));
+        PublisherData pd = PublisherData.findById(entityManager, publisherid);
         if (pd != null) {
             returnval = pd.getUpdateCounter();
         }
@@ -750,7 +780,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
         if (log.isTraceEnabled()) {
             log.trace(">getPublisherInternal: " + id + ", " + name);
         }
-        Integer idValue = Integer.valueOf(id);
+        Integer idValue = id;
         if (id == -1) {
             idValue = PublisherCache.INSTANCE.getNameToIdMap().get(name);
         }
@@ -807,7 +837,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             // Handle Base64 encoded string values
             HashMap<?, ?> data = new Base64GetHashMap(h);
 
-            publisher = constructPublisher(((Integer) (data.get(BasePublisher.TYPE))).intValue());
+            publisher = constructPublisher((Integer) (data.get(BasePublisher.TYPE)));
             if (publisher != null) {
                 publisher.setPublisherId(pData.getId());
                 publisher.setName(pData.getName());
@@ -872,7 +902,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             // Handle Base64 encoded string values
             @SuppressWarnings("unchecked")
             HashMap<Object, Object> data = new Base64GetHashMap(h);
-            if (PublisherConst.TYPE_VAPUBLISHER == ((Integer) data.get(BasePublisher.TYPE)).intValue()) {
+            if (PublisherConst.TYPE_VAPUBLISHER == (Integer) data.get(BasePublisher.TYPE)) {
                 numberOfUpgradedPublishers++;
                 publisherData.setPublisher(new LegacyValidationAuthorityPublisher(data));
                 //Purge the entry from the cache
@@ -899,7 +929,7 @@ public class PublisherSessionBean implements PublisherSessionLocal, PublisherSes
             // Handle Base64 encoded string values
             @SuppressWarnings("unchecked")
             HashMap<Object, Object> data = new Base64GetHashMap(h);
-            if (PublisherConst.TYPE_VAPUBLISHER == ((Integer) data.get(BasePublisher.TYPE)).intValue()) {
+            if (PublisherConst.TYPE_VAPUBLISHER == (Integer) data.get(BasePublisher.TYPE)) {
                 return true;
             }           
         }
