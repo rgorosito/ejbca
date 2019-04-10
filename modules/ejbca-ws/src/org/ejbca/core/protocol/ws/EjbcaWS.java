@@ -147,6 +147,7 @@ import org.ejbca.core.model.ca.AuthStatusException;
 import org.ejbca.core.model.ca.publisher.PublisherDoesntExistsException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
 import org.ejbca.core.model.era.IdNameHashMap;
+import org.ejbca.core.model.era.RaCrlSearchRequest;
 import org.ejbca.core.model.era.RaMasterApiProxyBeanLocal;
 import org.ejbca.core.model.hardtoken.HardTokenConstants;
 import org.ejbca.core.model.hardtoken.HardTokenDoesntExistsException;
@@ -154,7 +155,6 @@ import org.ejbca.core.model.hardtoken.HardTokenExistsException;
 import org.ejbca.core.model.hardtoken.HardTokenInformation;
 import org.ejbca.core.model.hardtoken.types.EnhancedEIDHardToken;
 import org.ejbca.core.model.hardtoken.types.HardToken;
-import org.ejbca.core.model.hardtoken.types.SwedishEIDHardToken;
 import org.ejbca.core.model.ra.AlreadyRevokedException;
 import org.ejbca.core.model.ra.NotFoundException;
 import org.ejbca.core.model.ra.RevokeBackDateNotAllowedForProfileException;
@@ -1691,7 +1691,6 @@ public class EjbcaWS implements IEjbcaWS {
 		}
 
 		// Add hard token data
-		HardToken hardToken;
 		String signatureInitialPIN = "";
 		String signaturePUK = "";
 		String basicInitialPIN = "";
@@ -1713,20 +1712,8 @@ public class EjbcaWS implements IEjbcaWS {
 					logger, ErrorCode.NOT_SUPPORTED_PIN_TYPE, null);
 			}
 		}
-		int tokenType = SwedishEIDHardToken.THIS_TOKENTYPE;
-		switch (hardTokenDataWS.getTokenType()){
-		case HardTokenConstants.TOKENTYPE_SWEDISHEID :
-			hardToken = new SwedishEIDHardToken(basicInitialPIN,basicPUK,signatureInitialPIN,signaturePUK,0);
-			break;
-		case HardTokenConstants.TOKENTYPE_ENHANCEDEID :
-			hardToken = new EnhancedEIDHardToken(signatureInitialPIN,signaturePUK,basicInitialPIN,basicPUK,false,0);
-			tokenType = EnhancedEIDHardToken.THIS_TOKENTYPE;
-			break;
-		default:
-			throw getEjbcaException("Unsupported Token Type : " + hardTokenDataWS.getTokenType(),
-				logger, ErrorCode.NOT_SUPPORTED_TOKEN_TYPE, null);
-
-		}
+		
+		HardToken hardToken = new EnhancedEIDHardToken(signatureInitialPIN, signaturePUK, basicInitialPIN, basicPUK, false);
 
 		hardToken.setLabel(hardTokenDataWS.getLabel());
 			if(overwriteExistingSN){
@@ -1738,7 +1725,7 @@ public class EjbcaWS implements IEjbcaWS {
 					}
 				}
 			}
-			hardTokenSession.addHardToken(admin, hardTokenDataWS.getHardTokenSN(), userDataWS.getUsername(), significantcAInfo.getSubjectDN(), tokenType, hardToken, genCertificates, hardTokenDataWS.getCopyOfSN());
+			hardTokenSession.addHardToken(admin, hardTokenDataWS.getHardTokenSN(), userDataWS.getUsername(), significantcAInfo.getSubjectDN(), hardToken, genCertificates, hardTokenDataWS.getCopyOfSN());
 
 			if (ar!= null) {
 			    // TODO: Don't really understand what this does, but it marks this generate option as "partly done" somehow
@@ -2232,6 +2219,27 @@ public class EjbcaWS implements IEjbcaWS {
             final AuthenticationToken admin = getAdmin(true);
             logAdminName(admin,logger);
             return raMasterApiProxyBean.getLatestCrl(admin, caname, deltaCRL);
+        } catch (AuthorizationDeniedException e) {
+            throw getEjbcaException(e, logger, ErrorCode.NOT_AUTHORIZED, Level.ERROR);
+        } catch (RuntimeException e) {  // EJBException, ...
+            throw getInternalException(e, logger);
+        } finally {
+            logger.writeln();
+            logger.flush();
+        }
+    }
+
+    @Override
+    public byte[] getLatestCRLPartition(String caName, boolean deltaCRL, int crlPartitionIndex) throws CADoesntExistsException, EjbcaException {
+        final IPatternLogger logger = TransactionLogger.getPatternLogger();
+        try {
+            final AuthenticationToken admin = getAdmin(true);
+            logAdminName(admin,logger);
+            RaCrlSearchRequest request = new RaCrlSearchRequest();
+            request.setCaName(caName);
+            request.setCrlPartitionIndex(crlPartitionIndex);
+            request.setDeltaCRL(deltaCRL);
+            return raMasterApiProxyBean.getLatestCrlByRequest(admin, request);
         } catch (AuthorizationDeniedException e) {
             throw getEjbcaException(e, logger, ErrorCode.NOT_AUTHORIZED, Level.ERROR);
         } catch (RuntimeException e) {  // EJBException, ...

@@ -116,7 +116,10 @@ if [ -d ./modules/cesecore-x509ca ]; then
     exit 1;
 fi
 
+
 echo "=================== All the files, that should be missing, are indeed properly missing ================================="
+
+
 
 # Set an exit handler, that sets privileges for cleanup for the ziprelease package folder
 workspacesubdir2=$(pwd)
