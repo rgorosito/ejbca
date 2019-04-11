@@ -12,8 +12,6 @@
  *************************************************************************/
 package org.ejbca.core.model.services.worker;
 
-import static org.junit.Assert.fail;
-
 import java.io.File;
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -65,6 +63,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestRule;
+
+import static org.junit.Assert.fail;
 
 /**
  * Unit tests for the CertificateCrlReader Worker
@@ -123,7 +123,7 @@ public class CertificateCrlReaderSystemTest {
         KeyPair keypair = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
         final String username = "testReadCertificateFromDisk";
         EndEntityInformation user = new EndEntityInformation("username", endEntitySubjectDn, testCa.getCAId(), null, null,
-                new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, 0, null);
+                new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, null);
         CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
         int certificateProfileId = 4711;
         final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(testCa.getCAToken().getCryptoTokenId());
@@ -207,7 +207,7 @@ public class CertificateCrlReaderSystemTest {
             Date revDate = new Date();
             KeyPair keypair = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
             EndEntityInformation user = new EndEntityInformation("username", endEntitySubjectDn, testCa.getCAId(), null, null,
-                    new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, 0, null);
+                    new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, null);
             CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
             Certificate usercert = testCa.generateCertificate(cryptoToken, user, keypair.getPublic(), 0, null, "10d", certificateProfile, "00000",
                     null);
