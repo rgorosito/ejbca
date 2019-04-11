@@ -244,7 +244,6 @@ public class VaPublisherTestBase {
                 endEntityProfileId,
                 certificateProfileId,
                 EndEntityConstants.TOKEN_USERGEN,
-                0,
                 null);
         endEntityInformation.setPassword(password);
         return endEntityInformation;
