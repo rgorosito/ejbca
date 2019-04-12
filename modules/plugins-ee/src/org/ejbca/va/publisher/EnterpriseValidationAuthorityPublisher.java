@@ -9,6 +9,7 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
+import java.security.cert.CRLException;
 import java.security.cert.Certificate;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
@@ -19,6 +20,9 @@ import java.util.Properties;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.x509.Extension;
 import org.cesecore.authentication.tokens.AuthenticationToken;
+import org.cesecore.certificates.ca.CAInfo;
+import org.cesecore.certificates.ca.CaSessionLocal;
+import org.cesecore.certificates.ca.X509CAInfo;
 import org.cesecore.certificates.certificate.Base64CertData;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateData;
@@ -34,6 +38,7 @@ import org.ejbca.core.model.ca.publisher.CustomPublisherUiBase;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
 import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
+import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.util.JDBCUtil;
 import org.ejbca.util.JDBCUtil.Preparer;
 
@@ -63,8 +68,10 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
     private final static String insertCertificateSQL = "INSERT INTO CertificateData (base64Cert,subjectDN,issuerDN,cAFingerprint,serialNumber,status,type,username,expireDate,revocationDate,revocationReason,tag,certificateProfileId,updateTime,subjectKeyId,fingerprint,rowVersion) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)";
     private final static String updateCertificateSQL = "UPDATE CertificateData SET base64Cert=?,subjectDN=?,issuerDN=?,cAFingerprint=?,serialNumber=?,status=?,type=?,username=?,expireDate=?,revocationDate=?,revocationReason=?,tag=?,certificateProfileId=?,updateTime=?,subjectKeyId=?,rowVersion=(rowVersion+1) WHERE fingerprint=? AND (NOT status=40 or revocationReason=6)";
     private final static String deleteCertificateSQL = "DELETE FROM CertificateData WHERE fingerprint=?";
-    private final static String insertCRLSQL = "INSERT INTO CRLData (base64Crl,cAFingerprint,cRLNumber,deltaCRLIndicator,issuerDN,thisUpdate,nextUpdate,fingerprint,rowVersion) VALUES (?,?,?,?,?,?,?,?,0)";
-    private final static String updateCRLSQL = "UPDATE CRLData SET base64Crl=?,cAFingerprint=?,cRLNumber=?,deltaCRLIndicator=?,issuerDN=?,thisUpdate=?,nextUpdate=?,rowVersion=(rowVersion+1) WHERE fingerprint=?";
+    private final static String insertCrlSql =              "INSERT INTO CRLData (base64Crl,cAFingerprint,cRLNumber,deltaCRLIndicator,issuerDN,thisUpdate,nextUpdate,fingerprint,rowVersion) VALUES (?,?,?,?,?,?,?,?,0)";
+    private final static String insertCrlSqlWithPartition = "INSERT INTO CRLData (base64Crl,cAFingerprint,cRLNumber,deltaCRLIndicator,issuerDN,thisUpdate,nextUpdate,crlPartitionIndex,fingerprint,rowVersion) VALUES (?,?,?,?,?,?,?,?,?,0)";
+    private final static String updateCrlSql =              "UPDATE CRLData SET base64Crl=?,cAFingerprint=?,cRLNumber=?,deltaCRLIndicator=?,issuerDN=?,thisUpdate=?,nextUpdate=?,rowVersion=(rowVersion+1) WHERE fingerprint=?";
+    private final static String updateCrlSqlWithPartition = "UPDATE CRLData SET base64Crl=?,cAFingerprint=?,cRLNumber=?,deltaCRLIndicator=?,issuerDN=?,thisUpdate=?,nextUpdate=?,crlPartitionIndex=?,rowVersion=(rowVersion+1) WHERE fingerprint=?";
 
     private static final String DEFAULT_DATASOURCE = "java:/OcspDS";
 
@@ -185,6 +192,31 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         throw new UnsupportedOperationException("Legacy storeCertificate method should never have been invoked for this publisher.");
     }
 
+    private int getCrlPartitionIndex(final String crlDn, final byte[] crlBytes) {
+        final CaSessionLocal caSession = new EjbLocalHelper().getCaSession();
+        final String issuerDn = CertTools.stringToBCDNString(crlDn); // "userDN" is Issuer DN for CRLs
+        final CAInfo caInfo =  caSession.getCAInfoInternal(issuerDn.hashCode());
+        if (caInfo == null) {
+            if (log.isDebugEnabled()) {
+                log.debug("Could not find CA with Subject DN '" + issuerDn + "'. Assuming CRL is not partitioned.");
+            }
+            return CertificateConstants.NO_CRL_PARTITION;
+        } else if (!(caInfo instanceof X509CAInfo)) {
+            log.warn("Trying to publish CRL for CA with Subject DN '" + issuerDn + "' which is not an X.509 CA.");
+            return CertificateConstants.NO_CRL_PARTITION;
+        }
+        final X509CAInfo x509CaInfo = (X509CAInfo) caInfo;
+        if (!x509CaInfo.getUsePartitionedCrl()) {
+            return CertificateConstants.NO_CRL_PARTITION;
+        }
+        try {
+            final X509CRL crl = CertTools.getCRLfromByteArray(crlBytes);
+            return caInfo.determineCrlPartitionIndex(crl);
+        } catch (CRLException e) {
+            throw new IllegalStateException("Trying to publish CRL we cannot parse.", e);
+        }
+    }
+
     @Override
     public boolean storeCRL(AuthenticationToken admin, byte[] incrl, String cafp, int number, String userDN) throws PublisherException {
         if (!getStoreCRL()) {
@@ -193,16 +225,19 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
             }
             return true;
         }
-        final Preparer prep = new StoreCRLPreparer(incrl, cafp, number, userDN);
+        final int crlPartitionIndex = getCrlPartitionIndex(userDN, incrl);
+        final boolean isPartition = crlPartitionIndex != CertificateConstants.NO_CRL_PARTITION;
+        final Preparer prep = new StoreCRLPreparer(incrl, cafp, number, userDN, crlPartitionIndex);
         try {
-            JDBCUtil.execute(insertCRLSQL, prep, getDataSource());
+            JDBCUtil.execute(isPartition ? insertCrlSqlWithPartition : insertCrlSql, prep, getDataSource());
         } catch (SQLException e) {
             if (log.isDebugEnabled()) {
                 final String msg = intres.getLocalizedMessage("publisher.entryexists", e.getMessage());
                 log.debug(msg, e);
             }
             try {
-                JDBCUtil.execute(updateCRLSQL, prep, getDataSource());
+                // CRLs data is not supposed to change, so this update query is most likely always a no-op. We should consider removing it.
+                JDBCUtil.execute(isPartition ? updateCrlSqlWithPartition : updateCrlSql, prep, getDataSource());
             } catch (Exception ue) {
                 final String lmsg = intres.getLocalizedMessage("publisher.errorvapubl", getDataSource(), prep.getInfoString());
                 log.error(lmsg, ue);
@@ -435,11 +470,12 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         private final int cRLNumber;
         private final int deltaCRLIndicator;
         private final String issuerDN;
+        private final int crlPartitionIndex;
         private final String fingerprint;
         private final long thisUpdate;
         private final long nextUpdate;
 
-        StoreCRLPreparer(byte[] incrl, String cafp, int number, String userDN) throws PublisherException {
+        StoreCRLPreparer(byte[] incrl, String cafp, int number, String userDN, int crlPartitionIndex) throws PublisherException {
             super();
             final X509CRL crl;
             try {
@@ -447,6 +483,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
                 // Is it a delta CRL?
                 this.deltaCRLIndicator = crl.getExtensionValue(Extension.deltaCRLIndicator.getId()) != null ? 1 : -1;
                 this.issuerDN = userDN;
+                this.crlPartitionIndex = crlPartitionIndex;
                 this.cRLNumber = number;
                 this.cAFingerprint = cafp;
                 this.base64Crl = new String(Base64.encode(incrl));
@@ -454,7 +491,9 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
                 this.thisUpdate = crl.getThisUpdate().getTime();
                 this.nextUpdate = crl.getNextUpdate().getTime();
                 if (log.isDebugEnabled()) {
-                    log.debug("Publishing CRL with fingerprint " + this.fingerprint + ", number " + number + " to external CRL store for the CA "
+                    log.debug("Publishing CRL with fingerprint " + this.fingerprint + ", number " + number +
+                            (crlPartitionIndex != CertificateConstants.NO_CRL_PARTITION ?  " (partition " + crlPartitionIndex + ")" : "") +
+                            " to external CRL store for the CA "
                             + this.issuerDN + (this.deltaCRLIndicator > 0 ? ". It is a delta CRL." : "."));
                 }
             } catch (Exception e) {
@@ -466,19 +505,28 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
 
         @Override
         public void prepare(PreparedStatement ps) throws Exception {
-            ps.setString(1, this.base64Crl);
-            ps.setString(2, this.cAFingerprint);
-            ps.setInt(3, this.cRLNumber);
-            ps.setInt(4, this.deltaCRLIndicator);
-            ps.setString(5, this.issuerDN);
-            ps.setLong(6, this.thisUpdate);
-            ps.setLong(7, this.nextUpdate);
-            ps.setString(8, this.fingerprint);
+            ps.setString(1, base64Crl);
+            ps.setString(2, cAFingerprint);
+            ps.setInt(3, cRLNumber);
+            ps.setInt(4, deltaCRLIndicator);
+            ps.setString(5, issuerDN);
+            ps.setLong(6, thisUpdate);
+            ps.setLong(7, nextUpdate);
+            if (crlPartitionIndex != CertificateConstants.NO_CRL_PARTITION) {
+                ps.setInt(8, crlPartitionIndex); // added in EJBCA 7.1.0
+                ps.setString(9, fingerprint);
+            } else {
+                // Don't send crlPartitionIndex unless needed.
+                // This way we can remain compatible with old VAs, as long as CRL partitioning is not used.
+                ps.setString(8, fingerprint);
+            }
         }
 
         @Override
         public String getInfoString() {
-            return "Store CRL:, Issuer:" + this.issuerDN + ", Number: " + this.cRLNumber + ", Is delta: " + (this.deltaCRLIndicator > 0);
+            return "Store CRL:, Issuer:" + issuerDN + ", Number: " + cRLNumber +
+                    (crlPartitionIndex != CertificateConstants.NO_CRL_PARTITION ?  ", Partition: " + crlPartitionIndex : "") +
+                    ", Is delta: " + (deltaCRLIndicator > 0);
         }
     }
     
