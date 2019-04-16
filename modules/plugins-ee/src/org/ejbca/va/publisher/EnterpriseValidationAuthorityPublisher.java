@@ -236,7 +236,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
                 log.debug(msg, e);
             }
             try {
-                // CRLs data is not supposed to change, so this update query is most likely always a no-op. We should consider removing it.
+                // CRLs data is not supposed to change, so this update query is most likely always a no-op. We should consider removing it (ECA-8074)
                 JDBCUtil.execute(isPartition ? updateCrlSqlWithPartition : updateCrlSql, prep, getDataSource());
             } catch (Exception ue) {
                 final String lmsg = intres.getLocalizedMessage("publisher.errorvapubl", getDataSource(), prep.getInfoString());
