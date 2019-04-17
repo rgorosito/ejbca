@@ -82,10 +82,10 @@ public final class PurposeMapping {
     				properties);
     		addKey(CATokenConstants.CAKEYPURPOSE_TESTKEY_STRING,
     				CATokenConstants.CAKEYPURPOSE_KEYTEST,
-    				properties);
-    		addKey(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT_STRING,
-    				CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT,
     				properties);    		
+            addKey(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT_STRING,
+                    CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT,
+                    properties); 
     		addKey(CATokenConstants.CAKEYPURPOSE_CERTSIGN_STRING_PREVIOUS,
     				CATokenConstants.CAKEYPURPOSE_CERTSIGN_PREVIOUS,
     				properties);    		
@@ -161,6 +161,7 @@ public final class PurposeMapping {
         return set.toArray(new String[set.size()]);
     }
     
+    @Override
     public String toString() {
     	return map.toString();
     }

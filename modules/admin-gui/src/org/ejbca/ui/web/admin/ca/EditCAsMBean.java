@@ -148,7 +148,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
     private String cryptoTokenDefaultKey = StringUtils.EMPTY; // Initialize to empty
     private String cryptoTokenCertSignKey = StringUtils.EMPTY; // Initialize to empty
     private String selectedKeyEncryptKey = StringUtils.EMPTY; // Initialize to empty
-    private String hardTokenEncryptKey = StringUtils.EMPTY; // Initialize to empty
     private String testKey = StringUtils.EMPTY;// Initialize to empty;
     private String description;
     private String caSerialNumberOctetSize;
@@ -565,17 +564,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
     
     public void setCurrentCaCryptoTokenKeyEncryptKey(final String currentCaCryptoTokenKeyEncryptKey) {
         this.caCryptoTokenKeyEncryptKey = currentCaCryptoTokenKeyEncryptKey;
-    }
-
-    public String getCurrentCaCryptoTokenHardTokenEncrypt() {
-        if(catoken != null) {
-            try {
-                return catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT);
-            } catch (final CryptoTokenOfflineException e) {
-                log.error("CA token offile exception!", e);
-            }
-        }
-        return StringUtils.EMPTY;
     }
 
     public String getCurrentCaCryptoTokenTestKey() {
@@ -1551,7 +1539,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
             cryptoTokenDefaultKey = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_DEFAULT);
             cryptoTokenCertSignKey = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN);
             selectedKeyEncryptKey = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_KEYENCRYPT);
-            hardTokenEncryptKey = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT);
             testKey = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_KEYTEST);
             // For renewal
             certSignKeyRequestValue = catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_CERTSIGN);
@@ -1560,7 +1547,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
         } else {
             // Make up defaults based on key alias names
             selectedKeyEncryptKey = "";
-            hardTokenEncryptKey = "";
             
             for (final String alias : availableCryptoTokenEncryptionAliases) {
                 if (CAToken.SOFTPRIVATEDECKEYALIAS.equals(alias) || StringUtils.containsIgnoreCase(alias, "default")) {
@@ -1599,11 +1585,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
             }
             return resultList;    
         case "keyEncryptKey":
-        case "hardTokenEncrypt":
-            for (final String alias : availableCryptoTokenEncryptionAliases) {
-                resultList.add(new SelectItem(alias, alias + aliasUsedMap.get(alias), ""));
-            }
-            return resultList;    
         default:
             return Collections.emptyList();
         }
@@ -1659,16 +1640,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
     public void setSelectedKeyEncryptKey(final String selectedKeyEncryptKey) {
         if (selectedKeyEncryptKey != null) {
             this.selectedKeyEncryptKey = selectedKeyEncryptKey;
-        }
-    }
-
-    public String getSelectHardTokenEncrypt() {
-        return hardTokenEncryptKey;
-    }
-
-    public void setSelectHardTokenEncrypt(final String selectHardTokenEncrypt) {
-        if (selectHardTokenEncrypt != null) {
-            this.hardTokenEncryptKey = selectHardTokenEncrypt;
         }
     }
     
@@ -1895,7 +1866,7 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
                     caDefinedFreshestCRL, useUtf8Policy, usePrintableStringSubjectDN, useLdapDNOrder, useCrlDistributiOnPointOnCrl,
                     crlDistributionPointOnCrlCritical, includeInHealthCheck, false, serviceCmsActive, sharedCmpRaSecret, keepExpiredOnCrl,
                     usePartitionedCrl, crlPartitions, retiredCrlPartitions, createCa,
-                    makeRequest, cryptoTokenIdParam, cryptoTokenCertSignKey, cryptoTokenCertSignKey, cryptoTokenDefaultKey, hardTokenEncryptKey,
+                    makeRequest, cryptoTokenIdParam, cryptoTokenCertSignKey, cryptoTokenCertSignKey, cryptoTokenDefaultKey,
                     selectedKeyEncryptKey, testKey, fileBuffer);
 
         return illegaldnoraltname;
@@ -2210,9 +2181,6 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
                 }
                 if (cryptoTokenCertSignKey.length() > 0) {
                     caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_CRLSIGN_STRING, cryptoTokenCertSignKey);
-                }
-                if (hardTokenEncryptKey.length() > 0) {
-                    caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT_STRING, hardTokenEncryptKey);
                 }
                 if (selectedKeyEncryptKey.length() > 0) {
                     caTokenProperties.setProperty(CATokenConstants.CAKEYPURPOSE_KEYENCRYPT_STRING, selectedKeyEncryptKey);

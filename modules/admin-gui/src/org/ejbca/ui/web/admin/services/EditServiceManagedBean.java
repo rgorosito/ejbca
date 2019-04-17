@@ -384,7 +384,7 @@ public class EditServiceManagedBean extends BaseManagedBean {
      * 
      * 
      * @return a {@link List} of {@link SelectItem}s containing the ID's and names of all ENDENTITY, ROOTCA and SUBCA 
-     * (and HARDTOKEN if available) certificate profiles current admin is authorized to.
+     * certificate profiles current admin is authorized to.
      */
     public Collection<SelectItem> getCertificateProfiles() {
         TreeMap<String, SelectItem> certificateProfiles = new TreeMap<>();
@@ -395,10 +395,6 @@ public class EditServiceManagedBean extends BaseManagedBean {
             //Only root users may use CA profiles
             certificateProfileTypes.add(CertificateConstants.CERTTYPE_ROOTCA);
             certificateProfileTypes.add(CertificateConstants.CERTTYPE_SUBCA);
-        }
-
-        if (getEjbcaWebBean().getGlobalConfiguration().getIssueHardwareTokens()) {
-            certificateProfileTypes.add(CertificateConstants.CERTTYPE_HARDTOKEN);
         }
 
         for (Integer certificateProfileType : certificateProfileTypes) {

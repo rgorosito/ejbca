@@ -61,7 +61,6 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
     private static final String USER_PARAMETER             = "username";
     private static final String CERTSERNO_PARAMETER        = "certsernoparameter";
     private static final String CACERT_PARAMETER           = "caid";
-    private static final String HARDTOKENSN_PARAMETER      = "tokensn";
     private static final String SERNO_PARAMETER            = "serno";
 
     private static final String HIDDEN_INDEX               = "hiddenindex";
@@ -369,16 +368,8 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
     }
 
     private void parseRequest(final HttpServletRequest request) throws AuthorizationDeniedException, CADoesntExistsException, UnsupportedEncodingException {
-        if (request.getParameter(HARDTOKENSN_PARAMETER) != null && request.getParameter(USER_PARAMETER) != null) {
-            noparameter = false;
-            if (ejbcaBean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWCERTIFICATE)) {
-                userName = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER), "UTF-8");
-                tokenSn = request.getParameter(HARDTOKENSN_PARAMETER);
-                raBean.loadTokenCertificates(tokenSn);
-            }
-        }
 
-        if (request.getParameter(USER_PARAMETER) != null && request.getParameter(HARDTOKENSN_PARAMETER) == null) {
+        if (request.getParameter(USER_PARAMETER) != null) {
             noparameter = false;
             if (ejbcaBean.isAuthorizedNoLogSilent(AccessRulesConstants.REGULAR_VIEWCERTIFICATE)) {
                 userName = java.net.URLDecoder.decode(request.getParameter(USER_PARAMETER), "UTF-8");
@@ -627,14 +618,10 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
             }
         }
         try {
-            if (tokenSn != null) {
-                raBean.loadTokenCertificates(tokenSn);
+            if (userName != null) {
+                raBean.loadCertificates(userName);
             } else {
-                if (userName != null) {
-                    raBean.loadCertificates(userName);
-                } else {
-                    raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
-                }
+                raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
             }
         } catch (final AuthorizationDeniedException e) {
 
@@ -647,14 +634,10 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
         // Mark certificate for key recovery.
         message = caBean.republish(certificateData);
         try {
-            if (tokenSn != null) {
-                raBean.loadTokenCertificates(tokenSn);
+            if (userName != null) {
+                raBean.loadCertificates(userName);
             } else {
-                if (userName != null) {
-                    raBean.loadCertificates(userName);
-                } else {
-                    raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
-                }
+                raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
             }
         } catch (final AuthorizationDeniedException e) {
 
@@ -677,14 +660,10 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
             }
         }
         try {
-            if (tokenSn != null) {
-                raBean.loadTokenCertificates(tokenSn);
+            if (userName != null) {
+                raBean.loadCertificates(userName);
             } else {
-                if (userName != null) {
-                    raBean.loadCertificates(userName);
-                } else {
-                    raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
-                }
+                raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
             }
         } catch (final AuthorizationDeniedException e) {
             
@@ -708,14 +687,10 @@ public class ViewCertificateManagedBean extends BaseManagedBean implements Seria
         }
 
         try {
-            if (tokenSn != null) {
-                raBean.loadTokenCertificates(tokenSn);
+            if (userName != null) {
+                raBean.loadCertificates(userName);
             } else {
-                if (userName != null) {
-                    raBean.loadCertificates(userName);
-                } else {
-                    raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
-                }
+                raBean.loadCertificates(certificateData.getSerialNumberBigInt(), certificateData.getIssuerDNUnEscaped());
             }
         } catch (final AuthorizationDeniedException e) {
 

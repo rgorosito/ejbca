@@ -109,7 +109,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         private String localKeyRecoveryKeyAlias;
         private boolean enableIcaoCANameChange;
         private boolean issueHardwareToken;
-        private int hardTokenDataEncryptCA;
         private boolean useAutoEnrollment;
         private int autoEnrollmentCA;
         private boolean autoEnrollUseSSLConnection;
@@ -151,8 +150,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 this.localKeyRecovery = globalConfig.getLocalKeyRecovery();
                 this.localKeyRecoveryCryptoTokenId = globalConfig.getLocalKeyRecoveryCryptoTokenId() != null ? globalConfig.getLocalKeyRecoveryCryptoTokenId() : 0;
                 this.localKeyRecoveryKeyAlias = globalConfig.getLocalKeyRecoveryKeyAlias();
-                this.issueHardwareToken = globalConfig.getIssueHardwareTokens();
-                this.hardTokenDataEncryptCA = globalConfig.getHardTokenEncryptCA();
                 this.useAutoEnrollment = globalConfig.getAutoEnrollUse();
                 this.autoEnrollmentCA = globalConfig.getAutoEnrollCA();
                 this.autoEnrollUseSSLConnection = globalConfig.getAutoEnrollSSLConnection();
@@ -204,8 +201,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         public void setLocalKeyRecoveryKeyAlias(String localKeyRecoveryKeyAlias) { this.localKeyRecoveryKeyAlias=localKeyRecoveryKeyAlias; }
         public boolean getIssueHardwareToken() { return this.issueHardwareToken; }
         public void setIssueHardwareToken(boolean issueHWtoken) { this.issueHardwareToken=issueHWtoken; }
-        public int getHardTokenDataEncryptCA() { return hardTokenDataEncryptCA; }
-        public void setHardTokenDataEncryptCA(int caid) { this.hardTokenDataEncryptCA=caid; }
         public boolean getUseAutoEnrollment() { return this.useAutoEnrollment; }
         public void setUseAutoEnrollment(boolean useAutoEnrollment) { this.useAutoEnrollment=useAutoEnrollment; }
         public int getAutoEnrollmentCA() { return this.autoEnrollmentCA; }
@@ -772,8 +767,6 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
                 globalConfig.setLocalKeyRecovery(currentConfig.getLocalKeyRecovery());
                 globalConfig.setLocalKeyRecoveryCryptoTokenId(zeroToNull(currentConfig.getLocalKeyRecoveryCryptoTokenId()));
                 globalConfig.setLocalKeyRecoveryKeyAlias(currentConfig.getLocalKeyRecoveryKeyAlias());
-                globalConfig.setIssueHardwareTokens(currentConfig.getIssueHardwareToken());
-                globalConfig.setHardTokenEncryptCA(currentConfig.getHardTokenDataEncryptCA());
                 globalConfig.setAutoEnrollUse(currentConfig.getUseAutoEnrollment());
                 globalConfig.setAutoEnrollCA(currentConfig.getAutoEnrollmentCA());
                 globalConfig.setAutoEnrollSSLConnection(currentConfig.getAutoEnrollUseSSLConnection());

@@ -12,12 +12,6 @@
  *************************************************************************/
 package org.cesecore.certificates.ca.catoken;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -42,6 +36,12 @@ import org.cesecore.keys.token.PKCS11TestUtils;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * 
@@ -451,7 +451,7 @@ public abstract class CATokenTestBase {
 			// Next should now return the encryption key instead, since it is the default
 			// There exist an RSA encryption key
 			priv = cryptoToken.getPrivateKey(catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_HARDTOKENENCRYPT));
-			KeyTools.testKey(priv, encPub, cryptoToken.getSignProviderName());
+            KeyTools.testKey(priv, encPub, cryptoToken.getSignProviderName());
 			// There exist an RSA encryption key
 			pub = cryptoToken.getPublicKey(catoken.getAliasFromPurpose(CATokenConstants.CAKEYPURPOSE_KEYENCRYPT));
 			assertEquals(1024, KeyTools.getKeyLength(pub));

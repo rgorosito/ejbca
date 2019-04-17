@@ -233,8 +233,7 @@ public class CertificateProfileSessionBean implements CertificateProfileSessionL
         final HashSet<Integer> allcaids = new HashSet<Integer>(caSession.getAllCaIds());
 
         // Add fixed certificate profiles.
-        if (certprofiletype == CertificateConstants.CERTTYPE_UNKNOWN || certprofiletype == CertificateConstants.CERTTYPE_ENDENTITY
-                || certprofiletype == CertificateConstants.CERTTYPE_HARDTOKEN) {
+        if (certprofiletype == CertificateConstants.CERTTYPE_UNKNOWN || certprofiletype == CertificateConstants.CERTTYPE_ENDENTITY) {
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER));
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_OCSPSIGNER));
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_SERVER));
@@ -245,7 +244,7 @@ public class CertificateProfileSessionBean implements CertificateProfileSessionL
         if (certprofiletype == CertificateConstants.CERTTYPE_UNKNOWN || certprofiletype == CertificateConstants.CERTTYPE_ROOTCA) {
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA));
         }
-        if (certprofiletype == CertificateConstants.CERTTYPE_UNKNOWN || certprofiletype == CertificateConstants.CERTTYPE_HARDTOKEN) {
+        if (certprofiletype == CertificateConstants.CERTTYPE_UNKNOWN) {
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_HARDTOKENAUTH));
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_HARDTOKENAUTHENC));
             returnval.add(Integer.valueOf(CertificateProfileConstants.CERTPROFILE_FIXED_HARDTOKENENC));
@@ -255,24 +254,23 @@ public class CertificateProfileSessionBean implements CertificateProfileSessionL
         for (final Entry<Integer,CertificateProfile> cpEntry : CertificateProfileCache.INSTANCE.getProfileCache(entityManager).entrySet()) {
                 final CertificateProfile profile = cpEntry.getValue();
                 // Check if all profiles available CAs exists in authorizedcaids.          
-                if (certprofiletype == 0 || certprofiletype == profile.getType() || (profile.getType() == CertificateConstants.CERTTYPE_ENDENTITY &&
-                        certprofiletype == CertificateConstants.CERTTYPE_HARDTOKEN)) {
-                boolean allexists = true;
-                for (final Integer nextcaid : profile.getAvailableCAs()) {
-                    if (nextcaid.intValue() == CertificateProfile.ANYCA) {
-                        allexists = true;
-                        break;
+                if (certprofiletype == 0 || certprofiletype == profile.getType()) {
+                    boolean allexists = true;
+                    for (final Integer nextcaid : profile.getAvailableCAs()) {
+                        if (nextcaid.intValue() == CertificateProfile.ANYCA) {
+                            allexists = true;
+                            break;
+                        }
+                        // superadmin should be able to access profiles with missing CA Ids
+                        if (!authorizedcaids.contains(nextcaid) && (!rootAccess || allcaids.contains(nextcaid))) {
+                            allexists = false;
+                            break;
+                        }
                     }
-                    // superadmin should be able to access profiles with missing CA Ids
-                    if (!authorizedcaids.contains(nextcaid) && (!rootAccess || allcaids.contains(nextcaid))) {
-                        allexists = false;
-                        break;
+                    if (allexists) {
+                        returnval.add(cpEntry.getKey());
                     }
                 }
-                if (allexists) {
-                    returnval.add(cpEntry.getKey());
-                }
-            }
         }
         return returnval;
     } 
