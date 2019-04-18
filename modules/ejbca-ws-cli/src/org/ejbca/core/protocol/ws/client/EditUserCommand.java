@@ -53,11 +53,11 @@ public class EditUserCommand extends EJBCAWSRABaseCommand implements IAdminComma
 	private static final int ARG_STATUS             = 10;
 	private static final int ARG_ENDENTITYPROFILE   = 11;
 	private static final int ARG_CERTIFICATEPROFILE = 12;
-	private static final int ARG_STARTTIME          = 14;
-	private static final int ARG_ENDTIME            = 15;
+	private static final int ARG_STARTTIME          = 13;
+	private static final int ARG_ENDTIME            = 14;
 
 	private static final int NR_OF_MANDATORY_ARGS = ARG_CERTIFICATEPROFILE+1;
-	private static final int MAX_NR_OF_ARGS = ARG_ENDTIME+4;
+	private static final int MAX_NR_OF_ARGS = ARG_ENDTIME+3;
 
     public EditUserCommand(String[] args) {
         super(args);
@@ -201,7 +201,7 @@ public class EditUserCommand extends EJBCAWSRABaseCommand implements IAdminComma
 	@Override
     protected void usage() {
 		getPrintStream().println("Command used to add or edit userdata, if user exist will the data be overwritten.");
-		getPrintStream().println("Usage : edituser <username> <password|null> <clearpwd (true|false)> <subjectdn> <subjectaltname or NULL> <email or NULL> <caname> <type> <token> <status> <endentityprofilename> <certificateprofilename> <issueralias or NULL (optional)> <starttime or NULL (optional)> <endtime (starttime)>\n\n");
+		getPrintStream().println("Usage : edituser <username> <password|null> <clearpwd (true|false)> <subjectdn> <subjectaltname or NULL> <email or NULL> <caname> <type> <token> <status> <endentityprofilename> <certificateprofilename> <starttime or NULL (optional)> <endtime (starttime)>\n\n");
         getPrintStream().println("DN is of form \"C=SE, O=MyOrg, OU=MyOrgUnit, CN=MyName\" etc.");
         getPrintStream().println("SubjectAltName is of form \"rfc822Name=<email>, dNSName=<host name>, uri=<http://host.com/>, ipaddress=<address>, guid=<globally unique id>, directoryName=<LDAP escaped DN>,"
                 + " permanentIdentifier=<Permanent Identifier values>, subjectIdentificationMethod=<Subject Identification Method values or parameters>, "
