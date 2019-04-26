@@ -87,7 +87,8 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         caHelper.checkIssuingDistPointOnCrls(true);
         caHelper.checkUseCrlPartitions(true);
         caHelper.setNumberOfPartitions("3");
-        caHelper.setNumberOfRetiredPartitions("1");
+        caHelper.setNumberOfSuspendedPartitions("1");
+        caHelper.setCrlPeriod("5m");
     }
 
     @Test
@@ -160,7 +161,8 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
     //a bulk of certificates and revoke them to use with
     //the CRL partitions
 
-    @Test
+    @Ignore
+    @Test()
     public void stepM_GenerateAndRevokeCertificates() throws InterruptedException {
         //Create 500 users.
         //Integer i = 0;
@@ -294,6 +296,7 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         servicesHelper.openEditServicePage(TestData.CRL_SERVICE);
         servicesHelper.editService("CRL Updater");
         servicesHelper.setPeriod("1");
+        servicesHelper.selectCaToCheck(TestData.CA_NAME);
         servicesHelper.checkActive(true);
     }
 
