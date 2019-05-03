@@ -112,8 +112,8 @@ public class CaImportCACommand extends BaseCaAdminCommand {
     public CommandResult execute(ParameterContainer parameters) {
         CryptoProviderTools.installBCProvider();
         String caName = parameters.get(CA_NAME_KEY);
-        boolean importHardToken = parameters.get(HARD_SWITCH_KEY) != null;
-        if (!importHardToken) {
+        boolean importHsmToken = parameters.get(HARD_SWITCH_KEY) != null;
+        if (!importHsmToken) {
             // Import soft keystore
             log.info("Importing soft token.");
             String kspwd = parameters.get(KEYSTORE_PASSWORD_KEY);
@@ -174,7 +174,7 @@ public class CaImportCACommand extends BaseCaAdminCommand {
                     }
                     int length = 0;
                     while (aliases.hasMoreElements()) {
-                        alias = (String) aliases.nextElement();
+                        alias = aliases.nextElement();
                         log.info("Keystore contains alias: " + alias);
                         length++;
                     }
@@ -197,7 +197,7 @@ public class CaImportCACommand extends BaseCaAdminCommand {
         } else {
             // Import HSM keystore
             // "Usage2: CA importca <CA name> <catokenclasspath> <catokenpassword> <catokenproperties> <ca-certificate-file>\n" +
-            log.info("Importing hard token.");
+            log.info("Importing HSM token.");
             String tokenclasspath = parameters.get(CA_TOKEN_CLASSPATH_KEY);
             String tokenpwd = parameters.get(CA_TOKEN_PASSWORD_KEY);
             String catokenproperties;
@@ -223,11 +223,11 @@ public class CaImportCACommand extends BaseCaAdminCommand {
                         tokenpwd, tokenclasspath, catokenproperties);
                 return CommandResult.SUCCESS;
             } catch (CryptoTokenOfflineException e) {
-                log.error("Crypto Token was offline.");
+                log.error("Crypto Token was offline. Make sure the P11 library " + tokenclasspath + " is accessible.");
             } catch (CryptoTokenAuthenticationFailedException e) {
-                log.error("Authentication to the crypto token failed.");
+                log.error("Authentication to the crypto token failed. Make sure the authentication code is correct.");
             } catch (IllegalCryptoTokenException e) {
-                log.error("The certificate chain was incomplete.");
+                log.error("The certificate chain was incomplete." + System.lineSeparator() + e.getMessage());
             } catch (CAExistsException e) {
                 log.error("CA already exists in database.");
             } catch (CAOfflineException e) {
