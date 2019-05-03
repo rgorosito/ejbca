@@ -548,6 +548,11 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         return false;
     }
 
+    @Override
+    public boolean willPublishCertificate(int status, int revocationReason) {
+        // Publish all life cycle events
+        return true;
+    }
 
 
 }
