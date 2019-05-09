@@ -121,6 +121,32 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
     }
 
     @Override
+    public void canWorkerRun(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
+        File certificateDirectory = getDirectory(getCertificateDirectory(properties));;
+        File crlDirectory = getDirectory(getCRLDirectory(properties));
+        if (certificateDirectory != null) {
+            if (!certificateDirectory.canRead() || !certificateDirectory.canWrite()) {
+                throw new ServiceExecutionFailedException("Certificate Reader lacks read and/or write rights to directory " + certificateDirectory);
+            }
+            final CaSessionLocal caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
+            int caId = getCaId(properties);
+            if (caId != -1) {
+                try {
+                    caSession.getCAInfo(admin, getCaId(properties));
+                } catch (AuthorizationDeniedException e) {
+                    throw new ServiceExecutionFailedException("Certificate Reader does not have access to CA with id " + getCaId(properties));
+                }
+            }
+        }
+        if (crlDirectory != null) {
+            if (!crlDirectory.canRead() || !crlDirectory.canWrite()) {
+                throw new ServiceExecutionFailedException("Certificate Reader lacks read and/or write rights to directory " + crlDirectory);
+            }
+        }
+    
+    }
+    
+    @Override
     public void work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
         //Read certificate directory 
         File certificateDirectory = getDirectory(getCertificateDirectory(properties));
@@ -419,5 +445,6 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             return -1;
         }
     }
+
 
 }
