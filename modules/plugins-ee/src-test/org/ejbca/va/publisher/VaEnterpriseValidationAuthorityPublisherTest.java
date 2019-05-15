@@ -9,13 +9,6 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import java.math.BigInteger;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
@@ -46,6 +39,13 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of system tests for the VA Publisher using EnterpriseValidationAuthorityPublisher, extracted from the org.ejbca.core.model.ca.publisher.PublisherTest and VaPublisherTest.
@@ -404,7 +404,7 @@ public class VaEnterpriseValidationAuthorityPublisherTest extends VaPublisherTes
             // given
             switchEnterpriseValidationAuthorityPublisherPublishCrls();
             internalCertStoreSession.removeCRLs(internalAdminToken, issuerDn); // start fresh
-            CaTestUtils.createX509Ca(internalAdminToken, testName, testName, "CN=" + testName);
+            CaTestUtils.createActiveX509Ca(internalAdminToken, testName, testName, "CN=" + testName);
             final X509CAInfo caInfo = (X509CAInfo) caSession.getCAInfo(internalAdminToken, testName);
             caInfo.setUsePartitionedCrl(true);
             caInfo.setCrlPartitions(1);

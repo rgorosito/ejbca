@@ -9,11 +9,6 @@
  *************************************************************************/
 package org.ejbca.va.publisher;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
 import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
@@ -43,6 +38,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of system tests for the VA Queue using CustomPublisherContainer, extracted from the Community system tests and VaPublisherQueueTest.java.
@@ -159,7 +159,7 @@ public class VaCustomPublisherQueueTest extends VaPublisherTestBase {
                 "BAD_PUBLISHER",
                 createCustomPublisherContainer("NoExist234DS"));
         publishers.add(publisherId);
-        CaTestUtils.createX509Ca(internalAdminToken, caName, caName, caSubjectDn);
+        CaTestUtils.createActiveX509Ca(internalAdminToken, caName, caName, caSubjectDn);
         final CAInfo testCa = caSession.getCAInfo(internalAdminToken, caName);
         certificateProfileUsername = certificateUsername;
         final int certificateProfileId = certificateProfileSession.addCertificateProfile(
