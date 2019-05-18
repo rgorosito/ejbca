@@ -12,8 +12,6 @@
  *************************************************************************/
 package org.cesecore.keys.token;
 
-import static org.junit.Assert.assertNotNull;
-
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
@@ -31,6 +29,8 @@ import org.cesecore.keys.token.p11.Pkcs11SlotLabelType;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
 import org.cesecore.util.EjbRemoteHelper;
+
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Utility methods for creating CAs and CryptoTokens for tests. Both soft and PKCS#11 tokens.
@@ -166,7 +166,7 @@ public class CryptoTokenTestUtils {
         return cryptoTokenManagementSession.createCryptoToken(authenticationToken, cryptoTokenName, SoftCryptoToken.class.getName(), props, null,
                 SOFT_TOKEN_PIN);
     }
-
+    
     public static int createPKCS11Token(AuthenticationToken authenticationToken, String cryptoTokenName, boolean useAutoActivationPin)
             throws NoSuchSlotException, AuthorizationDeniedException, CryptoTokenOfflineException, CryptoTokenAuthenticationFailedException,
             CryptoTokenNameInUseException {

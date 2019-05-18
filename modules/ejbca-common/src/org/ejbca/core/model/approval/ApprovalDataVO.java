@@ -15,6 +15,8 @@ package org.ejbca.core.model.approval;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.ejbca.core.model.SecConst;
@@ -53,10 +55,20 @@ public class ApprovalDataVO implements Serializable {
 	public static final int APPROVALTYPE_ACTIVATECATOKEN             = 10;
 
 	//IMPORTANT REMEMBER TO SET THE RESOURCES IN BOTH INTERNAL AND ADMINWEB LANGUAGE FILES
-	public static final String[] APPROVALTYPENAMES = {"APDUMMY","APADDENDENTITY","APEDITENDENTITY",
-		                                              "APCHANGESTATUSENDENTITY", "APKEYRECOVERY", "APGENERATETOKEN",
-		                                              "APREVOKEENDENTITY", "APREVOKEDELETEENDENTITY", "APREVOKECERTIFICATE",
-                                                      "APPROVEACTIVATECA"};
+	
+	public static final Map<Integer, String> APPROVALTYPENAMES = new HashMap<>();
+	static {
+	    APPROVALTYPENAMES.put(APPROVALTYPE_DUMMY, "APDUMMY");
+        APPROVALTYPENAMES.put(APPROVALTYPE_ADDENDENTITY, "APADDENDENTITY");
+        APPROVALTYPENAMES.put(APPROVALTYPE_EDITENDENTITY, "APEDITENDENTITY");
+        APPROVALTYPENAMES.put(APPROVALTYPE_CHANGESTATUSENDENTITY, "APCHANGESTATUSENDENTITY"); 
+        APPROVALTYPENAMES.put(APPROVALTYPE_KEYRECOVERY, "APKEYRECOVERY");
+        APPROVALTYPENAMES.put(APPROVALTYPE_GENERATETOKEN, "APGENERATETOKEN");
+        APPROVALTYPENAMES.put(APPROVALTYPE_REVOKEENDENTITY, "APREVOKEENDENTITY"); 
+        APPROVALTYPENAMES.put(APPROVALTYPE_REVOKEANDDELETEENDENTITY, "APREVOKEDELETEENDENTITY"); 
+        APPROVALTYPENAMES.put(APPROVALTYPE_REVOKECERTIFICATE, "APREVOKECERTIFICATE");
+        APPROVALTYPENAMES.put(APPROVALTYPE_ACTIVATECATOKEN, "APPROVEACTIVATECA");
+	}
 
 	/** Used to indicate that the approval is applicable to any ca. */
 	public static final int ANY_CA = SecConst.ALLCAS;
