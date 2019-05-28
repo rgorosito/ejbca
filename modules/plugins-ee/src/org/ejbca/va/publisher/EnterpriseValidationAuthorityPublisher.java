@@ -11,6 +11,7 @@ package org.ejbca.va.publisher;
 
 import java.security.cert.CRLException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.sql.PreparedStatement;
@@ -31,6 +32,7 @@ import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
+import org.ejbca.core.ejb.ServiceLocatorException;
 import org.ejbca.core.model.InternalEjbcaResources;
 import org.ejbca.core.model.ca.publisher.BasePublisher;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
@@ -259,8 +261,10 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
     public void testConnection() throws PublisherConnectionException {
         try {
             JDBCUtil.execute("select 1 from CertificateData where fingerprint='XX'", new DoNothingPreparer(), getDataSource());
-        } catch (Exception e) {
-            log.error("Connection test failed: ", e);
+        } catch (ServiceLocatorException | SQLException e) {
+            if (log.isDebugEnabled()) {
+                log.error("Connection test failed: ", e);
+            }
             final PublisherConnectionException pce = new PublisherConnectionException("Connection in init failed: " + e.getMessage());
             pce.initCause(e);
             throw pce;
@@ -277,7 +281,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         return storeCrl;
     }
     
-    private void updateCert(StoreCertPreparer prep) throws Exception {
+    private void updateCert(StoreCertPreparer prep) throws SQLException, ServiceLocatorException {
         // If this is a revocation we assume that the certificate already exists in the database. In that case we will try an update first and if that fails an insert.
         if (JDBCUtil.execute(updateCertificateSQL, prep, getDataSource()) == 1) {
             return;
@@ -298,7 +302,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         return onlyPublishRevoked;
     }
 
-    private void newCert(StoreCertPreparer prep) throws Exception {
+    private void newCert(StoreCertPreparer prep) throws ServiceLocatorException, SQLException {
         try {
             JDBCUtil.execute(insertCertificateSQL, prep, getDataSource());
             // No exception throws, so this worked
@@ -318,7 +322,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         }
     }
     
-    private void deleteCert(StoreCertPreparer prep) throws Exception {
+    private void deleteCert(StoreCertPreparer prep) throws SQLException, ServiceLocatorException {
         prep.isDelete = true;
         JDBCUtil.execute(deleteCertificateSQL, prep, getDataSource());
     }
@@ -405,7 +409,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         }
 
         @Override
-        public void prepare(PreparedStatement ps) throws Exception {
+        public void prepare(PreparedStatement ps) throws SQLException {
             if (this.isDelete) {
                 prepareDelete(ps);
             } else {
@@ -413,11 +417,11 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
             }
         }
 
-        private void prepareDelete(PreparedStatement ps) throws Exception {
+        private void prepareDelete(PreparedStatement ps) throws SQLException {
             ps.setString(1, fingerprint);
         }
 
-        private void prepareNewUpdate(PreparedStatement ps) throws Exception {
+        private void prepareNewUpdate(PreparedStatement ps) throws SQLException {
             // We can select to publish the whole certificate, or not to.
             // There are good reasons not to publish the whole certificate. It is large, thus making it a bit of heavy insert and it may
             // contain sensitive information.
@@ -431,9 +435,14 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
             }
             
             
-            final X509Certificate x509Certificate = (this.base64Cert != null) ? 
-                    CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class) : 
-                    null;
+            X509Certificate x509Certificate;
+            try {
+                x509Certificate = (this.base64Cert != null) ? 
+                        CertTools.getCertfromByteArray(Base64.decode(this.base64Cert.getBytes()), X509Certificate.class) : 
+                        null;
+            } catch (CertificateParsingException e) {
+                throw new IllegalStateException("Certificate retrieved from database could not be parsed.", e);
+            }
                     
             final boolean isCaCert = (x509Certificate != null) ? CertTools.isCA(x509Certificate) : false;
             final boolean isOcspCert = (x509Certificate != null) ? CertTools.isOCSPCert(x509Certificate) : false;
@@ -504,7 +513,7 @@ public class EnterpriseValidationAuthorityPublisher extends CustomPublisherUiBas
         }
 
         @Override
-        public void prepare(PreparedStatement ps) throws Exception {
+        public void prepare(PreparedStatement ps) throws SQLException {
             ps.setString(1, base64Crl);
             ps.setString(2, cAFingerprint);
             ps.setInt(3, cRLNumber);

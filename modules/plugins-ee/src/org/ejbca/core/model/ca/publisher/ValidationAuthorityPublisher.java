@@ -231,7 +231,7 @@ public class ValidationAuthorityPublisher extends BasePublisher implements ICust
         }
 
         @Override
-        public void prepare(PreparedStatement ps) throws Exception {
+        public void prepare(PreparedStatement ps) throws SQLException  {
             if (this.isDelete) {
                 prepareDelete(ps);
             } else {
@@ -239,11 +239,11 @@ public class ValidationAuthorityPublisher extends BasePublisher implements ICust
             }
         }
 
-        private void prepareDelete(PreparedStatement ps) throws Exception {
+        private void prepareDelete(PreparedStatement ps) throws SQLException {
             ps.setString(1, fingerprint);
         }
 
-        private void prepareNewUpdate(PreparedStatement ps) throws Exception {
+        private void prepareNewUpdate(PreparedStatement ps) throws SQLException {
             // We can select to publish the whole certificate, or not to.
             // There are good reasons not to publish the whole certificate. It is large, thus making it a bit of heavy insert and it may
             // contain sensitive information.
@@ -438,7 +438,7 @@ public class ValidationAuthorityPublisher extends BasePublisher implements ICust
         }
 
         @Override
-        public void prepare(PreparedStatement ps) throws Exception {
+        public void prepare(PreparedStatement ps) throws SQLException {
             ps.setString(1, this.base64Crl);
             ps.setString(2, this.cAFingerprint);
             ps.setInt(3, this.cRLNumber);
