@@ -64,6 +64,8 @@ import org.ejbca.core.model.services.BaseWorker;
 import org.ejbca.core.model.services.CustomServiceWorkerProperty;
 import org.ejbca.core.model.services.CustomServiceWorkerUiSupport;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
+import org.ejbca.core.model.services.ServiceExecutionResult;
+import org.ejbca.core.model.services.ServiceExecutionResult.Result;
 import org.ejbca.core.model.util.EjbLocalHelper;
 import org.ejbca.scp.publisher.ScpContainer;
 
@@ -147,10 +149,13 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
     }
     
     @Override
-    public void work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
+    public ServiceExecutionResult work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
         //Read certificate directory 
         File certificateDirectory = getDirectory(getCertificateDirectory(properties));
         File crlDirectory = getDirectory(getCRLDirectory(properties));
+        List<String> failedFiles = new ArrayList<>();       
+        int readCertificates = 0;
+        int readCrls = 0;
         if (certificateDirectory != null) {
             if (!certificateDirectory.canRead() || !certificateDirectory.canWrite()) {
                 throw new ServiceExecutionFailedException("Certificate Reader lacks read and/or write rights to directory " + certificateDirectory);
@@ -176,6 +181,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                     signedData = getFileFromDisk(file);
                 } catch (IOException e) {
                     log.error("File '" + fileName + "' could not be read.");
+                    failedFiles.add(fileName);
                     continue;
                 }
 
@@ -185,6 +191,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                     
                 } catch (SignatureException | CertificateException e) {
                     log.error("Could not get/verify signed certificate file. Certificate saved in file " + fileName, e);
+                    failedFiles.add(fileName);
                     continue;
                 }
                 if (log.isDebugEnabled()) {
@@ -192,11 +199,17 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                 }
                 try {
                     storeCertificate(ejbs, data);
+                    readCertificates++;
                     file.delete();
                 } catch (AuthorizationDeniedException e) {
                     log.error("Service not authorized to store certificates in database. Certificate saved in file " + fileName, e);
                     continue;
+                } catch(ServiceExecutionFailedException e) {
+                    log.error("Could not store certificate " + fileName + " in the database.", e);
+                    failedFiles.add(fileName);
+                    continue;
                 }
+                
                 if (log.isDebugEnabled()) {
                     log.debug("File '" + fileName + "' successfully decoded");
                 }
@@ -215,21 +228,54 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                     crlData = getFileFromDisk(file);
                 } catch (IOException e) {
                     log.error("File '" + fileName + "' could not be read.");
+                    failedFiles.add(fileName);
                     continue;
                 }
                 try {
                     storeCrl(ejbs, crlData);
+                    readCrls++;
                     file.delete();
                 } catch (CRLException e) {
                     log.error("CRL could not be stored on the database. CRL stored in file " + fileName, e);
+                    failedFiles.add(fileName);
                     continue;
                 } catch (CADoesntExistsException e) {
                     log.error("CA that issued imported CRL does not exist on this CRL stored in file " + fileName, e);
+                    continue;
+                } catch(ServiceExecutionFailedException e) {
+                    log.error("Could not store CRL " + fileName + " in the database.", e);
+                    failedFiles.add(fileName);
                     continue;
                 }
       
             }
         }
+        if (crlDirectory == null && certificateDirectory == null) {
+            return new ServiceExecutionResult(Result.NO_ACTION, "No scan directories defined, service exited without action.");
+        } else if (failedFiles.isEmpty() && readCertificates == 0 && readCrls == 0) {
+            return new ServiceExecutionResult(Result.NO_ACTION, "CertificateCrlReader ran, but no certificates or CRLs were encountered.");
+        } else {
+            StringBuilder result = new StringBuilder("CertificateCrlReader ran: ");
+            if (readCertificates != 0) {
+                result.append(readCertificates + " certificates ");
+                if (readCrls != 0) {
+                    result.append("and ");
+                }
+            }
+            if (readCrls != 0) {
+                result.append(readCrls + " CRLs ");
+            }
+            result.append("were imported. ");
+            if (failedFiles.isEmpty()) {
+                return new ServiceExecutionResult(Result.SUCCESS, result.toString());
+            } else {
+                result.append("The following file scans failed: " + constructNameList(failedFiles));
+                return new ServiceExecutionResult(Result.FAILURE, result.toString());
+            }
+        }
+        
+        
+        
     }
     
     private byte[] getFileFromDisk(final File file) throws IOException {
