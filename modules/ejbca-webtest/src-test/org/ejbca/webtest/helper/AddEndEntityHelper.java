@@ -43,7 +43,11 @@ public class AddEndEntityHelper extends BaseHelper {
         static final By INPUT_CERT_EXTENSION_DATA = By.xpath("//textarea[@name='textareaextensiondata']");
         static final By INPUT_EMAIL_NAME = By.xpath("//input[@name='textfieldemail']");
         static final By INPUT_EMAIL_DOMAIN = By.xpath("//input[@name='textfieldemaildomain']");
-        
+        static final By INPUT_MSUPN_EMAIL_NAME = By.xpath("//input[@name='textfieldupnname3']");
+        static final By INPUT_MSUPN_EMAIL_DOMAIN = By.xpath("//input[@name='textfieldsubjectaltname3']");
+        static final By CERTIFICATE_SERIAL_NUMBER_IN_HEX = By.name("textfieldcertsn");
+
+
         // Select drop downs
         static final By SELECT_EEP = By.xpath("//select[@name='selectendentityprofile']");
         static final By SELECT_CP = By.xpath("//select[@name='selectcertificateprofile']");
@@ -60,6 +64,7 @@ public class AddEndEntityHelper extends BaseHelper {
         
         static final By CHECKBOX_BATCH_GENERATION = By.id("checkboxcleartextpassword");
         static final By CHECKBOX_EMAIL_ADDRESS = By.id("checkboxsubjectdn14");
+        static final By CHECKBOX_RFC_822 = By.id("checkboxsubjectaltname9");
 
         static By getInputFieldLocatorByKey(final String key) {
             return By.xpath("//td[descendant-or-self::*[text()='" + key + "']]/following-sibling::td//input[not(@type='checkbox')]");
@@ -137,7 +142,14 @@ public class AddEndEntityHelper extends BaseHelper {
     public void triggerEmailAddress() {
         clickLink(Page.CHECKBOX_EMAIL_ADDRESS);
     }
-    
+
+    /**
+     * Clicks the check box 'Use data from E-mail address field'.
+     */
+    public void clickCheckBoxRfc822() {
+        clickLink(Page.CHECKBOX_RFC_822);
+    }
+
     /**
      * Sets fields when adding an End Entity.
      * 
@@ -161,7 +173,26 @@ public class AddEndEntityHelper extends BaseHelper {
         fillInput(Page.INPUT_EMAIL_NAME, emailName);
         fillInput(Page.INPUT_EMAIL_DOMAIN, emailDomain);
     }
-    
+
+
+     /**
+     * Fills in the text field email and email domain for MS UPN
+     * @param emailName e.g. 'john'
+     * @param emailDomain e.g. 'company.com'
+     */
+    public void fillMsUpnEmail(final String emailName, final String emailDomain) {
+        fillInput(Page.INPUT_MSUPN_EMAIL_NAME, emailName);
+        fillInput(Page.INPUT_MSUPN_EMAIL_DOMAIN, emailDomain);
+    }
+
+    /**
+     * Fills in the text field certificate serial number in hex
+     * @param hexSerialNumber e.g. '1234567890ABCDEF'
+     */
+    public void fillCertificateSerialNumberInHexl(final String hexSerialNumber) {
+        fillInput(Page.CERTIFICATE_SERIAL_NUMBER_IN_HEX, hexSerialNumber);
+    }
+
     /**
      * Fills in the text area 'NameConstraintsPermitted'.
      * @param domains new line separated domains.

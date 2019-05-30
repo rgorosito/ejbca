@@ -87,6 +87,7 @@ import org.ejbca.core.model.services.IInterval;
 import org.ejbca.core.model.services.IWorker;
 import org.ejbca.core.model.services.ServiceConfiguration;
 import org.ejbca.core.model.services.ServiceExecutionFailedException;
+import org.ejbca.core.model.services.ServiceExecutionResult;
 import org.ejbca.core.model.services.ServiceExistsException;
 import org.ejbca.core.protocol.cmp.CmpMessageDispatcherSessionLocal;
 
@@ -493,21 +494,22 @@ public class ServiceSessionBean implements ServiceSessionLocal, ServiceSessionRe
                             log.debug("Exception: ", t); // Don't spam log with stacktraces in normal production cases
                         }
                     }
-                    // Verify with the service worker that it can run - if not then this CA instance may be in a temporary (or not) fail 
-                    // state. In that case, reschedule the timer so that it skips the next loop. If this is a single node
-                    // installation then the job will be picked up again, if it's a multi node installation then this avoids this node 
-                    // preemting one of the other nodes, which may be functioning. 
-                    if(!serviceSession.canWorkerRun(worker)) {
-                      nextTrigger.cancel();  
-                      addTimer(serviceInterval * 1000 *2, timerInfo);
-                      if(log.isDebugEnabled()) {
-                            log.debug("Service was deemed unable to run on this node, so setting timer interval to " + serviceInterval * 1000 * 2
-                                    + " (double interval) in order to give another node (if present in the cluster) a chance to try.");
-                        }
-                      return;
-                    } 
-                   
                     if (worker != null) {
+                        // Verify with the service worker that it can run - if not then this CA instance may be in a temporary (or not) fail 
+                        // state. In that case, reschedule the timer so that it skips the next loop. If this is a single node
+                        // installation then the job will be picked up again, if it's a multi node installation then this avoids this node 
+                        // preemting one of the other nodes, which may be functioning. 
+                        if (!serviceSession.canWorkerRun(worker)) {
+                            nextTrigger.cancel();
+                            addTimer(serviceInterval * 1000 * 2, timerInfo);
+                            if (log.isDebugEnabled()) {
+                                log.debug("Service was deemed unable to run on this node, so setting timer interval to " + serviceInterval * 1000 * 2
+                                        + " (double interval) in order to give another node (if present in the cluster) a chance to try.");
+                            }
+                            return;
+                        }
+                   
+                   
                         try {
                             serviceSession.executeServiceInNoTransaction(worker, serviceName);
                         } catch (RuntimeException e) {
@@ -690,6 +692,7 @@ public class ServiceSessionBean implements ServiceSessionLocal, ServiceSessionRe
     @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
     @Override
     public void executeServiceInNoTransaction(IWorker worker, String serviceName) {
+        log.info("Attempting to run service: " + serviceName);
         try {
             // Awkward way of letting POJOs get interfaces, but shows dependencies on the EJB level for all used classes. Injection wont work, since
             // we have circular dependencies!
@@ -722,8 +725,8 @@ public class ServiceSessionBean implements ServiceSessionLocal, ServiceSessionRe
             ejbs.put(CmpMessageDispatcherSessionLocal.class, cmpMsgDispatcherSession);
             ejbs.put(ImportCrlSessionLocal.class, importCrlSession);
             ejbs.put(KeyStoreCreateSessionLocal.class, keyStoreCreateSession);
-            worker.work(ejbs);
-            final String msg = intres.getLocalizedMessage("services.serviceexecuted", serviceName);
+            ServiceExecutionResult result = worker.work(ejbs);
+            final String msg = intres.getLocalizedMessage("services.serviceexecuted", serviceName, result.getResult().getOutput(), result.getMessage());
             log.info(msg);
         } catch (ServiceExecutionFailedException e) {
             final String msg = intres.getLocalizedMessage("services.serviceexecutionfailed", serviceName);

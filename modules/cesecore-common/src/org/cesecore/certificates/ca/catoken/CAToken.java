@@ -177,6 +177,9 @@ public class CAToken extends UpgradeableDataHashMap {
                             // Check that that the testkey is usable by doing a test signature.
                             try {
                                 if (caTokenSignTest) {
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Testing key '" + alias + "' residing in crypto token '" + cryptoToken.getTokenName() + "'.");
+                                    }
                                     cryptoToken.testKeyPair(alias, publicKey, privateKey);
                                 }
                                 // If we can test the testkey, we are finally active!
@@ -210,7 +213,13 @@ public class CAToken extends UpgradeableDataHashMap {
         return ret;
     }
 
-    /** @return the key pair alias in the CryptoToken from the CATokenConstants.CAKEYPURPOSE_.. */
+    /** 
+     * Get a key alias from this token for a particular purpose.
+     * 
+     * @param purpose one of the constants in {@link CATokenConstants}.
+     * @return the alias of a key.
+     * @throws CryptoTokenOfflineException if the key alias cannot be read.
+     */
     public String getAliasFromPurpose(final int purpose) throws CryptoTokenOfflineException {
         if (keyStrings==null) {
             // keyStrings is transient and can be null after serialization

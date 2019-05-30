@@ -15,10 +15,13 @@ package org.ejbca.core.ejb.ca.publisher;
 import java.security.cert.Certificate;
 import java.util.Properties;
 
+import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
+import org.ejbca.core.model.ca.publisher.FatalPublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.ICustomPublisher;
+import org.ejbca.core.model.ca.publisher.PublisherConnectionException;
 import org.ejbca.core.model.ca.publisher.PublisherException;
 
 /**
@@ -30,6 +33,8 @@ import org.ejbca.core.model.ca.publisher.PublisherException;
 public class MockPublisher extends CustomPublisherContainer implements ICustomPublisher {
 
     private static final long serialVersionUID = 1L;
+
+    private static final Logger log = Logger.getLogger(MockPublisher.class);
     
     public static final String PROPERTYKEY_LIMIT = "successLimit";
     public static final String PROPERTYKEY_SUCCESSES = "numberOfSuccesses";
@@ -38,12 +43,12 @@ public class MockPublisher extends CustomPublisherContainer implements ICustomPu
     
     public MockPublisher() {
         super();
-        setClassPath(this.getClass().getName());
         data.put(PROPERTYKEY_SUCCESSES, 0);
         
     }
     
     public MockPublisher(Properties properties) {
+        super();
         init(properties);
     }
 
@@ -54,12 +59,19 @@ public class MockPublisher extends CustomPublisherContainer implements ICustomPu
         int numberOfSuccesses = (int) data.get(PROPERTYKEY_SUCCESSES);
         numberOfSuccesses++;
         data.put(PROPERTYKEY_SUCCESSES, numberOfSuccesses);
+        if(log.isDebugEnabled()) {
+            log.debug("Mock logger asked to store certificate. Limit is " + successLimit + ", number of (succesful) calls so far: " + numberOfSuccesses);
+        }
         return numberOfSuccesses <= successLimit;
     }
     
     @Override
     public void init(Properties properties) {
-        successLimit = Integer.parseInt(properties.getProperty(PROPERTYKEY_LIMIT));
+        if (properties.containsKey(PROPERTYKEY_LIMIT)) {
+            successLimit = Integer.parseInt(properties.getProperty(PROPERTYKEY_LIMIT));
+        } else {
+            successLimit = 0;
+        }
         data.put(PROPERTYKEY_LIMIT, successLimit);
         if(!data.containsKey(PROPERTYKEY_SUCCESSES)) {
             data.put(PROPERTYKEY_SUCCESSES, 0);
@@ -67,8 +79,18 @@ public class MockPublisher extends CustomPublisherContainer implements ICustomPu
     }
 
     @Override
+    public boolean isFullEntityPublishingSupported() {
+        return false;
+    }
+    
+    @Override
     public boolean isReadOnly() {
         return false;
+    }
+    
+    @Override
+    public void testConnection() throws PublisherConnectionException, FatalPublisherConnectionException {
+        
     }
 
 

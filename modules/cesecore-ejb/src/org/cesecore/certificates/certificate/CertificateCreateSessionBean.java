@@ -27,6 +27,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.util.encoders.Hex;
 import org.cesecore.ErrorCode;
 import org.cesecore.audit.enums.EventStatus;
 import org.cesecore.audit.enums.EventTypes;
@@ -85,6 +87,9 @@ import org.cesecore.certificates.certificate.request.ResponseStatus;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.certificatetransparency.CTAuditLogCallback;
+import org.cesecore.certificates.certificatetransparency.SctData;
+import org.cesecore.certificates.certificatetransparency.SctDataCallback;
+import org.cesecore.certificates.certificatetransparency.SctDataSessionLocal;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityTypes;
@@ -133,6 +138,8 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
     private CryptoTokenManagementSessionLocal cryptoTokenManagementSession;
     @EJB
     private GlobalConfigurationSessionLocal globalConfigurationSession;
+    @EJB
+    private SctDataSessionLocal sctDataSession;
 
     /** Default create for SessionBean without any creation Arguments. */
     @PostConstruct
@@ -247,11 +254,9 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             throw new CertificateCreateException(ErrorCode.BAD_REQUEST_SIGNATURE, e);
         } catch (NoSuchProviderException e) {
             throw new CertificateCreateException(ErrorCode.INTERNAL_ERROR, e);
-        } catch(CertificateEncodingException e) {
+        } catch(CertificateEncodingException | CRLException e) {
             throw new CertificateCreateException(ErrorCode.CERT_COULD_NOT_BE_PARSED, e);
-        } catch (CRLException e) {
-            throw new CertificateCreateException(ErrorCode.CERT_COULD_NOT_BE_PARSED, e);
-        } 
+        }
 
         if (log.isTraceEnabled()) {
             log.trace("<createCertificate(IRequestMessage, CA)");
@@ -378,6 +383,23 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         
         // Set up audit logging of CT pre-certificate
         addCTLoggingCallback(certGenParams, admin.toString());
+        certGenParams.setSctDataCallback(new SctDataCallback() {
+            @Override
+            public void saveSctData(String fingerprint, int logId, long certificateExpirationDate, String data) {
+                SctData sctData = new SctData(fingerprint, logId, certificateExpirationDate, data);
+                sctDataSession.addSctData(sctData);
+            }
+
+            @Override
+            public Map<Integer, byte[]> findSctData(String fingerprint) {
+                List<SctData> sctDataList = sctDataSession.findSctData(fingerprint);
+                Map<Integer, byte[]> result = new HashMap<>();
+                for(SctData sctData : sctDataList){
+                    result.put(sctData.getLogId(), Hex.decode(sctData.getData()));
+                }
+                return result;
+            }
+        });
 
         try {
             CertificateDataWrapper result = null;
@@ -409,7 +431,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
                 }
                 if (!certProfile.getAllowCertSerialNumberOverride()) {
                     final String msg = intres
-                            .getLocalizedMessage("createcert.certprof_not_allowing_cert_sn_override", Integer.valueOf(certProfileId));
+                            .getLocalizedMessage("createcert.certprof_not_allowing_cert_sn_override", certProfileId);
                     log.info(msg);
                     throw new CustomCertificateSerialNumberException(msg);
                 }
@@ -569,51 +591,20 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             }
             return result;
             // We need to catch and re-throw all of these exception just because we need to audit log all failures
-        } catch (CustomCertificateSerialNumberException e) {
+        } catch (CustomCertificateSerialNumberException | AuthorizationDeniedException | CertificateCreateException e) {
             log.info(e.getMessage());
             auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            throw e;
-        }  catch (AuthorizationDeniedException e) {
-            log.info(e.getMessage());
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            throw e;
-        } catch (CertificateCreateException e) {
-            log.info(e.getMessage());
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            // Rollback
             throw e;
         } catch(CryptoTokenOfflineException e) {
             final String msg = intres.getLocalizedMessage("error.catokenoffline", ca.getCAId());
             log.info(msg);
             auditFailure(admin, e, e.getMessage(), "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
             throw e;
-        } catch (CAOfflineException e) {
+        } catch (CAOfflineException | InvalidAlgorithmException | IllegalValidityException e) {
             log.error("Error creating certificate", e);
             auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
             throw e;
-        } catch (InvalidAlgorithmException e) {
-            log.error("Error creating certificate", e);
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            throw e;
-        } catch (IllegalValidityException e) {
-            log.error("Error creating certificate", e);
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            throw e;
-        } catch (OperatorCreationException e) {
-            log.error("Error creating certificate", e);
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            // Rollback
-            throw new CertificateCreateException(e);
-        } catch (SignatureException e) {
-            log.error("Error creating certificate", e);
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            // Rollback
-            throw new CertificateCreateException(e);
-        } catch (CertificateExtensionException e) {
-            log.error("Error creating certificate", e);
-            auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
-            throw e;
-        } catch (IOException e) {
+        } catch (OperatorCreationException | IOException | SignatureException | CertificateExtensionException e) {
             log.error("Error creating certificate", e);
             auditFailure(admin, e, null, "<createCertificate(EndEntityInformation, CA, X500Name, pk, ku, notBefore, notAfter, extesions, sequence)", ca.getCAId(), endEntityInformation.getUsername());
             // Rollback
@@ -749,7 +740,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         final CertificateProfile certProfile = certificateProfileSession.getCertificateProfile(certProfileId);
         // What if certProfile == null?
         if (certProfile == null) {
-            final String msg = intres.getLocalizedMessage("createcert.errorcertprofilenotfound", Integer.valueOf(certProfileId));
+            final String msg = intres.getLocalizedMessage("createcert.errorcertprofilenotfound", certProfileId);
             throw new AuthorizationDeniedException(msg);
         }
         if (log.isDebugEnabled()) {
@@ -759,15 +750,15 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
         // Check that CAid is among available CAs
         boolean caauthorized = false;
         for (final Integer nextInt : certProfile.getAvailableCAs()) {
-            final int next = nextInt.intValue();
+            final int next = nextInt;
             if (next == caid || next == CertificateProfile.ANYCA) {
                 caauthorized = true;
                 break;
             }
         }
         if (!caauthorized) {
-            final String msg = intres.getLocalizedMessage("createcert.errorcertprofilenotauthorized", Integer.valueOf(caid),
-                    Integer.valueOf(certProfileId));
+            final String msg = intres.getLocalizedMessage("createcert.errorcertprofilenotauthorized", caid,
+                    certProfileId);
             throw new AuthorizationDeniedException(msg);
         }
         return certProfile;

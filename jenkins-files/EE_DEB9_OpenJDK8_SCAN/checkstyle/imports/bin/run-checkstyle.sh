@@ -62,11 +62,26 @@ styleCheckRules="code-analyzer-tools/checkstyle/checks/sun_checks.xml"
 # - RegexpSinglelineCheck: False positives on indented blank lines, which in turn is controversial.
 # - TodoCommentCheck: False positives with TODO comments that have an issue number.
 # - TypeNameCheck: False positives with WS method names.
+# Added some extra rules (these are inserted into the TreeWalker checker)
+# - JavadocParagraphCheck: Checks that there is a <p> between Javadoc paragraphs (otherwise it won't appear correctly).
+# - NoFinalizer: Finalizers are unreliable and should be avoided.
+# - StringLiteralEquality: Comparing strings should not be done with == or != (TODO this should be reported at a higher severity).
+# - UniqueProperties: Checks for duplicate properties. This can happen in language files for example.
+# Changed some checks to low severity:
+# - WhitespaceAfter|ParenPad|JavadocStyle|FileTabCharacter|MethodParamPad|NoWhitespaceBefore|NewlineAtEndOfFile|RightCurly|GenericWhitespace|TypecastParenPad - All are about whitespace or pure cosmetics
+# Changed s ome checks to medium severity:
+# - JavadocParagraph|RedundantModifier|ModifierOrder|ArrayStyle|ParameterName|MemberName|StaticVariableName|LocalFinalVariableName|LocalVariableName|RedundantImport - Redundant code, naming conventions, javadoc layout, etc.
 cat "${styleCheckRules}" \
     | sed 's/maximum" value="0/maximum" value="99/' \
-    | grep -vE '(LineLength|WhitespaceAround|FinalParameters|JavadocPackage|JavadocVariable|DesignForExtension|AvoidInlineConditionalsCheck)' \
-    | grep -vE '(AvoidNestedBlocksCheck|ConstantNameCheck|EmptyBlockCheck|InnerAssignmentCheck|InterfaceIsTypeCheck|LeftCurlyCheck)̈́' \
-    | grep -vE '(MethodNameCheck|MissingSwitchDefaultCheck|NoWhitespaceAfterCheck|OperatorWrapCheck|RegexpSinglelineCheck|TodoCommentCheck|TypeNameCheck)' \
+    | sed -r 's/(<module name="RegexpSingleline">)/\1\n<property name="severity" value="ignore"\/>/' \
+    | grep -vE 'LineLength|WhitespaceAround|FinalParameters|JavadocPackage|JavadocVariable|DesignForExtension|AvoidInlineConditionals' \
+    | grep -vE 'AvoidNestedBlocks|ConstantName|EmptyBlock|InnerAssignment|InterfaceIsType|LeftCurly' \
+    | grep -vE 'MethodName|MissingSwitchDefault|NoWhitespaceAfter|OperatorWrap|TodoComment|TypeName' \
+    | sed -r 's/(<module name="VisibilityModifier")\/>/\1><property name="packageAllowed" value="true"\/><property name="protectedAllowed" value="true"\/><\/module>/' \
+    | sed -r 's/(<module +name *= *"TreeWalker" *>)/\1\n<module name="JavadocParagraph"\/><module name="NoFinalizer"\/><module name="StringLiteralEquality"\/><module name="NestedIfDepth"><property name="max" value="3"\/><\/module>/' \
+    | sed -r 's/(<module +name *= *"Checker" *>)/\1\n<module name="UniqueProperties"\/>/' \
+    | sed -r 's/<module name="(WhitespaceAfter|ParenPad|JavadocStyle|FileTabCharacter|MethodParamPad|NoWhitespaceBefore|NewlineAtEndOfFile|RightCurly|GenericWhitespace|TypecastParenPad)"\/>/<module name="\1"><property name="severity" value="info"\/><\/module>/' \
+    | sed -r 's/<module name="(JavadocParagraph|RedundantModifier|ModifierOrder|ArrayStyle|ParameterName|MemberName|StaticVariableName|LocalFinalVariableName|LocalVariableName|RedundantImport)"\/>/<module name="\1"><property name="severity" value="warning"\/><\/module>/' \
     > /tmp/checks.xml
 
 if [ "$DEBUG" = "true" ]; then
@@ -80,7 +95,7 @@ fi
 time java ${JAVA_OPTS} -jar /opt/checkstyle.jar $debugOption \
     -c=/tmp/checks.xml -f=xml -o=ejbca/${reportFile} \
     --exclude-regexp=.+Test\.java$ \
-    ejbca/modules/
+    ejbca/modules/ src/samples/
 
 echo "
 ### Done! ###
