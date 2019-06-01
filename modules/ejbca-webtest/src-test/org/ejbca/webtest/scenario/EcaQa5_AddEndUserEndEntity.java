@@ -21,10 +21,14 @@ import org.ejbca.webtest.helper.AddEndEntityHelper;
 import org.ejbca.webtest.helper.SearchEndEntitiesHelper;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 import org.openqa.selenium.WebDriver;
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
+
     private static WebDriver webDriver;
 
     // Helpers
@@ -34,7 +38,10 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
     public static class TestData {
         private static final String ROOTCA_NAME = "ECAQA5";
         private static final String SUBCA_NAME = "subCA ECAQA5";
-        private static final String END_ENTITY_NAME = "TestEndEntityEMPTY_1";
+        private static final String END_ENTITY_NAME_1 = "TestEndEntityEMPTY_1";
+        private static final String END_ENTITY_NAME_2 = "TestEndEntityEMPTY_2";
+        private static final String END_ENTITY_NAME_3 = "TestEndEntityEMPTY_3";
+
     }
 
     @BeforeClass
@@ -50,22 +57,25 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         // Remove generated artifacts
         removeCaAndCryptoToken(TestData.ROOTCA_NAME);
         removeCaByName(TestData.SUBCA_NAME);
-        removeEndEntityByUsername(TestData.END_ENTITY_NAME);
-        //afterClass(); // TODO: put it back in later
+        removeEndEntityByUsername(TestData.END_ENTITY_NAME_1);
+        removeEndEntityByUsername(TestData.END_ENTITY_NAME_2);
+        removeEndEntityByUsername(TestData.END_ENTITY_NAME_3);
+
+        afterClass();
     }
 
     @Test
     public void stepA_AddEndEntitySubjectDn1of3() throws InterruptedException {
         addEndEntityHelper.openPage(getAdminWebUrl());
         addEndEntityHelper.setEndEntityProfile("EMPTY");
-        HashMap<String, String> fields = new HashMap<String, String>(); 
+        HashMap<String, String> fields = new HashMap<String, String>();
         
         
         // 1 of 3
-        fields.put("Username", TestData.END_ENTITY_NAME);
+        fields.put("Username", TestData.END_ENTITY_NAME_1);
         fields.put("Password (or Enrollment Code)", "foo123");
         fields.put("Confirm Password", "foo123");
-        fields.put("CN, Common name", TestData.END_ENTITY_NAME);
+        fields.put("CN, Common name", TestData.END_ENTITY_NAME_1);
         
         fields.put("ST, State or Province", "Germany");
         fields.put("OU, Organizational Unit", "QA");
@@ -79,15 +89,38 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         fields.put("NIF, Tax ID number, for individuals (Spain)", "1234");
         fields.put("CIF, Tax ID code, for companies (Spain)", "5678");
         fields.put("unstructuredAddress, IP address", "127.0.0.1");
+
         
+        addEndEntityHelper.fillMsUpnEmail("QA", "Primekey.com");
+        addEndEntityHelper.fillFields(fields);
+        addEndEntityHelper.triggerBatchGeneration();
+        addEndEntityHelper.triggerEmailAddress();
+        addEndEntityHelper.clickCheckBoxRfc822();
+        addEndEntityHelper.fillFieldEmail("you_mail_box", "primekey.se");
+        addEndEntityHelper.setCertificateProfile("ENDUSER");
+        addEndEntityHelper.setCa("ManagementCA");
+        addEndEntityHelper.setToken("User Generated");
+        addEndEntityHelper.fillCertificateSerialNumberInHexl("1234567890ABCDEF");
+        addEndEntityHelper.addEndEntity();
         
-        /*
-        // 2 of 3
-        fields.put("Username", TestData.END_ENTITY_NAME);
+        // verify that success message appeared
+        addEndEntityHelper.assertEndEntityAddedMessageDisplayed(TestData.END_ENTITY_NAME_1);
+    }
+    
+    
+    
+    @Test
+
+    public void stepB_AddEndEntitySubjectDn2of3() throws InterruptedException {
+        addEndEntityHelper.openPage(getAdminWebUrl());
+        addEndEntityHelper.setEndEntityProfile("EMPTY");
+        HashMap<String, String> fields = new HashMap<String, String>();
+
+        fields.put("Username", TestData.END_ENTITY_NAME_2);
         fields.put("Password (or Enrollment Code)", "foo123");
         fields.put("Confirm Password", "foo123");
-        fields.put("CN, Common name", TestData.END_ENTITY_NAME);
-        
+        fields.put("CN, Common name", TestData.END_ENTITY_NAME_2);
+
         fields.put("businessCategory, Organization type",  "QA");
         fields.put("postalCode", "12345");
         fields.put("O, Organization", "QA");
@@ -103,15 +136,34 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         fields.put("Jurisdiction Country (ISO 3166) [EV Certificate]", "DE");
         fields.put("telephoneNumber", "123456789");
         fields.put("title, Title", "Prof.");
-        */
-        
-        /*
-        // 3 of 3
-        fields.put("Username", TestData.END_ENTITY_NAME);
+
+        addEndEntityHelper.fillMsUpnEmail("QA", "Primekey.com");
+        addEndEntityHelper.fillFields(fields);
+        addEndEntityHelper.triggerBatchGeneration();
+        addEndEntityHelper.triggerEmailAddress();
+        addEndEntityHelper.clickCheckBoxRfc822();
+        addEndEntityHelper.fillFieldEmail("you_mail_box", "primekey.se");
+        addEndEntityHelper.setCertificateProfile("ENDUSER");
+        addEndEntityHelper.setCa("ManagementCA");
+        addEndEntityHelper.setToken("User Generated");
+        addEndEntityHelper.fillCertificateSerialNumberInHexl("1234567890ABCDEF");
+        addEndEntityHelper.addEndEntity();
+
+        // verify that success message appeared
+        addEndEntityHelper.assertEndEntityAddedMessageDisplayed(TestData.END_ENTITY_NAME_2);
+    }
+    
+    @Test
+    public void stepC_AddEndEntitySubjectDn3of3() throws InterruptedException {
+        addEndEntityHelper.openPage(getAdminWebUrl());
+        addEndEntityHelper.setEndEntityProfile("EMPTY");
+        HashMap<String, String> fields = new HashMap<String, String>();
+
+        fields.put("Username", TestData.END_ENTITY_NAME_3);
         fields.put("Password (or Enrollment Code)", "foo123");
         fields.put("Confirm Password", "foo123");
-        fields.put("CN, Common name", TestData.END_ENTITY_NAME);
-        
+        fields.put("CN, Common name", TestData.END_ENTITY_NAME_3);
+
         fields.put("Uniform Resource Identifier (URI)", "/contact-us/");
         fields.put("Kerberos KPN, Kerberos 5 Principal Name", "primary/instance@REALM");
         fields.put("MS GUID, Globally Unique Identifier",  "21EC20203AEA4069A2DD08002B30309D");
@@ -124,8 +176,7 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         fields.put("Place of birth", "Germany");
         fields.put("Date of birth (YYYYMMDD)", "19710101");
         fields.put("Gender (M/F)", "F");
-        */
-        
+
         addEndEntityHelper.fillMsUpnEmail("QA", "Primekey.com");
         addEndEntityHelper.fillFields(fields);
         addEndEntityHelper.triggerBatchGeneration();
@@ -137,21 +188,10 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         addEndEntityHelper.setToken("User Generated");
         addEndEntityHelper.fillCertificateSerialNumberInHexl("1234567890ABCDEF");
         addEndEntityHelper.addEndEntity();
-        
+
         // verify that success message appeared
-        addEndEntityHelper.assertEndEntityAddedMessageDisplayed(TestData.END_ENTITY_NAME);
-    }
-    
-    
-    
-    @Test
-    public void stepB_AddEndEntitySubjectDn2of3() throws InterruptedException {
-        
-    }
-    
-    @Test
-    public void stepC_AddEndEntitySubjectDn3of3() throws InterruptedException {
-        
+        addEndEntityHelper.assertEndEntityAddedMessageDisplayed(TestData.END_ENTITY_NAME_3);
+
     }
     
     
@@ -160,7 +200,7 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
         searchEndEntitiesHelper.openPage(getAdminWebUrl());
         
         searchEndEntitiesHelper.switchViewModeFromAdvancedToBasic(); //Note: the search panel needs to be in "basic mode" for 'fillSearchCriteria' method to work properly.
-        searchEndEntitiesHelper.fillSearchCriteria(TestData.END_ENTITY_NAME, null, null, null);
+        searchEndEntitiesHelper.fillSearchCriteria(TestData.END_ENTITY_NAME_1, null, null, null);
         
         searchEndEntitiesHelper.clickSearchByUsernameButton();
         searchEndEntitiesHelper.assertNumberOfSearchResults(1);
@@ -168,11 +208,23 @@ public class EcaQa5_AddEndUserEndEntity extends WebTestBase {
     
     @Test
     public void stepE_SearchEndEntitySubjectDn2of3() {
-        
+        searchEndEntitiesHelper.openPage(getAdminWebUrl());
+
+        searchEndEntitiesHelper.switchViewModeFromAdvancedToBasic(); //Note: the search panel needs to be in "basic mode" for 'fillSearchCriteria' method to work properly.
+        searchEndEntitiesHelper.fillSearchCriteria(TestData.END_ENTITY_NAME_2, null, null, null);
+
+        searchEndEntitiesHelper.clickSearchByUsernameButton();
+        searchEndEntitiesHelper.assertNumberOfSearchResults(1);
     }
     
     @Test
     public void stepF_SearchEndEntitySubjectDn3of3() {
-        
+        searchEndEntitiesHelper.openPage(getAdminWebUrl());
+
+        searchEndEntitiesHelper.switchViewModeFromAdvancedToBasic(); //Note: the search panel needs to be in "basic mode" for 'fillSearchCriteria' method to work properly.
+        searchEndEntitiesHelper.fillSearchCriteria(TestData.END_ENTITY_NAME_3, null, null, null);
+
+        searchEndEntitiesHelper.clickSearchByUsernameButton();
+        searchEndEntitiesHelper.assertNumberOfSearchResults(1);
     }
 }
