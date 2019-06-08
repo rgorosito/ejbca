@@ -394,7 +394,7 @@ public class CertificateCreateSessionBean implements CertificateCreateSessionLoc
             public Map<Integer, byte[]> findSctData(String fingerprint) {
                 List<SctData> sctDataList = sctDataSession.findSctData(fingerprint);
                 Map<Integer, byte[]> result = new HashMap<>();
-                for(SctData sctData : sctDataList){
+                for (SctData sctData : sctDataList) {
                     result.put(sctData.getLogId(), Hex.decode(sctData.getData()));
                 }
                 return result;

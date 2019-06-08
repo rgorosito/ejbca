@@ -4,6 +4,9 @@ if [ "$DEBUG" == "true" ] ; then
     set -x
 fi
 
+# Set up locale (C is the default locale, compare with Locale.ROOT in Java)
+export LANG=C.UTF-8
+
 # Setup the UID the container runs as to be named 'jenkins' (purely for niceness)
 if ! whoami &> /dev/null; then
   if [ -w /etc/passwd ]; then
@@ -49,7 +52,7 @@ find modules/ -name *.java | tr '\n' ',' > all-java-files.txt
 
 # Run analysis
 time /opt/pmd/bin/run.sh pmd $debugOption -t $coreLimit -no-cache -f xml -encoding UTF-8 -reportfile "${reportFile}" -filelist all-java-files.txt \
-    -language java -rulesets $(pwd)/../code-analyzer-tools/pmd/rulesets/ruleset.xml --failOnViolation false -minimumpriority 4
+    -language java -rulesets $(pwd)/../code-analyzer-tools/pmd/rulesets/ruleset.xml --failOnViolation false -minimumpriority 5
 
 # Remove temporary list of sources
 rm ./all-java-files.txt
