@@ -94,6 +94,14 @@
     <condition property="mod.rest-api.exists">
         <available file="${mod.ejbca-rest-api.path}/build.xml" />
     </condition>
+    
+    <condition property="mod.rest-cryptotoken.exists">
+        <available file="${mod.ejbca-rest-cryptotoken.path}/build.xml" />
+    </condition>
+    
+    <condition property="mod.rest-camanagement.exists">
+        <available file="${mod.ejbca-rest-camanagement.path}/build.xml" />
+    </condition>
 
     <condition property="mod.acme.exists">
         <available file="${mod.acme.path}/build.xml" />
@@ -242,7 +250,7 @@
             -t ${ejbca.home}/modules/ejbca-rest-api/htmlDocsTemplate"/>
         </java>
     </target>
-
+    
     <target name="doc-acme" if="${mod.acme.exists}">
         <mkdir dir="${docs.dest.acme}"/>
         <java dir="${ejbca.home}" jar="${ejbca.home}/lib/ext/swagger docs/swagger-codegen-cli-2.3.1.jar" fork="true">

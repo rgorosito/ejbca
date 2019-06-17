@@ -518,6 +518,7 @@
 				replacement-web-uri="ejbca-rest-api.war"
 				replacement-context-root="/ejbca/ejbca-rest-api"
 		/>
+		
 		<war-replacement-in-module
                 replacement-tag="!--@swagger-ui.war@-->"
                 replacement-file="${eardd.src}/META-INF/application.xml"
@@ -658,6 +659,8 @@
 	            <include name="ejbca-ejb.jar" />
 				<include name="acme-common.jar" />
         		<include name="ejbca-rest-common.jar" />
+        		<include name="ejbca-rest-cryptotoken.jar" />
+        		<include name="ejbca-rest-camanagement.jar" />
         	</zipfileset>
             <!-- Include XStream for the use from statedump-ejb.jar -->
             <zipfileset prefix="lib" dir="${lib}/xstream" erroronmissingdir="false">
@@ -1072,6 +1075,8 @@
                 <exclude unless="edition.is.ee" name="modules/configdump/**"/>
                 <exclude unless="edition.is.ee" name="modules/unidfnr/**"/>
                 <exclude unless="edition.is.ee" name="modules/ejbca-rest-api/**"/>
+		    	<exclude unless="edition.is.ee" name="modules/ejbca-rest-cryptotoken/**"/>
+		    	<exclude unless="edition.is.ee" name="modules/ejbca-rest-camanagement/**"/>
                 <exclude unless="edition.is.ee" name="modules/ejbca-common/src/org/ejbca/util/swagger/SnakeCaseConverter.java"/>
                 <exclude unless="edition.is.ee" name="lib/ext/jackson2/**"/>
                 <exclude unless="edition.is.ee" name="lib/ext/resteasy-jaxrs-lib/**"/>
