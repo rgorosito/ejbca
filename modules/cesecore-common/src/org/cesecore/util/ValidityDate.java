@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
@@ -37,15 +38,18 @@ public class ValidityDate {
 
 	private static final Logger log = Logger.getLogger(ValidityDate.class);
 	// Time format for storage where implied timezone is UTC
-	private static final String[] IMPLIED_UTC_PATTERN = {"yyyy-MM-dd HH:mm"};
-	private static final String[] IMPLIED_UTC_PATTERN_TZ = {"yyyy-MM-dd HH:mmZZ"};
+	private static final String[] IMPLIED_UTC_PATTERN = {"yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss"};
+	private static final String[] IMPLIED_UTC_PATTERN_TZ = {"yyyy-MM-dd HH:mmZZ", "yyyy-MM-dd HH:mm:ssZZ"};
 	// Time format for human interactions
 	private static final String[] ISO8601_PATTERNS = {
 	   // These must have timezone on date-only format also, since it has a time also (which is 00:00).
 	   // If the timezone is omitted then the string "+00:00" is appended to the date before parsing
 	   ISO8601_DATE_FORMAT, "yyyy-MM-dd HH:mmZZ", "yyyy-MM-ddZZ"
     };
-    
+	
+	/** Pattern used to separate seconds (in $2 reference) and everything else (in $1)*/
+	private static final Pattern SECONDS_MATCHER = Pattern.compile("(\\d{4,4}-\\d\\d-\\d\\d \\d\\d:\\d\\d)(:\\d\\d)");
+
     // Can't be instantiated
     private ValidityDate() {
     }
@@ -88,6 +92,11 @@ public class ValidityDate {
 	public static String formatAsUTC(final Date date) {
 		return FastDateFormat.getInstance(IMPLIED_UTC_PATTERN[0], TIMEZONE_UTC).format(date);
 	}
+
+	/** Convert a Date to the format "yyyy-MM-dd HH:mm:ss" with implied TimeZone UTC. */
+	public static String formatAsUTCSecondsGranularity(final Date date) {
+	    return FastDateFormat.getInstance(IMPLIED_UTC_PATTERN[1], TIMEZONE_UTC).format(date);
+	}
 	
 	/** Convert a absolute number of milliseconds to the format "yyyy-MM-dd HH:mm" with implied TimeZone UTC. */
 	public static String formatAsUTC(final long millis) {
@@ -103,10 +112,10 @@ public class ValidityDate {
 	public static String formatAsISO8601ServerTZ(final long millis, final TimeZone timeZone) {
 		return FastDateFormat.getInstance(ISO8601_PATTERNS[0], TIMEZONE_SERVER).format(millis);
 	}
-
+	
 	/** Convert a the format "yyyy-MM-dd HH:mm:ssZZ" to "yyyy-MM-dd HH:mm" with implied TimeZone UTC. */
 	public static String getImpliedUTCFromISO8601(final String dateString) throws ParseException {
-		return formatAsUTC(parseAsIso8601(dateString));
+		return formatAsUTCSecondsGranularity(parseAsIso8601(dateString));
 	}
 	
 	/** Convert a the format "yyyy-MM-dd HH:mm" with implied TimeZone UTC to "yyyy-MM-dd HH:mm:ssZZ". */
@@ -220,13 +229,11 @@ public class ValidityDate {
         		log.debug("tooLateExpireDate could not be parsed as an ISO8601 date: " + e.getMessage());
     		}
     		// Second, try to parse it as a hexadecimal value (without markers of any kind.. just a raw value).
-            if (tooLateExpireDate == null) {
-            	try {
-            		tooLateExpireDate = new Date(Long.parseLong(sDate, 16)*1000);
-            	} catch (NumberFormatException e) {
-            		log.debug("tooLateExpireDate could not be parsed as a hex value: " + e.getMessage());
-            	}
-            }
+        	try {
+        		tooLateExpireDate = new Date(Long.parseLong(sDate, 16)*1000);
+        	} catch (NumberFormatException e) {
+        		log.debug("tooLateExpireDate could not be parsed as a hex value: " + e.getMessage());
+        	}
         }
         if (tooLateExpireDate == null) {
         	log.debug("Using default value for ca.toolateexpiredate.");
@@ -278,5 +285,10 @@ public class ValidityDate {
             return calendar.getTime();
         }
         return date;
+	}
+
+	/** Strips the seconds part of a date string on the form yyyy-MM-dd hh:mm */
+	public static String stripSecondsFromIso8601UtcDate(final String dateString) {
+	    return SECONDS_MATCHER.matcher(dateString).replaceFirst("$1");
 	}
 }
