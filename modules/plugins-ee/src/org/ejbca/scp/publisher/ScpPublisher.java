@@ -242,11 +242,11 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 }
                 // @formatter:off
                 ScpContainer scpContainer = new ScpContainer()
+                        .setCertificateStatus(status)
                         .setIssuer(issuerDN)
-                        .setSerialNumber(x509cert.getSerialNumber())
                         .setRevocationDate(revocationDate)
                         .setRevocationReason(revocationReason)
-                        .setCertificateStatus(status);
+                        .setSerialNumber(x509cert.getSerialNumber());
                 // If we don't redact information, add in the certificate itself, as well as any other interesting info. 
                 if (!redactInformation) {
                     scpContainer.setCertificate(incert)
