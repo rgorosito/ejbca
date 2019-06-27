@@ -45,9 +45,7 @@ import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
-import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.StringTools;
-import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
@@ -451,9 +449,9 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         out.write(command.getBytes());
         out.flush();
         checkAck(in);
-        byte[] buf = new byte[1024];
         out.write(signedBytes);
         // send '\0'
+        byte[] buf = new byte[1];
         buf[0] = 0;
         out.write(buf, 0, 1);
         out.flush();
