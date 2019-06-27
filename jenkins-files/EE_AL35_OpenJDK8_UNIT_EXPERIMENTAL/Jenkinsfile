@@ -1,0 +1,56 @@
+pipeline {
+	agent {
+	    node {
+		    label "docker"
+        }
+    }
+    environment {
+        // Load Jenkinsfile.groovy containing common functions/settings
+        common = load_common()
+        // env.JOB_BASE_NAME - this job name in Jenkins, eg. 'EE_AL35_OpenJDK8_UNIT_EXPERIMENTAL'
+        ANT_OPTS = common.get_ANT_OPTS()
+        TEST_OPTS = common.get_TEST_OPTS()
+    }
+    stages {
+        stage('run unit tests') {
+            agent {
+                // build and run (later also cleanup) the Docker container
+                dockerfile {
+                    reuseNode true
+                    dir "ejbca/jenkins-files/$env.JOB_BASE_NAME"
+                    filename 'Dockerfile'
+                    additionalBuildArgs  '--disable-content-trust=false --pull'
+                    // 1001 = jenkins user's UID/GID
+                    args '--user 1001:1001 --group-add root --group-add 1001'
+                }
+            }
+            steps {
+                println("JOB_BASE_NAME: " + env.JOB_BASE_NAME)
+                println("ANT_OPTS: " + env.ANT_OPTS)
+                println("TEST_OPTS: " + env.TEST_OPTS)
+                // Run these steps inside the running docker container
+                dir ('ejbca') {
+                    sh "ls -la"
+                    sh "ls -la conf/"
+                    sh "ls -la jenkins-files/"
+//                    sh "$env.common.copy_cesecore()"
+//                    sh "cp /opt/conf/* conf/"
+                    sh "ant -q -Dappserver.home=/tmp -Dappserver.type=jboss -Dejbca.productionmode=false clean build test:runsa -Dtests.jvmargs=\"\$env.TEST_OPTS\""
+                }
+                // gather the results
+                junit "ejbca/**/reports/**/TEST-*.xml"
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
+
+// Load common Jenkins functions/settings
+def load_common() {
+    def common = load "ejbca/jenkins-files/common_jenkins/Jenkinsfile.groovy"
+    return common
+}
