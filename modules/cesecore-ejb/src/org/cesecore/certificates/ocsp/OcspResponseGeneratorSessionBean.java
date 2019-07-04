@@ -38,6 +38,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -46,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -168,6 +170,7 @@ import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
+import org.cesecore.util.ValidityDate;
 import org.cesecore.util.log.ProbableErrorHandler;
 import org.cesecore.util.log.SaferAppenderListener;
 import org.cesecore.util.log.SaferDailyRollingFileAppender;
@@ -219,7 +222,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
 
     @PostConstruct
     public void init() {
-        if (OcspConfiguration.getLogSafer() == true) {
+        if (OcspConfiguration.getLogSafer()) {
             SaferDailyRollingFileAppender.addSubscriber(this);
             log.info("Added us as subscriber: " + SaferDailyRollingFileAppender.class.getCanonicalName());
         }
@@ -276,7 +279,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                 for (final Integer caId : caSession.getAllCaIds()) {
                     final List<X509Certificate> caCertificateChain = new ArrayList<X509Certificate>();
 
-                    final CAInfo caInfo = caSession.getCAInfoInternal(caId.intValue());
+                    final CAInfo caInfo = caSession.getCAInfoInternal(caId);
                     if (caInfo == null || caInfo.getCAType() == CAInfo.CATYPE_CVC) {
                         // Bravely ignore OCSP for CVC CAs
                         continue;
@@ -904,10 +907,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                     log.info(intres.getLocalizedMessage("ocsp.infosigner.certexpired", CertTools.getSubjectDN(signerca), CertTools.getIssuerDN(signerca), e.getMessage()));
                                     verifyOK = false;
                                 }
-                            } catch (SignatureException e) {
-                                log.info(intres.getLocalizedMessage("ocsp.infosigner.invalidcertsignature", signerSubjectDn, CertTools.getIssuerDN(signercert), e.getMessage()));
-                                verifyOK = false;
-                            } catch (InvalidKeyException e) {
+                            } catch (SignatureException | InvalidKeyException e) {
                                 log.info(intres.getLocalizedMessage("ocsp.infosigner.invalidcertsignature", signerSubjectDn, CertTools.getIssuerDN(signercert), e.getMessage()));
                                 verifyOK = false;
                             }
@@ -1006,7 +1006,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         }
         final Collection<Timer> timers = timerService.getTimers();
         for (final Timer timer : timers) {
-            final int currentTimerId = ((Integer)timer.getInfo()).intValue();
+            final int currentTimerId = (Integer) timer.getInfo();
             if (currentTimerId==id) {
                 timer.cancel();
             }
@@ -1023,7 +1023,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         int count = 0;
         final Collection<Timer> timers = timerService.getTimers();
         for (final Timer timer : timers) {
-            final int currentTimerId = ((Integer)timer.getInfo()).intValue();
+            final int currentTimerId = (Integer) timer.getInfo();
             if (currentTimerId==id) {
                 count++;
             }
@@ -1392,7 +1392,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                     }
                                 } else {
                                         log.error(intres.getLocalizedMessage("ocsp.errorprocessextension", extObj.getClass().getName(),
-                                                Integer.valueOf(extObj.getLastErrorCode())));
+                                                extObj.getLastErrorCode()));
                                 }
                             }
                         }
@@ -1489,11 +1489,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             if (auditLogger.isEnabled()) {
                 auditLogger.paramPut(AuditLogger.STATUS, OCSPRespBuilder.MALFORMED_REQUEST);
             }
-        } catch (NoSuchAlgorithmException e) {
-            ocspResponse = processDefaultError(responseGenerator, transactionLogger, auditLogger, e);
-        } catch (CertificateException e) {
-            ocspResponse = processDefaultError(responseGenerator, transactionLogger, auditLogger, e);
-        } catch (CryptoTokenOfflineException e) {
+        } catch (NoSuchAlgorithmException | CertificateException | CryptoTokenOfflineException e) {
             ocspResponse = processDefaultError(responseGenerator, transactionLogger, auditLogger, e);
         }
         try {
@@ -1667,10 +1663,8 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             } else {
                 throw new OcspFailureException("Response was not validly signed.");
             }
-        } catch (OCSPException ocspe) {
+        } catch (OCSPException | NoSuchProviderException ocspe) {
             throw new OcspFailureException(ocspe);
-        } catch (NoSuchProviderException nspe) {
-            throw new OcspFailureException(nspe);
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException: ", e);
             throw new OcspFailureException(e);
@@ -1686,11 +1680,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
         BasicOCSPRespBuilder basicRes = new BasicOCSPRespBuilder(ocspSigningCacheEntry.getRespId());
         if (responses != null) {
             for (OCSPResponseItem item : responses) {
-                Date nextUpdate = item.getNextUpdate();
-                // Adjust nextUpdate so that it can never exceed the OCSP responder signing certificate validity
-                if (signerCert != null && nextUpdate != null && signerCert.getNotAfter().before(nextUpdate)) {
-                    nextUpdate = signerCert.getNotAfter();
-                }
+                Date nextUpdate = verifyNextUpdateDate(signerCert, item.getNextUpdate());
                 basicRes.addResponse(item.getCertID(), item.getCertStatus(), item.getThisUpdate(), nextUpdate, item.buildExtensions());
             }
         }
@@ -1753,6 +1743,24 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             }
         }
         return returnval;
+    }
+
+    private Date verifyNextUpdateDate(X509Certificate signerCert, Date nextUpdate) {
+        if (nextUpdate != null) {
+            TimeZone tz = TimeZone.getTimeZone("GMT");
+            Calendar cal = Calendar.getInstance(tz);
+            cal.set(9999, 11, 31, 23, 59, 59); // 99991231235959Z
+            if (nextUpdate.getTime() >= cal.getTimeInMillis()) {
+                nextUpdate.setTime(cal.getTimeInMillis());
+                if (log.isDebugEnabled()) {
+                    log.debug("nextUpdate is larger than 9999-12-31:23.59.59 GMT, limiting value as specified in RFC5280 4.1.2.5: " + ValidityDate.formatAsUTC(nextUpdate));
+                }
+            } else if (signerCert != null && signerCert.getNotAfter().before(nextUpdate)) {
+                // Adjust nextUpdate so that it can never exceed the OCSP responder signing certificate validity
+                nextUpdate = signerCert.getNotAfter();
+            }
+        }
+        return nextUpdate;
     }
 
     /**
@@ -1895,7 +1903,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                 if (cryptoTokenName != null && cryptoTokenManagementSession.getIdFromName(cryptoTokenName) == null) {
                     if (!globalDoNotStorePasswordsInMemory) {
                         log.info(" Auto-activation will be used.");
-                        BaseCryptoToken.setAutoActivatePin(cryptoTokenProperties, new String(p11password), true);
+                        BaseCryptoToken.setAutoActivatePin(cryptoTokenProperties, p11password, true);
                     } else {
                         log.info(" Auto-activation will not be used.");
                     }
@@ -1970,7 +1978,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             final Properties cryptoTokenProperties = new Properties();
             if (!doNotStorePasswordsInMemory) {
                 log.info(" Auto-activation will be used.");
-                BaseCryptoToken.setAutoActivatePin(cryptoTokenProperties, new String(softKeyPassword), true);
+                BaseCryptoToken.setAutoActivatePin(cryptoTokenProperties, softKeyPassword, true);
             } else {
                 log.info(" Auto-activation will not be used.");
             }
@@ -2086,11 +2094,9 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                     trustedCertificateReferences.add(new InternalKeyBindingTrustEntry(caId, null));
                                 }
                             }
-                        } catch (CertificateException e) {
+                        } catch (CertificateException | FileNotFoundException e) {
                             log.warn(e.getMessage());
-                        } catch (FileNotFoundException e) {
-                            log.warn(e.getMessage());
-                        } 
+                        }
                     }
                 }
             }
@@ -2103,17 +2109,17 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
     private Map<String, Serializable> getOcspKeyBindingDefaultProperties() {
         // Use global config as defaults for each new OcspKeyBinding
         final Map<String, Serializable> dataMap = new HashMap<String, Serializable>();
-        dataMap.put(OcspKeyBinding.PROPERTY_INCLUDE_CERT_CHAIN, Boolean.valueOf(OcspConfiguration.getIncludeCertChain()));
+        dataMap.put(OcspKeyBinding.PROPERTY_INCLUDE_CERT_CHAIN, OcspConfiguration.getIncludeCertChain());
         if (OcspConfiguration.getResponderIdType()==OcspConfiguration.RESPONDERIDTYPE_NAME) {
             dataMap.put(OcspKeyBinding.PROPERTY_RESPONDER_ID_TYPE, ResponderIdType.NAME.name());
         } else {
             dataMap.put(OcspKeyBinding.PROPERTY_RESPONDER_ID_TYPE, ResponderIdType.KEYHASH.name());
         }
         dataMap.put(OcspKeyBinding.PROPERTY_MAX_AGE, OcspConfiguration.getMaxAge(CertificateProfileConstants.CERTPROFILE_NO_PROFILE)/1000L);
-        dataMap.put(OcspKeyBinding.PROPERTY_NON_EXISTING_GOOD, Boolean.valueOf(OcspConfiguration.getNonExistingIsGood()));
-        dataMap.put(OcspKeyBinding.PROPERTY_NON_EXISTING_REVOKED, Boolean.valueOf(OcspConfiguration.getNonExistingIsRevoked()));
+        dataMap.put(OcspKeyBinding.PROPERTY_NON_EXISTING_GOOD, OcspConfiguration.getNonExistingIsGood());
+        dataMap.put(OcspKeyBinding.PROPERTY_NON_EXISTING_REVOKED, OcspConfiguration.getNonExistingIsRevoked());
         dataMap.put(OcspKeyBinding.PROPERTY_UNTIL_NEXT_UPDATE, OcspConfiguration.getUntilNextUpdate(CertificateProfileConstants.CERTPROFILE_NO_PROFILE)/1000L);
-        dataMap.put(OcspKeyBinding.PROPERTY_REQUIRE_TRUSTED_SIGNATURE, Boolean.valueOf(OcspConfiguration.getEnforceRequestSigning()));
+        dataMap.put(OcspKeyBinding.PROPERTY_REQUIRE_TRUSTED_SIGNATURE, OcspConfiguration.getEnforceRequestSigning());
         return dataMap;
     }
     

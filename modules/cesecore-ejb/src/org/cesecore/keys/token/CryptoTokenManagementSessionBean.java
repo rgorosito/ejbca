@@ -660,7 +660,7 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
                     }
                 } catch (CryptoTokenOfflineException ignored) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Ignord key alias '"+currentAlias+"' in crypto token '"+cryptoToken.getTokenName()+"' since it is missing a public and/or private key. Perhaps it is a symmetric key?");
+                        log.debug("Ignored key alias '"+currentAlias+"' in crypto token '"+cryptoToken.getTokenName()+"' since it is missing a public and/or private key. Perhaps it is a symmetric key?");
                     }
                 }
             }

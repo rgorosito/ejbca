@@ -307,23 +307,22 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         CAInfo caInfo = caSession.getCAInfoInternal(caId);
         final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
         Certificate certificate = scpObject.getCertificate();
+        CertificateDataWrapper storedCertificate = certificateStoreSession.getCertificateDataByIssuerAndSerno(scpObject.getIssuer(), scpObject.getSerialNumber());
         if (certificate == null) {
-            CertificateDataWrapper cdw = certificateStoreSession.getCertificateDataByIssuerAndSerno(scpObject.getIssuer(), scpObject.getSerialNumber());
-
-            if (cdw != null) {
-                //Certificate already exist, just update status
-                try {
-                    certificateStoreSession.setRevokeStatus(admin, cdw, new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason());
-                } catch (CertificateRevokeException e) {
-                    log.info("Certificate with issuer " + scpObject.getIssuer() + " and serial number " + scpObject + " was already revoked.", e);
-                }
-              
-            } else {
-              //Information has been redacted, just write the minimum 
-                certificateStoreSession.updateLimitedCertificateDataStatus(admin, caId, scpObject.getIssuer(), scpObject.getSerialNumber(),
-                        new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason(), caFingerprint);
+            // Information has been redacted, just write the minimum
+            certificateStoreSession.updateLimitedCertificateDataStatus(admin, caId, scpObject.getIssuer(), "CN=limited", scpObject.getUsername(),
+                    scpObject.getSerialNumber(), scpObject.getCertificateStatus(), new Date(scpObject.getRevocationDate()),
+                    scpObject.getRevocationReason(), caFingerprint);
+        } else if (storedCertificate != null) {
+            // Certificate already exist, just update status
+            try {
+                certificateStoreSession.setRevokeStatus(admin, storedCertificate, new Date(scpObject.getRevocationDate()), scpObject.getRevocationReason());
+            } catch (CertificateRevokeException e) {
+                log.info("Certificate with issuer " + scpObject.getIssuer() + " and serial number " + scpObject + " was already revoked.", e);
             }
+
         } else {
+            // Certificate doesn't exist, create new entry
             final int endEntityProfileId = EndEntityConstants.NO_END_ENTITY_PROFILE;
             final String username = scpObject.getUsername();
             final int certificateStatus = scpObject.getCertificateStatus();
@@ -332,7 +331,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             final int crlPartitionIndex = caInfo.determineCrlPartitionIndex(certificate);
             final long updateTime = scpObject.getUpdateTime();
             certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, null, certificateStatus, certificateType,
-                    certificateProfile, endEntityProfileId, crlPartitionIndex, null, updateTime);          
+                    certificateProfile, endEntityProfileId, crlPartitionIndex, null, updateTime);
         }
     }
 

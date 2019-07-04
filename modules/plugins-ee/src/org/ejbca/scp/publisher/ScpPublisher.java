@@ -45,9 +45,7 @@ import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.endentity.ExtendedInformation;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.util.CertTools;
-import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.StringTools;
-import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.model.ca.publisher.CustomPublisherContainer;
 import org.ejbca.core.model.ca.publisher.CustomPublisherProperty;
 import org.ejbca.core.model.ca.publisher.CustomPublisherUiSupport;
@@ -91,7 +89,6 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
     
     private  Map<String, CustomPublisherProperty> properties = new LinkedHashMap<>();
 
-    
 
     public ScpPublisher() {
     }
@@ -243,11 +240,11 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 }
                 // @formatter:off
                 ScpContainer scpContainer = new ScpContainer()
+                        .setCertificateStatus(status)
                         .setIssuer(issuerDN)
-                        .setSerialNumber(x509cert.getSerialNumber())
                         .setRevocationDate(revocationDate)
                         .setRevocationReason(revocationReason)
-                        .setCertificateStatus(status);
+                        .setSerialNumber(x509cert.getSerialNumber());
                 // If we don't redact information, add in the certificate itself, as well as any other interesting info. 
                 if (!redactInformation) {
                     scpContainer.setCertificate(incert)
@@ -259,7 +256,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 // @formatter:on
                 byte[] encodedObject = scpContainer.getEncoded();              
                 final String fileName = CertTools.getFingerprintAsString(certBlob);
-                performScp(admin, signingCaId, fileName, sshUsername, encodedObject, certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+                performScp(signingCaId, fileName, sshUsername, encodedObject, certSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
             } catch (GeneralSecurityException | IOException | JSchException e) {
                 String msg = e.getMessage();
                 log.error(msg);
@@ -280,7 +277,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         String fileName = CertTools.getFingerprintAsString(incrl) + ".crl";
         try {
             //No use in signing a CRL - it's already signed - just write it in cleartext. 
-            performScp(admin, -1, fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
+            performScp(-1, fileName, sshUsername, incrl, crlSCPDestination, scpPrivateKey, privateKeyPassword, scpKnownHosts);
         } catch (JSchException | IOException e) {
             String msg = e.getMessage();
             log.error(msg == null ? "Unknown error" : msg, e);
@@ -381,7 +378,6 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
     /**
      * Copies the given file to the destination over SCP 
      * 
-     * @param authenticationToken an authentication token, only required if the payload is to be signed. 
      * @param signingCaId The signing CA ID. May be -1 if no signing is required. 
      * @param destinationFileName The filename at the destination
      * @param username the username connected to the private key
@@ -395,7 +391,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
      * @throws IOException if the file could not be written over the channel 
      * @throws PublisherException is signing was required by failed for whatever reason
      */
-    private void performScp(final AuthenticationToken authenticationToken, final int signingCaId, final String destinationFileName,
+    private void performScp(final int signingCaId, final String destinationFileName,
             final String username, final byte[] data, String destination, final String privateKeyPath, final String privateKeyPassword,
             final String knownHostsFile) throws JSchException, IOException, PublisherException {
         if(!(new File(privateKeyPath)).exists()) {
@@ -411,7 +407,7 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
                 log.debug("Signing payload with signing key from CA with ID " + signingCaId);
             }
             try {
-                signedBytes = EjbRemoteHelper.INSTANCE.getRemoteSession(SignSessionRemote.class).signPayload(authenticationToken, data, signingCaId);
+                signedBytes = new EjbLocalHelper().getSignSession().signPayload(data, signingCaId);
             } catch (CryptoTokenOfflineException | CADoesntExistsException | SignRequestSignatureException | AuthorizationDeniedException e) {
                 if(log.isDebugEnabled()) {
                     log.debug("Could not sign certificate", e);
@@ -453,9 +449,9 @@ public class ScpPublisher extends CustomPublisherContainer implements ICustomPub
         out.write(command.getBytes());
         out.flush();
         checkAck(in);
-        byte[] buf = new byte[1024];
         out.write(signedBytes);
         // send '\0'
+        byte[] buf = new byte[1];
         buf[0] = 0;
         out.write(buf, 0, 1);
         out.flush();

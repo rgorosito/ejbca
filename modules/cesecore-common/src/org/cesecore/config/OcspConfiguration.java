@@ -493,7 +493,6 @@ public class OcspConfiguration {
         return value;
     }
     
-    
     /**
      * The default number of milliseconds a response is valid, or 0 to disable. See RFC5019.
      */
