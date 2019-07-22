@@ -23,29 +23,31 @@ package org.ejbca.webtest.scenario;
  */
 
 import org.apache.commons.lang.RandomStringUtils;
+import org.cesecore.certificates.certificate.CertificateWrapper;
+import org.cesecore.util.CertTools;
 import org.ejbca.webtest.WebTestBase;
 import org.ejbca.webtest.helper.*;
+import org.ejbca.webtest.helper.SystemConfigurationHelper.SysConfigProtokols;
+import org.ejbca.webtest.helper.SystemConfigurationHelper.SysConfigTabs;
 import org.junit.*;
 import org.junit.runners.MethodSorters;
 import org.openqa.selenium.WebDriver;
-import java.math.BigInteger;
 import java.util.*;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
 
     private static WebDriver webDriver;
-    List<String> listOfCertificates = new ArrayList<>();
 
     // Helpers
     private static CaHelper caHelper;
     private static CertificateProfileHelper certificateProfileHelper;
     private static EndEntityProfileHelper eeProfileHelper;
     private static CaStructureHelper caStructureHelper;
-    private static QueryHelper queryHelper;
     private static ServicesHelper servicesHelper;
     private static AddEndEntityHelper addEndEntityHelperDefault;
     private static SwaggerUIHelper swaggerUIHelper;
+    private static SystemConfigurationHelper systemConfigurationHelper;
 
     // Test Data
     private static class TestData {
@@ -55,6 +57,10 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         private static final String ENTITY_NAME = "EndEntityProfile";
         private static final String CRL_SERVICE = "ServiceCrlPartition";
         private static final String ISSUER_DN = "CN=" + CA_NAME;
+        private static final String USERNAME = "Crl" + RandomStringUtils.randomAlphanumeric(8);
+        private static final String PASSWORD = "123" + RandomStringUtils.randomAlphanumeric(5);
+        private static final String END_ENTITY_NAME = "EcaQa205EE" + new Random().nextInt();
+
     }
 
     @BeforeClass
@@ -67,16 +73,17 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         certificateProfileHelper = new CertificateProfileHelper(webDriver);
         eeProfileHelper = new EndEntityProfileHelper(webDriver);
         caStructureHelper = new CaStructureHelper(webDriver);
-        queryHelper = new QueryHelper(webDriver);
         servicesHelper = new ServicesHelper(webDriver);
         addEndEntityHelperDefault = new AddEndEntityHelper(webDriver);
         swaggerUIHelper = new SwaggerUIHelper(webDriver);
+        systemConfigurationHelper = new SystemConfigurationHelper(webDriver);
     }
 
     @AfterClass
     public static void exit() {
         // Remove generated artifacts
 
+        removeCrlByIssuerDn(TestData.ISSUER_DN);
         removeCaAndCryptoToken(TestData.CA_NAME);
         removeCertificateProfileByName(TestData.CERTIFICATE_PROFILE_NAME);
         removeEndEntityProfileByName(TestData.ENTITY_NAME);
@@ -179,97 +186,70 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         eeProfileHelper.saveEndEntityProfile(true);
     }
 
-    //This next test serves as a utility to simply generate
-    //a bulk of certificates and revoke them to use with
-    //the CRL partitions
+
+    @Test
+    public void stepM1_CreateEndEntity(){
+        //First add an end entity for the end user
+
+        Map<String, String> INPUT_END_ENTITY_FIELDMAP = new HashMap<>();
+        {
+            INPUT_END_ENTITY_FIELDMAP.put("Username", TestData.USERNAME);
+            INPUT_END_ENTITY_FIELDMAP.put("Password (or Enrollment Code)", TestData.PASSWORD);
+            INPUT_END_ENTITY_FIELDMAP.put("Confirm Password", TestData.PASSWORD);
+            INPUT_END_ENTITY_FIELDMAP.put("CN, Common name", TestData.END_ENTITY_NAME);
+        }
+
+        System.out.println("User:  " + TestData.USERNAME);
+
+
+        addEndEntityHelperDefault.openPage(getAdminWebUrl());
+        addEndEntityHelperDefault.setEndEntityProfile(TestData.ENTITY_NAME);
+        addEndEntityHelperDefault.fillFields(INPUT_END_ENTITY_FIELDMAP);
+        addEndEntityHelperDefault.setCertificateProfile(TestData.CERTIFICATE_PROFILE_NAME);
+        addEndEntityHelperDefault.setCa(TestData.CA_NAME);
+        addEndEntityHelperDefault.setToken("JKS file");
+        addEndEntityHelperDefault.addEndEntity();
+    }
+
+    @Test
+    public void stepM2_enableSwagger(){
+        systemConfigurationHelper.openPage(getAdminWebUrl());
+        systemConfigurationHelper.openTab(SysConfigTabs.PROTOCOLCONFIG);
+        systemConfigurationHelper.enableProtocol(SysConfigProtokols.REST_CERTIFICATE_MANAGEMENT);
+    }
 
     //@Ignore
     @Test()
-    public void stepM_GenerateAndRevokeCertificates() throws InterruptedException {
-        //Create 500 users.
-        //Integer i = 0;
-        //while (i <= 500) {
+    public void stepO_GenerateAndRevokeCertificates() throws InterruptedException {
 
-            //First add an end entity for the end user
-            String username = "Crl" + RandomStringUtils.randomAlphanumeric(8);
-            String password = "123" + RandomStringUtils.randomAlphanumeric(5);
-            String endEntityName = "EcaQa205EE" + new Random().nextInt();
+        //Open Swagger
+         swaggerUIHelper.openPage(getSwaggerWebUrl());
 
-            Map<String, String> INPUT_END_ENTITY_FIELDMAP = new HashMap<>();
-            {
-                INPUT_END_ENTITY_FIELDMAP.put("Username", username);
-                INPUT_END_ENTITY_FIELDMAP.put("Password (or Enrollment Code)", password);
-                INPUT_END_ENTITY_FIELDMAP.put("Confirm Password", password);
-                INPUT_END_ENTITY_FIELDMAP.put("CN, Common name", endEntityName);
-            }
+        //First Generate a certificate for the user
+        swaggerUIHelper.postEnrollKeystore();
+        swaggerUIHelper.tryEnrollKeystore();
+        swaggerUIHelper.setEnrollKeystoreAsJson(TestData.USERNAME, TestData.PASSWORD, "RSA", "2048");
+        swaggerUIHelper.executeEnrollKeystoreRequest();
 
-            System.out.println("User:  " + username);
+        //Now verify the response
+        swaggerUIHelper.assertEnrollKeystoreSuccess();
+        //**Wait a minute for the certificate to propagate in the system**
+        Thread.sleep(30000);
 
+        //Get the certificate serial number from database
+        Collection<CertificateWrapper> certificateDataList = findSerialNumber(TestData.USERNAME);
+        String certificateSerialNumber = CertTools.getSerialNumberAsString(certificateDataList.iterator().next().getCertificate());
 
-            addEndEntityHelperDefault.openPage(getAdminWebUrl());
-            addEndEntityHelperDefault.setEndEntityProfile(TestData.ENTITY_NAME);
-            addEndEntityHelperDefault.fillFields(INPUT_END_ENTITY_FIELDMAP);
-            addEndEntityHelperDefault.setCertificateProfile(TestData.CERTIFICATE_PROFILE_NAME);
-            addEndEntityHelperDefault.setCa(TestData.CA_NAME);
-            addEndEntityHelperDefault.setToken("JKS file");
-            addEndEntityHelperDefault.addEndEntity();
+        //Revoke certificate
+        swaggerUIHelper.putCertificateRevoke();
+        swaggerUIHelper.tryCertificateRevoke();
+        swaggerUIHelper.setCaSubjectDnForCertificateRevoke(TestData.ISSUER_DN);
+        swaggerUIHelper.setCertificateSerialNumber(certificateSerialNumber);
+        swaggerUIHelper.setReasonToRevoke("UNSPECIFIED");
+        swaggerUIHelper.setDateToRevoke();
 
-            //Open Swagger
-            swaggerUIHelper.openPage(getSwaggerWebUrl());
-
-            //First Generate a certificate for the user
-            swaggerUIHelper.postEnrollKeystore();
-            swaggerUIHelper.tryEnrollKeystore();
-            swaggerUIHelper.setEnrollKeystoreAsJson(username, password, "RSA", "2048");
-            swaggerUIHelper.executeEnrollKeystoreRequest();
-
-            //Now verify the response
-            if (swaggerUIHelper.assertEnrollKeystoreSuccess().contains("201")) {
-                //Get the certificate serial number from downloaded file
-                //This is commented out as the generated restcall response is not including
-                //the certificate serial number as expected.
-
-                //swaggerUIHelper.downloadEnrollKeystoreResponse();
-                //String certificateSerialNumber =  swaggerUIHelper.getCertificateSerialNumber();
-                //listOfCertificates.add(certificateSerialNumber);
-
-                //**Wait a minute for the certificate to propagate in the system**
-                Thread.sleep(30000);
-
-                //Get the certificate serial number from database
-                String certificateSerialNumber = queryHelper.getCertificateSerialNumberByUsername(getDatabaseConnection(),
-                        "ejbca", username);
-
-                //Convert to the hexidecimal format
-                BigInteger hex = new BigInteger(certificateSerialNumber);
-                String hexSerialNumber = hex.toString(16);
-                listOfCertificates.add(hexSerialNumber);
-
-                System.out.println("BigInteger Serial Number:  " + certificateSerialNumber);
-                System.out.println("Hexidecimal Representative:  " + hexSerialNumber);
-
-                //Revoke certificate
-                swaggerUIHelper.putCertificateRevoke();
-                swaggerUIHelper.tryCertificateRevoke();
-                swaggerUIHelper.setCaSubjectDnForCertificateRevoke(TestData.ISSUER_DN);
-                swaggerUIHelper.setCertificateSerialNumber(hexSerialNumber);
-                swaggerUIHelper.setReasonToRevoke("UNSPECIFIED");
-                swaggerUIHelper.setDateToRevoke();
-
-                swaggerUIHelper.executeCertificateRevoke();
-
-                if (!swaggerUIHelper.assertCertificateRevokeSuccess().contains("200")) {
-                    swaggerUIHelper.downloadCertificateRevokeResponse();
-                    System.out.println("Failed to revoke certificate serial:  " + " , Reason:  " +
-                            swaggerUIHelper.getErrorMessage());
-                }
-            } else {
-                System.out.println("Failed to enroll certificate:  " + " , Reason:  " +
-                        swaggerUIHelper.getErrorMessage());
-
-            }
-            //i++;
-        //}
+        swaggerUIHelper.executeCertificateRevoke();
+        swaggerUIHelper.assertCertificateRevokeSuccess();
     }
 
     @Test
@@ -280,21 +260,12 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
     }
 
     @Test
-    public void stepO_AssertCRLCounterInDBIsCorrect() {
-        caStructureHelper.openCrlPage(getAdminWebUrl());
-        queryHelper.assertCrlNumberIncreased(getDatabaseConnection(),
-                "ejbca", TestData.CA_NAME);
-    }
-
-
-    @Test
     public void stepP_AssertCrlPartitionLinksInCA() {
         caHelper.openPage(getAdminWebUrl());
         caHelper.edit(TestData.CA_NAME);
         caHelper.assertDefaultCrlDistributionPointUri(getCrlUri()
                 + TestData.CA_NAME + "&partition=*");
     }
-
 
     @Test
     public void stepQ_AssertCrlPartitionLinksInCertProfile() {
@@ -333,10 +304,4 @@ public class EcaQa205_CrlPartitioningUsingUI extends WebTestBase {
         caStructureHelper.clickCrlLinkAndAssertNumberIncreased(TestData.CA_NAME);
     }
 
-    @Test
-    public void stepX_RemoveCrlRowsFromDb() {
-        queryHelper.removeDatabaseRowsByColumnCriteria(getDatabaseConnection(),
-                "ejbca", "CRLData",
-                "issuerDN='CN=" + TestData.CA_NAME + "'");
-    }
 }
