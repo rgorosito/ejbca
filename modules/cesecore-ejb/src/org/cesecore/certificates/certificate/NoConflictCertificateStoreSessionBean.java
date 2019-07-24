@@ -273,6 +273,7 @@ public class NoConflictCertificateStoreSessionBean implements NoConflictCertific
     }
     
     @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public boolean setStatus(final AuthenticationToken admin, final String fingerprint, final int status) throws AuthorizationDeniedException {
         if (!certificateStoreSession.setStatus(admin, fingerprint, status)) {
             // Perhaps stored in NoConflictCertificateData
