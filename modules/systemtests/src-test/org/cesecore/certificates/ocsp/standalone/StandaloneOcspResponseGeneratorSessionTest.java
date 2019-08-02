@@ -361,7 +361,7 @@ public class StandaloneOcspResponseGeneratorSessionTest {
         activateKeyBinding(internalKeyBindingId);
         // Configure the OcspKeyBinding nextUpdateTime
         final OcspKeyBinding ocspKeyBinding = (OcspKeyBinding) internalKeyBindingMgmtSession.getInternalKeyBinding(authenticationToken, internalKeyBindingId);
-        ocspKeyBinding.setUntilNextUpdate(2534023007990l);
+        ocspKeyBinding.setUntilNextUpdate(260_000_000_000L); //number big enough to exceed year 9999
         internalKeyBindingMgmtSession.persistInternalKeyBinding(authenticationToken, ocspKeyBinding);
         ocspResponseGeneratorSession.reloadOcspSigningCache();
 
@@ -410,7 +410,7 @@ public class StandaloneOcspResponseGeneratorSessionTest {
     /** 
      * Tests the case of a standalone OCSP responder with a revoked certificate
      */
-//    @Test
+    @Test
     public void testResponseWithRevokedResponder() throws Exception {
         //Now delete the original CA, making this test completely standalone.
         OcspTestUtils.deleteCa(authenticationToken, x509ca);
