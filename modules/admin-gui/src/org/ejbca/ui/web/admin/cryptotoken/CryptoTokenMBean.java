@@ -14,6 +14,9 @@ package org.ejbca.ui.web.admin.cryptotoken;
 
 import java.io.File;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -23,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import javax.faces.application.FacesMessage;
 import javax.faces.bean.ManagedBean;
@@ -249,6 +253,10 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         public boolean isSlotOfTokenLabelType() {
             return p11SlotLabelType.equals(Pkcs11SlotLabelType.SLOT_LABEL);
         }
+        
+        public boolean isShowAuthorizationInfo() {
+            return CryptoTokenFactory.JACKNJI_SIMPLE_NAME.equals(getType());
+        }
     }
     
     /** Selectable key pair GUI representation */
@@ -260,6 +268,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         private final String subjectKeyID;
         private final boolean placeholder;
         private boolean selected = false;
+        private int selectedKakCryptoTokenId;
+        private String selectedKakKeyAlias;
         
         private KeyPairGuiInfo(KeyPairInfo keyPairInfo) {
             alias = keyPairInfo.getAlias();
@@ -292,6 +302,23 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             placeholder = true;
         }
         
+        public List<SelectItem> getAvailableKeyAliases() {
+            availableKeyAliases = new ArrayList<>();
+            if (selectedKakCryptoTokenId != 0) {
+                try {
+                    final List<String> aliases = new ArrayList<>(cryptoTokenManagementSession.getKeyPairAliases(authenticationToken, selectedKakCryptoTokenId));
+                    Collections.sort(aliases);
+                    for (final String keyAlias : aliases) {
+                        availableKeyAliases.add(new SelectItem(keyAlias));
+                    }
+                } catch (CryptoTokenOfflineException | AuthorizationDeniedException e) {
+                    log.debug("Crypto Token is not usable. Can't list key aliases", e);
+                }
+            }
+            availableKeyAliases.add(0, new SelectItem(null, "-Select Key Alias-"));
+            return availableKeyAliases;
+        }
+        
         public String getAlias() { return alias; }
         public String getKeyAlgorithm() { return keyAlgorithm; }
         public String getKeySpecification() { return keySpecification; }
@@ -301,6 +328,11 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         
         public boolean isSelected() { return selected; }
         public void setSelected(boolean selected) { this.selected = selected; }
+        
+        public int getSelectedKakCryptoTokenId() { return selectedKakCryptoTokenId; }
+        public void setSelectedKakCryptoTokenId(int selectedKakCryptoTokenId) { this.selectedKakCryptoTokenId = selectedKakCryptoTokenId; }
+        public String getSelectedKakKeyAlias() { return selectedKakKeyAlias; }
+        public void setSelectedKakKeyAlias(String selectedKakKeyAlias) { this.selectedKakKeyAlias = selectedKakKeyAlias; }
     }
 
     private static final long serialVersionUID = 1L;
@@ -310,6 +342,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private ListDataModel<CryptoTokenGuiInfo> cryptoTokenGuiList = null;
     private List<KeyPairGuiInfo> keyPairGuiInfos = new ArrayList<>();
     private ListDataModel<KeyPairGuiInfo> keyPairGuiList = null;
+    private List<SelectItem> availableCryptoTokens;
+    private List<SelectItem> availableKeyAliases;
     private String keyPairGuiListError = null;
     private int currentCryptoTokenId = 0;
     private CurrentCryptoTokenGuiInfo currentCryptoToken = null;
@@ -361,6 +395,30 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         // In the future other components that use CryptoTokens should be checked here as well!
         return ret;
     }
+    
+    
+    /**
+     * Used for selecting KAK crypto token.
+     * @return List of all available crypto tokens
+     */
+    public List<SelectItem> getAvailableCryptoTokens() {
+        availableCryptoTokens = new ArrayList<>();
+        for (final CryptoTokenInfo cryptoTokenInfo : cryptoTokenManagementSession.getCryptoTokenInfos(authenticationToken)) {
+            // Don't allow entries in this token
+            if (cryptoTokenInfo.getCryptoTokenId() != currentCryptoTokenId) {
+                availableCryptoTokens.add(new SelectItem(cryptoTokenInfo.getCryptoTokenId(), cryptoTokenInfo.getName()));
+            }
+        }
+        Collections.sort(availableCryptoTokens, new Comparator<SelectItem>() {
+            @Override
+            public int compare(final SelectItem o1, final SelectItem o2) {
+                return o1.getLabel().compareToIgnoreCase(o2.getLabel());
+            }
+        });
+        availableCryptoTokens.add(0, new SelectItem(null, "-Select Crypto Token-"));
+        return availableCryptoTokens;
+    }
+    
     
     /** Build a list sorted by name from the authorized cryptoTokens that can be presented to the user */
     public ListDataModel<CryptoTokenGuiInfo> getCryptoTokenGuiList() {
@@ -489,6 +547,32 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 // The default should be null, but we will get a value "default" from the GUI code in this case..
                 final String p11AttributeFile = getCurrentCryptoToken().getP11AttributeFile();
                 if (!"default".equals(p11AttributeFile)) {
+                    final File file = new File(p11AttributeFile);
+                    if (!file.isFile() || !file.canRead()) {
+                        addNonTranslatedErrorMessage("The attributes file " + p11AttributeFile + " does not exist or cannot be read. "
+                                + "Make sure this file exists on the filesystem, and is readable by the application server.");
+                    }
+                    for (final String line : Files.readAllLines(Paths.get(p11AttributeFile), StandardCharsets.UTF_8)) {
+                        if (line.startsWith("name")) {
+                            addNonTranslatedErrorMessage(String.format("A name suffix of the provider instance should not be specified "
+                                    + "when using a custom attributes file with EJBCA. Remove the line '%s'.", line));
+                        }
+                        if (line.startsWith("slot=") || line.startsWith("slot =")) {
+                            addNonTranslatedErrorMessage(
+                                    String.format("A slot ID to be associated with the provider instance should not be specified when "
+                                            + "using a custom attributes file with EJBCA. Remove the line '%s'.", line));
+                        }
+                        if (line.startsWith("slotListIndex=") || line.startsWith("slotListIndex =")) {
+                            addNonTranslatedErrorMessage(
+                                    String.format("A slot index to be associated with the provider instance should not be specified when "
+                                            + "using a custom attributes file with EJBCA. Remove the line '%s'.", line));
+                        }
+                        if (line.startsWith("library")) {
+                            addNonTranslatedErrorMessage(
+                                    String.format("A pathname to the PKCS11 implementation should not be specified when using a custom "
+                                            + "attributes file with EJBCA. Remove the line '%s'.", line));
+                        }
+                    }
                     properties.setProperty(PKCS11CryptoToken.ATTRIB_LABEL_KEY, p11AttributeFile);
                 }
                 if (checkSlotInUse) {
@@ -539,9 +623,9 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                         BaseCryptoToken.setAutoActivatePin(properties, new String(secret), true);
                     }
                     currentCryptoTokenId = cryptoTokenManagementSession.createCryptoToken(authenticationToken, name, className, properties, null, secret);
-                    addNonTranslatedInfoMessage("CryptoToken created successfully.");
+                    addNonTranslatedInfoMessage("Crypto token created successfully.");
                 } else {
-                    addNonTranslatedErrorMessage("You must provide an authentication code to create a CryptoToken.");
+                    addNonTranslatedErrorMessage("You must provide an authentication code to create a crypto token.");
                     return;
                 }
             } else {
@@ -554,7 +638,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                     }
                 }
                 cryptoTokenManagementSession.saveCryptoToken(authenticationToken, getCurrentCryptoTokenId(), name, properties, secret);
-                addNonTranslatedInfoMessage("CryptoToken saved successfully.");
+                addNonTranslatedInfoMessage("Crypto token saved successfully.");
             }
             flushCaches();
             setCurrentCryptoTokenEditMode(false);                    
@@ -612,19 +696,14 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
     /** @return a list of library SelectItems sort by display name for detected P11 libraries. */
     public List<SelectItem> getAvailableCryptoTokenP11AttributeFiles() {
-        final List<SelectItem> ret = new ArrayList<>();
-        ret.add(new SelectItem("default", "Default"));
-        for (Entry<String, String> entry: WebConfiguration.getAvailableP11AttributeFiles().entrySet()) {
-            ret.add(new SelectItem(entry.getKey(), entry.getValue()));
-        }
-        // Sort by display name
-        Collections.sort(ret, new Comparator<SelectItem>() {
-            @Override
-            public int compare(SelectItem s0, SelectItem s1) {
-                return String.valueOf(s0.getValue()).compareTo(String.valueOf(s1));
-            }
-        });
-        return ret;
+        final List<SelectItem> availableP11AttributeFiles = WebConfiguration.getAvailableP11AttributeFiles()
+            .entrySet()
+            .stream()
+            .map(entry -> new SelectItem(entry.getKey(), entry.getValue()))
+            .sorted((s0, s1) -> String.valueOf(s0.getValue()).compareTo(String.valueOf(s1)))
+            .collect(Collectors.toList());
+        availableP11AttributeFiles.add(0, new SelectItem("default", "Default"));
+        return availableP11AttributeFiles;
     }
     
     public List<SelectItem> getAvailableCryptoTokenP11SlotLabelTypes() {
@@ -966,6 +1045,39 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         flushCaches();
         if (log.isTraceEnabled()) {
             log.trace("<generateFromTemplate");
+        }
+    }
+    
+    /** Invoked when admin associates KAK with HSM key (specific to CP5 HSMs) */
+    public void initializeKey() {
+        final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
+        final String alias = keyPairGuiInfo.getAlias();
+        final String kakAlias = keyPairGuiInfo.getSelectedKakKeyAlias();
+        final int kakTokenId = keyPairGuiInfo.getSelectedKakCryptoTokenId();
+        if (kakTokenId == 0 || kakAlias == null) {
+            addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to initialize key");
+        }
+        try {
+            cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias);
+        } catch (CryptoTokenOfflineException e) {
+            addNonTranslatedErrorMessage(e);
+        }
+    }
+    
+    /** Invoked when admin associates authorizes an with HSM key which has been associated with KAK (specific to CP5 HSMs) */
+    public void authorizeKey() {
+        final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
+        final String alias = keyPairGuiInfo.getAlias();
+        final String kakAlias = keyPairGuiInfo.getSelectedKakKeyAlias();
+        final int kakTokenId = keyPairGuiInfo.getSelectedKakCryptoTokenId();
+        if (kakTokenId == 0 || kakAlias == null) {
+            addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to authorize key");
+        }
+        try {
+            // TODO GUI support for maxOperationCount 
+            cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias, 100);
+        } catch (CryptoTokenOfflineException e) {
+            addNonTranslatedErrorMessage(e);
         }
     }
     

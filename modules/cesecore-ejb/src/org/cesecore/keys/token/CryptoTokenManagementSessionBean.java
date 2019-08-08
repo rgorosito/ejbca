@@ -17,9 +17,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -232,6 +234,36 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         return providerName;
     }
 
+    @Override
+    public void keyAuthorizeInit(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias) 
+            throws CryptoTokenOfflineException {
+        final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
+        final CryptoToken kakCryptoToken = cryptoTokenSession.getCryptoToken(kakTokenid);
+        if (cryptoToken == null || kakCryptoToken == null) {
+            throw new RuntimeException("No such CryptoToken for id " + cryptoTokenId);
+        }
+        final PrivateKey kakPrivateKey = kakCryptoToken.getPrivateKey(kakTokenKeyAlias);
+        final PublicKey kakPublicKey = kakCryptoToken.getPublicKey(kakTokenKeyAlias);
+        final String signProviderName = kakCryptoToken.getSignProviderName();
+        final KeyPair kakPair = new KeyPair(kakPublicKey, kakPrivateKey);
+        cryptoToken.keyAuthorizeInit(alias, kakPair, signProviderName );
+    }
+    
+    @Override
+    public void keyAuthorize(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias, final long maxOperationCount) 
+            throws CryptoTokenOfflineException {
+        final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
+        final CryptoToken kakCryptoToken = cryptoTokenSession.getCryptoToken(kakTokenid);
+        if (cryptoToken == null || kakCryptoToken == null) {
+            throw new RuntimeException("No such CryptoToken for id " + cryptoTokenId);
+        }
+        final PrivateKey kakPrivateKey = kakCryptoToken.getPrivateKey(kakTokenKeyAlias);
+        final PublicKey kakPublicKey = kakCryptoToken.getPublicKey(kakTokenKeyAlias);
+        final String signProviderName = kakCryptoToken.getSignProviderName();
+        final KeyPair kakPair = new KeyPair(kakPublicKey, kakPrivateKey);
+        cryptoToken.keyAuthorize(alias, kakPair, signProviderName, maxOperationCount);
+    }
+    
     @Override
     public void createCryptoToken(final AuthenticationToken authenticationToken, final String tokenName, final Integer cryptoTokenId,
             final String className, final Properties properties, final byte[] data, final char[] authenticationCode)
@@ -703,7 +735,14 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         details.put("keyAlias", alias);
         details.put("keySpecification", keySpecification);
         cryptoToken.generateKeyPair(keySpecification, alias);
-        cryptoToken.testKeyPair(alias);
+        try {
+            Class<?> c = Class.forName("org.cesecore.keys.token.p11ng.cryptotoken.JackNJI11CryptoToken");
+            if (c != null && !c.isInstance(cryptoToken)) {
+                cryptoToken.testKeyPair(alias);
+            }
+        } catch (ClassNotFoundException e) {
+            // This is supposed to happen in the case of Community Edition
+        }
         // Merge is important for soft tokens where the data is persisted in the database, but will also update lastUpdate
         try {
             cryptoTokenSession.mergeCryptoToken(cryptoToken);
