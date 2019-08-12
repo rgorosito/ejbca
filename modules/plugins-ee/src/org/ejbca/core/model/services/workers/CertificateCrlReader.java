@@ -150,7 +150,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
     
     @Override
     public ServiceExecutionResult work(Map<Class<?>, Object> ejbs) throws ServiceExecutionFailedException {
-        //Read certificate directory 
+        // Read certificate directory
         File certificateDirectory = getDirectory(getCertificateDirectory(properties));
         File crlDirectory = getDirectory(getCRLDirectory(properties));
         List<String> failedFiles = new ArrayList<>();       
@@ -188,7 +188,6 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                 byte[] data;
                 try {
                     data = getAndVerifySignedData(signedData, caChain);
-                    
                 } catch (SignatureException | CertificateException e) {
                     log.error("Could not get/verify signed certificate file. Certificate saved in file " + fileName, e);
                     failedFiles.add(fileName);
@@ -273,9 +272,6 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
                 return new ServiceExecutionResult(Result.FAILURE, result.toString());
             }
         }
-        
-        
-        
     }
     
     private byte[] getFileFromDisk(final File file) throws IOException {
@@ -300,19 +296,27 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
      */
     private void storeCertificate(final Map<Class<?>, Object> ejbs, final byte[] data)
             throws AuthorizationDeniedException, ServiceExecutionFailedException {
-        ScpContainer scpObject = unwrapScpContainer(data);
+        final ScpContainer scpObject = unwrapScpContainer(data);
         final CertificateStoreSessionLocal certificateStoreSession = (CertificateStoreSessionLocal) ejbs.get(CertificateStoreSessionLocal.class);
         final CaSessionLocal caSession = (CaSessionLocal) ejbs.get(CaSessionLocal.class);
-        int caId = scpObject.getIssuer().hashCode();
-        CAInfo caInfo = caSession.getCAInfoInternal(caId);
+        final int caId = scpObject.getIssuer().hashCode();
+        final CAInfo caInfo = caSession.getCAInfoInternal(caId);
         final String caFingerprint = CertTools.getFingerprintAsString(caInfo.getCertificateChain().iterator().next());
-        Certificate certificate = scpObject.getCertificate();
-        CertificateDataWrapper storedCertificate = certificateStoreSession.getCertificateDataByIssuerAndSerno(scpObject.getIssuer(), scpObject.getSerialNumber());
+        final Certificate certificate = scpObject.getCertificate();
+        final CertificateDataWrapper storedCertificate = certificateStoreSession.getCertificateDataByIssuerAndSerno(scpObject.getIssuer(), scpObject.getSerialNumber());
         if (certificate == null) {
             // Information has been redacted, just write the minimum
-            certificateStoreSession.updateLimitedCertificateDataStatus(admin, caId, scpObject.getIssuer(), "CN=limited", scpObject.getUsername(),
-                    scpObject.getSerialNumber(), scpObject.getCertificateStatus(), new Date(scpObject.getRevocationDate()),
-                    scpObject.getRevocationReason(), caFingerprint);
+            certificateStoreSession.updateLimitedCertificateDataStatus(
+                    admin,
+                    caId,
+                    scpObject.getIssuer(),
+                    "CN=limited",
+                    scpObject.getUsername(),
+                    scpObject.getSerialNumber(),
+                    scpObject.getCertificateStatus(),
+                    new Date(scpObject.getRevocationDate()),
+                    scpObject.getRevocationReason(),
+                    caFingerprint);
         } else if (storedCertificate != null) {
             // Certificate already exist, just update status
             try {
@@ -330,8 +334,19 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             final int certificateProfile = scpObject.getCertificateProfile();
             final int crlPartitionIndex = caInfo.determineCrlPartitionIndex(certificate);
             final long updateTime = scpObject.getUpdateTime();
-            certificateStoreSession.storeCertificateNoAuth(admin, certificate, username, caFingerprint, null, certificateStatus, certificateType,
-                    certificateProfile, endEntityProfileId, crlPartitionIndex, null, updateTime);
+            certificateStoreSession.storeCertificateNoAuth(
+                    admin,
+                    certificate,
+                    username,
+                    caFingerprint,
+                    null,
+                    certificateStatus,
+                    certificateType,
+                    certificateProfile,
+                    endEntityProfileId,
+                    crlPartitionIndex,
+                    null,
+                    updateTime);
         }
     }
 
@@ -405,7 +420,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
      * Retrieves a piece of data from within a signed envelope
      * 
      * @param signedData the signed data, as a byte array
-     * @param caCerts the signing certificate chain. 
+     * @param signingCertificateChain the signing certificate chain.
      * @return the byte array in its original form
      * @throws SignatureException if an issue was found with the signature
      * @throws CertificateException if the certificate couldn't be extracted from signedData
@@ -490,6 +505,4 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
             return -1;
         }
     }
-
-
 }
