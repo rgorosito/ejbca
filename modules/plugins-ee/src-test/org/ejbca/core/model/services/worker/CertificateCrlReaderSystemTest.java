@@ -17,9 +17,9 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.X509CRL;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
@@ -31,9 +31,13 @@ import org.cesecore.authentication.tokens.UsernamePrincipal;
 import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.ca.X509CA;
 import org.cesecore.certificates.certificate.CertificateConstants;
+import org.cesecore.certificates.certificate.CertificateCreateSessionRemote;
+import org.cesecore.certificates.certificate.CertificateDataWrapper;
 import org.cesecore.certificates.certificate.CertificateStoreSessionRemote;
 import org.cesecore.certificates.certificate.InternalCertificateStoreSessionRemote;
 import org.cesecore.certificates.certificate.InternalCrlStoreSessionRemote;
+import org.cesecore.certificates.certificate.request.SimpleRequestMessage;
+import org.cesecore.certificates.certificate.request.X509ResponseMessage;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.CrlStoreSessionRemote;
@@ -41,7 +45,6 @@ import org.cesecore.certificates.crl.RevocationReasons;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
-import org.cesecore.certificates.endentity.EndEntityType;
 import org.cesecore.certificates.endentity.EndEntityTypes;
 import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.keys.token.CryptoToken;
@@ -52,22 +55,31 @@ import org.cesecore.util.CertTools;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.TraceLogMethodsRule;
+import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
+import org.ejbca.core.ejb.ra.EndEntityAccessSessionRemote;
+import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
 import org.ejbca.core.ejb.services.ServiceSessionRemote;
+import org.ejbca.core.model.SecConst;
 import org.ejbca.core.model.services.ServiceConfiguration;
+import org.ejbca.core.model.services.ServiceExistsException;
 import org.ejbca.core.model.services.actions.NoAction;
 import org.ejbca.core.model.services.intervals.PeriodicalInterval;
 import org.ejbca.core.model.services.workers.CertificateCrlReader;
 import org.ejbca.scp.publisher.ScpContainer;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestRule;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 /**
- * Unit tests for the CertificateCrlReader Worker
+ * System test for the CertificateCrlReader Worker.
  * 
  * @version $Id$
  *
@@ -76,6 +88,40 @@ public class CertificateCrlReaderSystemTest {
 
     private static final Logger log = Logger.getLogger(CertificateCrlReaderSystemTest.class);
 
+    private static final AuthenticationToken ADMIN_AUTHENTICATION_TOKEN = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("UserPasswordExpireTest"));
+    private static final String ISSUER_DN = "CN=certificateCrlReaderSystemTest";
+    private static final String END_ENTITY_USER = "CertificateCrlReaderSystemTestUser";
+    private static final String END_ENTITY_SUBJECT_DN = "CN=" + END_ENTITY_USER;
+    private static KeyPair KEY_PAIR;
+    // EJBs
+    private final static EjbRemoteHelper ejbRemoteHelper = EjbRemoteHelper.INSTANCE;
+    private final static CaSessionRemote caSession = ejbRemoteHelper.getRemoteSession(CaSessionRemote.class);
+    private final CertificateStoreSessionRemote certificateStoreSession = ejbRemoteHelper.getRemoteSession(CertificateStoreSessionRemote.class);
+    private final CertificateCreateSessionRemote certificateCreateSession = ejbRemoteHelper.getRemoteSession(CertificateCreateSessionRemote.class);
+    private final CrlStoreSessionRemote crlStoreSession = ejbRemoteHelper.getRemoteSession(CrlStoreSessionRemote.class);
+    private final CryptoTokenManagementProxySessionRemote cryptoTokenManagementSession = ejbRemoteHelper.getRemoteSession(CryptoTokenManagementProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+    private final EndEntityAccessSessionRemote endEntityAccessSession = ejbRemoteHelper.getRemoteSession(EndEntityAccessSessionRemote.class);
+    private final EndEntityManagementSessionRemote endEntityManagementSession = ejbRemoteHelper.getRemoteSession(EndEntityManagementSessionRemote.class);
+    private InternalCertificateStoreSessionRemote internalCertificateStoreSession = ejbRemoteHelper.getRemoteSession(InternalCertificateStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+    private final InternalCrlStoreSessionRemote internalCrlStoreSession = ejbRemoteHelper.getRemoteSession(InternalCrlStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
+    private final ServiceSessionRemote serviceSession = ejbRemoteHelper.getRemoteSession(ServiceSessionRemote.class);
+    private final SignSessionRemote signSession = ejbRemoteHelper.getRemoteSession(SignSessionRemote.class);
+
+    /** Time to wait for operations like certificate import, file deletion etc., before considering the test to have failed. Milliseconds */
+    private static final long WAIT_TIME = 30_000;
+    /** Sleep time in loop iterations to avoid causing too much CPU usage. Milliseconds */
+    private static final long IMPORT_ITERATION_SLEEP = 1_000;
+    private static final long DELETE_ITERATION_SLEEP = 1_000;
+    //
+    private static X509CA testCa = null;
+    private CryptoToken cryptoToken = null;
+    private Certificate userCertificate = null;
+    private Date currentDate = null;
+    private EndEntityInformation endEntityInformation = null;
+    private String serviceName = null;
+    private File exchangeFolder = null;
+    private String removeCrlIssuerDn = null;
+
     @Rule
     public TestRule traceLogMethodsRule = new TraceLogMethodsRule();
 
@@ -83,271 +129,357 @@ public class CertificateCrlReaderSystemTest {
     public TemporaryFolder folder = new TemporaryFolder();
 
     @BeforeClass
-    public static void beforeClass() {
+    public static void beforeClass() throws Exception {
         CryptoProviderTools.installBCProviderIfNotAvailable();
+        KEY_PAIR = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
+        // Create an issuing CA
+        testCa = CaTestUtils.createTestX509CA(ISSUER_DN, null, false);
+        caSession.addCA(ADMIN_AUTHENTICATION_TOKEN, testCa);
     }
 
-    private static final AuthenticationToken admin = new TestAlwaysAllowLocalAuthenticationToken(new UsernamePrincipal("UserPasswordExpireTest"));
+    @AfterClass
+    public static void afterClass() throws Exception {
+        // Remove testCa
+        if(testCa != null) {
+            CaTestUtils.removeCa(ADMIN_AUTHENTICATION_TOKEN, testCa.getCAInfo());
+        }
+    }
 
-    private CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
-    private CertificateStoreSessionRemote certificateStoreSessionRemote = EjbRemoteHelper.INSTANCE
-            .getRemoteSession(CertificateStoreSessionRemote.class);
-    private CrlStoreSessionRemote crlStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CrlStoreSessionRemote.class);
-    private CryptoTokenManagementProxySessionRemote cryptoTokenManagementSession = EjbRemoteHelper.INSTANCE
-            .getRemoteSession(CryptoTokenManagementProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-    private InternalCertificateStoreSessionRemote internalCertificateStoreSession = EjbRemoteHelper.INSTANCE
-            .getRemoteSession(InternalCertificateStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
-    private InternalCrlStoreSessionRemote internalCrlStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(InternalCrlStoreSessionRemote.class,
-            EjbRemoteHelper.MODULE_TEST);
-    private ServiceSessionRemote serviceSession = EjbRemoteHelper.INSTANCE.getRemoteSession(ServiceSessionRemote.class);
+    @Before
+    public void setUp() throws Exception {
+        // Get CryptoToken
+        cryptoToken = cryptoTokenManagementSession.getCryptoToken(testCa.getCAToken().getCryptoTokenId());
+        // Init date
+        currentDate = new Date();
+        // Generate certificate
+        endEntityInformation = new EndEntityInformation(
+                END_ENTITY_USER,
+                END_ENTITY_SUBJECT_DN,
+                testCa.getCAId(),
+                null,
+                null,
+                EndEntityTypes.ENDUSER.toEndEntityType(),
+                EndEntityConstants.EMPTY_END_ENTITY_PROFILE,
+                CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER,
+                SecConst.TOKEN_SOFT_PEM,
+                null
+        );
+        endEntityInformation.setPassword("foo123");
+        final CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
+        userCertificate = testCa.generateCertificate(
+                cryptoToken,
+                endEntityInformation,
+                KEY_PAIR.getPublic(),
+                0,
+                null,
+                "10d",
+                certificateProfile,
+                "00000",
+                null);
+        // Set temporary folder
+        exchangeFolder = folder.newFolder();
+        if (!exchangeFolder.setReadable(true, false) || !exchangeFolder.setWritable(true, false)) {
+            log.info("Can't changes file access mode for test folder " + exchangeFolder.getAbsolutePath() + " (expected on Windows)");
+        }
+    }
 
-    /** Time to wait for operations like certificate import, file deletion etc., before considering the test to have failed. Milliseconds */
-    private static final long WAIT_TIME = 30_000;
-    /** Sleep time in loop iterations to avoid causing too much CPU usage. Milliseconds */
-    private static final long IMPORT_ITERATION_SLEEP = 500;
-    private static final long DELETE_ITERATION_SLEEP = 100;
-
-    /**
-     * This test will write a certificate to a temporary file area and then use the CertificateCrlReader to import it to the system. 
-     */
-    @Test
-    public void testReadCertificateFromDisk() throws Exception {
-        log.trace(">testReadCertificateFromDisk");
-        //Create an issuing CA
-        final String endEntitySubjectDn = "CN=testReadCrlFromDiskUser";
-        final String issuerDn = "CN=testReadCertificateFromDisk";
-        X509CA testCa = CaTestUtils.createTestX509CA(issuerDn, null, false);
-        caSession.addCA(admin, testCa);
-
-        Date revDate = new Date();
-        KeyPair keypair = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
-        final String username = "testReadCertificateFromDisk";
-        EndEntityInformation user = new EndEntityInformation("username", endEntitySubjectDn, testCa.getCAId(), null, null,
-                new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, null);
-        CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
-        int certificateProfileId = 4711;
-        final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(testCa.getCAToken().getCryptoTokenId());
-        Certificate usercert = testCa.generateCertificate(cryptoToken, user, keypair.getPublic(), 0, null, "10d", certificateProfile, "00000", null);
-        File certificateFolder = folder.newFolder();
-        //Set up reader        
-        ServiceConfiguration config = getServiceConfig(CertificateCrlReader.CERTIFICATE_DIRECTORY_KEY, certificateFolder);
-        final String serviceName = "testReadCertificateFromDisk";
-        try {              
-            ScpContainer activeCertificate = new ScpContainer()
-                    .setCertificate(usercert)
-                    .setIssuer(issuerDn)
-                    .setUsername(username)
-                    .setCertificateType(CertificateConstants.CERTTYPE_ENDENTITY)
-                    .setCertificateProfile(certificateProfileId)
-                    .setUpdateTime(revDate.getTime())
-                    .setSerialNumber(CertTools.getSerialNumber(usercert))
-                    .setRevocationDate(0)
-                    .setRevocationReason(RevocationReasons.NOT_REVOKED.getDatabaseValue())
-                    .setCertificateStatus(CertificateConstants.CERT_ACTIVE);
-            //Write an active certificate to disk in order to simulate publishing a non-anonymous scp publishing
-            File activeCertificateFile = new File(certificateFolder, "activeCertificateFile");
-            FileUtils.writeByteArrayToFile(activeCertificateFile, activeCertificate.getEncoded());
-            try {
-                serviceSession.addService(admin, serviceName, config);
-                serviceSession.activateServiceTimer(admin, serviceName);
-                // Verify that the certificate gets read from disk
-                if (!waitForCertificateToExist(issuerDn, usercert)) {
-                    fail("Certificate was not scanned by service");
-                }
-                //Verify that the CRL has been removed from the folder
-                if (!waitForFileDeletion(activeCertificateFile)) {
-                    fail("Certificate file was not removed after being scanned.");
-                }
-            } finally {
-                serviceSession.removeService(admin, serviceName);
-            }
-            //Try it again, this time just updating with the revoked status (thereby using the other publishing variant)           
-            ScpContainer revokedCertificate = new ScpContainer()
-                    .setIssuer(issuerDn)
-                    .setSerialNumber(CertTools.getSerialNumber(usercert))
-                    .setRevocationDate(0)
-                    .setRevocationReason(RevocationReasons.KEYCOMPROMISE.getDatabaseValue())
-                    .setCertificateStatus(CertificateConstants.CERT_REVOKED);
-            File revokedCertificateFile = new File(certificateFolder, "revokedCertificateFile");
-            FileUtils.writeByteArrayToFile(revokedCertificateFile, revokedCertificate.getEncoded());
-            try {
-                serviceSession.addService(admin, serviceName, config);
-                serviceSession.activateServiceTimer(admin, serviceName);
-                // Verify that the certificate gets read from disk
-                if (!waitForCertificateToBeRevoked(issuerDn, usercert)) {
-                    fail("Certificate was not revoked");
-                }
-                // Verify that the certificate gets removed from the folder
-                if (!waitForFileDeletion(activeCertificateFile)) {
-                    fail("Certificate file was not removed after being scanned.");
-                }
-            } finally {
-                serviceSession.removeService(admin, serviceName);
-            }
-        } finally {
-            CaTestUtils.removeCa(admin, testCa.getCAInfo());
-            internalCertificateStoreSession.removeCertificate(usercert);
-            log.trace("<testReadCertificateFromDisk");
+    @After
+    public void tearDown() throws Exception {
+        if(userCertificate != null) {
+             internalCertificateStoreSession.removeCertificate(CertTools.getSerialNumber(userCertificate));
+        }
+        if(serviceName != null) {
+            serviceSession.removeService(ADMIN_AUTHENTICATION_TOKEN, serviceName);
+        }
+        if(removeCrlIssuerDn != null) {
+            internalCrlStoreSession.removeCrl(removeCrlIssuerDn);
+        }
+        if (endEntityAccessSession.findUser(ADMIN_AUTHENTICATION_TOKEN, END_ENTITY_USER) != null) {
+            endEntityManagementSession.deleteUser(ADMIN_AUTHENTICATION_TOKEN, END_ENTITY_USER);
         }
     }
 
     /**
-     * This test will write a CRL to a temporary file area and then use the CertificateCrlReader to import it to the system. 
+     * This test will write a certificate to a temporary file area and then use the CertificateCrlReader within service to import it to the system.
      */
     @Test
-    public void testReadCrlFromDisk() throws Exception {
-        log.trace(">testReadCrlFromDisk");
-        final String endEntitySubjectDn = "CN=testReadCrlFromDiskUser";
-        //Create an issuing CA
-        final String issuerDn = "CN=testReadCertificateFromDisk";
-        X509CA testCa = CaTestUtils.createTestX509CA(issuerDn, null, false);
-        caSession.addCA(admin, testCa);
-        try {
-            final CryptoToken cryptoToken = cryptoTokenManagementSession.getCryptoToken(testCa.getCAToken().getCryptoTokenId());
-            Date revDate = new Date();
-            KeyPair keypair = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
-            EndEntityInformation user = new EndEntityInformation("username", endEntitySubjectDn, testCa.getCAId(), null, null,
-                    new EndEntityType(EndEntityTypes.ENDUSER), 0, 0, EndEntityConstants.TOKEN_USERGEN, null);
-            CertificateProfile certificateProfile = new CertificateProfile(CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER);
-            Certificate usercert = testCa.generateCertificate(cryptoToken, user, keypair.getPublic(), 0, null, "10d", certificateProfile, "00000",
-                    null);
-            Collection<RevokedCertInfo> revcerts = new ArrayList<>();
-            revcerts.add(new RevokedCertInfo(CertTools.getFingerprintAsString(usercert).getBytes(), CertTools.getSerialNumber(usercert).toByteArray(),
-                    revDate.getTime(), RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD, CertTools.getNotAfter(usercert).getTime()));
-            final int crlNumber = 1337;
-            X509CRLHolder x509crlHolder = testCa.generateCRL(cryptoToken, CertificateConstants.NO_CRL_PARTITION, revcerts, crlNumber);
-            X509CRL crl = CertTools.getCRLfromByteArray(x509crlHolder.getEncoded());
-            final String serviceName = "testReadCrlFromDisk";
-            File crlFolder = folder.newFolder();
-            if (!crlFolder.setReadable(true, false) || !crlFolder.setWritable(true, false)) {
-                log.info("Can't changes file access mode for test folder " + crlFolder.getAbsolutePath() + " (expected on Windows)");
-            }
-            File crlFile = new File(crlFolder, "canned.crl");
-            //Write CRL to disk
-            FileUtils.writeByteArrayToFile(crlFile, crl.getEncoded());
-            //Set up reader        
-            ServiceConfiguration config = getServiceConfig(CertificateCrlReader.CRL_DIRECTORY_KEY, crlFolder);      
-            try {
-                serviceSession.addService(admin, serviceName, config);
-                serviceSession.activateServiceTimer(admin, serviceName);
-                // Verify that the certificate gets read from disk
-                if (!waitForCrlToExist(issuerDn, crlNumber)) {
-                    fail("CRL was not scanned by service");
-                }
-                // Verify that the CRL gets removed from the folder
-                if (!waitForFileDeletion(crlFile)) {
-                    fail("CRL file was not removed after being scanned.");
-                }
-            } finally {
-                serviceSession.removeService(admin, serviceName);
-                internalCrlStoreSession.removeCrl(issuerDn);
-            }
-        } finally {
-            CaTestUtils.removeCa(admin, testCa.getCAInfo());
-            log.trace("<testReadCrlFromDisk");
-        }
+    public void readCertificateFromDisk() throws Exception {
+        log.trace(">readCertificateFromDisk");
+        // given
+        serviceName = "readCertificateFromDisk";
+        final ScpContainer activeCertificate = new ScpContainer()
+                .setCertificate(userCertificate)
+                .setIssuer(ISSUER_DN)
+                .setUsername("testReadCertificateFromDisk")
+                .setCertificateType(CertificateConstants.CERTTYPE_ENDENTITY)
+                .setCertificateProfile(4711)
+                .setUpdateTime(currentDate.getTime())
+                .setSerialNumber(CertTools.getSerialNumber(userCertificate))
+                .setRevocationDate(0)
+                .setRevocationReason(RevocationReasons.NOT_REVOKED.getDatabaseValue())
+                .setCertificateStatus(CertificateConstants.CERT_ACTIVE);
+        addServiceAndActivateItsTimer(getServiceConfig(CertificateCrlReader.CERTIFICATE_DIRECTORY_KEY, exchangeFolder));
+        final File activeCertificateFile = new File(exchangeFolder, "activeCertificateFile");
+
+        // when
+        // Write an active certificate to disk in order to simulate publishing a non-anonymous scp publishing
+        FileUtils.writeByteArrayToFile(activeCertificateFile, activeCertificate.getEncoded());
+
+        // then
+        // Verify that the certificate gets read from disk
+        assertFalse("Certificate was not scanned by service", waitForCertificateToBeImportedFailed(ISSUER_DN, userCertificate));
+        // Verify that the CRL has been removed from the folder
+        assertFalse("Certificate file was not removed after being scanned.", waitForFileDeletionFailed(activeCertificateFile));
+        log.trace("<readCertificateFromDisk");
     }
 
     /**
-     * Wait for a certificate to be imported
-     * @return true if it was imported, false on timeout
+     * This test will write a revoked certificate to a temporary file area and then use the CertificateCrlReader within service to import it to the system.
      */
-    private boolean waitForCertificateToExist(final String issuerDn, final Certificate usercert) throws InterruptedException {
+    @Test
+    public void readRevokedCertificateFromDisk() throws Exception {
+        log.trace(">readRevokedCertificateFromDisk");
+        // given
+        createAndPersistCertificate();
+        serviceName = "readRevokedCertificateFromDisk";
+        // Updating with the revoked status (thereby using the other publishing variant)
+        final ScpContainer revokedCertificate = new ScpContainer()
+                .setCertificate(userCertificate)
+                .setIssuer(ISSUER_DN)
+                .setSerialNumber(CertTools.getSerialNumber(userCertificate))
+                .setRevocationDate(0)
+                .setRevocationReason(RevocationReasons.KEYCOMPROMISE.getDatabaseValue())
+                .setCertificateStatus(CertificateConstants.CERT_REVOKED);
+        addServiceAndActivateItsTimer(getServiceConfig(CertificateCrlReader.CERTIFICATE_DIRECTORY_KEY, exchangeFolder));
+        final File revokedCertificateFile = new File(exchangeFolder, "revokedCertificateFile");
+
+        // when
+        FileUtils.writeByteArrayToFile(revokedCertificateFile, revokedCertificate.getEncoded());
+
+        // then
+        // Verify that the certificate gets read from disk
+        assertFalse("Certificate was not revoked", waitForCertificateToBeRevokedFailed(ISSUER_DN, userCertificate));
+        // Verify that the certificate gets removed from the folder
+        assertFalse("Certificate file was not removed after being scanned.", waitForFileDeletionFailed(revokedCertificateFile));
+        log.trace("<readRevokedCertificateFromDisk");
+    }
+
+    /**
+     * This test will write a limited (obfuscated) certificate to a temporary file area and then use the CertificateCrlReader within service to import it to the system.
+     */
+    @Test
+    public void readLimitedCertificateFromDisk() throws Exception {
+        log.trace(">readLimitedCertificateFromDisk");
+        // given
+        serviceName = "readLimitedCertificateFromDisk";
+        final ScpContainer activeCertificate = new ScpContainer()
+                .setIssuer(ISSUER_DN)
+                .setUsername(END_ENTITY_USER)
+                .setCertificateType(CertificateConstants.CERTTYPE_ENDENTITY)
+                .setCertificateProfile(4711)
+                .setUpdateTime(currentDate.getTime())
+                .setSerialNumber(CertTools.getSerialNumber(userCertificate))
+                .setRevocationDate(0)
+                .setRevocationReason(RevocationReasons.NOT_REVOKED.getDatabaseValue())
+                .setCertificateStatus(CertificateConstants.CERT_ACTIVE);
+        addServiceAndActivateItsTimer(getServiceConfig(CertificateCrlReader.CERTIFICATE_DIRECTORY_KEY, exchangeFolder));
+        final File activeCertificateFile = new File(exchangeFolder, "activeCertificateFile");
+
+        // when
+        // Write an active certificate to disk in order to simulate publishing a non-anonymous scp publishing
+        FileUtils.writeByteArrayToFile(activeCertificateFile, activeCertificate.getEncoded());
+
+        // then
+        // Verify that the certificate gets read from disk
+        assertFalse("Certificate was not scanned by service", waitForCertificateToBeImportedFailed(ISSUER_DN, userCertificate));
+        // Verify that the CRL has been removed from the folder
+        assertFalse("Certificate file was not removed after being scanned.", waitForFileDeletionFailed(activeCertificateFile));
+        log.trace("<readLimitedCertificateFromDisk");
+    }
+
+    /**
+     * This test will write a revoked limited (obfuscated) certificate to a temporary file area and then use the CertificateCrlReader within service to import it to the system.
+     */
+    @Test
+    public void readRevokedLimitedCertificateFromDisk() throws Exception {
+        log.trace(">readRevokedLimitedCertificateFromDisk");
+        // given
+        serviceName = "readRevokedLimitedCertificateFromDisk";
+        // Updating with the revoked status (thereby using the other publishing variant)
+        final ScpContainer revokedCertificate = new ScpContainer()
+                .setIssuer(ISSUER_DN)
+                .setSerialNumber(CertTools.getSerialNumber(userCertificate))
+                .setRevocationDate(0)
+                .setRevocationReason(RevocationReasons.KEYCOMPROMISE.getDatabaseValue())
+                .setCertificateStatus(CertificateConstants.CERT_REVOKED);
+        addServiceAndActivateItsTimer(getServiceConfig(CertificateCrlReader.CERTIFICATE_DIRECTORY_KEY, exchangeFolder));
+        final File revokedCertificateFile = new File(exchangeFolder, "revokedCertificateFile");
+
+        // when
+        FileUtils.writeByteArrayToFile(revokedCertificateFile, revokedCertificate.getEncoded());
+
+        // then
+        // Verify that the certificate gets read from disk
+        assertFalse("Certificate was not revoked", waitForCertificateToBeRevokedFailed(ISSUER_DN, userCertificate));
+        // Verify that the certificate gets removed from the folder
+        assertFalse("Certificate file was not removed after being scanned.", waitForFileDeletionFailed(revokedCertificateFile));
+        log.trace(">readRevokedLimitedCertificateFromDisk");
+    }
+
+    /**
+     * This test will write a CRL to a temporary file area and then use the CertificateCrlReader within service to import it to the system.
+     */
+    @Test
+    public void readCrlFromDisk() throws Exception {
+        log.trace(">readCrlFromDisk");
+        // given
+        removeCrlIssuerDn = ISSUER_DN;
+        serviceName = "readCrlFromDisk";
+        final Date notAfterDate = CertTools.getNotAfter(userCertificate);
+        final List<RevokedCertInfo> revokedCertInfos = Collections.singletonList(
+                new RevokedCertInfo(
+                        CertTools.getFingerprintAsString(userCertificate).getBytes(),
+                        CertTools.getSerialNumber(userCertificate).toByteArray(),
+                        currentDate.getTime(),
+                        RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD,
+                        (notAfterDate == null ? Long.MAX_VALUE : notAfterDate.getTime())
+                )
+        );
+        final int crlNumber = 1337;
+        final X509CRLHolder x509crlHolder = testCa.generateCRL(cryptoToken, CertificateConstants.NO_CRL_PARTITION, revokedCertInfos, crlNumber);
+        final X509CRL crl = CertTools.getCRLfromByteArray(x509crlHolder.getEncoded());
+        addServiceAndActivateItsTimer(getServiceConfig(CertificateCrlReader.CRL_DIRECTORY_KEY, exchangeFolder));
+        final File crlFile = new File(exchangeFolder, "canned.crl");
+
+        // when
+        // Write CRL to disk
+        FileUtils.writeByteArrayToFile(crlFile, crl.getEncoded());
+
+        // then
+        // Verify that the certificate gets read from disk
+        assertFalse("CRL was not scanned by service", waitForCrlToBeImportedFailed(ISSUER_DN, crlNumber));
+        // Verify that the CRL gets removed from the folder
+        assertFalse("CRL file was not removed after being scanned.", waitForFileDeletionFailed(crlFile));
+        log.trace("<readCrlFromDisk");
+    }
+
+    private void addServiceAndActivateItsTimer(final ServiceConfiguration config) throws ServiceExistsException {
+        serviceSession.addService(ADMIN_AUTHENTICATION_TOKEN, serviceName, config);
+        serviceSession.activateServiceTimer(ADMIN_AUTHENTICATION_TOKEN, serviceName);
+    }
+
+    private void createAndPersistCertificate() throws Exception {
+        endEntityManagementSession.addUser(ADMIN_AUTHENTICATION_TOKEN, endEntityInformation, false);
+        final SimpleRequestMessage simpleRequestMessage = new SimpleRequestMessage(KEY_PAIR.getPublic(), endEntityInformation.getUsername(), endEntityInformation.getPassword());
+        userCertificate = certificateCreateSession.createCertificate(
+                ADMIN_AUTHENTICATION_TOKEN,
+                endEntityInformation,
+                simpleRequestMessage,
+                X509ResponseMessage.class,
+                signSession.fetchCertGenParams())
+                .getCertificate();
+    }
+
+    /**
+     * Wait for certificate import failure.
+     * @return false if it was imported, true otherwise.
+     */
+    private boolean waitForCertificateToBeImportedFailed(final String issuerDn, final Certificate userCertificate) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
+        final BigInteger serialNumber = CertTools.getSerialNumber(userCertificate);
         while (System.currentTimeMillis() < startTime + WAIT_TIME) {
-            final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, CertTools.getSerialNumber(usercert));
-            if (cert != null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Certificate found after " + (System.currentTimeMillis() - startTime) + " ms");
-                }
-                return true; // cert has been imported now
+            // Look for CertificateDataWrapper to support limited (obfuscated) certificates without Certificate
+            final CertificateDataWrapper certificateDataWrapper = certificateStoreSession.getCertificateDataByIssuerAndSerno(issuerDn, serialNumber);
+            if (certificateDataWrapper != null) {
+                log.debug("Certificate found after " + (System.currentTimeMillis() - startTime) + " ms");
+                return false; // cert has been imported now
             }
             Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for certificate to be imported");
-        return false; // timeout after 30 seconds
+        return true; // timeout after 30 seconds
     }
 
     /**
-     * Wait for a certificate to be revoked
-     * @return true if it was revoked, false on timeout
+     * Wait for certificate revocation failure or missing certificate failure.
+     * @return false if it was revoked, true otherwise.
      */
-    private boolean waitForCertificateToBeRevoked(final String issuerDn, final Certificate usercert) throws InterruptedException {
+    private boolean waitForCertificateToBeRevokedFailed(final String issuerDn, final Certificate userCertificate) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
-        final BigInteger serialNumber = CertTools.getSerialNumber(usercert);
+        final BigInteger serialNumber = CertTools.getSerialNumber(userCertificate);
+        CertificateDataWrapper certificateDataWrapper = null;
         while (System.currentTimeMillis() < startTime + WAIT_TIME) {
-            final Certificate cert = certificateStoreSessionRemote.findCertificateByIssuerAndSerno(issuerDn, serialNumber);
-            if (cert == null) {
-                fail("Certificate no longest exists?");
-            }
-            if (certificateStoreSessionRemote.isRevoked(issuerDn, serialNumber)) {
-                if (log.isDebugEnabled()) {
+            // Look for CertificateDataWrapper to support limited (obfuscated) certificates without Certificate
+            certificateDataWrapper = certificateStoreSession.getCertificateDataByIssuerAndSerno(issuerDn, serialNumber);
+            if (certificateDataWrapper != null) {
+                if (certificateStoreSession.isRevoked(issuerDn, serialNumber)) {
                     log.debug("Certificate revoked after " + (System.currentTimeMillis() - startTime) + " ms");
+                    return false;
                 }
-                return true;
             }
             Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for certificate to be revoked");
-        return false; // timeout after 30 seconds
+        // Certificate was not found
+        if(certificateDataWrapper == null) {
+            fail("Certificate no longest exists?");
+        }
+        return true; // timeout after 30 seconds
     }
 
     /**
-     * Wait for a CRL to be imported
-     * @return true if it was imported, false on timeout
+     * Wait for CRL import failure.
+     * @return false if it was imported, true otherwise.
      */
-    private boolean waitForCrlToExist(final String issuerDn, final int crlNumber) throws InterruptedException {
+    private boolean waitForCrlToBeImportedFailed(final String issuerDn, final int crlNumber) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             final byte[] crl = crlStoreSession.getCRL(issuerDn, CertificateConstants.NO_CRL_PARTITION, crlNumber);
             if (crl != null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("CRL found after " + (System.currentTimeMillis() - startTime) + " ms");
-                }
-                return true; // CRL has been imported now
+                log.debug("CRL found after " + (System.currentTimeMillis() - startTime) + " ms");
+                return false; // CRL has been imported now
             }
             Thread.sleep(IMPORT_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for CRL to be imported");
-        return false; // timeout after 30 seconds
+        return true; // timeout after 30 seconds
     }
 
     /**
-     * Wait for a file to be deleted.
-     * @return true if it was deleted, false on timeout
+     * Wait for file deletion failure.
+     * @return false if it was deleted, true otherwise.
      */
-    private boolean waitForFileDeletion(final File file) throws InterruptedException {
+    private boolean waitForFileDeletionFailed(final File file) throws InterruptedException {
         final long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() < startTime + WAIT_TIME) {
             if (!file.exists()) {
-                if (log.isDebugEnabled()) {
-                    log.debug("File deleted after " + (System.currentTimeMillis() - startTime) + " ms");
-                }
-                return true; // CRL has been imported now
+                log.debug("File deleted after " + (System.currentTimeMillis() - startTime) + " ms");
+                return false; // CRL has been imported now
             }
             Thread.sleep(DELETE_ITERATION_SLEEP);
         }
         log.debug("Timed out waiting for file to be deleted");
-        return false; // timeout after 30 seconds
+        return true; // timeout after 30 seconds
     }
 
     private ServiceConfiguration getServiceConfig(final String directoryType, final File folder) {
-        ServiceConfiguration config = new ServiceConfiguration();
+        final ServiceConfiguration config = new ServiceConfiguration();
         config.setActive(true);
-        config.setDescription("");
-        // No mailsending for this Junit test service
+        config.setDescription("CertificateCrlReaderSystemTest");
+        // No mail sending for this test service
         config.setActionClassPath(NoAction.class.getName());
         config.setActionProperties(null);
+        // Run the service every second
         config.setIntervalClassPath(PeriodicalInterval.class.getName());
-        Properties intervalprop = new Properties();
-        // Run the service every  second
-        intervalprop.setProperty(PeriodicalInterval.PROP_VALUE, "3");
-        intervalprop.setProperty(PeriodicalInterval.PROP_UNIT, PeriodicalInterval.UNIT_SECONDS);
-        config.setIntervalProperties(intervalprop);
+        final Properties intervalProperties = new Properties();
+        intervalProperties.setProperty(PeriodicalInterval.PROP_VALUE, "3");
+        intervalProperties.setProperty(PeriodicalInterval.PROP_UNIT, PeriodicalInterval.UNIT_SECONDS);
+        config.setIntervalProperties(intervalProperties);
+        // Set input folder
         config.setWorkerClassPath(CertificateCrlReader.class.getName());
-        Properties workerprop = new Properties();
-        workerprop.setProperty(directoryType, folder.getAbsolutePath());
-        config.setWorkerProperties(workerprop);
+        final Properties workerProperties = new Properties();
+        workerProperties.setProperty(directoryType, folder.getAbsolutePath());
+        config.setWorkerProperties(workerProperties);
         return config;
     }
 }
