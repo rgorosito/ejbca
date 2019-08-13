@@ -12,13 +12,19 @@
  *************************************************************************/
 package org.cesecore.certificates.ocsp;
 
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
 import java.io.Serializable;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.cesecore.CesecoreException;
@@ -47,6 +53,7 @@ import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityTypes;
+import org.cesecore.certificates.ocsp.extension.OcspArchiveCutoffExtension;
 import org.cesecore.keybind.CertificateImportException;
 import org.cesecore.keybind.InternalKeyBindingMgmtSessionRemote;
 import org.cesecore.keybind.InternalKeyBindingNameInUseException;
@@ -56,9 +63,9 @@ import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.util.EjbRemoteHelper;
+import org.cesecore.util.SimpleTime;
 import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.Assert;
 
 /**
  * @version $Id$
@@ -156,6 +163,23 @@ public class OcspTestUtils {
         return oldValue;
     }
 
+    public static void enableArchiveCutoff(final AuthenticationToken authenticationToken, final int ocspKeyBindingId,
+            final SimpleTime retentionPeriod, final boolean useIssuerNotBeforeAsArchiveCutoff)
+            throws InternalKeyBindingNameInUseException, AuthorizationDeniedException {
+        final InternalKeyBindingMgmtSessionRemote internalKeyBindingMgmtSession = EjbRemoteHelper.INSTANCE
+                .getRemoteSession(InternalKeyBindingMgmtSessionRemote.class);
+        final OcspKeyBinding ocspKeyBinding = (OcspKeyBinding) internalKeyBindingMgmtSession.getInternalKeyBinding(authenticationToken,
+                ocspKeyBindingId);
+        final List<String> ocspExtensions = ocspKeyBinding.getOcspExtensions();
+        if (!ocspExtensions.contains(OcspArchiveCutoffExtension.EXTENSION_OID)) {
+            ocspExtensions.add(OcspArchiveCutoffExtension.EXTENSION_OID);
+        }
+        ocspKeyBinding.setOcspExtensions(ocspExtensions);
+        ocspKeyBinding.setUseIssuerNotBeforeAsArchiveCutoff(useIssuerNotBeforeAsArchiveCutoff);
+        ocspKeyBinding.setRetentionPeriod(retentionPeriod);
+        internalKeyBindingMgmtSession.persistInternalKeyBinding(authenticationToken, ocspKeyBinding);
+    }
+
     public static X509Certificate createOcspSigningCertificate(AuthenticationToken authenticationToken, String username, String signerDN,
             int internalKeyBindingId, int caId) throws CustomCertificateSerialNumberException, IllegalKeyException, CADoesntExistsException,
             CertificateCreateException, AuthorizationDeniedException, CertificateExtensionException, CryptoTokenOfflineException,
@@ -226,6 +250,20 @@ public class OcspTestUtils {
                 return;
             }
             internalKeyBindingMgmtSession.deleteInternalKeyBinding(alwaysAllowtoken, keyBindingId);
+        }
+    }
+
+    public static void clearOcspSigningCache() {
+        try {
+            final URL url = new URL("http://localhost:8080/ejbca/clearcache?command=clearcaches&excludeactivects=true");
+            final HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                Assert.fail("Failed to clear caches using URL: http://localhost:8080/ejbca/clearcache?command=clearcaches&excludeactivects=true"
+                        + ". The response code was: " + con.getResponseCode());
+            }
+        } catch (IOException e) {
+            Assert.fail("Failed to clear caches using URL: http://localhost:8080/ejbca/clearcache?command=clearcaches&excludeactivects=true"
+                    + ". The error was: " + e.getMessage());
         }
     }
 }

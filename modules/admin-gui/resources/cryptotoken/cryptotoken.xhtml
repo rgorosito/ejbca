@@ -415,11 +415,21 @@
 					<h:commandButton value="#{web.text.CRYPTOTOKEN_KPM_INIT}"
 						action="#{cryptoTokenMBean.initializeKey}"
 						rendered="#{cryptoTokenMBean.currentCryptoToken.showAuthorizationInfo}"
-						disabled="#{keyPairGuiInfo.placeholder}"/>
+						disabled="#{keyPairGuiInfo.placeholder or keyPairGuiInfo.initialized}"/>
 					<h:commandButton value="#{web.text.CRYPTOTOKEN_KPM_AUTH}"
 						action="#{cryptoTokenMBean.authorizeKey}"
 						rendered="#{cryptoTokenMBean.currentCryptoToken.showAuthorizationInfo}"
 						disabled="#{keyPairGuiInfo.placeholder}"/>
+					<h:inputText size="1" style="margin-left: 2px; margin-right: 2px;"
+					  	value="#{keyPairGuiInfo.maxOperationCount}"
+					  	rendered="#{cryptoTokenMBean.currentCryptoToken.showAuthorizationInfo}"
+					  	disabled="#{keyPairGuiInfo.placeholder}">
+						<f:validator validatorId="cP5KeyMaxOperationsValidator" />
+					</h:inputText>
+					<h:outputText styleClass="smallHelp"
+						value="#{web.text.CRYPTOTOKEN_KPM_KEY_OPERATION_COUNT}" style="margin-right: 2px;"
+						rendered="#{cryptoTokenMBean.currentCryptoToken.showAuthorizationInfo}"
+						 /> 
 					<h:commandButton value="#{web.text.CRYPTOTOKEN_KPM_TEST}"
 						action="#{cryptoTokenMBean.testKeyPair}"
 						rendered="#{cryptoTokenMBean.allowedToKeyTest}"

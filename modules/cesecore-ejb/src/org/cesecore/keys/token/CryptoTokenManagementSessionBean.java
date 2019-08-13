@@ -265,6 +265,24 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
     }
     
     @Override
+    public boolean isKeyInitialized(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias) {
+        final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
+        if ("org.cesecore.keys.token.p11ng.cryptotoken.JackNJI11CryptoToken".equals(cryptoToken.getClass().getName())) {
+            return cryptoToken.isKeyInitialized(alias);
+        }
+        return false;
+    }
+    
+    @Override
+    public long maxOperationCount(AuthenticationToken authenticationToken, int cryptoTokenId, final String alias) {
+        final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
+        if ("org.cesecore.keys.token.p11ng.cryptotoken.JackNJI11CryptoToken".equals(cryptoToken.getClass().getName())) {
+            return cryptoToken.maxOperationCount(alias);
+        }
+        return 0;
+    }
+    
+    @Override
     public void createCryptoToken(final AuthenticationToken authenticationToken, final String tokenName, final Integer cryptoTokenId,
             final String className, final Properties properties, final byte[] data, final char[] authenticationCode)
             throws AuthorizationDeniedException, CryptoTokenNameInUseException, CryptoTokenOfflineException,

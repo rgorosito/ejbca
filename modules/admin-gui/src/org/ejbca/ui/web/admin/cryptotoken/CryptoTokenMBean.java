@@ -270,6 +270,10 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         private boolean selected = false;
         private int selectedKakCryptoTokenId;
         private String selectedKakKeyAlias;
+        private boolean initialized;
+        private boolean authorized = false;
+        private long maxOperationCount; // This one is used when authorizing a CP5 key
+        private final long currentMaxOperationCount; // This one should be read from HSM after key is used
         
         private KeyPairGuiInfo(KeyPairInfo keyPairInfo) {
             alias = keyPairInfo.getAlias();
@@ -282,6 +286,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             }
             subjectKeyID = keyPairInfo.getSubjectKeyID();
             placeholder = false;
+            initialized = cryptoTokenManagementSession.isKeyInitialized(authenticationToken, getCurrentCryptoTokenId(), alias); 
+            currentMaxOperationCount = cryptoTokenManagementSession.maxOperationCount(authenticationToken, getCurrentCryptoTokenId(), alias);
         }
         
         /**
@@ -300,6 +306,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             }
             subjectKeyID = "";
             placeholder = true;
+            initialized = false;
+            currentMaxOperationCount = 0;
         }
         
         public List<SelectItem> getAvailableKeyAliases() {
@@ -333,6 +341,21 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         public void setSelectedKakCryptoTokenId(int selectedKakCryptoTokenId) { this.selectedKakCryptoTokenId = selectedKakCryptoTokenId; }
         public String getSelectedKakKeyAlias() { return selectedKakKeyAlias; }
         public void setSelectedKakKeyAlias(String selectedKakKeyAlias) { this.selectedKakKeyAlias = selectedKakKeyAlias; }
+
+        public long getMaxOperationCount() {
+            return currentMaxOperationCount;
+        }
+        public void setMaxOperationCount(long maxOperationCount) {
+            this.maxOperationCount = maxOperationCount;
+        }
+
+        public boolean isInitialized() {
+            return initialized;
+        }
+
+        public boolean isAuthorized() {
+            return authorized;
+        }
     }
 
     private static final long serialVersionUID = 1L;
@@ -1051,17 +1074,21 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     /** Invoked when admin associates KAK with HSM key (specific to CP5 HSMs) */
     public void initializeKey() {
         final KeyPairGuiInfo keyPairGuiInfo = keyPairGuiList.getRowData();
-        final String alias = keyPairGuiInfo.getAlias();
-        final String kakAlias = keyPairGuiInfo.getSelectedKakKeyAlias();
-        final int kakTokenId = keyPairGuiInfo.getSelectedKakCryptoTokenId();
-        if (kakTokenId == 0 || kakAlias == null) {
-            addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to initialize key");
-            return;
-        }
-        try {
-            cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias);
-        } catch (CryptoTokenOfflineException e) {
-            addNonTranslatedErrorMessage(e);
+        if (!keyPairGuiInfo.initialized) {
+            final String alias = keyPairGuiInfo.getAlias();
+            final String kakAlias = keyPairGuiInfo.getSelectedKakKeyAlias();
+            final int kakTokenId = keyPairGuiInfo.getSelectedKakCryptoTokenId();
+            if (kakTokenId == 0 || kakAlias == null) {
+                addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to initialize key");
+                return;
+            }
+            try {
+                cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias);
+                keyPairGuiInfo.initialized = true;
+            } catch (CryptoTokenOfflineException e) {
+                addNonTranslatedErrorMessage(e);
+                keyPairGuiInfo.initialized = false;
+            }
         }
     }
     
@@ -1076,8 +1103,8 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             return;
         }
         try {
-            // TODO GUI support for maxOperationCount 
-            cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias, 100);
+            cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, 
+                    kakAlias, keyPairGuiInfo.maxOperationCount);
         } catch (CryptoTokenOfflineException e) {
             addNonTranslatedErrorMessage(e);
         }
@@ -1141,5 +1168,4 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     public boolean isP11SlotUsed() {
         return p11SlotUsed;
     }
-    
 }
