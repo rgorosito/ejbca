@@ -16,8 +16,10 @@ import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Random;
+import java.util.TimeZone;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.util.encoders.Base64;
@@ -153,7 +155,8 @@ public final class CTLogInfo implements Serializable {
     }
 
     /** Makes sure that a URL ends with /ct/v1/ */
-    public static String fixUrl(final String urlToFix) {
+    public static String fixUrl(String urlToFix) {
+        urlToFix = urlToFix.trim();
         String url = (urlToFix.endsWith("/") ? urlToFix : urlToFix + "/");
         if (!url.endsWith("/ct/v1/")) {
             if (!url.endsWith("/ct/")) {
@@ -198,37 +201,51 @@ public final class CTLogInfo implements Serializable {
     }
 
     /**
-     * Returns the start date for expiration period, defines  which certificates published to this CT log must
-     * have in order to be accepted, or null if there is no such requirement. For
-     * example, if this method returns "20.01.2019" then you should only try to publish
+     * Returns a {@link Date} object defining the start date of the validity period, which all certificates
+     * published to this CT log must fulfill in order to be accepted, or null if there is no such requirement.
+     * 
+     * <p>For example, if this method returns "20.01.2019" then you should only try to publish
      * certificates to this CT log expiring after this date, since all other certificates
      * will be rejected.
-     * @return the expiration period start date required for all certificates being published to
-     * this log or null if there is no such requirement
+     * 
+     * @return the validity period start date for sharding or null if there is no such requirement.
      */
     public Date getIntervalStart() {
         return intervalStart;
     }
 
-    public void setIntervalStart(Date intervalStart) {
-        this.intervalStart = intervalStart;
+    /**
+     * Sets a {@link Date} object defining the start date of the validity period, which all certificates
+     * published to this CT log must fulfill. See also {@link #getIntervalStart()}.
+     * 
+     * @param intervalStart the new validity start date for sharding or null to disable.
+     */
+    public void setIntervalStart(final Date intervalStart) {
+        this.intervalStart = intervalStart != null ? getStartOfTheDay(intervalStart) : null;
     }
 
     /**
-     * Returns the end date for expiration period, defines  which certificates published to this CT log must
-     * have in order to be accepted, or null if there is no such requirement. For
-     * example, if this method returns "20.10.2019" then you should only try to publish
+     * Returns a {@link Date} object defining the end date of the validity period, which all certificates
+     * published to this CT log must fulfill in order to be accepted, or null if there is no such requirement.
+     * 
+     * <p>For example, if this method returns "20.01.2020" then you should only try to publish
      * certificates to this CT log expiring before this date, since all other certificates
      * will be rejected.
-     * @return the expiration period start date required for all certificates being published to
-     * this log or null if there is no such requirement
+     * 
+     * @return the validity period end date for sharding or null if there is no such requirement.
      */
     public Date getIntervalEnd() {
         return intervalEnd;
     }
 
-    public void setIntervalEnd(Date intervalEnd) {
-        this.intervalEnd = intervalEnd;
+    /**
+     * Sets a {@link Date} object defining the end date of the validity period, which all certificates
+     * published to this CT log must fulfill. See also {@link #getIntervalEnd()}.
+     * 
+     * @param intervalEnd the new validity end date for sharding or null to disable.
+     */
+    public void setIntervalEnd(final Date intervalEnd) {
+        this.intervalEnd = intervalEnd != null ? getEndOfTheDay(intervalEnd) : null;
     }
 
     @Override
@@ -250,5 +267,27 @@ public final class CTLogInfo implements Serializable {
     @Override
     public String toString() {
         return getUrl();
+    }
+
+    private Date getStartOfTheDay(final Date date) {
+        final Calendar calendar = Calendar.getInstance();
+        calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
+        calendar.setTime(date);
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DATE);
+        calendar.set(year, month, day, 0, 0, 0);
+        return calendar.getTime();
+    }
+
+    private Date getEndOfTheDay(final Date date) {
+        final Calendar calendar = Calendar.getInstance();
+        calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
+        calendar.setTime(date);
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DATE);
+        calendar.set(year, month, day, 23, 59, 59);
+        return calendar.getTime();
     }
 }

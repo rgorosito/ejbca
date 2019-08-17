@@ -50,6 +50,7 @@ import javax.persistence.PersistenceContext;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.ocsp.OCSPObjectIdentifiers;
 import org.cesecore.audit.log.SecurityEventsLoggerSessionLocal;
 import org.cesecore.authentication.tokens.AlwaysAllowLocalAuthenticationToken;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -76,7 +77,6 @@ import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileSessionLocal;
 import org.cesecore.certificates.certificatetransparency.CTLogInfo;
 import org.cesecore.certificates.ocsp.OcspResponseGeneratorSessionLocal;
-import org.cesecore.certificates.ocsp.extension.OcspArchiveCutoffExtension;
 import org.cesecore.certificates.util.DNFieldExtractor;
 import org.cesecore.config.AvailableExtendedKeyUsagesConfiguration;
 import org.cesecore.config.ConfigurationHolder;
@@ -1727,8 +1727,8 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
                 log.debug("The property ocsp.expiredcert.retentionperiod has the value '" + ConfigurationHolder.getString("ocsp.expiredcert.retentionperiod") + "'.");
             }
             final String configuredValue = ConfigurationHolder.getString("ocsp.expiredcert.retentionperiod");
-            final int retentionPeriodInSeconds = Integer.parseInt(StringUtils.trim(configuredValue));
-            if (retentionPeriodInSeconds == -1) {
+            final long retentionPeriodInSeconds = Long.parseLong(StringUtils.trim(configuredValue));
+            if (retentionPeriodInSeconds == -1L) {
                 // The archive cutoff extension is disabled
                 log.info("The archive cutoff extension is disabled on this EJBCA instance. Nothing to do.");
                 return;
@@ -1738,8 +1738,8 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
             for (final int ocspKeyBindingId : ocspKeyBindingIds) {
                 final OcspKeyBinding ocspKeyBinding = (OcspKeyBinding) internalKeyBindingDataSession.getInternalKeyBinding(ocspKeyBindingId);
                 final List<String> ocspExtensions = ocspKeyBinding.getOcspExtensions();
-                ocspExtensions.add(OcspArchiveCutoffExtension.EXTENSION_OID);
-                ocspKeyBinding.setRetentionPeriod(SimpleTime.getInstance(retentionPeriodInSeconds * 1000));
+                ocspExtensions.add(OCSPObjectIdentifiers.id_pkix_ocsp_archive_cutoff.getId());
+                ocspKeyBinding.setRetentionPeriod(SimpleTime.getInstance(retentionPeriodInSeconds * 1000L));
                 ocspKeyBinding.setOcspExtensions(ocspExtensions);
                 internalKeyBindingDataSession.mergeInternalKeyBinding(ocspKeyBinding);
                 log.info("Added id-pkix-ocsp-archive-cutoff with a retention period of " + retentionPeriodInSeconds + " seconds to OCSP key binding "

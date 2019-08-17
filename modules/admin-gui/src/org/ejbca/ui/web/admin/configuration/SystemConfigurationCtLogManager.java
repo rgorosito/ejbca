@@ -26,6 +26,7 @@ import org.cesecore.keys.util.KeyTools;
  * This class is used to manage CT logs in EJBCA's system configuration. It adds some additional
  * functionality to the CtLogManager, such as loading and saving state from the database, editing of
  * new CT logs, checking whether a CT log is in use before removing it and language awareness.
+ * 
  * @version $Id$
  */
 public class SystemConfigurationCtLogManager extends CtLogManager {
@@ -380,9 +381,9 @@ public class SystemConfigurationCtLogManager extends CtLogManager {
         ctLogToUpdate.setExpirationYearRequired(ctLogEditor.getIsAcceptingByExpirationYear() && !ctLogEditor.isUseIntervalAcception()
                 ? Integer.valueOf(ctLogEditor.getExpirationYearRequired()) : null);
         ctLogToUpdate.setIntervalStart(ctLogEditor.isUseIntervalAcception() && ctLogEditor.getIsAcceptingByExpirationYear()
-                ? getStartOfTheDay(ctLogEditor.getIntervalStart()) : null);
+                ? ctLogEditor.getIntervalStart() : null);
         ctLogToUpdate.setIntervalEnd(ctLogEditor.isUseIntervalAcception() && ctLogEditor.getIsAcceptingByExpirationYear()
-                ? getEndOfTheDay(ctLogEditor.getIntervalEnd()) : null);
+                ? ctLogEditor.getIntervalEnd() : null);
         systemConfigurationHelper.saveCtLogs(super.getAllCtLogs());
         ctLogEditor.stopEditing();
         return CT_LOG_SAVED;
@@ -420,24 +421,4 @@ public class SystemConfigurationCtLogManager extends CtLogManager {
         return false;
     }
 
-    private Date getStartOfTheDay(Date date){
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(date);
-        int year = calendar.get(Calendar.YEAR);
-        int month = calendar.get(Calendar.MONTH);
-        int day = calendar.get(Calendar.DATE);
-        calendar.set(year, month, day, 0, 0, 0);
-        date = calendar.getTime();
-        return date;
-    }
-    private Date getEndOfTheDay(Date date){
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(date);
-        int year = calendar.get(Calendar.YEAR);
-        int month = calendar.get(Calendar.MONTH);
-        int day = calendar.get(Calendar.DATE);
-        calendar.set(year, month, day, 23, 59, 59);
-        date = calendar.getTime();
-        return date;
-    }
 }

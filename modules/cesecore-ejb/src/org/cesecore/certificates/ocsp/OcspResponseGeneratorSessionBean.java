@@ -136,7 +136,6 @@ import org.cesecore.certificates.ocsp.exception.MalformedRequestException;
 import org.cesecore.certificates.ocsp.exception.OcspFailureException;
 import org.cesecore.certificates.ocsp.extension.OCSPExtension;
 import org.cesecore.certificates.ocsp.extension.OCSPExtensionType;
-import org.cesecore.certificates.ocsp.extension.OcspArchiveCutoffExtension;
 import org.cesecore.certificates.ocsp.logging.AuditLogger;
 import org.cesecore.certificates.ocsp.logging.PatternLogger;
 import org.cesecore.certificates.ocsp.logging.TransactionLogger;
@@ -1119,6 +1118,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
             
             // Look over the status requests
             List<OCSPResponseItem> responseList = new ArrayList<OCSPResponseItem>();
+            // If the Extended Revoked Definition should be added for certificates that we can not find in the database, see RFC6960 4.4.8
             boolean addExtendedRevokedExtension = false;
             Date producedAt = null;
             for (Req ocspRequest : ocspRequests) {
@@ -1292,6 +1292,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                                 transactionLogger.paramPut(TransactionLogger.CERT_STATUS, OCSPResponseItem.OCSP_REVOKED); 
                                 transactionLogger.paramPut(TransactionLogger.REV_REASON, CRLReason.certificateHold);
                             }
+                            // Unknown certificate, "non issued", add the Extended Revoked Definition, RFC6960 4.4.8
                             addExtendedRevokedExtension = true;
                         } else if (OcspConfigurationCache.INSTANCE.isNonExistingUnauthorized(ocspSigningCacheEntry.getOcspKeyBinding())
                                 && OcspSigningCache.INSTANCE.getEntry(certId) != null) {
@@ -1347,7 +1348,7 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
                     log.info(intres.getLocalizedMessage("ocsp.infoaddedstatusinfo", sStatus, certId.getSerialNumber().toString(16), caCertificateSubjectDn));
                     respItem = new OCSPResponseItem(certId, certStatus, nextUpdate);
                     final OcspKeyBinding ocspKeyBinding = ocspSigningCacheEntry.getOcspKeyBinding();
-                    if (ocspKeyBinding != null && ocspKeyBinding.getOcspExtensions().contains(OcspArchiveCutoffExtension.EXTENSION_OID)) {
+                    if (ocspKeyBinding != null && ocspKeyBinding.getOcspExtensions().contains(OCSPObjectIdentifiers.id_pkix_ocsp_archive_cutoff.getId())) {
                         addArchiveCutoff(respItem, ocspSigningCacheEntry.getIssuerCaCertificate(), ocspKeyBinding);
                     }
                 }
@@ -1533,20 +1534,20 @@ public class OcspResponseGeneratorSessionBean implements OcspResponseGeneratorSe
     
     private void addArchiveCutoff(final OCSPResponseItem respItem, final X509Certificate issuer, final OcspKeyBinding ocspKeyBinding) {
         try {
-            final long archiveCutoffDate = ocspKeyBinding.useIssuerNotBeforeAsArchiveCutoff() ?
+            final long archiveCutoffDate = ocspKeyBinding.getUseIssuerNotBeforeAsArchiveCutoff() ?
                     issuer.getNotBefore().getTime() : new Date().getTime() - ocspKeyBinding.getRetentionPeriod().getLong();
             final DEROctetString encodedValue = new DEROctetString(new ASN1GeneralizedTime(new Date(archiveCutoffDate)));
             final Extension archiveCutoffExtension = new Extension(OCSPObjectIdentifiers.id_pkix_ocsp_archive_cutoff, false, encodedValue);
             respItem.addExtensions(Collections.singletonMap(OCSPObjectIdentifiers.id_pkix_ocsp_archive_cutoff, archiveCutoffExtension));
             if (log.isDebugEnabled()) {
-                if (ocspKeyBinding.useIssuerNotBeforeAsArchiveCutoff()) {
+                if (ocspKeyBinding.getUseIssuerNotBeforeAsArchiveCutoff()) {
                     log.debug("Added ETSI EN 319411-2, CSS-6.3.10-10 id-pkix-ocsp-archive-cutoff (issuer notBefore = " + archiveCutoffDate
                             + ") to OCSP response with cert ID serial number "
-                            + respItem.getCertID().getSerialNumber() + ".");
+                            + respItem.getCertID().getSerialNumber().toString(16) + ".");
                 } else {
                     log.debug("Added id-pkix-ocsp-archive-cutoff (producedAt - " + ocspKeyBinding.getRetentionPeriod().getLong() + " = "
                             + archiveCutoffDate + ") to OCSP response with cert ID serial number "
-                            + respItem.getCertID().getSerialNumber() + ".");
+                            + respItem.getCertID().getSerialNumber().toString(16) + ".");
                 }
             }
         } catch (final IOException e) {
