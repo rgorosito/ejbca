@@ -14,6 +14,7 @@ package org.cesecore.keys.token;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -160,8 +161,13 @@ public interface CryptoToken extends Serializable {
      */
     void keyAuthorize(String alias, KeyPair kakPair, String signProviderName, long maxOperationCount);
     
+    void backupKey(int keySpecId, Path backupFilePath);
+    
+    void restoreKey();
+    
     /**
-     * Operation specific for CP5 crypto tokens
+     * Operation specific for CP5 crypto tokens. 
+     * Checks if the crypto key is already initialized or not.
      * 
      * @param alias
      * @return true if the CP5 key is already initialized, false otherwise
@@ -170,7 +176,9 @@ public interface CryptoToken extends Serializable {
     
     
     /**
-     * Operation specific for CP5 crypto tokens
+     * Operation specific for CP5 crypto tokens.
+     * 
+     * Number of operations a crypto key is able to perform such as signing etc.
      * 
      * @param alias
      * @return number of operations remaining for a CP5 key
