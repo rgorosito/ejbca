@@ -14,9 +14,9 @@ import org.ejbca.ui.p11ngcli.helper.OperationsThread;
 import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 import org.ejbca.ui.p11ngcli.helper.TestSignThread;
 
-public class P11NgSignPerformanceTestCommand extends P11NgCliCommandBase {
+public class P11NgCliSignPerformanceTestCommand extends P11NgCliCommandBase {
     
-    private static final Logger log = Logger.getLogger(P11NgSignPerformanceTestCommand.class);
+    private static final Logger log = Logger.getLogger(P11NgCliSignPerformanceTestCommand.class);
 
     private static final String SLOT = "-slot";
     private static final String ALIAS = "-alias";
@@ -63,7 +63,7 @@ public class P11NgSignPerformanceTestCommand extends P11NgCliCommandBase {
     
     @Override
     public String getMainCommand() {
-        return "sign performance test";
+        return "signperformancetest";
     }
 
     @Override
