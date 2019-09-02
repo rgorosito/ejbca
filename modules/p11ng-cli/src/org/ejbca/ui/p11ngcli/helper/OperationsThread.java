@@ -1,4 +1,3 @@
-
 package org.ejbca.ui.p11ngcli.helper;
 
 /**
@@ -18,8 +17,9 @@ public abstract class OperationsThread  extends Thread {
     /**
      * Indicate that this thread has discovered a failure.
      * @param message A description of the problem
+     * @throws Exception 
      */
-    protected void fireFailure(final String message) {
+    protected void fireFailure(final String message) throws Exception {
         failureCallback.failed(this, message);
     }
     

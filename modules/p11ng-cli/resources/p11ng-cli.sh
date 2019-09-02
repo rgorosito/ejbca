@@ -20,4 +20,4 @@ if [ -z "$P11NGCLI_HOME" ]; then
     fi
 fi
 
-exec "$JAVACMD" -jar "$P11NGCLI_HOME/p11ngcli.jar" "$@"
+exec "$JAVACMD" -jar "$P11NGCLI_HOME/p11ng-cli.jar" "$@"

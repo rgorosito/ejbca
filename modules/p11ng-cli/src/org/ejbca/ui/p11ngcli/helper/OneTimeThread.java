@@ -164,7 +164,11 @@ public class OneTimeThread extends OperationsThread {
                 | UnsupportedEncodingException | SignatureException
                 | CryptoTokenOfflineException | RuntimeException e) {
             log.error("Failing signing: " + e.getMessage());
-            fireFailure(getName() + ": failed after " + getNumberOfOperations() + " signings: " + e.getMessage());
+            try {
+                fireFailure(getName() + ": failed after " + getNumberOfOperations() + " signings: " + e.getMessage());
+            } catch (Exception e1) {
+                log.error("Exception while trying to run the test!", e1);
+            }
         }
     }
 

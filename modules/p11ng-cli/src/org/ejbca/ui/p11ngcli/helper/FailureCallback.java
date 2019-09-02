@@ -11,6 +11,7 @@ public interface FailureCallback {
      * Called from different threads when a failure has happened.
      * @param thread The source thread of the failure
      * @param message A descriptive message of the failure
+     * @throws Exception 
      */
-    void failed(OperationsThread thread, String message);
+    void failed(OperationsThread thread, String message) throws Exception;
 }

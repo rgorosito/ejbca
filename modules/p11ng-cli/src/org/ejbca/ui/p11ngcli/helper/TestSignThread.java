@@ -107,7 +107,11 @@ public class TestSignThread extends OperationsThread {
     } catch (NoSuchAlgorithmException | InvalidKeyException | 
              CryptoTokenOfflineException | UnsupportedEncodingException | SignatureException e) {
         LOG.error("Failing signing: " + e.getMessage());
-        fireFailure(getName() + ": failed after " + getNumberOfOperations() + " signings: " + e.getMessage());
+        try {
+            fireFailure(getName() + ": failed after " + getNumberOfOperations() + " signings: " + e.getMessage());
+        } catch (Exception e1) {
+            LOG.error("Exception while running the test!", e1);
+        }
     }
 }
 }
