@@ -138,14 +138,12 @@ public class P11NgCliKeyAuthorizationCommand extends P11NgCliCommandBase {
 
     @Override
     public String getFullHelpText() {
-        // TODO Auto-generated method stub
-        return null;
+        return getCommandDescription();
     }
 
     @Override
     protected Logger getLogger() {
-        // TODO Auto-generated method stub
-        return null;
+        return log;
     }
     
     private Key loadPrivateKey(final String path, final String algorithm)

@@ -246,9 +246,6 @@ public class P11NgCliCommand extends P11NgCliCommandBase {
     static {Security.addProvider(new BouncyCastleProvider());}
 
     private static enum Action {
-        keyAuthorization,
-        unblockKey,
-        backupObject,
         restoreObject
     }
     
@@ -315,99 +312,7 @@ public class P11NgCliCommand extends P11NgCliCommandBase {
             ce = new CEi(new Ci(new JNAi(jnaiNative)));
             
             switch (action) {
-                case keyAuthorization: {
-                    final long slotId = Long.parseLong(parameters.get(SLOT));
-                    CryptokiDevice device = CryptokiManager.getInstance().getDevice(libName, libDir);
-                    CryptokiDevice.Slot slot = device.getSlot(slotId);
-                    
-                    final String alias = parameters.get(ALIAS);
-                    final String kakFilePath = parameters.get(KAK_FILE_PATH);
-                    
-                    CK_CP5_AUTHORIZE_PARAMS params = new CK_CP5_AUTHORIZE_PARAMS();
-                    
-                    params.ulCount = AUTH_CTR;
-                    
-                    params.write(); // Write data before passing structure to function
-					CKM mechanism = new CKM(CKM.CKM_CP5_AUTHORIZE, params.getPointer(), params.size());
-
-                    byte[] hash = new byte[HASH_SIZE];
-                    long hashLen = hash.length;
-                    
-                    long session = ce.OpenSession(slotId, CK_SESSION_INFO.CKF_RW_SESSION | CK_SESSION_INFO.CKF_SERIAL_SESSION, null, null);
-                    ce.Login(session, CKU.CKU_CS_GENERIC, parameters.get(USER_AND_PIN).getBytes(StandardCharsets.UTF_8));
-                    
-                    long[] privateKeyObjects = getPrivateKeyFromHSM(slot, alias);
-                    
-                    long rvAuthorizeKeyInit = ce.authorizeKeyInit(session, mechanism, privateKeyObjects[0], hash, new LongRef(hashLen));
-                    if (rvAuthorizeKeyInit != CKR.OK) {
-                    	cleanUp(session);
-                    	throw new CKRException(rvAuthorizeKeyInit);
-                    }
-                    
-                    // Here obtain the private key created in the previous init part, reading it from file
-                    Key kakPrivateKey = null;
-                    try {
-                    	kakPrivateKey = loadPrivateKey(kakFilePath, "RSA");
-                    } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-						log.error("Error happened while loading the kak key pair from disk!", e);
-                    }
-
-                    byte[] authSig = new byte[bitsToBytes(KAK_SIZE)];
-                    try {
-                    	authSig = signHashPss(hash, hashLen, authSig.length, kakPrivateKey);
-					} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchProviderException 
-							 | InvalidAlgorithmParameterException | SignatureException e) {
-						log.error("Error happened while signing the hash!", e);
-					}
-                    
-                    long rvAuthorizeKey = ce.authorizeKey(session, authSig, authSig.length);
-                    if (rvAuthorizeKey != CKR.OK) {
-                    	cleanUp(session);
-                    	throw new CKRException(rvAuthorizeKey);
-                    }
-                    
-                    cleanUp(session);
-                    break;
-                }
-                case unblockKey: {
-                    final long slotId = Long.parseLong(parameters.get(SLOT));
-                    CryptokiDevice device = CryptokiManager.getInstance().getDevice(libName, libDir);
-                    CryptokiDevice.Slot slot = device.getSlot(slotId);
-                    final String alias = parameters.get(ALIAS);
-                    // Getting the key if it exist on the slot with the provided alias
-                    long[] privateKeyObjects = getPrivateKeyFromHSM(slot, alias);
-                    
-                    long session = ce.OpenSession(slotId, CK_SESSION_INFO.CKF_RW_SESSION | CK_SESSION_INFO.CKF_SERIAL_SESSION, null, null);
-                    ce.Login(session, CKU.CKU_CS_GENERIC, parameters.get(USER_AND_PIN).getBytes(StandardCharsets.UTF_8));
-                    long rvUnblockKey = ce.unblockKey(session, privateKeyObjects[0]);
-                    if (rvUnblockKey != CKR.OK) {
-                    	cleanUp(session);
-                    	throw new CKRException(rvUnblockKey);
-                    }
-                    cleanUp(session);
-                    break;
-                } case backupObject: {
-                	final long slotId = Long.parseLong(parameters.get(SLOT));
-                    CryptokiDevice device = CryptokiManager.getInstance().getDevice(libName, libDir);
-                    device.getSlot(slotId);                    
-                    
-                    long session = ce.OpenSession(slotId, CK_SESSION_INFO.CKF_RW_SESSION | CK_SESSION_INFO.CKF_SERIAL_SESSION, null, null);
-                    ce.Login(session, CKU.CKU_CS_GENERIC, parameters.get(USER_AND_PIN).getBytes(StandardCharsets.UTF_8));
-                    long objectHandle = Long.parseLong(parameters.get(OBJECT_SPEC_ID));
-                    
-                    PToPBackupObj ppBackupObj = new PToPBackupObj(null);
-                    LongByReference backupObjectLength = new LongByReference();
-                    
-                    ce.backupObject(session, objectHandle, ppBackupObj.getPointer(), backupObjectLength);
-                    
-                    int length = (int) backupObjectLength.getValue();
-                    byte[] resultBytes = ppBackupObj.getValue().getByteArray(0, length);
-                    final String backupFile = parameters.get(BACKUPFILE);
-                    
-                    write2File(resultBytes, backupFile);
-                    cleanUp(session);
-                    break;
-                } case restoreObject: {
+                case restoreObject: {
                     final long slotId = Long.parseLong(parameters.get(SLOT));
                     final CryptokiDevice device = CryptokiManager.getInstance().getDevice(libName, libDir);
                     device.getSlot(slotId); // Initialize slot
