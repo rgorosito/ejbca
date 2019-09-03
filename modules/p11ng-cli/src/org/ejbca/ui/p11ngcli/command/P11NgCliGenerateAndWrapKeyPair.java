@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import java.io.File;
@@ -27,7 +36,6 @@ import org.cesecore.keys.token.p11ng.provider.CryptokiManager;
 import org.cesecore.keys.token.p11ng.provider.GeneratedKeyData;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
 import org.ejbca.ui.cli.infrastructure.parameter.ParameterContainer;
-import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CKM;
 
 public class P11NgCliGenerateAndWrapKeyPair extends P11NgCliCommandBase {
@@ -40,9 +48,6 @@ public class P11NgCliGenerateAndWrapKeyPair extends P11NgCliCommandBase {
     private static final String PIN = "-pin";
     private static final String WRAPKEY = "-wrapkey";
     private static final String SELFCERT = "-selfcert";
-    
-    private static CEi ce;
-
     
     @Override
     public String getMainCommand() {
@@ -127,14 +132,12 @@ public class P11NgCliGenerateAndWrapKeyPair extends P11NgCliCommandBase {
 
     @Override
     public String getFullHelpText() {
-        // TODO Auto-generated method stub
-        return null;
+        return getCommandDescription();
     }
 
     @Override
     protected Logger getLogger() {
-        // TODO Auto-generated method stub
-        return null;
+        return log;
     }
 
 }

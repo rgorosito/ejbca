@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import static org.cesecore.keys.token.p11ng.TokenEntry.TYPE_PRIVATEKEY_ENTRY;
@@ -23,6 +32,11 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.MandatoryMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 
+/**
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliListKeystoreEntriesCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliListKeystoreEntriesCommand.class);
