@@ -26,6 +26,7 @@ import org.ejbca.ui.p11ngcli.helper.OperationsThread;
 import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 
 /**
+ * Class implementing the one time performance test command for P11Ng CLI tool.
  * 
  * @version $Id$
  *
@@ -33,9 +34,9 @@ import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 public class P11NgCliOneTimePerformanceTestCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliOneTimePerformanceTestCommand.class);
-    
-    private static final String SLOT = "-slot";
+
     private static final String LIBFILE = "-libfile";
+    private static final String SLOT = "-slot";
     private static final String PIN = "-pin";
     private static final String USE_CACHE = "-use_cache";
     private static final String SIGNATUREALGORITHM = "-signaturealgorithm";
@@ -157,14 +158,12 @@ public class P11NgCliOneTimePerformanceTestCommand extends P11NgCliCommandBase {
 
     @Override
     public String getFullHelpText() {
-        // TODO Auto-generated method stub
-        return null;
+        return getCommandDescription();
     }
 
     @Override
     protected Logger getLogger() {
-        // TODO Auto-generated method stub
-        return null;
+        return log;
     }
     
     private void oneTimePerformanceTest(final String libName, final String libDir, final long slotId, final String pin, final int numberOfThreads,

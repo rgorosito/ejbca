@@ -21,6 +21,7 @@ import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CK_INFO;
 
 /**
+ * Class implementing the show info command for P11Ng CLI tool.
  * 
  * @version $Id$
  *

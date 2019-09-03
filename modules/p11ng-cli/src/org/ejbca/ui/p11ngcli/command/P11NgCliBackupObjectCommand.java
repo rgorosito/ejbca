@@ -31,6 +31,13 @@ import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
 import com.sun.jna.ptr.LongByReference;
 
+/**
+ * Class implementing the backup object CLI command for P11Ng tool.
+ * Backup object is a CP5 specific operation. 
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliBackupObjectCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliBackupObjectCommand.class);
@@ -38,8 +45,8 @@ public class P11NgCliBackupObjectCommand extends P11NgCliCommandBase {
     private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String USER_AND_PIN = "-user_and_pin";
-    private static final String BACKUPFILE = "-backupFile"; 
     private static final String OBJECT_SPEC_ID = "-object_spec_id";
+    private static final String BACKUPFILE = "-backupFile"; 
 
     private static CEi ce;
 
@@ -116,5 +123,4 @@ public class P11NgCliBackupObjectCommand extends P11NgCliCommandBase {
             log.error("Error happened while writing key to file!", e);
         }
     }
-
 }

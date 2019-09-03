@@ -25,13 +25,19 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.MandatoryMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 
+/**
+ * Class implementing generate key pair command for P11Ng CLI tool
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliGenerateKeyPairCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliGenerateKeyPairCommand.class);
-    
+
+    private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String ALIAS = "-alias";
-    private static final String LIBFILE = "-libfile";
     private static final String PIN = "-pin";
     
     //Register all parameters

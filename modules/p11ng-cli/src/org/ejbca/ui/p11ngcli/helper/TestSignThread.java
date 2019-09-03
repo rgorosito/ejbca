@@ -1,4 +1,12 @@
-
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.helper;
 
 import java.io.UnsupportedEncodingException;
@@ -19,7 +27,7 @@ import org.cesecore.keys.token.p11ng.provider.JackNJI11Provider;
 /**
  * Testing signing thread implementation.
  * 
- * @version $Id: TestSignThread.java 9320 2018-05-16 14:01:31Z malu9369 $
+ * @version $Id$
  */
 public class TestSignThread extends OperationsThread {
     /** Logger for this class */

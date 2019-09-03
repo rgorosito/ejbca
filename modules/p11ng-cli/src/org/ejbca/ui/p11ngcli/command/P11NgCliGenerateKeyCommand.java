@@ -22,13 +22,19 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 import org.pkcs11.jacknji11.CKM;
 
+/**
+ * Class implementing generate key command for P11Ng CLI tool
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliGenerateKeyCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliGenerateKeyCommand.class);
 
+    private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String ALIAS = "-alias";
-    private static final String LIBFILE = "-libfile";
     private static final String PIN = "-pin";
     
     //Register all parameters

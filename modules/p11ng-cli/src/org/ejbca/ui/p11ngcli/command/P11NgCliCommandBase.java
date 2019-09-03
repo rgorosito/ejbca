@@ -14,8 +14,9 @@ import java.nio.charset.StandardCharsets;
 import org.ejbca.ui.cli.infrastructure.command.CommandBase;
 
 /**
+ * Base class for P11Ng CLI tool.
  * 
- * $Id$ 
+ * @version $Id$
  *
  */
 public abstract class P11NgCliCommandBase extends CommandBase {

@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.helper;
 
 import java.io.File;
@@ -26,6 +35,12 @@ import org.pkcs11.jacknji11.jna.JNAiNative;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
 
+/**
+ * Helper class keeping stuff used by P11Ng CLI command classes
+ *
+ * @version $Id$
+ *
+ */
 public final class P11NgCliHelper {
     
     private static final Logger log = Logger.getLogger(P11NgCliListSlotsCommand.class);

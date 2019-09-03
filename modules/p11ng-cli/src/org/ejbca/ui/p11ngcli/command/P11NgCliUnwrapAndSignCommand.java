@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import java.io.File;
@@ -36,10 +45,17 @@ import org.pkcs11.jacknji11.CKO;
 import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
+/**
+ * Class implementing the unwrap and sign command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliUnwrapAndSignCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliUnwrapAndSignCommand.class);
 
+    private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String PIN = "-pin";
     private static final String METHOD = "-method";
@@ -47,7 +63,6 @@ public class P11NgCliUnwrapAndSignCommand extends P11NgCliCommandBase {
     private static final String PRIVATEKEY = "-privatekey";
     private static final String PUBLICKEY = "-publickey";
     private static final String PLAINTEXT = "-plaintext";
-    private static final String LIBFILE = "-libfile";
     
     private static CEi ce;
 

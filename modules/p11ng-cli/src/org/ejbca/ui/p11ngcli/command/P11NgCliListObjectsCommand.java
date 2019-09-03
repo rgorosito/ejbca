@@ -30,6 +30,7 @@ import org.pkcs11.jacknji11.CK_SESSION_INFO;
 import org.pkcs11.jacknji11.Hex;
 
 /**
+ * Class implementing the list objects command for P11Ng CLI tool.
  * 
  * @version $Id$
  *

@@ -22,14 +22,21 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.MandatoryMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 
+/**
+ * Class implementing the delete key store entry by alias command for 
+ * P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliDeleteKeyStoreEntryByAliasCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliDeleteKeyStoreEntryByAliasCommand.class);
-    
-    private static final String SLOT = "-slot";
-    private static final String ALIAS = "-alias";
-    private static final String PIN = "-pin";
+
     private static final String LIBFILE = "-libfile";
+    private static final String SLOT = "-slot";
+    private static final String PIN = "-pin";
+    private static final String ALIAS = "-alias";
     
     //Register all parameters
     {
@@ -86,5 +93,4 @@ public class P11NgCliDeleteKeyStoreEntryByAliasCommand extends P11NgCliCommandBa
     protected Logger getLogger() {
         return log;
     }
-
 }

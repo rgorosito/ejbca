@@ -33,6 +33,7 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 
 /**
+ * Class implementing the list keystore entries command for P11Ng CLI tool.
  * 
  * @version $Id$
  *

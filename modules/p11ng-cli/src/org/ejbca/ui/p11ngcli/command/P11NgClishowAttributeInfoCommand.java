@@ -26,6 +26,7 @@ import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
 /**
+ * Class implementing the show attribute info command for P11Ng CLI tool.
  * 
  * @version $Id$
  *

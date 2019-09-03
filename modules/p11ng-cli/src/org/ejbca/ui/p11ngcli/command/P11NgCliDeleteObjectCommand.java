@@ -21,18 +21,22 @@ import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
+/**
+ * Class implementing delete object command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliDeleteObjectCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliDeleteObjectCommand.class);
-    
-    private static final String SLOT = "-slot";
-    private static final String OBJECT = "-object";
-    private static final String LIBFILE = "-libfile";
-    private static final String PIN = "-pin";
 
+    private static final String LIBFILE = "-libfile";
+    private static final String SLOT = "-slot";
+    private static final String PIN = "-pin";
+    private static final String OBJECT = "-object";
     
     private static CEi ce;
-
     
     //Register all parameters
     {
@@ -85,5 +89,4 @@ public class P11NgCliDeleteObjectCommand extends P11NgCliCommandBase {
     protected Logger getLogger() {
         return log;
     }
-
 }

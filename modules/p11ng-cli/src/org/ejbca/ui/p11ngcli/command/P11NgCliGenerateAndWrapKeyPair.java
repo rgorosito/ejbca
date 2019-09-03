@@ -35,19 +35,50 @@ import org.cesecore.keys.token.p11ng.provider.CryptokiDevice;
 import org.cesecore.keys.token.p11ng.provider.CryptokiManager;
 import org.cesecore.keys.token.p11ng.provider.GeneratedKeyData;
 import org.ejbca.ui.cli.infrastructure.command.CommandResult;
+import org.ejbca.ui.cli.infrastructure.parameter.Parameter;
 import org.ejbca.ui.cli.infrastructure.parameter.ParameterContainer;
+import org.ejbca.ui.cli.infrastructure.parameter.enums.MandatoryMode;
+import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
+import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 import org.pkcs11.jacknji11.CKM;
 
+/**
+ * Class implementing the generate and wrap key pair command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliGenerateAndWrapKeyPair extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliGenerateAndWrapKeyPair.class);
 
-    private static final String SLOT = "-slot";
-    private static final String ALIAS = "-alias";
     private static final String LIBFILE = "-libfile";
+    private static final String SLOT = "-slot";
     private static final String PIN = "-pin";
+    private static final String ALIAS = "-alias";
     private static final String WRAPKEY = "-wrapkey";
     private static final String SELFCERT = "-selfcert";
+
+    //Register all parameters
+    {
+        registerParameter(
+                new Parameter(LIBFILE, "lib file", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, "Shared library path"));
+        registerParameter(new Parameter(SLOT, "HSM slot", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT,
+                "Slot on the HSM which will be used."));
+        registerParameter(
+                new Parameter(PIN, "PIN for the slot", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
+                        "The pin which is used to connect to HSM slot."));
+        registerParameter(
+                new Parameter(ALIAS, "alias", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
+                        "Alias of the key pair on the HSM."));
+        registerParameter(
+                new Parameter(WRAPKEY, "wrap key", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
+                        "Label of key to wrap with"));
+        registerParameter(
+                new Parameter(SELFCERT, "self cert", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
+                        "Generate a self-signed certificate for the new key-pair"));
+    }
+    
     
     @Override
     public String getMainCommand() {

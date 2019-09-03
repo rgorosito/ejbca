@@ -20,6 +20,12 @@ import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CK_SLOT_INFO;
 
+/**
+ * Class implementing the show slot info command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliShowSlotInfoCommand extends P11NgCliCommandBase {
 
     private static final Logger log = Logger.getLogger(P11NgCliShowSlotInfoCommand.class);

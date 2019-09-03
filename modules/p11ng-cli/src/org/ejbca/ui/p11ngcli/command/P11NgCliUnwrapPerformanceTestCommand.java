@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import java.io.File;
@@ -18,20 +27,26 @@ import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 import org.ejbca.ui.p11ngcli.helper.UnwrapThread;
 import org.pkcs11.jacknji11.CKM;
 
+/**
+ * Class implementing the unwrap performance test command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliUnwrapPerformanceTestCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliUnwrapPerformanceTestCommand.class);
-    
+
+    private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String PIN = "-pin";
-    private static final String WRAPKEY = "-wrapkey";
+    private static final String USE_CACHE = "-use_cache";
     private static final String SIGNATUREALGORITHM = "-signaturealgorithm";
     private static final String THREADS = "-threads";
     private static final String WARMUPTIME = "-warmuptime";
     private static final String TIMELIMIT = "-timelimit";
-    private static final String USE_CACHE = "-use_cache";
-    private static final String LIBFILE = "-libfile";
-
+    private static final String WRAPKEY = "-wrapkey";
+    
     //Register all parameters
     {
         registerParameter(
@@ -60,10 +75,6 @@ public class P11NgCliUnwrapPerformanceTestCommand extends P11NgCliCommandBase {
                 new Parameter(WRAPKEY, "wrap key", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
                         "Label of key to wrap with"));
     }
-    
-    
-
-
 
     @Override
     public String getMainCommand() {
@@ -146,8 +157,7 @@ public class P11NgCliUnwrapPerformanceTestCommand extends P11NgCliCommandBase {
 
     @Override
     public String getFullHelpText() {
-        // TODO Auto-generated method stub
-        return null;
+        return getCommandDescription();
     }
 
     @Override

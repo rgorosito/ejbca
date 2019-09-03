@@ -16,7 +16,8 @@ import org.ejbca.ui.cli.infrastructure.library.CommandLibrary;
 /**
  * Entry class for the P11NgCli command
  * 
- * $Id$
+ * @version $Id$
+ *
  */
 public class P11NgCli {
 

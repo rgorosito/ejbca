@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import java.io.File;
@@ -14,6 +23,12 @@ import org.ejbca.ui.p11ngcli.helper.OperationsThread;
 import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 import org.ejbca.ui.p11ngcli.helper.TestSignThread;
 
+/**
+ * Class implementing the sign performance test command for P11Ng CLI tool.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliSignPerformanceTestCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliSignPerformanceTestCommand.class);

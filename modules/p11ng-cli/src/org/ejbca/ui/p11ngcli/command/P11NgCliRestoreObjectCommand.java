@@ -31,6 +31,8 @@ import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
 /**
+ * Class implementing the restore object command for P11Ng CLI tool.
+ * This is a CP5 specific command.
  * 
  * @version $Id$
  *
@@ -43,12 +45,10 @@ public class P11NgCliRestoreObjectCommand extends P11NgCliCommandBase {
     private static final String SLOT = "-slot";
     private static final String USER_AND_PIN = "-user_and_pin";
     private static final String USER2_AND_PIN = "-user2_and_pin";
-    private static final String BACKUPFILE = "-backupFile"; 
     private static final String OBJECT_SPEC_ID = "-object_spec_id";
-
+    private static final String BACKUPFILE = "-backupFile"; 
 
     private static CEi ce;
-
     
     //Register all parameters
     {

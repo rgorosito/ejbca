@@ -1,3 +1,12 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA - Proprietary Modules: Enterprise Certificate Authority        *
+ *                                                                       *
+ *  Copyright (c), PrimeKey Solutions AB. All rights reserved.           *
+ *  The use of the Proprietary Modules are subject to specific           * 
+ *  commercial license terms.                                            *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.ui.p11ngcli.command;
 
 import java.io.File;
@@ -19,6 +28,13 @@ import org.pkcs11.jacknji11.CKRException;
 import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 
+/**
+ * Class implementing the unblock key command for P11Ng CLI tool.
+ * This is a CP5 specific command.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliUnblockKeyCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliUnblockKeyCommand.class);

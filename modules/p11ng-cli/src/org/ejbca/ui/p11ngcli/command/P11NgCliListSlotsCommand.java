@@ -24,6 +24,7 @@ import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CK_TOKEN_INFO;
 
 /**
+ * Class implementing the list slots entries command for P11Ng CLI tool.
  * 
  * @version $Id$
  *

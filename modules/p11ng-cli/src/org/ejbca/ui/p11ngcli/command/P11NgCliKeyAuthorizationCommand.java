@@ -42,14 +42,21 @@ import org.pkcs11.jacknji11.CKU;
 import org.pkcs11.jacknji11.CK_SESSION_INFO;
 import org.pkcs11.jacknji11.LongRef;
 
+/**
+ * Class implementing the key authorization command for P11Ng CLI tool.
+ * This command is CP5 specific.
+ * 
+ * @version $Id$
+ *
+ */
 public class P11NgCliKeyAuthorizationCommand extends P11NgCliCommandBase {
     
     private static final Logger log = Logger.getLogger(P11NgCliKeyAuthorizationCommand.class);
-    
+
+    private static final String LIBFILE = "-libfile";
     private static final String SLOT = "-slot";
     private static final String ALIAS = "-alias";
     private static final String KAK_FILE_PATH = "-kak_file_path";
-    private static final String LIBFILE = "-libfile";
     private static final String USER_AND_PIN = "-user_and_pin";
 
     private static long AUTH_CTR = 4294967295L; // Max Operations Number for the key, default is unlimited 
