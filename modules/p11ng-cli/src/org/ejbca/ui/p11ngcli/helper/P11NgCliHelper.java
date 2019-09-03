@@ -25,7 +25,6 @@ import java.security.spec.PSSParameterSpec;
 
 import org.apache.log4j.Logger;
 import org.cesecore.keys.token.p11ng.provider.CryptokiDevice;
-import org.ejbca.ui.p11ngcli.command.P11NgCliListSlotsCommand;
 import org.pkcs11.jacknji11.CEi;
 import org.pkcs11.jacknji11.CKA;
 import org.pkcs11.jacknji11.Ci;
@@ -43,7 +42,7 @@ import com.sun.jna.NativeLibrary;
  */
 public final class P11NgCliHelper {
     
-    private static final Logger log = Logger.getLogger(P11NgCliListSlotsCommand.class);
+    private static final Logger log = Logger.getLogger(P11NgCliHelper.class);
     
     private static final int KEY_AUTHORIZATION_INIT_SIGN_SALT_SIZE = 32;
     public static final int HASH_SIZE = 32;
