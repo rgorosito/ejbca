@@ -35,6 +35,7 @@ import org.ejbca.ui.cli.infrastructure.parameter.enums.ParameterMode;
 import org.ejbca.ui.cli.infrastructure.parameter.enums.StandaloneMode;
 import org.ejbca.ui.p11ngcli.helper.P11NgCliHelper;
 import org.pkcs11.jacknji11.CEi;
+import org.pkcs11.jacknji11.CKA;
 import org.pkcs11.jacknji11.CKM;
 import org.pkcs11.jacknji11.CKR;
 import org.pkcs11.jacknji11.CKRException;
@@ -116,7 +117,11 @@ public class P11NgCliKeyAuthorizationCommand extends P11NgCliCommandBase {
         long session = ce.OpenSession(slotId, CK_SESSION_INFO.CKF_RW_SESSION | CK_SESSION_INFO.CKF_SERIAL_SESSION, null, null);
         ce.Login(session, CKU.CKU_CS_GENERIC, parameters.get(USER_AND_PIN).getBytes(StandardCharsets.UTF_8));
         
-        long[] privateKeyObjects = P11NgCliHelper.getPrivateKeyFromHSM(slot, alias);
+        long[] privateKeyObjects = slot.findPrivateKeyObjectsByID(session, new CKA(CKA.ID, alias.getBytes(StandardCharsets.UTF_8)).getValue());
+
+        if (privateKeyObjects.length == 0) {
+            throw new IllegalStateException("No private key found for alias '" + alias + "'");
+        }
         
         long rvAuthorizeKeyInit = ce.authorizeKeyInit(session, mechanism, privateKeyObjects[0], hash, new LongRef(hashLen));
         if (rvAuthorizeKeyInit != CKR.OK) {

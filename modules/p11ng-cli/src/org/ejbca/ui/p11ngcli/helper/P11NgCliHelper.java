@@ -108,18 +108,6 @@ public final class P11NgCliHelper {
         return signBytes;
     }
     
-    public static long[] getPrivateKeyFromHSM(CryptokiDevice.Slot slot, final String alias) {
-        // Get the private key from HSM
-        long[] privateKeyObjects = slot.findPrivateKeyObjectsByID(slot.aquireSession(), new CKA(CKA.ID, alias.getBytes(StandardCharsets.UTF_8)).getValue());
-        if (privateKeyObjects.length == 0) {
-            throw new IllegalStateException("No private key found for alias '" + alias + "'");
-        }
-        if (log.isDebugEnabled()) {
-            log.debug("Private key  with Id: '" + privateKeyObjects[0] + "' found for key alias '" + alias + "'");
-        }
-        return privateKeyObjects;
-    }
-    
     public static synchronized void cleanUp(final CEi ce, final long session) {
         ce.Logout(session);
         ce.CloseSession(session);

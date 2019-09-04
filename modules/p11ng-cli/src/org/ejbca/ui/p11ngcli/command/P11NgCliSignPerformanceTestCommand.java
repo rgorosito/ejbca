@@ -74,7 +74,6 @@ public class P11NgCliSignPerformanceTestCommand extends P11NgCliCommandBase {
                 new Parameter(TIMELIMIT, "time limit", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, 
                         "For sign-/unwrapPerformanceTest: Optional. Only run for the specified time (in milliseconds)."));
     }
-
     
     @Override
     public String getMainCommand() {

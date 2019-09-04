@@ -85,22 +85,22 @@ public class P11NgCliBackupObjectCommand extends P11NgCliCommandBase {
         final String libDir = library.getParent();
         final String libName = library.getName();
         CryptokiDevice device = CryptokiManager.getInstance().getDevice(libName, libDir);
-        device.getSlot(slotId);                    
-        
+        device.getSlot(slotId);
         ce = P11NgCliHelper.provideCe(parameters.get(LIBFILE));
+
         long session = ce.OpenSession(slotId, CK_SESSION_INFO.CKF_RW_SESSION | CK_SESSION_INFO.CKF_SERIAL_SESSION, null, null);
         ce.Login(session, CKU.CKU_CS_GENERIC, parameters.get(USER_AND_PIN).getBytes(StandardCharsets.UTF_8));
         long objectHandle = Long.parseLong(parameters.get(OBJECT_SPEC_ID));
-        
+
         PToPBackupObj ppBackupObj = new PToPBackupObj(null);
         LongByReference backupObjectLength = new LongByReference();
-        
+
         ce.backupObject(session, objectHandle, ppBackupObj.getPointer(), backupObjectLength);
-        
+
         int length = (int) backupObjectLength.getValue();
         byte[] resultBytes = ppBackupObj.getValue().getByteArray(0, length);
         final String backupFile = parameters.get(BACKUPFILE);
-        
+
         write2File(resultBytes, backupFile);
         P11NgCliHelper.cleanUp(ce, session);
         return CommandResult.SUCCESS;
