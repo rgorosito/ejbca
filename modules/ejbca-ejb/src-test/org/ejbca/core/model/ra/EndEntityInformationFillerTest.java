@@ -36,23 +36,19 @@ public class EndEntityInformationFillerTest {
         userData = new EndEntityInformation("userName", "CN=userName,O=linagora", -1688117755, "", "user@linagora.com", new EndEntityType(EndEntityTypes.ENDUSER), 3, 1, 2,
                 new org.cesecore.certificates.endentity.ExtendedInformation());
         profile = new EndEntityProfile();
-        profile.addField(EndEntityProfile.USERNAME);//0
-        profile.addField(EndEntityProfile.PASSWORD);//1
-        profile.addField(EndEntityProfile.CLEARTEXTPASSWORD);//2
-        profile.addField(EndEntityProfile.KEYRECOVERABLE);//28
-        profile.addField(EndEntityProfile.SENDNOTIFICATION);//35
-        profile.addField(EndEntityProfile.EMAIL);//26
         profile.addField(DnComponents.COUNTRY);//16
         profile.addField(DnComponents.ORGANIZATION);//12
-        profile.setValue(EndEntityProfile.USERNAME, 0, "defaultUserName");
-        profile.setValue(EndEntityProfile.PASSWORD, 0, "defaultPassword");
-        profile.setValue(EndEntityProfile.CLEARTEXTPASSWORD, 0, "true");
-        profile.setValue(EndEntityProfile.KEYRECOVERABLE, 0, "false");
-        profile.setValue(EndEntityProfile.SENDNOTIFICATION, 0, "false");
-        profile.setValue(EndEntityProfile.EMAIL, 0, "defaultMail@linagora.com");
+        profile.setUsernameDefault("defaultUserName");
+        profile.setPredefinedPassword("defaultPassword");
+        profile.setClearTextPasswordDefault(true);
+        profile.setKeyRecoverableDefault(false);
+        profile.setSendNotificationDefault(false);
+        profile.setEmailDomain("defaultMail@linagora.com");
         profile.setValue(DnComponents.COMMONNAME, 0, "defaultCN");
         profile.setValue(DnComponents.COUNTRY, 0, "fr");
         profile.setValue(DnComponents.ORGANIZATION, 0, "linagora");
+        profile.setCabfOrganizationIdentifierUsed(true);
+        profile.setCabfOrganizationIdentifier("VATSE-556677123401");
     }
 
     /**
@@ -69,6 +65,7 @@ public class EndEntityInformationFillerTest {
     	assertEquals("user@linagora.com", userData.getEmail());
     	assertEquals("userPassword", userData.getPassword());
     	assertEquals(expectedUserDn, userData.getDN());
+    	assertEquals("VATSE-556677123401", userData.getExtendedInformation().getCabfOrganizationIdentifier());
     }
     /**
      * userName is merged
@@ -85,7 +82,7 @@ public class EndEntityInformationFillerTest {
      */
 	@Test
    public void testFillUserDataWithDefaultValuesSendNotification() {
-    	profile.setValue(EndEntityProfile.SENDNOTIFICATION, 0, "true");
+    	profile.setSendNotificationDefault(true);
     	EndEntityInformationFiller.fillUserDataWithDefaultValues(userData, profile);
     	assertTrue(userData.getSendNotification());
     }
@@ -99,7 +96,7 @@ public class EndEntityInformationFillerTest {
     	assertEquals("defaultMail@linagora.com", userData.getEmail());
     	userData.setEmail("");
     	//Email is not merged because profile's email is not a valid email
-    	profile.setValue(EndEntityProfile.EMAIL, 0, "@linagora.com");
+    	profile.setEmailDomain("@linagora.com");
     	EndEntityInformationFiller.fillUserDataWithDefaultValues(userData, profile);
     	//@linagora.com is not a valid e-mail address, no merge
     	assertTrue(userData.getEmail().equals(""));

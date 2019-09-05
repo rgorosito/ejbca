@@ -92,7 +92,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     /** Internal localization of logs and errors */
     private static final InternalEjbcaResources intres = InternalEjbcaResources.getInstance();
 
-    public static final float LATEST_VERSION = 15;
+    private static final float LATEST_VERSION = 15;
 
     /**
      * Determines if a de-serialized file is compatible with this class.
@@ -108,15 +108,15 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     /** Constant values for end entity profile. */
     private static final HashMap<String, Integer> dataConstants = new HashMap<>();
 
-    // Field constants, used in the map below
-    public static final String USERNAME           = "USERNAME";
-    public static final String PASSWORD           = "PASSWORD";
+    // Field constants, used in the map below. Please use the getters/setters instead when possible!
+    private static final String USERNAME           = "USERNAME";
+    private static final String PASSWORD           = "PASSWORD";
     public static final String CLEARTEXTPASSWORD  = "CLEARTEXTPASSWORD";
-    public static final String AUTOGENPASSWORDTYPE   = "AUTOGENPASSWORDTYPE";
-    public static final String AUTOGENPASSWORDLENGTH = "AUTOGENPASSWORDLENGTH";
+    private static final String AUTOGENPASSWORDTYPE   = "AUTOGENPASSWORDTYPE";
+    private static final String AUTOGENPASSWORDLENGTH = "AUTOGENPASSWORDLENGTH";
     
     public static final String EMAIL              = "EMAIL";
-    public static final String DESCRIPTION        = "DESCRIPTION";
+    private static final String DESCRIPTION        = "DESCRIPTION";
     public static final String KEYRECOVERABLE     = "KEYRECOVERABLE";
     public static final String DEFAULTCERTPROFILE = "DEFAULTCERTPROFILE";
     /** A list of available certificate profile names can be retrieved with getAvailableCertificateProfileNames() */
@@ -131,9 +131,9 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     public static final String AVAILCAS           = "AVAILCAS";
     public static final String STARTTIME          = ExtendedInformation.CUSTOM_STARTTIME;	//"STARTTIME"
     public static final String ENDTIME            = ExtendedInformation.CUSTOM_ENDTIME;	//"ENDTIME"
-    public static final String CERTSERIALNR       = "CERTSERIALNR";
-    public static final String NAMECONSTRAINTS_PERMITTED = "NAMECONSTRAINTS_PERMITTED";
-    public static final String NAMECONSTRAINTS_EXCLUDED  = "NAMECONSTRAINTS_EXCLUDED";
+    private static final String CERTSERIALNR       = "CERTSERIALNR";
+    private static final String NAMECONSTRAINTS_PERMITTED = "NAMECONSTRAINTS_PERMITTED";
+    private static final String NAMECONSTRAINTS_EXCLUDED  = "NAMECONSTRAINTS_EXCLUDED";
     /** A maximum value of the (optional) counter specifying how many certificate requests can be processed
      * before user is finalized (status set to GENERATED). Counter is only used when finishUser is
      * enabled in the CA (by default it is)
@@ -147,7 +147,10 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     public static final String MAXFAILEDLOGINS	 = "MAXFAILEDLOGINS";
 
     /** Minimum password strength in bits */
-    public static final String MINPWDSTRENGTH    = "MINPWDSTRENGTH";
+    private static final String MINPWDSTRENGTH    = "MINPWDSTRENGTH";
+    
+    /** CA/B Forum Organization Identifier extension */
+    private static final String CABFORGANIZATIONIDENTIFIER = "CABFORGANIZATIONIDENTIFIER";
 
     // Default values
     // These must be in a strict order that can never change 
@@ -186,6 +189,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     	dataConstants.put(MINPWDSTRENGTH, 90);
     	dataConstants.put(NAMECONSTRAINTS_PERMITTED, 89);
     	dataConstants.put(NAMECONSTRAINTS_EXCLUDED, 88);
+    	dataConstants.put(CABFORGANIZATIONIDENTIFIER, 87);
     }
 	// The max value in dataConstants (we only want to do this once)
     private static final int dataConstantsMaxValue = Collections.max(dataConstants.values());
@@ -249,7 +253,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     private static final String PRINTINGSVGFILENAME    = "PRINTINGSVGFILENAME";
     private static final String PRINTINGSVGDATA        = "PRINTINGSVGDATA";
 
-    public static final String PSD2QCSTATEMENT    = "PSD2QCSTATEMENT";
+    private static final String PSD2QCSTATEMENT    = "PSD2QCSTATEMENT";
     
     /** 
      * If it should be possible to add/edit certificate extension data
@@ -327,6 +331,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         	setRequired(MAXFAILEDLOGINS,0,false);
         	setRequired(NAMECONSTRAINTS_EXCLUDED,0,false);
         	setRequired(NAMECONSTRAINTS_PERMITTED,0,false);
+        	setRequired(CABFORGANIZATIONIDENTIFIER,0,false);
         	setValue(DEFAULTCERTPROFILE,0, CONST_DEFAULTCERTPROFILE);
         	setValue(AVAILCERTPROFILES,0, CONST_AVAILCERTPROFILES1);
         	setValue(DEFKEYSTORE,0, CONST_DEFKEYSTORE);
@@ -345,6 +350,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         	setUse(MINPWDSTRENGTH,0,false);
         	setUse(NAMECONSTRAINTS_PERMITTED,0,false);
         	setUse(NAMECONSTRAINTS_EXCLUDED,0,false);
+        	setUse(CABFORGANIZATIONIDENTIFIER,0,false);
         } else {
         	// initialize profile data
         	addFieldWithDefaults(USERNAME, "", Boolean.TRUE, Boolean.TRUE, Boolean.TRUE);
@@ -370,6 +376,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         	addFieldWithDefaults(MAXFAILEDLOGINS, Integer.toString(ExtendedInformation.DEFAULT_MAXLOGINATTEMPTS), Boolean.FALSE, Boolean.FALSE, Boolean.TRUE);
         	addFieldWithDefaults(NAMECONSTRAINTS_PERMITTED, "", Boolean.FALSE, Boolean.FALSE, Boolean.TRUE);
         	addFieldWithDefaults(NAMECONSTRAINTS_EXCLUDED, "", Boolean.FALSE, Boolean.FALSE, Boolean.TRUE);
+        	addFieldWithDefaults(CABFORGANIZATIONIDENTIFIER, "", Boolean.FALSE, Boolean.FALSE, Boolean.TRUE);
         }
     }
 
@@ -871,7 +878,11 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     public String getUsernameDefault() {
         return getValue(USERNAME, 0);
     }
-    
+
+    public void setUsernameDefault(final String username) {
+        setValue(USERNAME, 0, username);
+    }
+
     public boolean isUsernameRequired() {
         return isRequired(USERNAME, 0);
     }
@@ -881,7 +892,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     }
 
     public void setAutoGeneratedUsername(final boolean autoGenerate) {
-        setModifyable(EndEntityProfile.USERNAME, 0, !autoGenerate);
+        setModifyable(USERNAME, 0, !autoGenerate);
     }
 
     public boolean isPasswordRequired() {
@@ -900,7 +911,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     	return !getUse(PASSWORD, 0);
     }
 
-    public void setAutoGeneratedPassword(final boolean autoGenerate) {
+    public void setUseAutoGeneratedPasswd(final boolean autoGenerate) {
         setUse(PASSWORD, 0, !autoGenerate);
     }
 
@@ -916,6 +927,10 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         setValue(PASSWORD, 0, password);
     }
 
+    /**
+     * Returns the characters to be used in auto-generated passwords.
+     * @return One of the constants in {@link PasswordGeneratorFactory}
+     */
     public String getAutoGeneratedPasswordType() {
     	String type = getValue(AUTOGENPASSWORDTYPE, 0);
     	if (StringUtils.isEmpty(type)) {
@@ -924,6 +939,10 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     	return type;
     }
 
+    /**
+     * Sets the characters to be used in auto-generated passwords.
+     * @param type One of the constants in {@link PasswordGeneratorFactory}
+     */
     public void setAutoGeneratedPasswordType(final String type) {
         if (!PasswordGeneratorFactory.getAvailablePasswordTypes().contains(type)) {
             throw new IllegalArgumentException("Invalid password auto-generation type");
@@ -1121,6 +1140,11 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         setModifyable(ISSUANCEREVOCATIONREASON, 0, use);
     }
 
+    /**
+     * Returns the initial revocation reason.
+     * @see #isIssuanceRevocationReasonUsed
+     * @return One of the {@link RevocationReasons} constants.
+     */
     public RevocationReasons getIssuanceRevocationReason() {
         final String value = getValue(ISSUANCEREVOCATIONREASON, 0);
         if (value != null) {
@@ -1130,6 +1154,11 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         }
     }
 
+    /**
+     * Sets the initial revocation reason.
+     * @see #setIssuanceRevocationReasonUsed
+     * @param reason One of the {@link RevocationReasons} constants.
+     */
     public void setIssuanceRevocationReason(final RevocationReasons reason) {
         setValue(ISSUANCEREVOCATIONREASON, 0, String.valueOf(reason.getDatabaseValue()));
     }
@@ -1141,7 +1170,7 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
     public void setCustomSerialNumberUsed(final boolean use) {
         setUse(CERTSERIALNR, 0, use);
     }
-    
+
     public boolean isPsd2QcStatementUsed() {
         return getValueDefaultFalse(PSD2QCSTATEMENT);
     }
@@ -1222,10 +1251,12 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
         setRequired(CARDNUMBER, 0, required);
     }
 
+    /** @see #getReUseKeyRecoveredCertificate */
     public boolean isKeyRecoverableUsed() {
         return getUse(KEYRECOVERABLE, 0);
     }
 
+    /** @see #setReUseKeyRecoveredCertificate */
     public void setKeyRecoverableUsed(boolean used) {
         setUse(KEYRECOVERABLE, 0, used);
     }
@@ -2663,6 +2694,38 @@ public class EndEntityProfile extends UpgradeableDataHashMap implements Serializ
 
     public void setNameConstraintsExcludedRequired(final boolean required) {
         setRequired(NAMECONSTRAINTS_EXCLUDED, 0, required);
+    }
+    
+    public String getCabfOrganizationIdentifier() {
+        return getValue(CABFORGANIZATIONIDENTIFIER, 0);
+    }
+
+    public void setCabfOrganizationIdentifier(final String value) {
+        setValue(CABFORGANIZATIONIDENTIFIER, 0, value);
+    }
+    
+    public boolean isCabfOrganizationIdentifierUsed() {
+        return getUse(CABFORGANIZATIONIDENTIFIER, 0);
+    }
+
+    public void setCabfOrganizationIdentifierUsed(final boolean use) {
+        setUse(CABFORGANIZATIONIDENTIFIER, 0, use);
+    }
+    
+    public boolean isCabfOrganizationIdentifierModifiable() {
+        return isModifyable(CABFORGANIZATIONIDENTIFIER, 0);
+    }
+
+    public void setCabfOrganizationIdentifierModifiable(final boolean modifiable) {
+        setModifyable(CABFORGANIZATIONIDENTIFIER, 0, modifiable);
+    }
+
+    public boolean isCabfOrganizationIdentifierRequired() {
+        return isRequired(CABFORGANIZATIONIDENTIFIER, 0);
+    }
+
+    public void setCabfOrganizationIdentifierRequired(final boolean required) {
+        setRequired(CABFORGANIZATIONIDENTIFIER, 0, required);
     }
 
     /**
