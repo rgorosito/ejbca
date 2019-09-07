@@ -472,6 +472,11 @@
 					rendered="#{cryptoTokenMBean.allowedToKeyGeneration}">
 					<f:selectItems value="#{cryptoTokenMBean.availableKeySpecs}" />
 				</h:selectOneMenu>
+				<h:selectOneMenu value="#{cryptoTokenMBean.keyUsage}" 
+					disabled="#{!cryptoTokenMBean.currentCryptoToken.canGenerateKey}"
+					rendered="#{cryptoTokenMBean.allowedToKeyGeneration and cryptoTokenMBean.currentCryptoToken.showAuthorizationInfo}">
+					<f:selectItems value="#{cryptoTokenMBean.availableKeyUsages}"/>
+				</h:selectOneMenu>
 				<h:commandButton value="#{web.text.CRYPTOTOKEN_KPM_GENNEW}"
 					action="#{cryptoTokenMBean.generateNewKeyPair}"
 					disabled="#{!cryptoTokenMBean.currentCryptoToken.canGenerateKey}"
@@ -503,11 +508,11 @@
 						<f:ajax render="maxNrOfOperations"/>
 					</h:selectBooleanCheckbox>
 					<h:outputLabel value="#{web.text.UNLIMITED}"/>
-					<h:inputText id="maxNrOfOperations" size="3" style="margin-left: 2px; margin-right: 2px;"
+					<h:inputText id="maxNrOfOperations" size="19" style="margin-left: 2px; margin-right: 2px;"
 					  	value="#{cryptoTokenMBean.maxOperationCount}"
 					  	disabled="#{cryptoTokenMBean.unlimitedOperations}" 
 					  	label="Max Operation Count">
-						<f:validateLongRange minimum="0" maximum="4294967295" /> 
+						<f:validateLongRange minimum="0" maximum="9223372036854775807" /> 
 					</h:inputText>
 					<h:outputLabel value="Allowed operations"/>
 				</h:panelGrid>
