@@ -82,23 +82,23 @@ public class CachedCryptoToken implements CryptoToken {
     }
 
     @Override
-    public void keyAuthorizeInit(String alias, KeyPair kakKeyPair, String signProviderName) {
+    public void keyAuthorizeInit(String alias, KeyPair kakKeyPair, String signProviderName, String selectedPaddingScheme) {
         throw new UnsupportedOperationException("Operation not supported for this Cryoto Token type");
     }
     
     @Override
-    public void keyAuthorize(String alias, KeyPair kakPair, String signProviderName, long maxOperationCount) {
+    public void keyAuthorize(String alias, KeyPair kakPair, String signProviderName, long maxOperationCount, String selectedPaddingScheme) {
         throw new UnsupportedOperationException("Operation not supported for this Cryoto Token type");
     }
     
     @Override
     public boolean isKeyInitialized(final String alias) {
-        throw new UnsupportedOperationException("Operation not supported for this Crypto Token type");
+        return true;
     }
     
     @Override
     public long maxOperationCount(final String alias) {
-        throw new UnsupportedOperationException("Operation not supported for this Crypto Token type");
+        return Long.MAX_VALUE;
     }    
     
     @Override

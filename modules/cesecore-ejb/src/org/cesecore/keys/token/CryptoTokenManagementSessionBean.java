@@ -15,6 +15,7 @@ package org.cesecore.keys.token;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
@@ -63,7 +64,6 @@ import org.cesecore.keys.util.KeyTools;
 import org.cesecore.keys.util.PublicKeyWrapper;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.StringTools;
-import java.nio.file.Path;
 
 /**
  * @see CryptoTokenManagementSession
@@ -236,8 +236,8 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
     }
 
     @Override
-    public void keyAuthorizeInit(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias) 
-            throws CryptoTokenOfflineException {
+    public void keyAuthorizeInit(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias,
+            String selectedPaddingScheme) throws CryptoTokenOfflineException {
         final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
         final CryptoToken kakCryptoToken = cryptoTokenSession.getCryptoToken(kakTokenid);
         if (cryptoToken == null || kakCryptoToken == null) {
@@ -247,12 +247,12 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         final PublicKey kakPublicKey = kakCryptoToken.getPublicKey(kakTokenKeyAlias);
         final String signProviderName = kakCryptoToken.getSignProviderName();
         final KeyPair kakPair = new KeyPair(kakPublicKey, kakPrivateKey);
-        cryptoToken.keyAuthorizeInit(alias, kakPair, signProviderName );
+        cryptoToken.keyAuthorizeInit(alias, kakPair, signProviderName, selectedPaddingScheme);
     }
     
     @Override
-    public void keyAuthorize(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias, final long maxOperationCount) 
-            throws CryptoTokenOfflineException {
+    public void keyAuthorize(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias, final int kakTokenid, final String kakTokenKeyAlias, 
+            final long maxOperationCount, String selectedPaddingScheme) throws CryptoTokenOfflineException {
         final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
         final CryptoToken kakCryptoToken = cryptoTokenSession.getCryptoToken(kakTokenid);
         if (cryptoToken == null || kakCryptoToken == null) {
@@ -262,7 +262,7 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         final PublicKey kakPublicKey = kakCryptoToken.getPublicKey(kakTokenKeyAlias);
         final String signProviderName = kakCryptoToken.getSignProviderName();
         final KeyPair kakPair = new KeyPair(kakPublicKey, kakPrivateKey);
-        cryptoToken.keyAuthorize(alias, kakPair, signProviderName, maxOperationCount);
+        cryptoToken.keyAuthorize(alias, kakPair, signProviderName, maxOperationCount, selectedPaddingScheme);
     }
     
     @Override
@@ -280,19 +280,13 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
     @Override
     public boolean isKeyInitialized(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias) {
         final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
-        if ("org.cesecore.keys.token.p11ng.cryptotoken.JackNJI11CryptoToken".equals(cryptoToken.getClass().getName())) {
-            return cryptoToken.isKeyInitialized(alias);
-        }
-        return false;
+        return cryptoToken.isKeyInitialized(alias);
     }
     
     @Override
     public long maxOperationCount(AuthenticationToken authenticationToken, int cryptoTokenId, final String alias) {
         final CryptoToken cryptoToken = cryptoTokenSession.getCryptoToken(cryptoTokenId);
-        if ("org.cesecore.keys.token.p11ng.cryptotoken.JackNJI11CryptoToken".equals(cryptoToken.getClass().getName())) {
-            return cryptoToken.maxOperationCount(alias);
-        }
-        return 0;
+        return cryptoToken.maxOperationCount(alias);
     }
     
     @Override
@@ -767,10 +761,8 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
         details.put("msg", "Generated new keypair in CryptoToken " + cryptoTokenId);
         details.put("keyAlias", alias);
         details.put("keySpecification", keySpecification);
-        // Update with parsed value
-        keyGenParams.setKeySpecification(keySpecification);
         // Generate key pair
-        cryptoToken.generateKeyPair(keyGenParams, alias);
+        cryptoToken.generateKeyPair(KeyGenParams.builder(keyGenParams).setKeySpecification(keySpecification).build(), alias);
         // We don't want to test CP5 keys on creation since they're not authorized yet (would fail).
         if (!cryptoToken.getClass().getName().equals(CryptoTokenFactory.JACKNJI_NAME)) {
             cryptoToken.testKeyPair(alias);
@@ -790,8 +782,7 @@ public class CryptoTokenManagementSessionBean implements CryptoTokenManagementSe
     public void createKeyPair(final AuthenticationToken authenticationToken, final int cryptoTokenId, final String alias,
             final String keySpecificationParam) throws AuthorizationDeniedException, CryptoTokenOfflineException, InvalidKeyException,
             InvalidAlgorithmParameterException {
-        final KeyGenParams keyGenParams = new KeyGenParams(keySpecificationParam);
-        createKeyPair(authenticationToken, cryptoTokenId, alias, keyGenParams);
+        createKeyPair(authenticationToken, cryptoTokenId, alias, KeyGenParams.builder(keySpecificationParam).build());
     }
 
     @TransactionAttribute(TransactionAttributeType.REQUIRED)

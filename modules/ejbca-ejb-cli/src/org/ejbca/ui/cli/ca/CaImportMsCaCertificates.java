@@ -98,7 +98,7 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
      * Represents possible values for the 'Request Disposition' field.
      */
     private enum RequestDisposition {
-        ISSUED, REVOKED, DENIED, UNKNOWN;
+        ISSUED, REVOKED, DENIED, PENDING, UNKNOWN;
 
         public static RequestDisposition parse(final String data) throws IOException {
             final String[] parts = data.split("--");
@@ -106,8 +106,11 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
                 throw new IOException(
                         "Expected [ 'Request Disposition: <CODE_HEX> (<CODE_DEC>)', <NAME> ], but parsed " + Arrays.asList(parts) + ".");
             }
-            final RequestDisposition requestDisposition = RequestDisposition.valueOf(StringUtils.trim(parts[1]).toUpperCase());
-            return requestDisposition != null ? requestDisposition : UNKNOWN;
+            try {
+                return RequestDisposition.valueOf(StringUtils.trim(parts[1]).toUpperCase());
+            } catch (final IllegalArgumentException e) {
+                return UNKNOWN;
+            }
         }
     }
 
@@ -134,7 +137,7 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
                         + "    OU - Use the first organizational unit in the subject distinguished name" + System.lineSeparator()
                         + System.lineSeparator() + "If the certificate does not contain the specified field, the UPN is used instead."));
         registerParameter(new Parameter(EE_PASSWORD, "End Entity Password", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.ARGUMENT,
-                "The password (enrollment code) to use for new end entities. If no passoword is specified, the default password 'foo123' is used."));
+                "The password (enrollment code) to use for new end entities. If no password is specified, the default password 'foo123' is used."));
     }
 
     @Override
@@ -188,7 +191,7 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
             for (String line; (line = reader.readLine()) != null;) {
                 if (line.startsWith("Row")) {
                     final int rowNumber = getRowNumber(line);
-                    final ImportResult importResult = importEntry(parameters, reader);
+                    final ImportResult importResult = importEntry(parameters, reader, rowNumber);
                     if (importResult.getStatus() == ImportResult.Status.ERROR) {
                         getLogger().error(importResult.getMessage(rowNumber));
                         return CommandResult.FUNCTIONAL_FAILURE;
@@ -211,15 +214,19 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
             if (processedCount > 0) {
                 getLogger().info("All rows imported successfully. Enjoy!");
                 getLogger().info("");
-                getLogger().info("Processed " + processedCount + " certificates in " + SimpleTime.getInstance(duration).toString() + " ("
-                        + (processedCount / (duration / 1000)) + " certificates / second).");
+                if (duration / 1000 == 0) {
+                    getLogger().info("Processed " + processedCount + " certificates in " + duration + " ms.");
+                } else {
+                    getLogger().info("Processed " + processedCount + " certificates in " + SimpleTime.getInstance(duration).toString() + " ("
+                            + (processedCount / (duration / 1000)) + " certificates / second).");
+                }
             } else {
                 getLogger().info("No rows were imported.");
             }
             if (skippedCount > 0) {
                 getLogger().info("");
-                getLogger().info(skippedCount + " certificates were missing in the dump file, or already present " + System.lineSeparator()
-                        + "in the database, and were skipped.");
+                getLogger().info(skippedCount + " certificates were missing in the dump file, or already present");
+                getLogger().info("in the database, and were skipped.");
             }
             getLogger().info("");
             getLogger().info("-------------------------------------------------------------------------------");
@@ -248,22 +255,27 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
         }
     }
 
-    private ImportResult importEntry(final ParameterContainer parameters, final BufferedReader reader)
+    private ImportResult importEntry(final ParameterContainer parameters, final BufferedReader reader, final int rowNumber)
             throws IOException, CertificateParsingException {
         final String upn = parseUpn(reader);
         final String certificateTemplate = parseCertificateTemplate(reader);
         final RequestDisposition requestDisposition = parseRequestDisposition(reader);
 
-        if (requestDisposition == RequestDisposition.DENIED) {
+        if (requestDisposition == RequestDisposition.DENIED || requestDisposition == RequestDisposition.PENDING) {
             return ImportResult.empty();
         }
 
         if (certificateTemplate == null) {
-            throw new IOException("Certificate template for row with request disposition = " 
-                    + requestDisposition.name() + " required, but none was found.");
+            throw new IOException("The name of the certificate template is missing for row #" + rowNumber);
         }
 
         final String pem = parseCertificateAsPem(reader);
+
+        if (pem == null) {
+            getLogger().warn("Row #" + rowNumber + " does not contain a certificate.");
+            return ImportResult.empty();
+        }
+
         final String pathToCertificate = writeCertificate(reader, pem);
 
         final X509Certificate certificate = CertTools.getCertfromByteArray(pem.getBytes(), X509Certificate.class);
@@ -304,7 +316,7 @@ public class CaImportMsCaCertificates extends BaseCaAdminCommand {
     private String parseCertificateAsPem(final BufferedReader reader) throws IOException {
         final String propertyLine = parseProperty(reader, "Binary Certificate");
         if (propertyLine.endsWith("EMPTY")) {
-            throw new IOException("Missing binary certificate.");
+            return null;
         }
         final String beginCertificate = reader.readLine();
         if (!StringUtils.equals(beginCertificate, CertTools.BEGIN_CERTIFICATE)) {

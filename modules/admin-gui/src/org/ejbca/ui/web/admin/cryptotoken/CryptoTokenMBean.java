@@ -12,6 +12,30 @@
  *************************************************************************/
 package org.ejbca.ui.web.admin.cryptotoken;
 
+import java.io.File;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
+import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
+import javax.faces.context.FacesContext;
+import javax.faces.event.ComponentSystemEvent;
+import javax.faces.model.ListDataModel;
+import javax.faces.model.SelectItem;
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -30,13 +54,14 @@ import org.cesecore.keys.token.AzureCryptoToken;
 import org.cesecore.keys.token.BaseCryptoToken;
 import org.cesecore.keys.token.CryptoToken;
 import org.cesecore.keys.token.CryptoTokenAuthenticationFailedException;
-import org.cesecore.keys.token.CryptoTokenConstants;
 import org.cesecore.keys.token.CryptoTokenFactory;
 import org.cesecore.keys.token.CryptoTokenInfo;
 import org.cesecore.keys.token.CryptoTokenManagementSession;
 import org.cesecore.keys.token.CryptoTokenManagementSessionLocal;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.KeyGenParams;
+import org.cesecore.keys.token.KeyGenParams.KeyGenParamsBuilder;
+import org.cesecore.keys.token.KeyGenParams.KeyPairTemplate;
 import org.cesecore.keys.token.KeyPairInfo;
 import org.cesecore.keys.token.NullCryptoToken;
 import org.cesecore.keys.token.PKCS11CryptoToken;
@@ -50,30 +75,6 @@ import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.ui.web.admin.BaseManagedBean;
 import org.ejbca.ui.web.jsf.configuration.EjbcaJSFHelper;
 import org.ejbca.util.SlotList;
-import org.pkcs11.jacknji11.CKA;
-
-import javax.faces.application.FacesMessage;
-import javax.faces.bean.ManagedBean;
-import javax.faces.bean.SessionScoped;
-import javax.faces.context.FacesContext;
-import javax.faces.event.ComponentSystemEvent;
-import javax.faces.model.ListDataModel;
-import javax.faces.model.SelectItem;
-import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.stream.Collectors;
 
 /**
  * JavaServer Faces Managed Bean for managing CryptoTokens.
@@ -418,6 +419,10 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         public boolean isShowAuthorizationInfo() {
             return CryptoTokenFactory.JACKNJI_SIMPLE_NAME.equals(getType());
         }
+        
+        public boolean isShowPaddingSchemeInfo() {
+            return CryptoTokenFactory.JACKNJI_SIMPLE_NAME.equals(getType());
+        }
     }
 
     /**
@@ -433,6 +438,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         private boolean selected = false;
         private int selectedKakCryptoTokenId;
         private String selectedKakKeyAlias;
+        private String selectedPaddingScheme;
         private boolean initialized;
         private boolean authorized;
 
@@ -485,6 +491,13 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             availableKeyAliases.add(0, new SelectItem(null, "-Select Key Alias-"));
             return availableKeyAliases;
         }
+        
+        public List<SelectItem> getAvailablePaddingSchemes() {
+            availablePaddingSchemes = new ArrayList<>();
+            availablePaddingSchemes.add(0, new SelectItem("PKCS#1"));
+            availablePaddingSchemes.add(0, new SelectItem("PSS"));
+            return availablePaddingSchemes;
+        }
 
         public String getAlias() {
             return alias;
@@ -504,6 +517,14 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
 
         public String getSubjectKeyID() {
             return subjectKeyID;
+        }        
+
+        public String getSelectedKakKeyAlias() {
+            return selectedKakKeyAlias;
+        }
+        
+        public String getSelectedPaddingScheme() { 
+            return selectedPaddingScheme; 
         }
 
         public boolean isPlaceholder() {
@@ -526,12 +547,12 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             this.selectedKakCryptoTokenId = selectedKakCryptoTokenId;
         }
 
-        public String getSelectedKakKeyAlias() {
-            return selectedKakKeyAlias;
-        }
-
         public void setSelectedKakKeyAlias(String selectedKakKeyAlias) {
             this.selectedKakKeyAlias = selectedKakKeyAlias;
+        }
+        
+        public void setSelectedPaddingScheme(String selectedPaddingScheme) { 
+            this.selectedPaddingScheme = selectedPaddingScheme; 
         }
 
         public boolean isInitialized() {
@@ -549,6 +570,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private ListDataModel<CryptoTokenGuiInfo> cryptoTokenGuiList = null;
     private List<KeyPairGuiInfo> keyPairGuiInfos = new ArrayList<>();
     private ListDataModel<KeyPairGuiInfo> keyPairGuiList = null;
+    private List<SelectItem> availablePaddingSchemes;
     private String keyPairGuiListError = null;
     private int currentCryptoTokenId = 0;
     private CurrentCryptoTokenGuiInfo currentCryptoToken = null;
@@ -558,7 +580,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
     private boolean authorizeInProgress = false;
     private boolean unlimitedOperations = true;
     private String maxOperationCount;
-    private String keyUsage; // Used for CP5 (same key cannot do encrypt/decrypt and sign/verify)
+    private KeyPairTemplate keyPairTemplate; // Used for CP5 (same key cannot do encrypt/decrypt and sign/verify)
 
     private final CryptoTokenManagementSessionLocal cryptoTokenManagementSession = getEjbcaWebBean().getEjb().getCryptoTokenManagementSession();
     private final AuthorizationSessionLocal authorizationSession = getEjbcaWebBean().getEjb().getAuthorizationSession();
@@ -624,21 +646,19 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         this.maxOperationCount = maxOperationCount;
     }
 
-    public String getKeyUsage() {
-        return keyUsage;
+    public KeyPairTemplate getKeyUsage() {
+        return keyPairTemplate;
     }
 
-    public void setKeyUsage(String keyUsage) {
-        this.keyUsage = keyUsage;
+    public void setKeyUsage(final KeyPairTemplate keyUsage) {
+        this.keyPairTemplate = keyUsage;
     }
 
     public List<SelectItem> getAvailableKeyUsages() {
-        final List<SelectItem> keyUsages = new ArrayList<>();
-        keyUsages.addAll(Arrays.asList(
-                new SelectItem(null, "-Key Usage-"),
-                new SelectItem(CryptoTokenConstants.SIGNKEYSPEC, "Sign / Verify"),
-                new SelectItem(CryptoTokenConstants.ENCKEYSPEC, "Encrypt / Decrypt")));
-        return keyUsages;
+        return Arrays.asList(
+                new SelectItem(null, EjbcaJSFHelper.getBean().getText().get("CRYPTOTOKEN_KPM_KU")),
+                new SelectItem(KeyPairTemplate.SIGN, EjbcaJSFHelper.getBean().getText().get("CRYPTOTOKEN_KPM_KU_SIGN")),
+                new SelectItem(KeyPairTemplate.ENCRYPT, EjbcaJSFHelper.getBean().getText().get("CRYPTOTOKEN_KPM_KU_ENC")));
     }
 
     /**
@@ -853,14 +873,15 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                     log.info("Checking if slot is already used");
                     List<String> usedBy = cryptoTokenManagementSession.isCryptoTokenSlotUsed(authenticationToken, name, className, properties);
                     if (!usedBy.isEmpty()) {
-                        StringBuilder msg = new StringBuilder("The P11 slot is already used by other crypto token(s)");
+                        final StringBuilder msg = new StringBuilder("The P11 slot is already used by other crypto token(s)");
                         for (String cryptoTokenName : usedBy) {
                             String usedByName = cryptoTokenName;
                             if (NumberUtils.isNumber(usedByName)) {
                                 // if the crypto token name is purely numeric, it is likely to be a database protection token
                                 usedByName = usedByName + " (database protection?)";
                             }
-                            msg.append("; ").append(usedByName);
+                            msg.append("; ");
+                            msg.append(usedByName);
                         }
                         msg.append(". Re-using P11 slots in multiple crypto tokens is discouraged, and all parameters must be identical. Re-enter authentication code and Confirm Save to continue.");
                         p11SlotUsed = true;
@@ -1324,27 +1345,16 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
         if (log.isTraceEnabled()) {
             log.trace(">generateNewKeyPair");
         }
-        final KeyGenParams keyGenParams = new KeyGenParams(getNewKeyPairSpec());
+        final KeyGenParamsBuilder keyGenParamsBuilder = KeyGenParams.builder(getNewKeyPairSpec());
         if (CryptoTokenFactory.JACKNJI_SIMPLE_NAME.equals(getCurrentCryptoToken().getType())) {
-            if (keyUsage == null) {
+            if (keyPairTemplate == null) {
                 addErrorMessage("Key Usage not selected");
                 return;
             }
-            if (keyUsage.equals(CryptoTokenConstants.ENCKEYSPEC)) {
-                keyGenParams.addPrivateKeyAttribute(CKA.DECRYPT, true);
-                keyGenParams.addPrivateKeyAttribute(CKA.SIGN, false);
-                keyGenParams.addPublicKeyAttribute(CKA.ENCRYPT, true);
-                keyGenParams.addPublicKeyAttribute(CKA.VERIFY, false);
-            }
-            if (keyUsage.equals(CryptoTokenConstants.SIGNKEYSPEC)) {
-                keyGenParams.addPrivateKeyAttribute(CKA.DECRYPT, false);
-                keyGenParams.addPrivateKeyAttribute(CKA.SIGN, true);
-                keyGenParams.addPublicKeyAttribute(CKA.ENCRYPT, false);
-                keyGenParams.addPublicKeyAttribute(CKA.VERIFY, true);
-            }
+            keyGenParamsBuilder.withKeyPairTemplate(keyPairTemplate);
         }
         try {
-            cryptoTokenManagementSession.createKeyPair(getAdmin(), getCurrentCryptoTokenId(), getNewKeyPairAlias(), keyGenParams);
+            cryptoTokenManagementSession.createKeyPair(getAdmin(), getCurrentCryptoTokenId(), getNewKeyPairAlias(), keyGenParamsBuilder.build());
         } catch (CryptoTokenOfflineException e) {
             final String msg = "Token is offline. Keypair cannot be generated.";
             log.debug(msg, e);
@@ -1398,8 +1408,13 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to initialize key.");
                 return;
             }
+            final String selectedPaddingScheme = keyPairGuiInfo.getSelectedPaddingScheme();
+            if (selectedPaddingScheme == null) {
+                addNonTranslatedErrorMessage("Signing algorithm was not chosen");
+                return;
+            }
             try {
-                cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias);
+                cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias, selectedPaddingScheme);
                 keyPairGuiInfo.initialized = true;
                 addNonTranslatedInfoMessage("Key '" + alias + "' initalized successfully.");
             } catch (CryptoTokenOfflineException e) {
@@ -1422,14 +1437,20 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             addNonTranslatedErrorMessage("Key Authorization Key must be selected in order to authorize key.");
             return;
         }
+        final String selectedPaddingScheme = keyPairGuiInfo.getSelectedPaddingScheme();
+        if (selectedPaddingScheme == null) {
+            addNonTranslatedErrorMessage("Signing algorithm was not chosen");
+            return;
+        }
         try {
-            cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId,
-                    kakAlias, Long.parseLong(getMaxOperationCount()));
+            cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, 
+                    kakAlias, Long.parseLong(getMaxOperationCount()), selectedPaddingScheme);
             addNonTranslatedInfoMessage("Key '" + alias + "' authorized successfully.");
         } catch (CryptoTokenOfflineException e) {
             addNonTranslatedErrorMessage(e);
         }
     }
+    
 
     /**
      * Invoked when admin requests a test of a key pair.
