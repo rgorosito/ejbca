@@ -82,7 +82,6 @@ import static org.junit.Assert.fail;
  * System test for the CertificateCrlReader Worker.
  * 
  * @version $Id$
- *
  */
 public class CertificateCrlReaderSystemTest {
 
@@ -212,6 +211,7 @@ public class CertificateCrlReaderSystemTest {
                 .setIssuer(ISSUER_DN)
                 .setUsername("testReadCertificateFromDisk")
                 .setCertificateType(CertificateConstants.CERTTYPE_ENDENTITY)
+                // Use fixed number
                 .setCertificateProfile(4711)
                 .setUpdateTime(currentDate.getTime())
                 .setSerialNumber(CertTools.getSerialNumber(userCertificate))
@@ -276,6 +276,7 @@ public class CertificateCrlReaderSystemTest {
                 .setIssuer(ISSUER_DN)
                 .setUsername(END_ENTITY_USER)
                 .setCertificateType(CertificateConstants.CERTTYPE_ENDENTITY)
+                // Use fixed number
                 .setCertificateProfile(4711)
                 .setUpdateTime(currentDate.getTime())
                 .setSerialNumber(CertTools.getSerialNumber(userCertificate))
