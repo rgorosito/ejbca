@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import javax.ejb.EJBException;
 import javax.faces.application.FacesMessage;
 import javax.faces.bean.ManagedBean;
 import javax.faces.bean.SessionScoped;
@@ -1417,7 +1418,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
                 cryptoTokenManagementSession.keyAuthorizeInit(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, kakAlias, selectedPaddingScheme);
                 keyPairGuiInfo.initialized = true;
                 addNonTranslatedInfoMessage("Key '" + alias + "' initalized successfully.");
-            } catch (CryptoTokenOfflineException e) {
+            } catch (CryptoTokenOfflineException | EJBException e) {
                 addNonTranslatedErrorMessage(e);
                 keyPairGuiInfo.initialized = false;
             }
@@ -1446,7 +1447,7 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
             cryptoTokenManagementSession.keyAuthorize(authenticationToken, getCurrentCryptoTokenId(), alias, kakTokenId, 
                     kakAlias, Long.parseLong(getMaxOperationCount()), selectedPaddingScheme);
             addNonTranslatedInfoMessage("Key '" + alias + "' authorized successfully.");
-        } catch (CryptoTokenOfflineException e) {
+        } catch (CryptoTokenOfflineException | EJBException e) {
             addNonTranslatedErrorMessage(e);
         }
     }
@@ -1505,9 +1506,13 @@ public class CryptoTokenMBean extends BaseManagedBean implements Serializable {
      */
     private SlotList getP11SlotList() {
         String library = currentCryptoToken.getP11Library();
-        if (library == null) return null;
+        if (library == null) {
+            return null;
+        }
         WebConfiguration.P11LibraryInfo libinfo = WebConfiguration.getAvailableP11LibraryToAliasMap().get(library);
-        if (libinfo == null) return null;
+        if (libinfo == null) {
+            return null;
+        }
         return libinfo.getSlotList();
     }
 

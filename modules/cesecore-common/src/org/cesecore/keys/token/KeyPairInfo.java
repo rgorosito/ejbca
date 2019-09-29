@@ -14,6 +14,8 @@ package org.cesecore.keys.token;
 
 import java.io.Serializable;
 
+import org.apache.commons.lang.StringUtils;
+
 /**
  * Representation of a KeyPair in a CryptoToken. Does not contain the actual keys.
  * 
@@ -58,5 +60,31 @@ public class KeyPairInfo implements Serializable, Comparable<KeyPairInfo> {
         if (c != 0) { return c; }
         
         return 0;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((alias == null) ? 0 : alias.hashCode());
+        result = prime * result + ((keyAlgorithm == null) ? 0 : keyAlgorithm.hashCode());
+        result = prime * result + ((keySpecification == null) ? 0 : keySpecification.hashCode());
+        result = prime * result + ((subjectKeyID == null) ? 0 : subjectKeyID.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final KeyPairInfo other = (KeyPairInfo) obj;
+        return StringUtils.equals(alias, other.alias)
+                && StringUtils.equals(keyAlgorithm, other.keyAlgorithm)
+                && StringUtils.equals(keySpecification, other.keySpecification)
+                && StringUtils.equals(subjectKeyID, other.subjectKeyID);
     }
 }

@@ -1278,7 +1278,7 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
                         labelsToSelect.add(updatedCtLogs.get(ctLog).getLabel());
                     }
                 }
-                certProfile.setEnabledCTLabels(labelsToSelect);
+                certProfile.setEnabledCtLabels(labelsToSelect);
                 
                 // This means there were some mandatory- or Google logs selected before upgrade, i.e. it would be ideal to comply to Chrome CT policy
                 if (labelsToSelect.size() > 1) {
@@ -1720,10 +1720,10 @@ public class UpgradeSessionBean implements UpgradeSessionLocal, UpgradeSessionRe
     @Override
     public void migrateDatabase730() {
         migrateOcspKeyBindings730();
-        removeStaleAccesssRules730();
+        removeStaleAccessRules730();
     }
 
-    private void removeStaleAccesssRules730() {
+    private void removeStaleAccessRules730() {
         try {
             final GlobalConfiguration globalConfiguration = (GlobalConfiguration) globalConfigurationSession
                     .getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);

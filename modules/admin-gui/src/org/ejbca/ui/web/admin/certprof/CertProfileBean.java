@@ -263,7 +263,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
 
                 // Modify the profile
                 getEjbcaWebBean().getEjb().getCertificateProfileSession().changeCertificateProfile(getAdmin(), getSelectedCertProfileName(), certificateProfile);
-                addInfoMessage("CERTIFICATEPROFILESAVED");
+                addInfoMessage("CERTIFICATEPROFILESAVED", getSelectedCertProfileName());
                 reset();
                 return "done";  // Outcome defined in faces-config.xml
             }
@@ -951,7 +951,7 @@ public class CertProfileBean extends BaseManagedBean implements Serializable {
     }
     
     public void setEnabledCtLabels(final List<String> selectedLabels) {
-        getCertificateProfile().setEnabledCTLabels(new LinkedHashSet<>(selectedLabels));
+        getCertificateProfile().setEnabledCtLabels(new LinkedHashSet<>(selectedLabels));
     }
     
     public void toggleUseMicrosoftTemplate() throws IOException {
