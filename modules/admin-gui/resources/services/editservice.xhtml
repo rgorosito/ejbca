@@ -128,10 +128,10 @@
 		<h:selectBooleanCheckbox id="activeCheckbox" value="#{editService.serviceConfigurationView.active}" disabled="#{not editService.hasEditRights}"/>
 		<h:outputLabel for="activeCheckbox" value="#{web.text.ACTIVE}" />
 	</h:panelGroup>
-	<h:panelGroup>
+	<h:panelGroup rendered="#{! empty editService.serviceConfigurationView.nodesInCluster}">
 		<h:outputText value="#{web.text.PINTONODES}"/>
 	</h:panelGroup>
-	<h:panelGroup>
+	<h:panelGroup rendered="#{! empty editService.serviceConfigurationView.nodesInCluster}">
 		<h:selectManyListbox id="pinToNodesListbox" value="#{editService.serviceConfigurationView.pinToNodes}" disabled="#{not editService.hasEditRights}">
 			<f:selectItems value="#{editService.serviceConfigurationView.nodesInCluster}"/>
 		</h:selectManyListbox>
