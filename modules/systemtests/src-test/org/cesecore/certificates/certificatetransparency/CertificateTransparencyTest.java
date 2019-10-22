@@ -44,6 +44,7 @@ import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
 import org.cesecore.certificates.endentity.EndEntityTypes;
 import org.cesecore.certificates.util.AlgorithmConstants;
+import org.cesecore.config.ConfigurationHolder;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.keys.util.PublicKeyWrapper;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
@@ -59,9 +60,11 @@ import org.junit.Test;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
+import static org.cesecore.certificates.certificatetransparency.CtTestData.CTLOG_PUBKEY;
 import static org.cesecore.certificates.certificatetransparency.CtTestData.LABELS_A;
 import static org.cesecore.certificates.certificatetransparency.CtTestData.LOG_LABEL_A;
+import static org.cesecore.certificates.certificatetransparency.CtTestData.REQUEST;
+import static org.cesecore.certificates.certificatetransparency.CtTestData.RESPONSE1;
 import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.createNiceMock;
 import static org.easymock.EasyMock.expect;
@@ -104,14 +107,42 @@ public class CertificateTransparencyTest {
     public static void beforeClass() throws Exception {
         CryptoProviderTools.installBCProviderIfNotAvailable();
         
+        ConfigurationHolder.backupConfiguration();
+        // Set everything to the defaults to make sure the user configuration doesn't affect the test
+        ConfigurationHolder.updateConfiguration("ct.cache.enabled", "true");
+        ConfigurationHolder.updateConfiguration("ct.cache.maxentries", "100000");
+        ConfigurationHolder.updateConfiguration("ct.cache.cleanupinterval", "10000");
+        ConfigurationHolder.updateConfiguration("ct.fastfail.enabled", "true"); // not default
+        ConfigurationHolder.updateConfiguration("ct.fastfail.backoff", "1000");
+
+        // Disable certificate checks during tests
+        disableCertCheck(true);
+        
         // Using the same thread pool configuration as used in SctDataSessionBean
         threadPool = new ThreadPoolExecutor(8, 128, 0L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>());
+
+        // Some tests are timing sensitive, so make sure everything has been loaded by the JVM
+        final List<Certificate> chain = makeTestChain();
+        final CertificateTransparency preloadCT = new CertificateTransparencyImpl();
+        final CTLogTestServer preloadServer = new CTLogTestServer("POST", "/ct/v1/add-pre-chain",
+                "application/json", REQUEST, "application/json", RESPONSE1, LOGSERVER_START_PORT+100, true, 0L);
         
         sctDataCallback = createNiceMock(SctDataCallback.class);
         expect(sctDataCallback.getThreadPool()).andReturn(threadPool).anyTimes();
         expect(sctDataCallback.findSctData(anyString())).andReturn(Collections.emptyMap()).anyTimes();
         replay(sctDataCallback);
-
+        try {
+            final byte[] pubKeyBytes = KeyTools.getBytesFromPEM(CTLOG_PUBKEY, CertTools.BEGIN_PUBLIC_KEY, CertTools.END_PUBLIC_KEY);
+            final CTLogInfo ctlog = new CTLogInfo("https://127.0.0.1:" + (LOGSERVER_START_PORT + 100) + "/ct/v1/", pubKeyBytes, LOG_LABEL_A, 5000);
+            final Map<Integer,CTLogInfo> logs = new LinkedHashMap<>();
+            logs.put(ctlog.hashCode(), ctlog);
+            fetchSCTList(preloadCT, logs, chain, 1, 1, LABELS_A, 0);
+        } catch (Exception e) {
+            log.warn("An exception occurred during test run to preload CT. Timing sensitive tests might fail.", e);
+        } finally {
+            preloadServer.close();
+        }
+        preloadCT.clearCaches();
     }
     
     @Before
@@ -121,6 +152,11 @@ public class CertificateTransparencyTest {
         testServers = new ArrayList<>();
     }
 
+    @SuppressWarnings("deprecation")
+    private static void disableCertCheck(final boolean disable) {
+        HttpPostTimeoutInvoker.disableCertCheck(disable);
+    }
+    
     @Test
     public void testPreCertStoredIfCannotConnectToLogServer() throws Exception {
         log.trace(">testPreCertStoredIfCannotConnectToLogServer");
@@ -149,7 +185,7 @@ public class CertificateTransparencyTest {
             certificateChain.add(clientCertificate);
 
             try {
-                fetchSCTList(makeTestChain(), 1, 1, LABELS_A, 0);
+                fetchSCTList(certificateChain, 1, 1, LABELS_A, 0);
                 fail("Should throw");
             } catch (CTLogException e) {
                 // Make sure we fail for the right reason
