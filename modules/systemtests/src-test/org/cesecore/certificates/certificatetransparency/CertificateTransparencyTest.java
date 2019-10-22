@@ -19,9 +19,15 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.cert.X509Extension;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -46,6 +52,7 @@ import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.core.ejb.ca.sign.SignSessionRemote;
 import org.ejbca.core.ejb.ra.EndEntityManagementSessionRemote;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -55,6 +62,10 @@ import static org.junit.Assert.fail;
 
 import static org.cesecore.certificates.certificatetransparency.CtTestData.LABELS_A;
 import static org.cesecore.certificates.certificatetransparency.CtTestData.LOG_LABEL_A;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createNiceMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 
 /**
  * Test class to run certificate transparency tests
@@ -81,6 +92,7 @@ public class CertificateTransparencyTest {
     private Map<Integer, CTLogInfo> ctlogs;
     private List<CTLogTestServer> testServers;
     private ServerSocket deadServerSocket;
+    private static ExecutorService threadPool;
 
     private final CertificateTransparency ct = new CertificateTransparencyImpl();
 
@@ -91,6 +103,22 @@ public class CertificateTransparencyTest {
     @BeforeClass
     public static void beforeClass() throws Exception {
         CryptoProviderTools.installBCProviderIfNotAvailable();
+        
+        // Using the same thread pool configuration as used in SctDataSessionBean
+        threadPool = new ThreadPoolExecutor(8, 128, 0L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>());
+        
+        sctDataCallback = createNiceMock(SctDataCallback.class);
+        expect(sctDataCallback.getThreadPool()).andReturn(threadPool).anyTimes();
+        expect(sctDataCallback.findSctData(anyString())).andReturn(Collections.emptyMap()).anyTimes();
+        replay(sctDataCallback);
+
+    }
+    
+    @Before
+    public void prepareTest() {
+        ct.clearCaches();
+        ctlogs = new LinkedHashMap<>();
+        testServers = new ArrayList<>();
     }
 
     @Test
@@ -114,9 +142,7 @@ public class CertificateTransparencyTest {
             assertNotNull("Returned client certificate was null", clientCertificate);
             usercertFp = CertTools.getFingerprintAsString(clientCertificate);
 
-
             createTestCTLogServer(LOGSERVER_START_PORT, CtTestData.CTLOG_PUBKEY, CtTestData.REQUEST, CtTestData.RESPONSE1);
-
             createDeadServerWithLabel(LOGSERVER_START_PORT + 3, CtTestData.CTLOG_PUBKEY, CtTestData.LOG_LABEL_A);
 
             final List<Certificate> certificateChain = new ArrayList<>();
