@@ -69,9 +69,9 @@ public class CertificateTransparencyTest {
         log.trace(">testPreCertStoredIfCannotConnectToLogServer");
         
         final KeyPair keyPair = KeyTools.genKeys("2048", AlgorithmConstants.KEYALGORITHM_RSA);
-        CTLogTest.createTestCTLogServer(LOGSERVER_START_PORT, CtTestData.CTLOG_PUBKEY, CtTestData.REQUEST, CtTestData.RESPONSE1);
+        //CTLogTest.createTestCTLogServer(LOGSERVER_START_PORT, CtTestData.CTLOG_PUBKEY, CtTestData.REQUEST, CtTestData.RESPONSE1);
         
-        CTLogTest.createDeadServerWithLabel(LOGSERVER_START_PORT + 3, CtTestData.CTLOG_PUBKEY, CtTestData.LOG_LABEL_A);
+        //CTLogTest.createDeadServerWithLabel(LOGSERVER_START_PORT + 3, CtTestData.CTLOG_PUBKEY, CtTestData.LOG_LABEL_A);
         
         final X509Certificate clientCertificate = (X509Certificate) signSession.createCertificate(admin, TEST_USER_NAME, "foo123", new PublicKeyWrapper(keyPair.getPublic()));
         final List<Certificate> certificateChain = new ArrayList<>();
