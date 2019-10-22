@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.x509.ReasonFlags;
 import org.cesecore.CaTestUtils;
@@ -99,7 +100,7 @@ public class CertificateTransparencyTest {
         final KeyPair keyPair = KeyTools.genKeys("2048", AlgorithmConstants.KEYALGORITHM_RSA);
 
         final CAInfo caInfo = CaTestUtils.getClientCertCaInfo(admin);
-        String usercertFp="";
+        String usercertFp = StringUtils.EMPTY;
 
         try {
             final EndEntityInformation user = new EndEntityInformation(TEST_USER_NAME, "CN=" + TEST_USER_NAME + ",O=WebTestUtils", caInfo.getCAId(),
