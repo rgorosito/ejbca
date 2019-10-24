@@ -10,15 +10,11 @@
 package org.ejbca.scp.publisher;
 
 import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
 
 import org.bouncycastle.operator.OperatorCreationException;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -129,7 +125,7 @@ public class ScpPublisherTest {
     @Ignore
     @Test
     public void testPublishCertificate() throws PublisherException, OperatorCreationException, CertificateException, InvalidAlgorithmParameterException,
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, AuthorizationDeniedException, CADoesntExistsException {
+            InvalidKeySpecException, AuthorizationDeniedException, CADoesntExistsException {
         CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
         CAInfo cainfo = caSession.getCAInfo(internalAdmin, caName);
         CAToken catoken = cainfo.getCAToken();
@@ -165,7 +161,7 @@ public class ScpPublisherTest {
     
     @Ignore 
     @Test
-    public void testPublishCrl() throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, PublisherException {
+    public void testPublishCrl() throws InvalidKeySpecException, PublisherException {
         ScpPublisher scpPublisher = new ScpPublisher();
         Properties properties = new Properties();
         properties.setProperty(ScpPublisher.ANONYMIZE_CERTIFICATES_PROPERTY_NAME, "false");
