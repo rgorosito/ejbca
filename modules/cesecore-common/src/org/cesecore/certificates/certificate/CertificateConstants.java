@@ -108,6 +108,7 @@ public final class CertificateConstants {
      * all pre-existing certificates from CAs where CRL partitioning is enabled after the CA is created.
      */
     public static final int NO_CRL_PARTITION = 0;
-
-
+    
+    /** Certificate is a pre-certificate. Used as tag in CertificateData. Do not change! */
+    public static final String CERT_TAG_PRECERT = "P";
 }

@@ -226,6 +226,8 @@ public abstract class CertTools {
     public static final String EFSR_OBJECTID = "1.3.6.1.4.1.311.10.3.4.1";
     /** ObjectID for Microsoft Signer of documents extended key usage */
     public static final String MS_DOCUMENT_SIGNING_OBJECTID = "1.3.6.1.4.1.311.10.3.12";
+    
+    public static final String PRECERT_POISON_EXTENSION_OID = "1.3.6.1.4.1.11129.2.4.3";
     /** Object id id-pkix */
     public static final String id_pkix = "1.3.6.1.5.5.7";
     /** Object id id-kp */
@@ -3736,7 +3738,7 @@ public abstract class CertTools {
      */
     public static List<String> getX500NameComponents(String dn) {
         List<String> ret = new ArrayList<String>();
-        if (StringUtils.isNotEmpty(dn)) {
+        if (StringUtils.isNotBlank(dn)) {
             X509NameTokenizer tokenizer = new X509NameTokenizer(dn);
             while (tokenizer.hasMoreTokens()) {
                 ret.add(tokenizer.nextToken());

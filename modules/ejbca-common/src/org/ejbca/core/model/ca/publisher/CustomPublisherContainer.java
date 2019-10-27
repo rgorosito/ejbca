@@ -16,8 +16,6 @@ package org.ejbca.core.model.ca.publisher;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
 import java.security.cert.Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
@@ -25,9 +23,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
 
 import org.apache.log4j.Logger;
 import org.cesecore.authentication.tokens.AuthenticationToken;
@@ -118,8 +113,7 @@ public class CustomPublisherContainer extends BasePublisher {
 	                //Property is of a type that shouldn't be written in clear text to disk. Encrypt!
 	                try {
                         value = StringTools.pbeEncryptStringWithSha256Aes192(properties.getProperty((String) key));
-                    } catch (InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
-                            | InvalidKeySpecException e) {
+                    } catch (InvalidKeySpecException e) {
                         throw new IllegalStateException("Could not encrypt private key password!", e);
                     }
 	            } else {

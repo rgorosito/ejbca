@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import org.apache.commons.lang.builder.HashCodeBuilder;
-
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -36,7 +34,7 @@ import org.apache.commons.lang.StringUtils;
  * @version $Id$
  *
  */
-public class ConfigDumpSetting implements Serializable {
+public class ConfigdumpSetting implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -84,23 +82,74 @@ public class ConfigDumpSetting implements Serializable {
         RUN                 // Process with persistence
     }
 
-    public enum OverwriteMode {
+    public enum NonInteractiveMode {
         NONE,
-        UPDATE,
-        SKIP;
-
-        public static OverwriteMode parseOverwriteMode(final String option) throws ParseException {
+        ABORT,            
+        CONTINUE;
+        
+        public static NonInteractiveMode parseNonInteractiveMode(final String option) throws ParseException {
             if (option == null) {
-                return null; // = prompt user
+                return NONE;
             }
             switch (StringUtils.lowerCase(option, Locale.ROOT)) {
-                case "skip":
-                    return SKIP;
-                case "update":
-                    return UPDATE;
+                case "abort":
+                    return ABORT;
+                case "continue":
+                    return CONTINUE;
                 default:
-                    throw new ParseException("Invalid overwrite mode '" + option + "'", 0);
+                    throw new ParseException("Invalid non-interactive mode '" + option + "'", 0);
             }
+        }
+    }
+        
+    public enum OverwriteMode {
+        NONE(null, "d"),
+        UPDATE("update", "u"),
+        SKIP("skip", "s");
+
+        private final String word;
+        private final String character;
+
+        OverwriteMode(final String word, final String character) {
+            this.word = word;
+            this.character = character;
+        }
+
+        /**
+         * Parses the overwrite mode from an input word (command's input argument).
+         *
+         * @param word the word to resolve.
+         *
+         * @return null or overwrite mode.
+         *
+         * @throws ParseException in case of unknown overwrite mode.
+         */
+        public static OverwriteMode parseOverwriteModeByWord(final String word) throws ParseException {
+            if (word == null) {
+                return null; // = use default
+            }
+            for (OverwriteMode overwriteMode : values()) {
+                if(word.equalsIgnoreCase(overwriteMode.word)) {
+                    return overwriteMode;
+                }
+            }
+            throw new ParseException("Invalid overwrite mode '" + word + "'", 0);
+        }
+
+        /**
+         * Parses the overwrite mode from an input character (console's input argument).
+         *
+         * @param character the character to resolve.
+         *
+         * @return null or overwrite mode.
+         */
+        public static OverwriteMode parseOverwriteModeByCharacter(final String character) {
+            for (OverwriteMode overwriteMode : values()) {
+                if(overwriteMode.character.equalsIgnoreCase(character)) {
+                    return overwriteMode;
+                }
+            }
+            return null;
         }
     }
 
@@ -108,11 +157,12 @@ public class ConfigDumpSetting implements Serializable {
 
         NO_RESOLUTION_SET,      // Doesn't have a reference problem
         USE_DEFAULT,            // Try to use default
+        TEMPORARILY_USE_DEFAULT,// Try to use default without warning and add to problematic items (used internally)
         SKIP;                   // Exclude from import
 
         public static ResolveReferenceMode parseResolveReferenceMode(final String option) throws ParseException {
             if (option == null) {
-                return null; // = prompt user
+                return null; // = use default
             }
             switch (StringUtils.lowerCase(option, Locale.ROOT)) {
                 case "skip":
@@ -140,9 +190,10 @@ public class ConfigDumpSetting implements Serializable {
     private Set<String> overwriteExceptions = new HashSet<>();
     private boolean ignoreErrors;
     private boolean ignoreWarnings;
+    private NonInteractiveMode nonInteractiveMode = NonInteractiveMode.NONE;
     private ProcessingMode processingMode;
-    private OverwriteMode overwriteMode;
-    private ResolveReferenceMode resolveReferenceMode;
+    private OverwriteMode overwriteMode = OverwriteMode.NONE;
+    private ResolveReferenceMode resolveReferenceMode = ResolveReferenceMode.NO_RESOLUTION_SET;
     private Map<ConfigdumpItem, OverwriteMode> overwriteResolutions = new HashMap<>();
     private Map<ConfigdumpItem, ResolveReferenceMode> resolveReferenceModeResolutions = new HashMap<>();
     private Map<ConfigdumpItem, String> passwords = new HashMap<>();
@@ -213,7 +264,15 @@ public class ConfigDumpSetting implements Serializable {
     public void setIgnoreWarnings(final boolean ignoreWarnings) {
         this.ignoreWarnings = ignoreWarnings;
     }
+    
+    public NonInteractiveMode getNonInteractiveMode() {
+        return nonInteractiveMode;
+    }
 
+    public void setNonInteractiveMode(final NonInteractiveMode nonInteractiveMode) {
+        this.nonInteractiveMode = nonInteractiveMode;
+    }
+        
     public ProcessingMode getProcessingMode() {
         return processingMode;
     }
