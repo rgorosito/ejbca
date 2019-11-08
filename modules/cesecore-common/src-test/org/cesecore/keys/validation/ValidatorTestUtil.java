@@ -10,12 +10,6 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-
-/**
- * Static helper key validator tests.
- * 
- * @version $Id$
- */
 package org.cesecore.keys.validation;
 
 import java.util.ArrayList;
@@ -23,11 +17,10 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * 
- * @version $Id$
+ * Static helper methods for validator tests.
  *
+ * @version $Id$
  */
-
 public final class ValidatorTestUtil {
 
     /**
@@ -69,7 +62,7 @@ public final class ValidatorTestUtil {
         if (-1 < failedAction) {
             result.setFailedAction(failedAction);
         }
-        final List<Integer> ids = new ArrayList<Integer>();
+        final List<Integer> ids = new ArrayList<>();
         for (Integer id : certificateProfileIds) {
             ids.add(id);
         }

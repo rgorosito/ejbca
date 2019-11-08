@@ -13,7 +13,6 @@
 package org.cesecore.certificates.ca;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
 import java.security.PublicKey;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
@@ -62,27 +61,7 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
     /** Internal localization of logs and errors */
 
     // protected fields.
-    protected static final String SUBJECTDN = "subjectdn";
-    protected static final String CAID = "caid";
-    public static final String NAME = "name";
-    protected static final String CERTIFICATECHAIN = "certificatechain";
-    protected static final String RENEWEDCERTIFICATECHAIN = "renewedcertificatechain";
-    protected static final String ROLLOVERCERTIFICATECHAIN = "rollovercertificatechain";
-    public static final String CATOKENDATA = "catoken";
-
-    protected static final String CERTIFICATEPROFILEID = "certificateprofileid";
-    protected static final String DEFAULTCERTIFICATEPROFILEID = "defaultcertificateprofileid";
-
-    protected static final String CRLISSUEINTERVAL = "crlIssueInterval";
-    protected static final String CRLOVERLAPTIME = "crlOverlapTime";
-    protected static final String CRLPUBLISHERS = "crlpublishers";
-    protected static final String VALIDATORS = "keyvalidators";
     private static final String FINISHUSER = "finishuser";
-    protected static final String REQUESTCERTCHAIN = "requestcertchain";
-    protected static final String EXTENDEDCASERVICES = "extendedcaservices";
-    protected static final String EXTENDEDCASERVICE = "extendedcaservice";
-    protected static final String USENOCONFLICTCERTIFICATEDATA = "usenoconflictcertificatedata";
-    protected static final String SERIALNUMBEROCTETSIZE = "serialnumberoctetsize";
 
     /**
      * @deprecated since 6.8.0, replaced by the approvals Action:ApprovalProfile mapping
@@ -95,18 +74,6 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
     private static final String USE_CERTIFICATE_STORAGE = "useCertificateStorage";
     private static final String ACCEPT_REVOCATION_NONEXISTING_ENTRY = "acceptRevocationNonExistingEntry";
     private static final String KEEPEXPIREDCERTSONCRL = "keepExpiredCertsOnCRL";
-    
-    /**
-     * @deprecated since 6.8.0, replaced by the approvals Action:ApprovalProfile mapping
-     */
-    @Deprecated
-    protected static final String APPROVALSETTINGS = "approvalsettings";
-    /**
-     * @deprecated since 6.6.0, use the appropriate approval profile instead
-     * Needed in order to be able to upgrade from 6.5 and earlier
-     */
-    @Deprecated
-    protected static final String NUMBEROFREQAPPROVALS = "numberofreqapprovals";
 
     protected static final String INCLUDEINHEALTHCHECK = "includeinhealthcheck";
     private static final String USE_USER_STORAGE = "useUserStorage";
@@ -126,7 +93,7 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
         super.init(cainfo);
         data.put(USENOCONFLICTCERTIFICATEDATA, cainfo.isUseNoConflictCertificateData());
         if (!cainfo.isUseCertificateStorage()) {
-            data.put(DEFAULTCERTIFICATEPROFILEID, Integer.valueOf(cainfo.getDefaultCertificateProfileId()));
+            data.put(DEFAULTCERTIFICATEPROFILEID, cainfo.getDefaultCertificateProfileId());
         }
         setFinishUser(cainfo.getFinishUser());
         setIncludeInHealthCheck(cainfo.getIncludeInHealthCheck());
@@ -157,22 +124,22 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
 
     /** Constructor used when retrieving existing CA from database. */
     @Override
-    public void init(HashMap<Object, Object> data) {
-        super.init(data);
+    public void init(HashMap<Object, Object> loadedData) {
+        super.init(loadedData);
     }
 
     @Override
     public void updateCA(CryptoToken cryptoToken, CAInfo cainfo, final AvailableCustomCertificateExtensionsConfiguration cceConfig) throws InvalidAlgorithmException {
         super.updateCA(cryptoToken, cainfo, cceConfig);
-        data.put(CRLPERIOD, Long.valueOf(cainfo.getCRLPeriod()));
-        data.put(DELTACRLPERIOD, Long.valueOf(cainfo.getDeltaCRLPeriod()));
-        data.put(CRLISSUEINTERVAL, Long.valueOf(cainfo.getCRLIssueInterval()));
-        data.put(CRLOVERLAPTIME, Long.valueOf(cainfo.getCRLOverlapTime()));
+        data.put(CRLPERIOD, cainfo.getCRLPeriod());
+        data.put(DELTACRLPERIOD, cainfo.getDeltaCRLPeriod());
+        data.put(CRLISSUEINTERVAL, cainfo.getCRLIssueInterval());
+        data.put(CRLOVERLAPTIME, cainfo.getCRLOverlapTime());
         data.put(CRLPUBLISHERS, cainfo.getCRLPublishers());
         data.put(VALIDATORS, cainfo.getValidators());
         data.put(USENOCONFLICTCERTIFICATEDATA, cainfo.isUseNoConflictCertificateData());
         if (cainfo.getDefaultCertificateProfileId() > 0 && !cainfo.isUseCertificateStorage()) {
-            data.put(DEFAULTCERTIFICATEPROFILEID, Integer.valueOf(cainfo.getDefaultCertificateProfileId()));
+            data.put(DEFAULTCERTIFICATEPROFILEID, cainfo.getDefaultCertificateProfileId());
         }
         setKeepExpiredCertsOnCRL(cainfo.getKeepExpiredCertsOnCRL());
         setFinishUser(cainfo.getFinishUser());
@@ -219,18 +186,18 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
 
     @Override
     public long getCRLPeriod() {
-        return ((Long) data.get(CRLPERIOD)).longValue();
+        return (long) data.get(CRLPERIOD);
     }
 
     @Override
     public void setCRLPeriod(long crlperiod) {
-        data.put(CRLPERIOD, Long.valueOf(crlperiod));
+        data.put(CRLPERIOD, crlperiod);
     }
 
     @Override
     public long getDeltaCRLPeriod() {
         if (data.containsKey(DELTACRLPERIOD)) {
-            return ((Long) data.get(DELTACRLPERIOD)).longValue();
+            return (long) data.get(DELTACRLPERIOD);
         } else {
             return 0;
         }
@@ -238,34 +205,34 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
 
     @Override
     public void setDeltaCRLPeriod(long deltacrlperiod) {
-        data.put(DELTACRLPERIOD, Long.valueOf(deltacrlperiod));
+        data.put(DELTACRLPERIOD, deltacrlperiod);
     }
 
     @Override
     public long getCRLIssueInterval() {
-        return ((Long) data.get(CRLISSUEINTERVAL)).longValue();
+        return (long) data.get(CRLISSUEINTERVAL);
     }
 
     @Override
     public void setCRLIssueInterval(long crlIssueInterval) {
-        data.put(CRLISSUEINTERVAL, Long.valueOf(crlIssueInterval));
+        data.put(CRLISSUEINTERVAL, crlIssueInterval);
     }
 
     @Override
     public long getCRLOverlapTime() {
-        return ((Long) data.get(CRLOVERLAPTIME)).longValue();
+        return (long) data.get(CRLOVERLAPTIME);
     }
 
     @Override
     public void setCRLOverlapTime(long crlOverlapTime) {
-        data.put(CRLOVERLAPTIME, Long.valueOf(crlOverlapTime));
+        data.put(CRLOVERLAPTIME, crlOverlapTime);
     }
 
     @Override
     public int getDefaultCertificateProfileId() {
         Integer defaultCertificateProfileId = (Integer) data.get(DEFAULTCERTIFICATEPROFILEID);
         if (defaultCertificateProfileId != null) {
-            return defaultCertificateProfileId.intValue();
+            return defaultCertificateProfileId;
         } else {
             return 0;
         }
@@ -275,22 +242,9 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
         // Create implementation using reflection
         try {
             Class<?> implClass = Class.forName(info.getImplClass());
-            final ExtendedCAService service = (ExtendedCAService) implClass.getConstructor(ExtendedCAServiceInfo.class).newInstance(
-                    new Object[] { info });
+            final ExtendedCAService service = (ExtendedCAService) implClass.getConstructor(ExtendedCAServiceInfo.class).newInstance(info);
             setExtendedCAService(service);
-        } catch (ClassNotFoundException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (IllegalArgumentException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (SecurityException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (InstantiationException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (IllegalAccessException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (InvocationTargetException e) {
-            log.warn("failed to add extended CA service: ", e);
-        } catch (NoSuchMethodException e) {
+        } catch (ReflectiveOperationException | IllegalArgumentException | SecurityException e) {
             log.warn("failed to add extended CA service: ", e);
         }
     }
@@ -303,7 +257,7 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
      */
     @Override
     public ExtendedCAServiceResponse extendedService(CryptoToken cryptoToken, ExtendedCAServiceRequest request) throws ExtendedCAServiceRequestException,
-            IllegalExtendedCAServiceRequestException, ExtendedCAServiceNotActiveException, CertificateEncodingException, CertificateException, OperatorCreationException {
+            IllegalExtendedCAServiceRequestException, ExtendedCAServiceNotActiveException, CertificateException, OperatorCreationException {
         ExtendedCAService service = getExtendedCAService(request.getServiceType());
         if (service == null) {
             final String msg = "Extended CA service is null for service request: "+request.getClass().getName();
@@ -422,16 +376,12 @@ public abstract class CABase extends CABaseCommon implements Serializable, CA {
 
     @Override
     public boolean getKeepExpiredCertsOnCRL() {
-        if(data.containsKey(KEEPEXPIREDCERTSONCRL)) {
-            return ((Boolean)data.get(KEEPEXPIREDCERTSONCRL)).booleanValue();
-        } else {
-            return false;
-        }
+        return getBoolean(KEEPEXPIREDCERTSONCRL, false);
     }
 
     @Override
     public void setKeepExpiredCertsOnCRL(boolean keepexpiredcertsoncrl) {
-        data.put(KEEPEXPIREDCERTSONCRL, Boolean.valueOf(keepexpiredcertsoncrl));
+        data.put(KEEPEXPIREDCERTSONCRL, keepexpiredcertsoncrl);
     }
     
     /** whether users should be stored or not, default true as was the case before 3.10.x */

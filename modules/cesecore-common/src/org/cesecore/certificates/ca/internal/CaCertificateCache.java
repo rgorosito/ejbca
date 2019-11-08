@@ -19,6 +19,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,13 +45,13 @@ public enum CaCertificateCache  {
 	private final Logger log = Logger.getLogger(CaCertificateCache.class);
 
     /** Mapping from subjectDN to key in the certs HashMap. */
-    private Map<Integer, X509Certificate> certsFromSubjectDN = new HashMap<Integer, X509Certificate>();
+    private Map<Integer, X509Certificate> certsFromSubjectDN = new HashMap<>();
     /** Mapping from issuerDN to key in the certs HashMap. */
-    private Map<Integer, Set<X509Certificate>> certsFromIssuerDN = new HashMap<Integer, Set<X509Certificate>>();
+    private Map<Integer, Set<X509Certificate>> certsFromIssuerDN = new HashMap<>();
     /** Mapping from subject key identifier to key in the certs HashMap. */
-    private Map<Integer, X509Certificate> certsFromSubjectKeyIdentifier = new HashMap<Integer, X509Certificate>();
+    private Map<Integer, X509Certificate> certsFromSubjectKeyIdentifier = new HashMap<>();
     /** All root certificates. */
-    private Set<X509Certificate> rootCertificates = new HashSet<X509Certificate>();
+    private Set<X509Certificate> rootCertificates = new HashSet<>();
 
 	/** Cache time counter, set and used by loadCertificates */
 	private long certValidTo = 0;
@@ -104,10 +105,10 @@ public enum CaCertificateCache  {
             log.debug("Loaded " + (certs == null ? "0" : Integer.toString(certs.size())) + " ca certificates");
         }
 
-        Map<Integer, X509Certificate> newCertsFromSubjectDN = new HashMap<Integer, X509Certificate>();
-        Map<Integer, Set<X509Certificate>> newCertsFromIssuerDN = new HashMap<Integer, Set<X509Certificate>>();
-        Map<Integer, X509Certificate> newCertsFromSubjectKeyIdentifier = new HashMap<Integer, X509Certificate>();
-        Set<X509Certificate> newRootCertificates = new HashSet<X509Certificate>();
+        Map<Integer, X509Certificate> newCertsFromSubjectDN = new HashMap<>();
+        Map<Integer, Set<X509Certificate>> newCertsFromIssuerDN = new HashMap<>();
+        Map<Integer, X509Certificate> newCertsFromSubjectKeyIdentifier = new HashMap<>();
+        Set<X509Certificate> newRootCertificates = new HashSet<>();
         if (certs != null) {
             for (final Certificate tmp : certs) {
                 if (!(tmp instanceof X509Certificate)) {
@@ -118,8 +119,13 @@ public enum CaCertificateCache  {
                 try { // test if certificate is OK. we have experienced that BC could decode a certificate that later on could not be used.
                     final Integer key = HashID.getFromKeyID(cert).getKey();
                     final X509Certificate pastCert = newCertsFromSubjectKeyIdentifier.get(key);
+                    final Date notBefore = CertTools.getNotBefore(cert);
+                    if (notBefore == null) {
+                        log.debug("CA certificate with serial '" + CertTools.getSerialNumberAsString(cert)  + "' does not have notBefore attribute and will not be added");
+                        continue;
+                    }
                     // Add the entry if it's the first, or if it is more recent than the one existing (in that case replace it)
-                    if ( pastCert == null || (pastCert != null && CertTools.getNotBefore(cert).after(CertTools.getNotBefore(pastCert))) ) {
+                    if (pastCert == null || notBefore.after(CertTools.getNotBefore(pastCert))) {
                         newCertsFromSubjectKeyIdentifier.put(key, cert);
                     }
                 } catch (Throwable t) { // NOPMD: catch all to not break with an error here.
@@ -162,7 +168,7 @@ public enum CaCertificateCache  {
                     if (!issuerDNKey.equals(subjectDNKey)) { // don't add roots to themselves
                         Set<X509Certificate> sIssuer = newCertsFromIssuerDN.get(issuerDNKey);
                         if (sIssuer == null) {
-                            sIssuer = new HashSet<X509Certificate>();
+                            sIssuer = new HashSet<>();
                             newCertsFromIssuerDN.put(issuerDNKey, sIssuer);
                         }
                         sIssuer.add(cert);

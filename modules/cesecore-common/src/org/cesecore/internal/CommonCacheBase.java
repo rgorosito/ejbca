@@ -47,8 +47,8 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     }
     
     private final Logger log = Logger.getLogger(CommonCacheBase.class);
-    private Map<Integer, CacheEntry> cache = new HashMap<Integer, CacheEntry>();
-    private Map<String, Integer> nameToIdMap = new HashMap<String, Integer>();
+    private Map<Integer, CacheEntry> cache = new HashMap<>();
+    private Map<String, Integer> nameToIdMap = new HashMap<>();
 
     /** @return how long to cache objects in milliseconds. */
     protected abstract long getCacheTime();
@@ -71,7 +71,7 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     }
 
     public Set<T> getAllEntries() {
-        Set<T> result = new HashSet<T>();
+        Set<T> result = new HashSet<>();
         for(CacheEntry cacheEntry : cache.values()) {
             result.add(cacheEntry.object);
         }
@@ -79,7 +79,7 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     }
 
     public Set<String> getAllNames() {
-        Set<String> result = new HashSet<String>();
+        Set<String> result = new HashSet<>();
         for(CacheEntry cacheEntry : cache.values()) {
             result.add(cacheEntry.name);
         }
@@ -94,7 +94,7 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
             // Cache is disabled, caller should check db
             return true;
         }
-        final Integer key = Integer.valueOf(id);
+        final Integer key = id;
         final CacheEntry cacheEntry = cache.get(key);
         if (cacheEntry == null) {
             // No such object in cache, caller should check db
@@ -123,13 +123,12 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     @Override
     public boolean willUpdate(int id, int digest) {
         // Same version in cache as provided Object?
-        final Integer key = Integer.valueOf(id);
-        final CacheEntry cacheEntry = getCacheEntry(key);
+        final CacheEntry cacheEntry = getCacheEntry(id);
         if (cacheEntry == null || cacheEntry.digest != digest) {
             return true;
         } else {
             if (log.isDebugEnabled()) {
-                log.debug("Update not needed " + cacheEntry.object.getClass().getSimpleName() + " in cache. Digest was " + digest + ", cacheEntry digest was " + (cacheEntry == null ? "null" : cacheEntry.digest));
+                log.debug("Update not needed " + cacheEntry.object.getClass().getSimpleName() + " in cache. Digest was " + digest + ", cacheEntry digest was " + cacheEntry.digest);
             }
             return false;
         }
@@ -137,7 +136,7 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     
     @Override
     public void updateWith(int id, int digest, String name, T object) {
-        final Integer key = Integer.valueOf(id);
+        final Integer key = id;
         if (name==null || object == null || getCacheTime()<0) {
             // Remove from cache
             setCacheEntry(key, null);
@@ -168,8 +167,8 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
     
     /** Set or remove cache entry. */
     private void setCacheEntry(final Integer key, final CacheEntry cacheEntry) {
-        final Map<Integer, CacheEntry> cacheStage = new HashMap<Integer, CacheEntry>();
-        final Map<String, Integer> nameToIdMapStage = new HashMap<String, Integer>();
+        final Map<Integer, CacheEntry> cacheStage = new HashMap<>();
+        final Map<String, Integer> nameToIdMapStage = new HashMap<>();
         final long maxCacheLifeTime = getMaxCacheLifeTime();
         final long staleCutOffTime = System.currentTimeMillis()-maxCacheLifeTime;
         synchronized (this) {
@@ -207,15 +206,15 @@ public abstract class CommonCacheBase<T> implements CommonCache<T> {
 
     @Override
     public void flush() {
-        final Map<Integer, CacheEntry> cacheStage = new HashMap<Integer, CacheEntry>();
-        final Map<String, Integer> nameToIdMapStage = new HashMap<String, Integer>();
+        final Map<Integer, CacheEntry> cacheStage = new HashMap<>();
+        final Map<String, Integer> nameToIdMapStage = new HashMap<>();
         replaceCache(cacheStage, nameToIdMapStage);
     }
     
     @Override
     public void replaceCacheWith(List<Integer> keys) {
-        Map<Integer, CacheEntry> cacheStage = new HashMap<Integer, CacheEntry>();
-        Map<String, Integer> nameToIdMapStage = new HashMap<String, Integer>();
+        Map<Integer, CacheEntry> cacheStage = new HashMap<>();
+        Map<String, Integer> nameToIdMapStage = new HashMap<>();
         
         for(Integer key : keys) {
             CacheEntry entry = cache.get(key);

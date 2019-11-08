@@ -19,9 +19,8 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -864,7 +863,7 @@ public final class KeyTools {
         try ( final JcaPEMWriter pemWriter = new JcaPEMWriter(new OutputStreamWriter(baos)) ) {
             pemWriter.writeObject(publicKey);
         }
-        return new String(baos.toByteArray(), "UTF8");
+        return new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
     /**
@@ -900,7 +899,7 @@ public final class KeyTools {
         try (final JcaPEMWriter pemWriter = new JcaPEMWriter(new OutputStreamWriter(baos))) {
             pemWriter.writeObject(crl);
         }
-        return new String(baos.toByteArray(), "UTF8");
+        return new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
     /**
@@ -1284,12 +1283,12 @@ public final class KeyTools {
             // for ImplicitlyCA we have no idea what the key length is, on the other hand only real professionals
             // will ever use that to we will allow it.
             if ((len > 0) && (len < 224)) {
-                final String msg = intres.getLocalizedMessage("catoken.invalidkeylength", "ECDSA", "224", Integer.valueOf(len));
+                final String msg = intres.getLocalizedMessage("catoken.invalidkeylength", "ECDSA", "224", len);
                 throw new InvalidKeyException(msg);
             }                            
         } else if (AlgorithmConstants.KEYALGORITHM_RSA.equals(keyAlg) || AlgorithmConstants.KEYALGORITHM_DSA.equals(keyAlg)) {
             if (len < 1024) {
-                final String msg = intres.getLocalizedMessage("catoken.invalidkeylength", "RSA/DSA", "1024", Integer.valueOf(len));
+                final String msg = intres.getLocalizedMessage("catoken.invalidkeylength", "RSA/DSA", "1024", len);
                 throw new InvalidKeyException(msg);
             }
         }
@@ -1377,12 +1376,7 @@ public final class KeyTools {
         }
         
         final String base64 = pem.substring(start + beginMarker.length(), end);
-        try {
-            return Base64.decode(base64.getBytes("ASCII"));
-        } catch (UnsupportedEncodingException e) {
-            log.debug(String.format("Invalid byte in PEM data: %s", e.getMessage()));
-            return null;
-        }
+        return Base64.decode(base64.getBytes(StandardCharsets.US_ASCII));
     }
     
     /**
@@ -1397,7 +1391,7 @@ public final class KeyTools {
         if (file.length == 0) {
             throw new CertificateParsingException("Public key file is empty");
         }
-        final String fileText = Charset.forName("ASCII").decode(java.nio.ByteBuffer.wrap(file)).toString();
+        final String fileText = StandardCharsets.US_ASCII.decode(java.nio.ByteBuffer.wrap(file)).toString();
         final byte[] asn1bytes;
         {
             final byte[] tmpBytes = getBytesFromPEM(fileText, CertTools.BEGIN_PUBLIC_KEY, CertTools.END_PUBLIC_KEY);

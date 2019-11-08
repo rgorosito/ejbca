@@ -52,8 +52,8 @@ public abstract class CvcCABase extends CABase implements Serializable, CvcCA {
 	@Override
     public void init(CVCCAInfo cainfo) {
 	    super.init(cainfo);
-        data.put(CABase.CATYPE, Integer.valueOf(CAInfo.CATYPE_CVC));
-        data.put(VERSION, new Float(LATEST_VERSION));   
+        data.put(CABase.CATYPE, CAInfo.CATYPE_CVC);
+        data.put(VERSION, LATEST_VERSION);
 	}
 
 	public static CvcCABase getInstance(CVCCAInfo cainfo) {
@@ -74,8 +74,7 @@ public abstract class CvcCABase extends CABase implements Serializable, CvcCA {
 	}
 
 	public static ServiceLoader<? extends CvcPlugin> getImplementationClasses() {
-        ServiceLoader<? extends CvcPlugin> serviceLoader = ServiceLoader.load(CvcPlugin.class);
-        return serviceLoader;
+        return ServiceLoader.load(CvcPlugin.class);
 	}
     private static CvcPlugin createCAImpl(final String type) {
         // type can be used to differentiate between different types of CVC CA implementations as there
@@ -96,15 +95,15 @@ public abstract class CvcCABase extends CABase implements Serializable, CvcCA {
 
     @Override
     @SuppressWarnings("deprecation")
-    public void init(HashMap<Object, Object> data, int caId, String subjectDN, String name, int status, Date updateTime, Date expireTime) {
-		super.init(data);
+    public void init(HashMap<Object, Object> loadedData, int caId, String subjectDN, String name, int status, Date updateTime, Date expireTime) {
+		super.init(loadedData);
 		setExpireTime(expireTime);
 		final List<ExtendedCAServiceInfo> externalcaserviceinfos = new ArrayList<>();
         for (final Integer externalCAServiceType : getExternalCAServiceTypes()) {
             //Type was removed in 6.0.0. It is removed from the database in the upgrade method in this class, but it needs to be ignored 
             //for instantiation. 
             if (externalCAServiceType != ExtendedCAServiceTypes.TYPE_OCSPEXTENDEDSERVICE) {
-                final ExtendedCAServiceInfo info = this.getExtendedCAServiceInfo(externalCAServiceType.intValue());
+                final ExtendedCAServiceInfo info = this.getExtendedCAServiceInfo(externalCAServiceType);
                 if (info != null) {
                     externalcaserviceinfos.add(info);
                 }

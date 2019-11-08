@@ -280,7 +280,7 @@ public final class ConcurrentCacheTest {
             Thread.sleep(100);
             
             // Access the cache once more to trigger a cleanup
-            entry = cache.openCacheEntry(String.valueOf("x"), 1);
+            entry = cache.openCacheEntry("x", 1);
             assertNotNull("openCacheEntry timed out", entry);
             assertFalse("isInCache should return false for non-existent entry", entry.isInCache());
             entry.putValue(-123456);
@@ -342,7 +342,6 @@ public final class ConcurrentCacheTest {
                     break;
                 case THREAD_RANDOM:
                     final Random random = new Random(id);
-                    final Integer value = Integer.valueOf(id);
                     while (!shouldExit) {
                         final String key = KEYS[random.nextInt(KEYS.length)];
                         entry = cache.openCacheEntry(key, CONCURRENT_OPEN_TIMEOUT);
@@ -354,7 +353,7 @@ public final class ConcurrentCacheTest {
                             entry.close();
                         } else {
                             Thread.sleep(1+random.nextInt(50));
-                            entry.putValue(value);
+                            entry.putValue(id);
                             entry.setCacheValidity(2000+random.nextInt(100));
                             entry.close();
                         }

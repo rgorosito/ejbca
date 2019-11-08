@@ -126,8 +126,8 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
             if (log.isTraceEnabled()) {
                 log.trace("Creating CA hierarchies from: " + cas);
             }
-            final List<CaHierarchy<T>> caHierarchies = computeCaHierarchies(cas, isSignedBy);
-            if (caHierarchies.size() == 0) {
+            final List<CaHierarchy<T>> caHierarchies = computeCaHierarchies();
+            if (caHierarchies.isEmpty()) {
                 throw new IllegalArgumentException("No CA hierarchies found.");
             }
             return caHierarchies;
@@ -160,8 +160,8 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
             return new CaHierarchy<>(edgesInCaHierarchy);
         }
 
-        private List<CaHierarchy<T>> computeCaHierarchies(final Set<T> cas, final BiPredicate<T, T> isSignedBy) {
-            final List<Edge<T>> allEdges = cas.stream().flatMap(a -> cas.stream().filter(b -> isSignedBy.test(a, b)).map(b -> new Edge<T>(a, b)))
+        private List<CaHierarchy<T>> computeCaHierarchies() {
+            final List<Edge<T>> allEdges = cas.stream().flatMap(a -> cas.stream().filter(b -> isSignedBy.test(a, b)).map(b -> new Edge<>(a, b)))
                     .collect(Collectors.toList());
             if (log.isTraceEnabled()) {
                 log.trace("Computed edges: " + allEdges);
@@ -188,15 +188,10 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
             return allEdges.stream().filter(candidate -> !candidate.isSelfLoop())
                     .filter(candidate -> allEdges.stream()
                             .filter(edge -> edge.isSelfLoop())
-                            .filter(edge -> edge.getA() == candidate.getA())
-                            .findAny()
-                            .isPresent())
-                    .filter(candidate -> allEdges.stream()
+                            .anyMatch(edge -> edge.getA() == candidate.getA()))
+                    .anyMatch(candidate -> allEdges.stream()
                             .filter(edge -> edge.isSelfLoop())
-                            .filter(edge -> edge.getB() == candidate.getB())
-                            .findAny()
-                            .isPresent())
-                    .findAny().isPresent();
+                            .anyMatch(edge -> edge.getB() == candidate.getB()));
         }
     }
 
@@ -255,7 +250,7 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
      * @param isSignedBy a predicate taking a pair of CAs (A, B), outputting true iff A has signed B.
      */
     public static <T> Builder<T> from(final Set<T> cas, final BiPredicate<T, T> isSignedBy) {
-        return new Builder<T>(cas, isSignedBy);
+        return new Builder<>(cas, isSignedBy);
     }
 
     /**
@@ -265,7 +260,7 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
      * @return a builder.
      */
     public static Builder<Certificate> fromCertificates(final Set<Certificate> certificates) {
-        return new Builder<Certificate>(certificates, isCertificateSignedBy());
+        return new Builder<>(certificates, isCertificateSignedBy());
     }
 
     /**
@@ -291,7 +286,7 @@ public class CaHierarchy<T> implements Comparable<CaHierarchy<T>>, Iterable<T> {
         this.nodes = edges.stream()
                 .map(edge -> edge.getB())
                 .distinct()
-                .map(ca -> new AbstractMap.SimpleImmutableEntry<T, Integer>(ca, computeLevel(ca)))
+                .map(ca -> new AbstractMap.SimpleImmutableEntry<>(ca, computeLevel(ca)))
                 .sorted(compareAscending())
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());

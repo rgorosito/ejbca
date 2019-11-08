@@ -63,7 +63,7 @@ public class HashID {
 			this.b64 = b64padded.substring(0, 27);
 		}
 		this.b64url = this.b64.replaceAll("\\+", "%2B");
-		this.key = Integer.valueOf(new BigInteger(hash).hashCode());
+		this.key = new BigInteger(hash).hashCode();
 	}
 	private static byte[] hashFromPrincipalDN( X500Principal principal ) {
 		return CertTools.generateSHA1Fingerprint(principal.getEncoded());
@@ -95,7 +95,7 @@ public class HashID {
 	}
 	
 	/**
-     * @param cert The issuer DN of the certificate should be the identifier.
+     * @param certificateHolder The issuer DN of the certificate should be the identifier.
      * @return the ID
 	 * @throws CertificateException 
      */
@@ -136,7 +136,7 @@ public class HashID {
 		}
 		return id;
 	}
-	public static HashID getFromAuthorityKeyId(X509Certificate cert) throws IOException {
+	public static HashID getFromAuthorityKeyId(X509Certificate cert) {
 		final byte hash[]  = CertTools.getAuthorityKeyId(cert);
 		if ( hash==null ) {
 			return null;

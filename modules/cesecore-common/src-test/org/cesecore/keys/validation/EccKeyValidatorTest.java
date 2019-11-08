@@ -10,12 +10,6 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-
-/**
- * Test class fot RSA key validator functional methods, see {@link RsaKeyValidator}.
- * 
- * @version $Id$
- */
 package org.cesecore.keys.validation;
 
 import static org.junit.Assert.assertEquals;
@@ -34,7 +28,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Tests ECC key validator functions.
+ * Tests ECC key validator functions, see {@link EccKeyValidator}.
  * 
  * @version $Id$
  */
@@ -67,19 +61,19 @@ public class EccKeyValidatorTest {
                 "ecc-parameter-validation-test-1", "Description", null, -1, null, -1, -1, new Integer[] {});
         keyValidator.setSettingsTemplate(KeyValidatorSettingsTemplate.USE_CUSTOM_SETTINGS.getOption());
         // Set custom curve
-        List<String> curves = new ArrayList<String>();
+        List<String> curves = new ArrayList<>();
         curves.add("secp256r1");
         keyValidator.setCurves(curves);
         List<String> messages = keyValidator.validate(keys.getPublic(), null);
         log.trace("Key validation error messages: " + messages);
-        assertTrue("Key valildation should have been successful.", messages.size() == 0);
+        assertTrue("Key valildation should have been successful.", messages.isEmpty());
         // Set custom curve to something else, so it's not supported
         curves.clear();
         curves.add("secp384r1");
         keyValidator.setCurves(curves);
         messages = keyValidator.validate(keys.getPublic(), null);
         log.trace("Key validation error messages: " + messages);
-        assertTrue("Key validation should have failed.", messages.size() > 0);
+        assertTrue("Key validation should have failed.", !messages.isEmpty());
         assertEquals("Key validation should have failed.", "Invalid: ECDSA curve [secp256r1, prime256v1, P-256]: Use one of the following [secp384r1].", messages.get(0));
 
         // TODO: create some failed EC key to test validation on
@@ -95,19 +89,19 @@ public class EccKeyValidatorTest {
                 "ecc-parameter-validation-test-1", "Description", null, -1, null, -1, -1, new Integer[] {});
         keyValidator.setSettingsTemplate(KeyValidatorSettingsTemplate.USE_CUSTOM_SETTINGS.getOption());
         // Set custom curve
-        List<String> curves = new ArrayList<String>();
+        List<String> curves = new ArrayList<>();
         curves.add("secp256r1");
         keyValidator.setCurves(curves);
         List<String> messages = keyValidator.validate(keys.getPublic(), null);
         log.trace("Key validation error messages: " + messages);
-        assertTrue("Key valildation should have been successful.", messages.size() == 0);
+        assertTrue("Key valildation should have been successful.", messages.isEmpty());
         // Set custom curve to something else, so it's not supported
         curves.clear();
         curves.add("secp384r1");
         keyValidator.setCurves(curves);
         messages = keyValidator.validate(keys.getPublic(), null);
         log.trace("Key validation error messages: " + messages);
-        assertTrue("Key validation should have failed.", messages.size() > 0);
+        assertTrue("Key validation should have failed.", !messages.isEmpty());
         assertEquals("Key validation should have failed.", "Invalid: ECDSA curve [secp256r1, prime256v1, P-256]: Use one of the following [secp384r1].", messages.get(0));
         log.trace("<testPublicKeyValidation()");
     }

@@ -401,7 +401,7 @@ public final class CesecoreConfiguration {
 
     /** @return the number of rows that should be fetched at the time when creating CRLs. */
     public static int getDatabaseRevokedCertInfoFetchSize() {
-        return Long.valueOf(getLongValue("database.crlgenfetchsize", 500000L, "rows")).intValue();
+        return (int) getLongValue("database.crlgenfetchsize", 500000L, "rows");
     }
 
     /**
@@ -450,11 +450,11 @@ public final class CesecoreConfiguration {
      *  Cipher suites with SHA384 and SHA256 are available only for TLS 1.2 or later.
      */
     public static String[] getAvailableCipherSuites() {
-        final List<String> availableCipherSuites = new ArrayList<String>();
+        final List<String> availableCipherSuites = new ArrayList<>();
         for (int i=0; i<255; i++) {
             final String key = "authkeybind.ciphersuite." + i;
             final String value = ConfigurationHolder.getString(key);
-            if (value==null || value.indexOf(AVAILABLE_CIPHER_SUITES_SPLIT_CHAR)==-1) {
+            if (value==null || !value.contains(AVAILABLE_CIPHER_SUITES_SPLIT_CHAR)) {
                 continue;
             }
             availableCipherSuites.add(value);
@@ -470,7 +470,7 @@ public final class CesecoreConfiguration {
      *
      * -1 means no limit (and not "off"). The default is 100 000.
      *
-     * @see getCTCacheEnabled
+     * @see #getCTCacheEnabled
      */
     public static long getCTCacheMaxEntries() {
         return getLongValue("ct.cache.maxentries", 100000L, "number of entries in cache");

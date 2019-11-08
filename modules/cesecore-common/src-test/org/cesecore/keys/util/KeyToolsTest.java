@@ -25,7 +25,6 @@ import static org.junit.Assume.assumeTrue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -199,9 +198,9 @@ public class KeyToolsTest {
         assertTrue(KeyTools.isPrivateKeyExtractable(keys.getPrivate()));
         
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(out);
-        KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
-        ps.close();
+        try (PrintStream ps = new PrintStream(out)) {
+            KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
+        }
         String str = out.toString();
         assertTrue(str.contains("RSA key"));
     }
@@ -287,9 +286,9 @@ public class KeyToolsTest {
         assertTrue(KeyTools.isPrivateKeyExtractable(keys.getPrivate()));
         
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(out);
-        KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
-        ps.close();
+        try (PrintStream ps = new PrintStream(out)) {
+            KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
+        }
         String str = out.toString();
         assertTrue(str.contains("Elliptic curve key"));
     }
@@ -374,9 +373,9 @@ public class KeyToolsTest {
         assertTrue(KeyTools.isPrivateKeyExtractable(keys.getPrivate()));
         
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(out);
-        KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
-        ps.close();
+        try (PrintStream ps = new PrintStream(out)) {
+            KeyTools.printPublicKeyInfo(keys.getPublic(), ps);
+        }
         String str = out.toString();
         assertTrue(str.contains("DSA key"));
     }
@@ -621,7 +620,7 @@ public class KeyToolsTest {
         final byte[] pem = CertTools.getPEMFromPublicKey(der);
         
         // Test getting DER from PEM
-        final String pemString = new String(pem, Charset.forName("ASCII"));
+        final String pemString = new String(pem, StandardCharsets.US_ASCII);
         byte[] result = KeyTools.getBytesFromPEM(pemString, CertTools.BEGIN_PUBLIC_KEY, CertTools.END_PUBLIC_KEY);
         assertArrayEquals("getBytesFromPEM did not work.", der, result);
         

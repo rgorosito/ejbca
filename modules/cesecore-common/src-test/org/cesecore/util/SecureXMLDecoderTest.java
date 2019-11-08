@@ -23,7 +23,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -116,16 +115,15 @@ public class SecureXMLDecoderTest {
         root.put("testEnum", MockEnum.FOO);
         // Encode
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final XMLEncoder encoder = new XMLEncoder(baos);
-        encoder.writeObject(root);
-        encoder.close();      
+        try (final XMLEncoder encoder = new XMLEncoder(baos)) {
+            encoder.writeObject(root);
+        }
         // Try to decode it and compare
         decodeCompare(baos.toByteArray());
     }
     
     /**
      * Encodes a complex value with the standard XMLEncoder and tries to decode it again.
-     * @throws UnsupportedEncodingException 
      */
     @Test
     public void testComplexEncodeDecode() throws IOException {
@@ -201,9 +199,9 @@ public class SecureXMLDecoderTest {
         
         // Encode
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final XMLEncoder encoder = new XMLEncoder(baos);
-        encoder.writeObject(root);
-        encoder.close();
+        try (final XMLEncoder encoder = new XMLEncoder(baos)) {
+            encoder.writeObject(root);
+        }
         
         // Try to decode it and compare
         decodeCompare(baos.toByteArray());
@@ -217,9 +215,9 @@ public class SecureXMLDecoderTest {
         
         // Encode
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final XMLEncoder encoder = new XMLEncoder(baos);
-        encoder.writeObject(new Random()); // java.util.Random is serializable, but isn't whitelisted
-        encoder.close();
+        try (final XMLEncoder encoder = new XMLEncoder(baos)) {
+            encoder.writeObject(new Random()); // java.util.Random is serializable, but isn't whitelisted
+        }
         
         decodeBad(baos.toByteArray());
         
@@ -234,9 +232,9 @@ public class SecureXMLDecoderTest {
         
         // Encode
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final XMLEncoder encoder = new XMLEncoder(baos);
-        encoder.writeObject(root);
-        encoder.close();
+        try (final XMLEncoder encoder = new XMLEncoder(baos)) {
+            encoder.writeObject(root);
+        }
         
         // Try to decode it and compare
         try {

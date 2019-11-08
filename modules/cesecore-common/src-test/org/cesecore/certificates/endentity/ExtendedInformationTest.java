@@ -88,8 +88,8 @@ public class ExtendedInformationTest {
         final String mapDataKey = "mapDataKey";
         final String mapDataValue = "mapDataValue";
         final Integer maxLoginAttempts = 3;
-        final List<String> nameConstraintsExcluded = Arrays.asList(new String[] { "a", "b", "c" });
-        final List<String> nameConstraintsPermitted = Arrays.asList(new String[] { "d", "e", "f" });
+        final List<String> nameConstraintsExcluded = Arrays.asList("a", "b", "c");
+        final List<String> nameConstraintsPermitted = Arrays.asList("d", "e", "f");
         final Integer remainingLoginAttempts = 5;
         final String subjectDirectoryAttributes = "subjectDirectoryAttributes";
 
@@ -151,8 +151,8 @@ public class ExtendedInformationTest {
         final String maxFailedLoginAttempts = "2";
         extendedInformation.getRawData().put("remainingloginattempts", remainingLoginAttempts);
         extendedInformation.getRawData().put("maxfailedloginattempts", maxFailedLoginAttempts);
-        assertEquals(Integer.valueOf(remainingLoginAttempts), (Integer) extendedInformation.getRemainingLoginAttempts());
-        assertEquals(Integer.valueOf(maxFailedLoginAttempts), (Integer) extendedInformation.getMaxLoginAttempts());
+        assertEquals(Integer.parseInt(remainingLoginAttempts), extendedInformation.getRemainingLoginAttempts());
+        assertEquals(Integer.parseInt(maxFailedLoginAttempts), extendedInformation.getMaxLoginAttempts());
     }
 
     @Test

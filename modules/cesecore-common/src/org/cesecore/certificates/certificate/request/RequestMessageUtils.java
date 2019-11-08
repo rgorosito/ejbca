@@ -19,7 +19,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1InputStream;
@@ -108,7 +107,7 @@ public abstract class RequestMessageUtils {
 
 	/** Tries to get decoded bytes from a certificate request or certificate
 	 * 
-	 * @param bytes pem (with headers) or plain base64 with a CSR of certificate 
+	 * @param b64Encoded pem (with headers) or plain base64 with a CSR of certificate 
 	 * @return binary bytes
 	 */
 	public static byte[] getRequestBytes(byte[] b64Encoded) throws IOException {
@@ -150,7 +149,7 @@ public abstract class RequestMessageUtils {
 
     public static RequestMessage getRequestMessageFromType(final String username, final String password, final String req, final int reqType)
             throws SignRequestSignatureException, InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, IOException,
-            SignatureException, InvalidKeySpecException, ParseException, ConstructionException, NoSuchFieldException {
+            SignatureException, ParseException, ConstructionException, NoSuchFieldException {
 	    RequestMessage ret = null;
         if (reqType == CertificateConstants.CERT_REQ_TYPE_PKCS10) {
             final PKCS10RequestMessage pkcs10RequestMessage = RequestMessageUtils.genPKCS10RequestMessage(req.getBytes());
@@ -167,13 +166,14 @@ public abstract class RequestMessageUtils {
                 if (buffer == null) {
                     return null;
                 }
-                ASN1InputStream in = new ASN1InputStream(new ByteArrayInputStream(buffer));
-                ASN1Sequence spkacSeq = (ASN1Sequence) in.readObject();
-                in.close();
+                final ASN1Sequence spkacSeq;
+                try (ASN1InputStream in = new ASN1InputStream(new ByteArrayInputStream(buffer))) {
+                    spkacSeq = (ASN1Sequence) in.readObject();
+                }
                 NetscapeCertRequest nscr = new NetscapeCertRequest(spkacSeq);
                 // Verify POPO, we don't care about the challenge, it's not important.
                 nscr.setChallenge("challenge");
-                if (nscr.verify("challenge") == false) {
+                if (!nscr.verify("challenge")) {
                     if (log.isDebugEnabled()) {
                         log.debug("SPKAC POPO verification Failed");
                     }
@@ -212,6 +212,9 @@ public abstract class RequestMessageUtils {
                             } else {
                                 log.debug("CRMF POPOSigningKey is not defined even though POP type is popSigningKey. Validation will fail.");
                             }
+                        }
+                        if (popoSigningKey == null) {
+                            throw new SignRequestSignatureException("CRMF POPOSigningKey is not present, even though POP type is popSigningKey."); // prevent NPE
                         }
                         final ContentVerifierProvider cvp = CertTools.genContentVerifierProvider(publicKey);
                         // Work around for bug in BC where jcrm.hasSigningKeyProofOfPossessionWithPKMAC() will throw NPE if PoposkInput is null
@@ -252,9 +255,7 @@ public abstract class RequestMessageUtils {
                 final SimpleRequestMessage simpleRequestMessage = new SimpleRequestMessage(publicKey, username, password);
                 simpleRequestMessage.setRequestExtensions(jcrm.getCertTemplate().getExtensions());
                 ret = simpleRequestMessage;
-            } catch (CRMFException e) {
-                throw new SignRequestSignatureException("CRMF POP verification failed.", e);
-            } catch (OperatorCreationException e) {
+            } catch (CRMFException | OperatorCreationException e) {
                 throw new SignRequestSignatureException("CRMF POP verification failed.", e);
             }
         } else if (reqType == CertificateConstants.CERT_REQ_TYPE_PUBLICKEY) {
@@ -289,7 +290,7 @@ public abstract class RequestMessageUtils {
             reqmsg.setUsername(username);
             reqmsg.setPassword(password);
             // Popo is really actually verified by the CA (in SignSessionBean) as well
-            if (reqmsg.verify() == false) {
+            if (!reqmsg.verify()) {
                 if (log.isDebugEnabled()) {
                     log.debug("CVC POPO verification Failed");
                 }

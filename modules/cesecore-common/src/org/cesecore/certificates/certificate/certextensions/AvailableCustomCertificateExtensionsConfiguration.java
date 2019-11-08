@@ -81,11 +81,7 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
             CertificateExtension certificateExtension = (CertificateExtension) implClass.newInstance();
             certificateExtension.init(id, oid.trim(), displayName, critical, required, properties);
             data.put(id, certificateExtension);
-        } catch (ClassNotFoundException e) {
-            throw new CertificateExtentionConfigurationException("Cannot add custom certificate extension. " + e.getLocalizedMessage());
-        } catch (InstantiationException e) {
-            throw new CertificateExtentionConfigurationException("Cannot add custom certificate extension. " + e.getLocalizedMessage());
-        } catch (IllegalAccessException e) {
+        } catch (ReflectiveOperationException e) {
             throw new CertificateExtentionConfigurationException("Cannot add custom certificate extension. " + e.getLocalizedMessage());
         }
     }
@@ -95,7 +91,7 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
     }
     
     public List<CertificateExtension> getAllAvailableCustomCertificateExtensions() {
-        List<CertificateExtension> ret = new ArrayList<CertificateExtension>();
+        List<CertificateExtension> ret = new ArrayList<>();
         for(Entry<Object, Object> entry : data.entrySet()) {
             Object value = entry.getValue();
             if(value instanceof CertificateExtension) {
@@ -109,7 +105,6 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
     /**
      * Returns a list of the available CertificateExtensions as Properties. Each property contains the extension OID 
      * as its 'key' and the extension's label as its 'value'
-     * @return
      */
     public Properties getAsProperties() {
         Properties properties = new Properties();
@@ -213,12 +208,12 @@ public class AvailableCustomCertificateExtensionsConfiguration extends Configura
                     return certificateExtension;
 
                 }else{
-                    throw new CertificateExtentionConfigurationException("Certificate Extension " + Integer.valueOf(id) + " seems to be misconfigured in the certextensions.properties");
+                    throw new CertificateExtentionConfigurationException("Certificate Extension " + id + " seems to be misconfigured in the certextensions.properties");
                 }
             }
             
         }catch(Exception e){
-            throw new CertificateExtentionConfigurationException("Certificate Extension " + Integer.valueOf(id) + " seems to be misconfigured in the certextensions.properties",e);
+            throw new CertificateExtentionConfigurationException("Certificate Extension " + id + " seems to be misconfigured in the certextensions.properties", e);
         }
         return null;
     }

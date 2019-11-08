@@ -54,7 +54,6 @@ public class Pkcs11SlotLabel {
 
     private static final Logger log = Logger.getLogger(Pkcs11SlotLabel.class);
 
-    private final static String DELIMETER = ":";
     private final Pkcs11SlotLabelType type;
     private final String value;
 
@@ -71,18 +70,9 @@ public class Pkcs11SlotLabel {
         this.value = value == null ? null : value.trim();
     }
 
-    /**
-     * Get a string that later could be used to create a new object with {@link Pkcs11SlotLabel#PKCS11Slot(String)}.
-     * Use it when you want to store a reference to the slot.
-     * @return the string.
-     */
-    public String getTaggedString() {
-        return this.type.name() + DELIMETER + this.value;
-    }
-
     @Override
     public String toString() {
-        return "Slot type: '" + this.type + "'. Slot value: '" + this.value + "'.";
+        return "Slot type: '" + type + "'. Slot value: '" + value + "'.";
     }
 
     /**
@@ -191,7 +181,7 @@ public class Pkcs11SlotLabel {
     /**
      * Get slot ID for a token label.
      * @param tokenLabel the label.
-     * @param object to get slot list and labels for all slots with tokens
+     * @param p11 Pkcs11Wrapper to use to get slot list and labels for all slots with tokens
      * @return the slot ID.
      * @throws NoSuchSlotException if no slot as defined by tokenLabel was found
 
@@ -226,7 +216,7 @@ public class Pkcs11SlotLabel {
      * Get the IAIK provider.
      * @param slot Slot list index or slot ID.
      * @param libFile P11 module so file.
-     * @param isIndex true if first parameter is a slot list index, false if slot ID.
+     * @param type if first parameter is a slot list index ({@link Pkcs11SlotLabelType#SLOT_INDEX}) or slot ID ({@link Pkcs11SlotLabelType#SLOT_LABEL}).
      * @return the provider
      */
     private static Provider getIAIKP11Provider(final long slot, final File libFile, final Pkcs11SlotLabelType type) {
@@ -250,9 +240,11 @@ public class Pkcs11SlotLabel {
                 log.debug("Using IAIK PKCS11 provider: " + IAIK_PKCS11_CLASS);
             }
             // iaik PKCS11 has Properties as constructor argument
-            ret = implClass.getConstructor(Properties.class).newInstance(new Object[] { prop });
-        } catch (InvocationTargetException | InstantiationException | IllegalAccessException | IllegalArgumentException |
-                NoSuchMethodException | SecurityException | ClassNotFoundException e) {
+            ret = implClass.getConstructor(Properties.class).newInstance(prop);
+        } catch (ClassNotFoundException e) {
+            return null;
+        } catch (ReflectiveOperationException | IllegalArgumentException | SecurityException e) {
+            log.debug("IAIK provider exists but could not be instantiated", e);
             return null;
         }
         if ( ret==null ) {
@@ -426,7 +418,7 @@ public class Pkcs11SlotLabel {
                 log.debug("Using JDK8 SUN PKCS11 provider: " + SUN_PKCS11_CLASS);
             }
             // The old (<=JDK8) Sun PKCS11 has InputStream as constructor argument
-            final Provider ret = implClass.getConstructor(InputStream.class).newInstance(new Object[] { is });
+            final Provider ret = implClass.getConstructor(InputStream.class).newInstance(is);
             if (log.isDebugEnabled()) {
                 log.debug("Created JDK8 SUN PKCS11 provider: " + ret.getName());
             }
@@ -441,7 +433,7 @@ public class Pkcs11SlotLabel {
         final StringBuilder configBuilder = new StringBuilder();
         // Since Java 9, we need to prepend -- to indicate to the configure() method
         // that the config is treated as a string
-        configBuilder.append("--").append(IOUtils.toString(is, "UTF-8"));
+        configBuilder.append("--").append(IOUtils.toString(is, StandardCharsets.UTF_8));
         return configBuilder.toString();
     }
     
@@ -482,7 +474,7 @@ public class Pkcs11SlotLabel {
      * called once.
      * To check this implementation the p11 spy utils could be used. Check that
      * it is only one C_Initialize call and that null is not passed.
-     * @param a file with the path of the p11 module on which C_Finalize should
+     * @param libFile a file with the path of the p11 module on which C_Finalize should
      * be called.
      */
     static void doC_Initialize(final File libFile) {

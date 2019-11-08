@@ -47,7 +47,7 @@ public abstract class DNFieldsUtil {
      */
     public static final Map<String, String> dnStringToMap(final String dnString) {
         final String[] dnTokens = dnString.split(ATTRIBUTE_SEPARATOR);
-        final Map<String, String> result = new HashMap<String,String>();
+        final Map<String, String> result = new HashMap<>();
         if (StringUtils.isNotBlank(dnString)) {
             String[] tokens;
             for (int i = 0; i<dnTokens.length;i++) {
@@ -96,7 +96,7 @@ public abstract class DNFieldsUtil {
             value1 = entry.getValue();
             value2 = map2.get(key);
             if (snAttributeKey.equals( key)) { // check that serial numbers are not blank and not equal. 
-                if (StringUtils.isBlank(value1) || StringUtils.isBlank(value2) || value1 == value2) {
+                if (StringUtils.isBlank(value1) || StringUtils.isBlank(value2) || StringUtils.equals(value1, value2)) {
                     result = false;
                 }
             } else { // All other DN attributes must be equal.
@@ -141,21 +141,21 @@ public abstract class DNFieldsUtil {
 	public static StringBuilder removeEmpties(final String sDN, final StringBuilder removedAllEmpties, final boolean processTrailing) {
 		StringBuilder removedTrailingEmpties = null;
     	// First make a list of where all the key=value pairs start and if they are empty or not
-    	final List<Integer> startOfPairs = new ArrayList<Integer>();
-    	final List<Integer> startOfValues = new ArrayList<Integer>();
+    	final List<Integer> startOfPairs = new ArrayList<>();
+    	final List<Integer> startOfValues = new ArrayList<>();
     	final char[] buf = sDN.toCharArray();
     	populatePositionLists(startOfPairs, startOfValues, buf);
     	boolean areStringBuildersEqual = true;
     	// Go through all the pairs from first to last
     	for (int i=0; i<startOfPairs.size(); i++) {
-    		final int startOfThisPair = startOfPairs.get(i).intValue();
+    		final int startOfThisPair = startOfPairs.get(i);
     		final int startOfNextPair;
     		if (i == startOfPairs.size()-1) {
     			startOfNextPair = buf.length;	// The "next element" begins at the end of the buffer
     		} else {
-    			startOfNextPair = startOfPairs.get(i+1).intValue();
+    			startOfNextPair = startOfPairs.get(i+1);
     		}
-    		final int startOfThisValue = startOfValues.get(i).intValue();
+    		final int startOfThisValue = startOfValues.get(i);
     		boolean addOnlyNonTrailingEmpties = true;
     		boolean addAllNonEmpties = true;
     		if (startOfThisValue == EMPTY) {
@@ -165,8 +165,8 @@ public abstract class DNFieldsUtil {
     			// If we only remove trailing empties there is a second chance that we will still add it..
     			if (processTrailing) {
         			for (int j=i+1; j<startOfPairs.size(); j++) {
-        				final int startOfThisPair2 = startOfPairs.get(j).intValue();
-        				if (hasSameKey(buf, startOfThisPair, startOfThisPair2) && startOfValues.get(j).intValue() != EMPTY) {
+        				final int startOfThisPair2 = startOfPairs.get(j);
+        				if (hasSameKey(buf, startOfThisPair, startOfThisPair2) && startOfValues.get(j) != EMPTY) {
         					// if this was not the last pair with this key and one of the later ones is not empty: add it!
         					addOnlyNonTrailingEmpties = true;
         					break;
@@ -220,7 +220,7 @@ public abstract class DNFieldsUtil {
 	/** Populates the two lists with starting positions in the character buffer where the value=key pair begins and keys begin. */
     private static void populatePositionLists(final List<Integer> startOfPairs, final List<Integer> startOfValues, final char[] buf) {
     	if (buf.length>0) {
-        	startOfPairs.add(Integer.valueOf(0));
+        	startOfPairs.add(0);
     	}
     	boolean notEscaped = true;	// Keep track of what is escapes and not
     	for (int i=0; i<buf.length; i++) {
@@ -238,7 +238,7 @@ public abstract class DNFieldsUtil {
     				while (j<buf.length && buf[j] == ' ') {
     					j++;	// Ignore spaces
     				}
-    				startOfPairs.add(Integer.valueOf(j));
+    				startOfPairs.add(j);
     			} else {
     				notEscaped = true;
     			}
@@ -252,9 +252,9 @@ public abstract class DNFieldsUtil {
         					j++;	// Ignore spaces
         				}
         				if (j>=buf.length || buf[j] == ',') {
-        					startOfValues.add(Integer.valueOf(EMPTY));	// Use -1 to mark that the value is empty
+        					startOfValues.add(EMPTY);	// Use -1 to mark that the value is empty
         				} else {
-        					startOfValues.add(Integer.valueOf(j));
+        					startOfValues.add(j);
         				}
         			}
     			} else {

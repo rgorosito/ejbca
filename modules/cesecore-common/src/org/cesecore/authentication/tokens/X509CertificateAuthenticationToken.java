@@ -18,7 +18,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -96,7 +96,7 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
                 certificate = cert;
             } 
         }
-        String certstring = CertTools.getSubjectDN(certificate).toString();
+        String certstring = CertTools.getSubjectDN(certificate);
         adminCaId = CertTools.getIssuerDN(certificate).hashCode();
         adminSubjectDN = CertTools.getSubjectDN(certificate);
         certstring = serialPattern.matcher(certstring).replaceAll("SN=");
@@ -112,7 +112,7 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
      * @throws NullPointerException if the provided certificate is null
      */
     public X509CertificateAuthenticationToken(final X509Certificate certificate) {
-        this(new HashSet<>(Arrays.asList(certificate.getSubjectX500Principal())), new HashSet<>(Arrays.asList(certificate)));
+        this(new HashSet<>(Collections.singletonList(certificate.getSubjectX500Principal())), new HashSet<>(Collections.singletonList(certificate)));
     }
 
     @Override
@@ -124,7 +124,6 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
         boolean returnvalue = false;
         int parameter;
         int size = 0;
-        String[] clientstrings = null;
         if (StringUtils.equals(getMetaData().getTokenType(), accessUser.getTokenType())) {
             // First check that issuers match.
             if (accessUser.getCaId() == adminCaId) {
@@ -161,6 +160,7 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
                             break;
                         case TYPE_NOT_EQUALCASE:
                             returnvalue = !value.equals(CertTools.getSubjectDN(certificate));
+                            break;
                         case TYPE_NOT_EQUALCASEINS:
                             returnvalue = !value.equalsIgnoreCase(CertTools.getSubjectDN(certificate));
                             break;
@@ -213,49 +213,47 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
                         default:
                         }
                         size = usedExtractor.getNumberOfFields(parameter);
-                        clientstrings = new String[size];
+                        final String[] clientstrings = new String[size];
                         for (int i = 0; i < size; i++) {
                             clientstrings[i] = usedExtractor.getField(parameter, i);
                         }
 
                         // Determine how to match.
-                        if (clientstrings != null) {
-                            switch (accessUser.getMatchTypeAsType()) {
-                            case TYPE_EQUALCASE:
-                                String accessUserMatchValue = accessUser.getMatchValue();
-                                for (int i = 0; i < size; i++) {
-                                    returnvalue = clientstrings[i].equals(accessUserMatchValue);
-                                    if (returnvalue) {
-                                        break;
-                                    }
+                        switch (accessUser.getMatchTypeAsType()) {
+                        case TYPE_EQUALCASE:
+                            String accessUserMatchValue = accessUser.getMatchValue();
+                            for (int i = 0; i < size; i++) {
+                                returnvalue = clientstrings[i].equals(accessUserMatchValue);
+                                if (returnvalue) {
+                                    break;
                                 }
-                                break;
-                            case TYPE_EQUALCASEINS:
-                                for (int i = 0; i < size; i++) {
-                                    returnvalue = clientstrings[i].equalsIgnoreCase(accessUser.getMatchValue());
-                                    if (returnvalue) {
-                                        break;
-                                    }
-                                }
-                                break;
-                            case TYPE_NOT_EQUALCASE:
-                                for (int i = 0; i < size; i++) {
-                                    returnvalue = !clientstrings[i].equals(accessUser.getMatchValue());
-                                    if (returnvalue) {
-                                        break;
-                                    }
-                                }
-                                break;
-                            case TYPE_NOT_EQUALCASEINS:
-                                for (int i = 0; i < size; i++) {
-                                    returnvalue = !clientstrings[i].equalsIgnoreCase(accessUser.getMatchValue());
-                                    if (returnvalue) {
-                                        break;
-                                    }
-                                }
-                                break;
-                            default:
                             }
+                            break;
+                        case TYPE_EQUALCASEINS:
+                            for (int i = 0; i < size; i++) {
+                                returnvalue = clientstrings[i].equalsIgnoreCase(accessUser.getMatchValue());
+                                if (returnvalue) {
+                                    break;
+                                }
+                            }
+                            break;
+                        case TYPE_NOT_EQUALCASE:
+                            for (int i = 0; i < size; i++) {
+                                returnvalue = !clientstrings[i].equals(accessUser.getMatchValue());
+                                if (returnvalue) {
+                                    break;
+                                }
+                            }
+                            break;
+                        case TYPE_NOT_EQUALCASEINS:
+                            for (int i = 0; i < size; i++) {
+                                returnvalue = !clientstrings[i].equalsIgnoreCase(accessUser.getMatchValue());
+                                if (returnvalue) {
+                                    break;
+                                }
+                            }
+                            break;
+                        default:
                         }
                     }
                 } else {
@@ -286,12 +284,6 @@ public class X509CertificateAuthenticationToken extends NestableAuthenticationTo
     @Override
     public String getPreferredMatchValue() {
         return CertTools.getSerialNumberAsString(certificate);
-    }
-
-    /** Returns user information of the user this authentication token belongs to. */
-    @Override
-    public String toString() {
-    	return super.toString();
     }
 
     /** Override the default X500Principal.getName() when doing toString on this object. */

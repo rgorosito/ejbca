@@ -79,9 +79,9 @@ public class InternalKeyBindingTrustEntry implements Serializable {
     public String toString() {
         final BigInteger certificateSerialNumber = fetchCertificateSerialNumber();
         if (certificateSerialNumber==null) {
-            return Integer.valueOf(caId).toString();
+            return String.valueOf(caId);
         } else {
-            return Integer.valueOf(caId).toString() + ";" + certificateSerialNumber.toString(16);
+            return String.valueOf(caId) + ";" + certificateSerialNumber.toString(16);
         }
     }
 
@@ -98,5 +98,14 @@ public class InternalKeyBindingTrustEntry implements Serializable {
             return true;
         }
         return certificateSerialNumberDecimal!=null && certificateSerialNumberDecimal.equals(other.certificateSerialNumberDecimal);
+    }
+    
+    @Override
+    public int hashCode() {
+        int hash = caId;
+        if (certificateSerialNumberDecimal != null) {
+            hash += 13*certificateSerialNumberDecimal.hashCode(); // add prime number product (common practice in Java, see String.hashCode for example) 
+        }
+        return hash;
     }
 }

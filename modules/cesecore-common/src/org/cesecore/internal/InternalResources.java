@@ -60,11 +60,6 @@ public class InternalResources implements Serializable {
 
     /**
      * Method used to setup the Internal Resource management.
-     * 
-     * @param globalConfiguration
-     *            used to retrieve the internal language of the application,
-     *            configured in the System Configuration.
-     * @throws IOException
      */
     protected InternalResources() {
         setupResources(RESOURCE_LOCATION);
@@ -210,7 +205,7 @@ public class InternalResources implements Serializable {
         }
         //Append all extra parameters to the end so that no information is lost. 
         for (; i < params.length; i++) {
-            sb.append(", " + params[i]);
+            sb.append(", ").append(params[i]);
         }
         removeUnusedPlaceHolders(sb, params.length);
     }
@@ -220,7 +215,7 @@ public class InternalResources implements Serializable {
         if (placeHolders==null) {
             final String[] arr = new String[100];
             for (int i=0; i<arr.length; i++) {
-                arr[i] = new StringBuilder('{').append(i).append('}').toString();
+                arr[i] = '{' + String.valueOf(i) + '}';
             }
             placeHolders = arr;
         }
@@ -244,7 +239,7 @@ public class InternalResources implements Serializable {
         int index = sb.indexOf(placeHolder);
         final String to = (replacementObject == null ? "" :  replacementObject.toString());
         int recursionLimit = 20; // never allow more than 20 placeholders to avoid recursion
-        int indexLength = ("{" + Integer.valueOf(placeHolderIndex) + "}").length();
+        int indexLength = ("{" + placeHolderIndex + "}").length();
         if(index == -1) {
             //There were more parameters than available indexes
             return false;
@@ -276,7 +271,7 @@ public class InternalResources implements Serializable {
             int currentIndex = -placeHolderLength;
             boolean someThingRemoved = false;
             while ((currentIndex=sb.indexOf(placeHolder, currentIndex+placeHolderLength))!=-1) {
-                sb.delete(currentIndex-1, currentIndex+placeHolderLength);
+                sb.delete(currentIndex, currentIndex+placeHolderLength);
                 someThingRemoved = true;
             }
             if (!someThingRemoved) {

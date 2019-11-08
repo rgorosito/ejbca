@@ -49,7 +49,7 @@ public class DnComponents {
      * 
      * This map is used in CertTools so sort and order DN strings so they all look the same in the database.
      * */
-    private static HashMap<String, ASN1ObjectIdentifier> oids = new HashMap<String, ASN1ObjectIdentifier>();
+    private static HashMap<String, ASN1ObjectIdentifier> oids = new HashMap<>();
     // Default values
     static {
         oids.put("c", CeSecoreNameStyle.C);
@@ -266,8 +266,7 @@ public class DnComponents {
     }
 
     protected static String getDnExtractorFieldFromDnId(int field) {
-        String val = (String) dnIdToExtractorFieldMap.get(Integer.valueOf(field));
-        return val;
+        return dnIdToExtractorFieldMap.get(field);
     }
 
     // Used only by DNFieldExtractor, don't USE
@@ -276,8 +275,7 @@ public class DnComponents {
     }
 
     protected static String getAltNameExtractorFieldFromDnId(int field) {
-        String val = (String) altNameIdToExtractorFieldMap.get(Integer.valueOf(field));
-        return val;
+        return altNameIdToExtractorFieldMap.get(field);
     }
 
     // Used only by DNFieldExtractor, don't USE
@@ -286,42 +284,36 @@ public class DnComponents {
     }
 
     protected static String getDirAttrExtractorFieldFromDnId(int field) {
-        String val = (String) dirAttrIdToExtractorFieldMap.get(Integer.valueOf(field));
-        return val;
+        return dirAttrIdToExtractorFieldMap.get(field);
     }
 
     public static String dnIdToProfileName(int dnid) {
-        String val = (String) dnIdToProfileNameMap.get(Integer.valueOf(dnid));
-        return val;
+        return dnIdToProfileNameMap.get(dnid);
     }
 
     public static int dnIdToProfileId(int dnid) {
-        Integer val = (Integer) dnIdToProfileIdMap.get(Integer.valueOf(dnid));
-        return val.intValue();
+        return dnIdToProfileIdMap.get(dnid);
     }
 
     /**
      * Method to get a language error constant for the admin-GUI from a profile name
      */
     public static String getLanguageConstantFromProfileName(String name) {
-        String ret = (String) profileNameLanguageMap.get(name);
-        return ret;
+        return profileNameLanguageMap.get(name);
     }
 
     /**
      * Method to get a language error constant for the admin-GUI from a profile id
      */
     public static String getLanguageConstantFromProfileId(int id) {
-        String ret = (String) profileIdLanguageMap.get(Integer.valueOf(id));
-        return ret;
+        return profileIdLanguageMap.get(id);
     }
 
     /**
      * Method to get a clear text error msg for the admin-GUI from a dn id
      */
     public static String getErrTextFromDnId(int id) {
-        String ret = (String) dnIdErrorMap.get(Integer.valueOf(id));
-        return ret;
+        return dnIdErrorMap.get(id);
     }
 
     /** This method is only used to initialize EndEntityProfile, because of legacy baggage.
@@ -336,14 +328,17 @@ public class DnComponents {
      *  For example : profileFieldIdToUserFieldIdMapper(EndEntityProfile.COMMONNAME) returns DnFieldExctractor.COMMONNAME.
      *
      *  Should only be used with subjectDN, Subject Alternative Names and subject directory attribute fields.
+     *  
+     *  @throws IllegalArgumentException on unknown attributes
      */
-    public static int profileIdToDnId(int profileid) {
-        Integer val = (Integer) profileIdToDnIdMap.get(Integer.valueOf(profileid));
+    public static int profileIdToDnId(int profileId) {
+        final Integer val = profileIdToDnIdMap.get(profileId);
         if (val == null) {
-            log.error("No dn id mapping from profile id " + profileid);
-            // We allow it to fail here
+            final String msg = "No DN ID mapping from Profile ID " + profileId;
+            log.error(msg);
+            throw new IllegalArgumentException(msg);
         }
-        return val.intValue();
+        return val;
     }
 
     /**
@@ -364,8 +359,7 @@ public class DnComponents {
     protected static String[] getDnObjectsReverse() {
         // Create and reverse the order if it has not been initialized already
         if (dNObjectsReverse == null) {
-            // this cast is not needed in java 5, but is needed for java 1.4
-            dNObjectsReverse = (String[]) dNObjectsForward.clone();
+            dNObjectsReverse = dNObjectsForward.clone();
             ArrayUtils.reverse(dNObjectsReverse);
         }
         return dNObjectsReverse;
@@ -414,8 +408,8 @@ public class DnComponents {
                 }
                 String[] splits = null;
                 int lines = 0;
-                ArrayList<Integer> dnids = new ArrayList<Integer>();
-                ArrayList<Integer> profileids = new ArrayList<Integer>();
+                ArrayList<Integer> dnids = new ArrayList<>();
+                ArrayList<Integer> profileids = new ArrayList<>();
                 while ((line = in.readLine()) != null) {
                     if (!line.startsWith("#")) { // # is a comment line
                         splits = StringUtils.split(line, ';');
@@ -497,6 +491,7 @@ public class DnComponents {
                     in.close();
                 }
             } catch (IOException e) {
+                log.debug("Error occurred while closing input stream", e);
             }
         }
     }
@@ -509,7 +504,7 @@ public class DnComponents {
     private static void loadOrdering() {
         // Read the file to an array of lines 
         String line;
-        LinkedHashMap<String, ASN1ObjectIdentifier> map = new LinkedHashMap<String, ASN1ObjectIdentifier>();
+        LinkedHashMap<String, ASN1ObjectIdentifier> map = new LinkedHashMap<>();
         BufferedReader in = null;
         InputStreamReader inf = null;
         try {
@@ -540,7 +535,7 @@ public class DnComponents {
                 oids.putAll(map);
                 Set<String> keys = map.keySet();
                 // Set the maps to the desired ordering
-                dNObjectsForward = (String[]) keys.toArray(new String[keys.size()]);
+                dNObjectsForward = keys.toArray(new String[keys.size()]);
             } else {
                 log.debug("Using default values for DN components");
             }
@@ -555,6 +550,7 @@ public class DnComponents {
                     in.close();
                 }
             } catch (IOException e) {
+                log.debug("Error occurred while closing input stream", e);
             }
         }
 

@@ -71,9 +71,9 @@ public class CVCRequestMessage implements RequestMessage {
     /** The cvc request message, not serialized. */
     protected transient CVCertificate cvcert = null;
 
-    private List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+    private List<Certificate> additionalCaCertificates = new ArrayList<>();
   
-    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<Certificate>();
+    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<>();
     
     /**
      * Constructs a new empty message handler object.
@@ -102,13 +102,7 @@ public class CVCRequestMessage implements RequestMessage {
 				CVCAuthenticatedRequest authreq = (CVCAuthenticatedRequest)parsedObject;
 				cvcert = authreq.getRequest();
 			}
-		} catch (ParseException e) {
-            log.error("Error in init for CVC request: ", e);
-            throw new IllegalArgumentException(e);
-		} catch (ConstructionException e) {
-            log.error("Error in init for CVC request: ", e);
-            throw new IllegalArgumentException(e);
-		} catch (NoSuchFieldException e) {
+		} catch (ParseException | ConstructionException | NoSuchFieldException e) {
             log.error("Error in init for CVC request: ", e);
             throw new IllegalArgumentException(e);
 		}
@@ -255,12 +249,12 @@ public class CVCRequestMessage implements RequestMessage {
         } catch (NoSuchFieldException e) {
             log.error("CVC error!", e);
         } catch (InvalidKeyException e) {
-            log.error("Error in CVC-request:", e);
+            log.error("Error in CVC request:", e);
             throw e;
         } catch (CertificateException e) {
-            log.error("Error in CVC-signature:", e);
+            log.error("Error in CVC certificate:", e);
         } catch (SignatureException e) {
-            log.error("Error in CVC-signature:", e);
+            log.error("Error in CVC signature:", e);
         }
 
         log.trace("<verify()");
@@ -274,7 +268,7 @@ public class CVCRequestMessage implements RequestMessage {
     }
 
     @Override
-    public void setKeyInfo(Certificate cert, PrivateKey key, String Provider) {
+    public void setKeyInfo(Certificate cert, PrivateKey key, String provider) {
     }
 
     @Override
@@ -377,7 +371,6 @@ public class CVCRequestMessage implements RequestMessage {
             log.error("CVC not inited!", e);
             return null;
         }
-    	CardVerifiableCertificate cc = new CardVerifiableCertificate(cvcert);
-    	return cc;
+    	return new CardVerifiableCertificate(cvcert);
     }
 } // PKCS10RequestMessage

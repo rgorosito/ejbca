@@ -12,9 +12,9 @@
  *************************************************************************/
 package org.cesecore.certificates.ca;
 
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateParsingException;
@@ -135,15 +135,15 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         setSignedBy(cainfo.getSignedBy());
         setValidators(cainfo.getValidators());
         data.put(DESCRIPTION, cainfo.getDescription());
-        data.put(REVOCATIONREASON, Integer.valueOf(-1));
-        data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
+        data.put(REVOCATIONREASON, -1);
+        data.put(CERTIFICATEPROFILEID, cainfo.getCertificateProfileId());
 
     }
 
     /** Constructor used when retrieving existing CA from database. */
     @Override
-    public void init(HashMap<Object, Object> data) {
-        loadData(data);
+    public void init(HashMap<Object, Object> loadedData) {
+        loadData(loadedData);
         extendedcaservicemap = new HashMap<>();
     }
 
@@ -159,7 +159,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
 
     @Override
     public int getCertificateProfileId() {
-        return ((Integer) data.get(CERTIFICATEPROFILEID)).intValue();
+        return (int) data.get(CERTIFICATEPROFILEID);
     }
 
     @Override
@@ -290,7 +290,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
      */
     @Override
     public int getCAType() {
-        return ((Integer) data.get(CATYPE)).intValue();
+        return (int) data.get(CATYPE);
     }
 
     @Override
@@ -305,12 +305,12 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
 
     @Override
     public int getSignedBy() {
-        return ((Integer) data.get(SIGNEDBY)).intValue();
+        return (int) data.get(SIGNEDBY);
     }
 
     @Override
     public void setSignedBy(int signedby) {
-        data.put(SIGNEDBY, Integer.valueOf(signedby));
+        data.put(SIGNEDBY, signedby);
     }
 
     @Override
@@ -325,12 +325,12 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
 
     @Override
     public int getRevocationReason() {
-        return ((Integer) data.get(REVOCATIONREASON)).intValue();
+        return (int) data.get(REVOCATIONREASON);
     }
 
     @Override
     public void setRevocationReason(int reason) {
-        data.put(REVOCATIONREASON, Integer.valueOf(reason));
+        data.put(REVOCATIONREASON, reason);
     }
 
     @Override
@@ -559,11 +559,9 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         for (Object o : storechain) {
             final String b64Cert = (String)o;
             try {
-                final byte[] decoded = Base64.decode(b64Cert.getBytes("US-ASCII"));
+                final byte[] decoded = Base64.decode(b64Cert.getBytes(StandardCharsets.US_ASCII));
                 final Certificate cert = CertTools.getCertfromByteArray(decoded, Certificate.class);
                 chain.add(cert);
-            } catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException(e);
             } catch (CertificateParsingException e) {
                 throw new IllegalStateException(e);
             }
@@ -586,7 +584,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
                 return null;
             }
         }
-        if (certificatechain.size() == 0) {
+        if (certificatechain.isEmpty()) {
             return null;
         }
         Certificate ret = certificatechain.get(0);
@@ -660,13 +658,13 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         data.put(DESCRIPTION, cainfo.getDescription());
         setEncodedValidity(cainfo.getEncodedValidity());
         if (cainfo.getCertificateProfileId() > 0) {
-            data.put(CERTIFICATEPROFILEID, Integer.valueOf(cainfo.getCertificateProfileId()));
+            data.put(CERTIFICATEPROFILEID, cainfo.getCertificateProfileId());
         }
         if (cainfo.getCAToken() != null) {
             setCAToken(cainfo.getCAToken());
         }
         List<Certificate> newcerts = cainfo.getCertificateChain();
-        if ((newcerts != null) && (newcerts.size() > 0)) {
+        if ((newcerts != null) && !newcerts.isEmpty()) {
             setCertificateChain(newcerts);
             Certificate cacert = newcerts.iterator().next();
             setExpireTime(CertTools.getNotAfter(cacert));
@@ -695,11 +693,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         if (data.get(LATESTLINKCERTIFICATE) == null) {
             return null;
         }
-        try {
-            return Base64.decode(((String)data.get(LATESTLINKCERTIFICATE)).getBytes("UTF8"));
-        } catch (final UnsupportedEncodingException e) {
-            throw new RuntimeException(e);  // Lack of UTF8 would be fatal.
-        }
+        return Base64.decode(((String)data.get(LATESTLINKCERTIFICATE)).getBytes(StandardCharsets.UTF_8));
     }
     
     /** Store the latest link certificate in this object. */
@@ -707,11 +701,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         if (encodedLinkCertificate == null) {
             data.remove(LATESTLINKCERTIFICATE);
         } else {
-            try {
-                data.put(LATESTLINKCERTIFICATE, new String(Base64.encode(encodedLinkCertificate), "UTF8"));
-            } catch (final UnsupportedEncodingException e) {
-                throw new RuntimeException(e); // Lack of UTF8 would be fatal.
-            }
+            data.put(LATESTLINKCERTIFICATE, new String(Base64.encode(encodedLinkCertificate), StandardCharsets.UTF_8));
         }
     }
 
@@ -734,7 +724,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
     @Override
     @Deprecated
     public void setNumOfRequiredApprovals(int numOfReqApprovals) {
-        data.put(NUMBEROFREQAPPROVALS, Integer.valueOf(numOfReqApprovals));
+        data.put(NUMBEROFREQAPPROVALS, numOfReqApprovals);
     }
     
     
@@ -776,7 +766,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         if (data.get(NUMBEROFREQAPPROVALS) == null) {
             return 1;
         }
-        return ((Integer) data.get(NUMBEROFREQAPPROVALS)).intValue();
+        return (int) data.get(NUMBEROFREQAPPROVALS);
     }
     
     /**
@@ -805,7 +795,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
         if (data.get(APPROVALPROFILE) == null) {
             return -1;
         }
-        return ((Integer) data.get(APPROVALPROFILE)).intValue();
+        return (int) data.get(APPROVALPROFILE);
     }
 
     /**
@@ -816,13 +806,13 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
     @Override
     @Deprecated
     public void setApprovalProfile(final int approvalProfileID) {
-        data.put(APPROVALPROFILE, Integer.valueOf(approvalProfileID));
+        data.put(APPROVALPROFILE, approvalProfileID);
     }
     
     protected ExtendedCAService getExtendedCAService(int type) {
         ExtendedCAService returnval = null;
         try {
-            returnval = extendedcaservicemap.get(Integer.valueOf(type));
+            returnval = extendedcaservicemap.get(type);
             if (returnval == null) {
                 @SuppressWarnings("rawtypes")
                 HashMap serviceData = getExtendedCAServiceData(type);
@@ -853,8 +843,8 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
                             log.debug("implementation classname for extended service type: "+type+" is "+implClassname);
                         }
                         Class<?> implClass = Class.forName(implClassname);
-                        returnval = (ExtendedCAService) implClass.getConstructor(HashMap.class).newInstance(new Object[] { serviceData });
-                        extendedcaservicemap.put(Integer.valueOf(type), returnval);
+                        returnval = (ExtendedCAService) implClass.getConstructor(HashMap.class).newInstance(serviceData);
+                        extendedcaservicemap.put(type, returnval);
                     }
                 } else {
                     log.error("Servicedata is null for extended CA service of type: "+type);
@@ -880,8 +870,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
     
     @SuppressWarnings("rawtypes")
     public HashMap<?, ?> getExtendedCAServiceData(int type) {
-        HashMap serviceData = (HashMap) data.get(EXTENDEDCASERVICE + type);
-        return serviceData;
+        return (HashMap) data.get(EXTENDEDCASERVICE + type);
     }
 
     public void setExtendedCAServiceData(int type, @SuppressWarnings("rawtypes") HashMap serviceData) {
@@ -892,7 +881,7 @@ public abstract class CABaseCommon extends UpgradeableDataHashMap implements CAC
     public void setExtendedCAService(ExtendedCAService extendedcaservice) {
         ExtendedCAServiceInfo info = extendedcaservice.getExtendedCAServiceInfo();
         setExtendedCAServiceData(info.getType(), (HashMap)extendedcaservice.saveData());
-        extendedcaservicemap.put(Integer.valueOf(info.getType()), extendedcaservice);
+        extendedcaservicemap.put(info.getType(), extendedcaservice);
     }
 
     /** Returns a Collection of ExternalCAServices (int) added to this CA. */

@@ -42,12 +42,12 @@ public abstract class CertificateValidatorBase extends ValidatorBase implements 
     protected static List<Integer> APPLICABLE_PHASES;
     
     static {
-        APPLICABLE_PHASES = new ArrayList<Integer>();
+        APPLICABLE_PHASES = new ArrayList<>();
         APPLICABLE_PHASES.add(IssuancePhase.PRE_CERTIFICATE_VALIDATION.getIndex());
         APPLICABLE_PHASES.add(IssuancePhase.CERTIFICATE_VALIDATION.getIndex());
         APPLICABLE_PHASES.add(IssuancePhase.PRESIGN_CERTIFICATE_VALIDATION.getIndex());
         
-        APPLICABLE_CA_TYPES = new ArrayList<Integer>();
+        APPLICABLE_CA_TYPES = new ArrayList<>();
         APPLICABLE_CA_TYPES.add(CAInfo.CATYPE_X509);
     }
     
@@ -109,7 +109,7 @@ public abstract class CertificateValidatorBase extends ValidatorBase implements 
 
     @Override
     public int getNotBeforeCondition() {
-        return ((Integer) data.get(NOT_BEFORE_CONDITION)).intValue();
+        return (int) data.get(NOT_BEFORE_CONDITION);
     }
 
     @Override
@@ -134,7 +134,7 @@ public abstract class CertificateValidatorBase extends ValidatorBase implements 
 
     @Override
     public int getNotAfterCondition() {
-        return ((Integer) data.get(NOT_AFTER_CONDITION)).intValue();
+        return (int) data.get(NOT_AFTER_CONDITION);
     }
 
     @Override

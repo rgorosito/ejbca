@@ -85,9 +85,9 @@ public class SimpleRequestMessage implements RequestMessage {
     private Date validityNotBefore = null;
     private Date validityNotAfter = null;
 
-    private List<Certificate> additionalCaCertificates = new ArrayList<Certificate>();
+    private List<Certificate> additionalCaCertificates = new ArrayList<>();
 
-    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<Certificate>();
+    private List<Certificate> additionalExtraCertsCertificates = new ArrayList<>();
     
     /**
      * Constructs a new Simple message handler object.
@@ -120,7 +120,8 @@ public class SimpleRequestMessage implements RequestMessage {
      * @param pubkey the public key to be certified
      * @param username username of the EJBCA user
      * @param password password of the EJBCA user
-     * @param the end validity of this certificate
+     * @param validityNotBefore the start validity of this certificate
+     * @param validityNotAfter the end validity of this certificate
      */
     public SimpleRequestMessage(final PublicKey pubkey, final String username, final String password, final Date validityNotBefore, final Date validityNotAfter) {
         this.pubkey = new PublicKeyWrapper(pubkey);

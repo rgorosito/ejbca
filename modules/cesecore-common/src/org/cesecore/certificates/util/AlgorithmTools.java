@@ -69,7 +69,6 @@ import org.bouncycastle.math.ec.ECCurve;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.config.CesecoreConfiguration;
 import org.cesecore.keys.util.KeyTools;
-import org.cesecore.util.CertTools;
 import org.cesecore.util.StringTools;
 import org.ejbca.cvc.AlgorithmUtil;
 import org.ejbca.cvc.CVCPublicKey;
@@ -84,7 +83,6 @@ import org.ejbca.cvc.OIDField;
  * added to EJBCA.
  *
  * @see AlgorithmConstants
- * @see CertTools#getSignatureAlgorithm
  * @see KeyTools#getKeyLength
  *
  * @version $Id$
@@ -186,11 +184,10 @@ public abstract class AlgorithmTools {
     public static Map<String,List<String>> getNamedEcCurvesMap(final boolean hasToBeKnownByDefaultProvider) {
         // Map of curve name and aliases which are the same curve
         final Map<String,List<String>> processedCurveNames = new HashMap<>();
-        @SuppressWarnings("unchecked")
-        final Enumeration<String> ecNamedCurvesStandard = ECNamedCurveTable.getNames();
+        final Enumeration<?> ecNamedCurvesStandard = ECNamedCurveTable.getNames();
         // Process standard curves, removing blacklisted ones and those not supported by the provider
         while (ecNamedCurvesStandard.hasMoreElements()) {
-            final String ecNamedCurve = ecNamedCurvesStandard.nextElement();
+            final String ecNamedCurve = (String) ecNamedCurvesStandard.nextElement();
             processCurveName(hasToBeKnownByDefaultProvider, processedCurveNames, ecNamedCurve);
         }
 
@@ -208,7 +205,7 @@ public abstract class AlgorithmTools {
      * @return a Map with elliptic curve names as key and the list of alias separated by '/' as the value.
      */
     public static TreeMap<String,String> getFlatNamedEcCurvesMap(final boolean hasToBeKnownByDefaultProvider) {
-        final TreeMap<String,String> result = new TreeMap<String,String>();
+        final TreeMap<String,String> result = new TreeMap<>();
         final Map<String, List<String>> map = getNamedEcCurvesMap(hasToBeKnownByDefaultProvider);
         final String[] keys = map.keySet().toArray(new String[map.size()]);
         Arrays.sort(keys);
@@ -219,7 +216,7 @@ public abstract class AlgorithmTools {
     }
 
     /**
-     * Gets a list of allowed curves (see {@link http://csrc.nist.gov/groups/ST/toolkit/documents/dss/NISTReCur.pdf}.
+     * Gets a list of allowed curves (see <a href="http://csrc.nist.gov/groups/ST/toolkit/documents/dss/NISTReCur.pdf">http://csrc.nist.gov/groups/ST/toolkit/documents/dss/NISTReCur.pdf</a>).
      *
      * @return the list of allowed curves.
      */
@@ -228,7 +225,7 @@ public abstract class AlgorithmTools {
         // But this is not required at the time, because certificate validity conditions are before
         // 2014 (now 2017). Allowed curves by NIST are NIST P 256, P 384, P 521
         // See http://csrc.nist.gov/groups/ST/toolkit/documents/dss/NISTReCur.pdf chapter 1.2
-        final List<String> list = new ArrayList<String>();
+        final List<String> list = new ArrayList<>();
         list.addAll(AlgorithmTools.getEcKeySpecAliases("P-256"));
         list.addAll(AlgorithmTools.getEcKeySpecAliases("P-384"));
         list.addAll(AlgorithmTools.getEcKeySpecAliases("P-521"));
@@ -316,7 +313,7 @@ public abstract class AlgorithmTools {
             }
             // Make things work faster by making the "best suitable" signature algorithm be first in the list
             // This is a must for example for Azure Key Vault where a P-384 key can not be used together with SHA256WithECDSA.
-            List<String> ecSigAlgs = new ArrayList<String>(SIG_ALGS_ECDSA);
+            List<String> ecSigAlgs = new ArrayList<>(SIG_ALGS_ECDSA);
             switch (AlgorithmTools.getNamedEcCurveBitLength(getKeySpecification(publickey))) {
             case 256:
                 ecSigAlgs.remove(AlgorithmConstants.SIGALG_SHA256_WITH_ECDSA);
@@ -409,10 +406,9 @@ public abstract class AlgorithmTools {
                     if (log.isDebugEnabled()) {
                         log.debug("a1=" + a1 + " b1=" + b1 + " fs1=" + fs1 + " ax1=" + ax1 + " ay1=" + ay1 + " o1=" + o1 + " c1="+c1);
                     }
-                    @SuppressWarnings("unchecked")
-                    final Enumeration<String> ecNamedCurves = ECNamedCurveTable.getNames();
+                    final Enumeration<?> ecNamedCurves = ECNamedCurveTable.getNames();
                     while (ecNamedCurves.hasMoreElements()) {
-                        final String ecNamedCurveBc = ecNamedCurves.nextElement();
+                        final String ecNamedCurveBc = (String) ecNamedCurves.nextElement();
                         final ECNamedCurveParameterSpec parameterSpec2 = ECNamedCurveTable.getParameterSpec(ecNamedCurveBc);
                         final ECCurve ec2 = parameterSpec2.getCurve();
                         final BigInteger a2 = ec2.getA().toBigInteger();
@@ -502,10 +498,9 @@ public abstract class AlgorithmTools {
         ret.add(namedEllipticCurve);
 
         if (parameterSpec != null) { // GOST and DSTU aren't present in ECNamedCurveTable (and don't have aliases)
-            @SuppressWarnings("unchecked")
-            final Enumeration<String> ecNamedCurves = ECNamedCurveTable.getNames();
+            final Enumeration<?> ecNamedCurves = ECNamedCurveTable.getNames();
             while (ecNamedCurves.hasMoreElements()) {
-                final String currentCurve = ecNamedCurves.nextElement();
+                final String currentCurve = (String) ecNamedCurves.nextElement();
                 if (!namedEllipticCurve.equals(currentCurve)) {
                     final ECNamedCurveParameterSpec parameterSpec2 = ECNamedCurveTable.getParameterSpec(currentCurve);
                     if (parameterSpec.equals(parameterSpec2)) {
@@ -683,26 +678,26 @@ public abstract class AlgorithmTools {
                 } else if (certSignatureAlgorithm.contains("512")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA3_512_WITH_RSA;
                 }
-            } else if (certSignatureAlgorithm.indexOf("MGF1") == -1) {
-                if (certSignatureAlgorithm.indexOf("MD5") != -1) {
+            } else if (!certSignatureAlgorithm.contains("MGF1")) {
+                if (certSignatureAlgorithm.contains("MD5")) {
                     signatureAlgorithm = "MD5WithRSA";
-                } else if (certSignatureAlgorithm.indexOf("SHA1") != -1) {
+                } else if (certSignatureAlgorithm.contains("SHA1")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA1_WITH_RSA;
-                } else if (certSignatureAlgorithm.indexOf("256") != -1) {
+                } else if (certSignatureAlgorithm.contains("256")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA256_WITH_RSA;
-                } else if (certSignatureAlgorithm.indexOf("384") != -1) {
+                } else if (certSignatureAlgorithm.contains("384")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA384_WITH_RSA;
-                } else if (certSignatureAlgorithm.indexOf("512") != -1) {
+                } else if (certSignatureAlgorithm.contains("512")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA512_WITH_RSA;
                 }
             } else {
-                if (certSignatureAlgorithm.indexOf("SHA1") != -1) {
+                if (certSignatureAlgorithm.contains("SHA1")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA1_WITH_RSA_AND_MGF1;
-                } else if (certSignatureAlgorithm.indexOf("256") != -1) {
+                } else if (certSignatureAlgorithm.contains("256")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA256_WITH_RSA_AND_MGF1;
-                } else if (certSignatureAlgorithm.indexOf("384") != -1) {
+                } else if (certSignatureAlgorithm.contains("384")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA384_WITH_RSA_AND_MGF1;
-                } else if (certSignatureAlgorithm.indexOf("512") != -1) {
+                } else if (certSignatureAlgorithm.contains("512")) {
                     signatureAlgorithm = AlgorithmConstants.SIGALG_SHA512_WITH_RSA_AND_MGF1;
                 }
             }
@@ -717,15 +712,15 @@ public abstract class AlgorithmTools {
                 } else if (certSignatureAlgorithm.contains("512")) {
                     return AlgorithmConstants.SIGALG_SHA3_512_WITH_ECDSA;
                 }
-            } else if (certSignatureAlgorithm.indexOf("256") != -1) {
+            } else if (certSignatureAlgorithm.contains("256")) {
                 signatureAlgorithm = AlgorithmConstants.SIGALG_SHA256_WITH_ECDSA;
-            } else if (certSignatureAlgorithm.indexOf("224") != -1) {
+            } else if (certSignatureAlgorithm.contains("224")) {
                 signatureAlgorithm = AlgorithmConstants.SIGALG_SHA224_WITH_ECDSA;
-            } else if (certSignatureAlgorithm.indexOf("384") != -1) {
+            } else if (certSignatureAlgorithm.contains("384")) {
                 signatureAlgorithm = AlgorithmConstants.SIGALG_SHA384_WITH_ECDSA;
-            } else if (certSignatureAlgorithm.indexOf("512") != -1) {
+            } else if (certSignatureAlgorithm.contains("512")) {
                 signatureAlgorithm = AlgorithmConstants.SIGALG_SHA512_WITH_ECDSA;
-            } else if (certSignatureAlgorithm.indexOf("ECDSA") != -1) {
+            } else if (certSignatureAlgorithm.contains("ECDSA")) {
                 // From x509cert.getSigAlgName(), SHA1withECDSA only returns name ECDSA
                 signatureAlgorithm = AlgorithmConstants.SIGALG_SHA1_WITH_ECDSA;
             } else if (isGost3410Enabled() && certSignatureAlgorithm.equalsIgnoreCase(AlgorithmConstants.SIGALG_GOST3411_WITH_ECGOST3410)) {
@@ -743,7 +738,7 @@ public abstract class AlgorithmTools {
     /**
      * Returns the OID of the digest algorithm corresponding to the signature algorithm. Does not handle RSA-SSA (MGF1) since the Hash algo in MGF1
      * if hidden in the parameters, which is not visible in the sigAlg
-     * @param OID of a signatureAlgorithm, for example PKCSObjectIdentifiers.sha256WithRSAEncryption.getId() (1.2.840.113549.1.1.11)
+     * @param sigAlgOid OID of a signatureAlgorithm, for example PKCSObjectIdentifiers.sha256WithRSAEncryption.getId() (1.2.840.113549.1.1.11)
      * @return Digest OID, CMSSignedGenerator.DIGEST_SHA256, CMSSignedGenerator.DIGEST_GOST3411, etc, default to SHA256 if nothing else fits
      */
     public static String getDigestFromSigAlg(String sigAlgOid) {
@@ -902,7 +897,6 @@ public abstract class AlgorithmTools {
 
     /**
      * <p>Perform a case-insensitive lookup of all known aliases for an elliptic curve given one known alias.</p>
-     * <p>To determine whether an alias is known, see {@link #isKnownCurveAlias}.</p>
      * @return a sorted list of aliases for the elliptic curve specified, never null
      */
     public static List<String> getAllCurveAliasesFromAlias(final String alias) {
@@ -911,7 +905,7 @@ public abstract class AlgorithmTools {
             final String lowerCaseCanonicalName = name.getKey().toLowerCase();
             final List<String> lowerCaseAliases = StringTools.toLowerCase(name.getValue());
             if (StringUtils.equals(lowerCaseAlias, lowerCaseCanonicalName) || lowerCaseAliases.contains(lowerCaseAlias)) {
-                final List<String> aliases = new ArrayList<String>(name.getValue());
+                final List<String> aliases = new ArrayList<>(name.getValue());
                 aliases.add(name.getKey());
                 Collections.sort(aliases);
                 return aliases;
@@ -1017,7 +1011,7 @@ public abstract class AlgorithmTools {
     /**
      * Get a Bouncy Castle elliptic curve parameter specification by OID.
      * 
-     * <p>If you only have the name of the curve, use {@link #AlgorithmTools.getEcKeySpecOidFromBcName(String arg0)} 
+     * <p>If you only have the name of the curve, use {@link #getEcKeySpecOidFromBcName} 
      * to lookup the OID first.
      * 
      * @param oid the OID of the curve.
@@ -1059,7 +1053,7 @@ public abstract class AlgorithmTools {
     /**
      * Returns a {@link java.security.MessageDigest} object given the name of a signature algorithm, e.g. "SHA256withECDSA".
      * 
-     * <p>Signature algorithm names are defined in {@link #AlgorithmConstants}.
+     * <p>Signature algorithm names are defined in {@link AlgorithmConstants}.
      * 
      * @param signatureAlgorithm the name of the signature algorithm, e.g. "SHA256withECDSA".
      * @return a message digest object able to compute digests with the hash algorithm specified.

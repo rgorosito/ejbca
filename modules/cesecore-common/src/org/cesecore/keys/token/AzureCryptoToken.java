@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyFactory;
 import java.security.KeyStoreException;
@@ -226,7 +227,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
                 if (log.isDebugEnabled()) {
                     log.debug("getAliases response code: " + response.getStatusLine().getStatusCode());                    
                 }
-                String s = IOUtils.toString(content, "UTF-8");
+                String s = IOUtils.toString(content, StandardCharsets.UTF_8);
                 if (log.isDebugEnabled()) {
                     log.debug("getAliases JSON response: " + s);
                 }
@@ -335,14 +336,13 @@ public class AzureCryptoToken extends BaseCryptoToken {
                 if (log.isDebugEnabled()) {
                     log.debug("Authorization request: " + request1.toString());
                 }
-                final CloseableHttpResponse authResponse = authHttpClient.execute(request1);
-                try {
+                try (final CloseableHttpResponse authResponse = authHttpClient.execute(request1)) {
                     final int authStatusCode = authResponse.getStatusLine().getStatusCode();
                     if (log.isDebugEnabled()) {
                         log.debug("Status code for authorization request is: " + authStatusCode);
                         log.debug("Response.toString: " + authResponse.toString());
                     }
-                    final String s = IOUtils.toString(authResponse.getEntity().getContent(), "UTF-8");
+                    final String s = IOUtils.toString(authResponse.getEntity().getContent(), StandardCharsets.UTF_8);
                     if (log.isDebugEnabled()) {
                         log.debug("Authorization JSON response: " + s);
                     }
@@ -363,8 +363,6 @@ public class AzureCryptoToken extends BaseCryptoToken {
                     } else {
                         throw new CryptoTokenAuthenticationFailedException("Azure Crypto Token authorization failed with unknown response code " + authStatusCode + ", JSON response: " + s);
                     }
-                } finally {
-                    authResponse.close();
                 }
             }
             return response;
@@ -427,14 +425,14 @@ public class AzureCryptoToken extends BaseCryptoToken {
             try (CloseableHttpResponse response = performRequest(request)) {
                 if (response.getStatusLine().getStatusCode() != 200) {
                     final InputStream content = response.getEntity().getContent();
-                    final String s = IOUtils.toString(content, "UTF-8");
+                    final String s = IOUtils.toString(content, StandardCharsets.UTF_8);
                     if (log.isDebugEnabled()) {
                         log.debug("deleteEntry error JSON response: " + s);
                     }
                     throw new CryptoTokenOfflineException("Azure Crypto Token key deletion failed, JSON response: " + s);
                 } else {
                     final InputStream content = response.getEntity().getContent();
-                    final String s = IOUtils.toString(content, "UTF-8");
+                    final String s = IOUtils.toString(content, StandardCharsets.UTF_8);
                     if (log.isDebugEnabled()) {
                         log.debug("deleteEntry success JSON response: " + s);
                     }
@@ -515,14 +513,14 @@ public class AzureCryptoToken extends BaseCryptoToken {
             try (CloseableHttpResponse response = performRequest(request)) {
                 if (response.getStatusLine().getStatusCode() != 200) {
                     final InputStream content = response.getEntity().getContent();
-                    final String s = IOUtils.toString(content, "UTF-8");
+                    final String s = IOUtils.toString(content, StandardCharsets.UTF_8);
                     if (log.isDebugEnabled()) {
                         log.debug("generateKeyPair error JSON response: " + s);
                     }
                     throw new CryptoTokenOfflineException("Azure Crypto Token key generation failed, JSON response: " + s);
                 } else {
                     final InputStream content = response.getEntity().getContent();
-                    final String s = IOUtils.toString(content, "UTF-8");
+                    final String s = IOUtils.toString(content, StandardCharsets.UTF_8);
                     if (log.isDebugEnabled()) {
                         log.debug("generateKeyPair success JSON response: " + s);
                     }
@@ -627,7 +625,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
                     final InputStream content = response.getEntity().getContent();
                     String s = null;
                     if (content != null){
-                        s = IOUtils.toString(content, "UTF-8");
+                        s = IOUtils.toString(content, StandardCharsets.UTF_8);
                         if (log.isDebugEnabled()) {
                             log.debug("getPublicKey JSON response: " + s);
                         }
@@ -715,7 +713,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
             log.debug("getLastKeyVersion request: " + request.toString());
             CloseableHttpResponse execute = performAuthenticatedRequest(request, getKeyVaultName());
             InputStream content = execute.getEntity().getContent();
-            String s = IOUtils.toString(content, "UTF-8");
+            String s = IOUtils.toString(content, StandardCharsets.UTF_8);
             if (log.isDebugEnabled()) {
                 log.debug("getLastKeyVersion JSON response: " + s);
             }
