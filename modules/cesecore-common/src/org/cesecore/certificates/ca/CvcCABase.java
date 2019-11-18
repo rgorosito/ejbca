@@ -115,7 +115,7 @@ public abstract class CvcCABase extends CABase implements Serializable, CvcCA {
 				getCAToken(), getDescription(), getRevocationReason(), getRevocationDate(), getCRLPeriod(), getCRLIssueInterval(), getCRLOverlapTime(), getDeltaCRLPeriod(), 
 				getCRLPublishers(), getValidators(), getFinishUser(), externalcaserviceinfos, 
 				getApprovals(),
-				getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(), isDoEnforceUniqueDistinguishedName(), isDoEnforceUniqueSubjectDNSerialnumber(),
+				getIncludeInHealthCheck(), isDoEnforceUniquePublicKeys(),isDoEnforceKeyRenewal(), isDoEnforceUniqueDistinguishedName(), isDoEnforceUniqueSubjectDNSerialnumber(),
 				isUseCertReqHistory(), isUseUserStorage(), isUseCertificateStorage(), isAcceptRevocationNonExistingEntry());
         //These to settings were deprecated in 6.8.0, but are still set for upgrade reasons
         info.setApprovalProfile(getApprovalProfile());
@@ -185,7 +185,7 @@ public abstract class CvcCABase extends CABase implements Serializable, CvcCA {
                 setEncodedValidity(getEncodedValidity());
             }
             
-            data.put(VERSION, new Float(LATEST_VERSION));
+            data.put(VERSION, LATEST_VERSION);
 		}  
 	}
 

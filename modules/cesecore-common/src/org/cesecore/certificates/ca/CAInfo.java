@@ -118,6 +118,7 @@ public abstract class CAInfo implements Serializable {
 
     protected boolean includeInHealthCheck;
     protected boolean doEnforceUniquePublicKeys;
+    protected boolean doEnforceKeyRenewal;
     protected boolean doEnforceUniqueDistinguishedName;
     protected boolean doEnforceUniqueSubjectDNSerialnumber;
     protected boolean useCertReqHistory;
@@ -260,7 +261,7 @@ public abstract class CAInfo implements Serializable {
         return renewedcertificatechainCached;
     }
 
-    public void setRenewedCertificateChain(Collection<Certificate> certificatechain) {
+    void setRenewedCertificateChain(Collection<Certificate> certificatechain) {
         this.renewedcertificatechainCached = certificatechain;
         this.renewedcertificatechain = EJBTools.wrapCertCollection(certificatechain);
     }
@@ -297,8 +298,8 @@ public abstract class CAInfo implements Serializable {
         this.revocationDate = revocationDate;
     }
 
-    public void setCertificateProfileId(int _certificateprofileid) {
-        this.certificateprofileid = _certificateprofileid;
+    public void setCertificateProfileId(int certificateProfileId) {
+        this.certificateprofileid = certificateProfileId;
     }
 
     /** @return  the ID of the certificate profile for this CA    */
@@ -343,8 +344,8 @@ public abstract class CAInfo implements Serializable {
         return crlOverlapTime;
     }
 
-    public void setCRLOverlapTime(long crloverlaptime) {
-        this.crlOverlapTime = crloverlaptime;
+    public void setCRLOverlapTime(long crlOverlapTime) {
+        this.crlOverlapTime = crlOverlapTime;
     }
 
     public Collection<Integer> getCRLPublishers() {
@@ -534,6 +535,14 @@ public abstract class CAInfo implements Serializable {
         this.doEnforceUniquePublicKeys = doEnforceUniquePublicKeys;
     }
 
+    public boolean isDoEnforceKeyRenewal() {
+        return doEnforceKeyRenewal;
+    }
+
+    public void setDoEnforceKeyRenewal(boolean doEnforceKeyRenewal) {
+        this.doEnforceKeyRenewal = doEnforceKeyRenewal;
+    }
+
     /**
      * @return answer this: should this CA issue certificates to only one user of a specific subjectDN serialnumber.
      */
@@ -542,7 +551,7 @@ public abstract class CAInfo implements Serializable {
     }
 
     /**
-     * @param doEnforceUniqueSubjectDNSerialnumber
+     * @param doEnforceUniqueSubjectDNSN
      */
     public void setDoEnforceUniqueSubjectDNSerialnumber(boolean doEnforceUniqueSubjectDNSN) {
         this.doEnforceUniqueSubjectDNSerialnumber = doEnforceUniqueSubjectDNSN;

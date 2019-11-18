@@ -62,6 +62,7 @@ public class CVCCAInfo extends CAInfo {
                 new HashMap<ApprovalRequestType, Integer>(),
                 true, // includeInHealthCheck
                 true, // isDoEnforceUniquePublicKeys
+                true, // doEnforceKeyRenewal
                 true, // isDoEnforceUniqueDistinguishedName
                 false, // isDoEnforceUniqueSubjectDNSerialnumber
                 false, // useCertReqHistory
@@ -82,9 +83,9 @@ public class CVCCAInfo extends CAInfo {
 			Collection<Integer> crlpublishers, Collection<Integer> keyValidators,
 			boolean finishuser,Collection<ExtendedCAServiceInfo> extendedcaserviceinfos,
 			Map<ApprovalRequestType, Integer> approvals,
-			boolean includeInHealthCheck, boolean _doEnforceUniquePublicKeys,
-			boolean _doEnforceUniqueDistinguishedName, boolean _doEnforceUniqueSubjectDNSerialnumber,
-			boolean _useCertReqHistory, boolean _useUserStorage, boolean _useCertificateStorage, boolean _acceptRevocationNonExistingEntry) {
+			boolean includeInHealthCheck, boolean doEnforceUniquePublicKeys, boolean doEnforceKeyRenewal,
+			boolean doEnforceUniqueDistinguishedName, boolean doEnforceUniqueSubjectDNSerialnumber,
+			boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationNonExistingEntry) {
 		this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectDn));
 		this.caid = CertTools.stringToBCDNString(this.subjectdn).hashCode();
 		this.name = name;
@@ -111,13 +112,14 @@ public class CVCCAInfo extends CAInfo {
 		this.extendedcaserviceinfos = extendedcaserviceinfos;
 		setApprovals(approvals);
 		this.includeInHealthCheck = includeInHealthCheck;
-		this.doEnforceUniquePublicKeys = _doEnforceUniquePublicKeys;
-		this.doEnforceUniqueDistinguishedName = _doEnforceUniqueDistinguishedName;
-		this.doEnforceUniqueSubjectDNSerialnumber = _doEnforceUniqueSubjectDNSerialnumber;
-		this.useCertReqHistory = _useCertReqHistory;
-        this.useUserStorage = _useUserStorage;
-        this.useCertificateStorage = _useCertificateStorage;
-        this.acceptRevocationNonExistingEntry = _acceptRevocationNonExistingEntry;
+		this.doEnforceUniquePublicKeys = doEnforceUniquePublicKeys;
+		this.doEnforceKeyRenewal = doEnforceKeyRenewal;
+		this.doEnforceUniqueDistinguishedName = doEnforceUniqueDistinguishedName;
+		this.doEnforceUniqueSubjectDNSerialnumber = doEnforceUniqueSubjectDNSerialnumber;
+		this.useCertReqHistory = useCertReqHistory;
+        this.useUserStorage = useUserStorage;
+        this.useCertificateStorage = useCertificateStorage;
+        this.acceptRevocationNonExistingEntry = acceptRevocationNonExistingEntry;
 	}
 
 	/**
@@ -129,9 +131,9 @@ public class CVCCAInfo extends CAInfo {
 			Collection<Integer> crlpublishers, Collection<Integer> keyValidators,
 			boolean finishuser, Collection<ExtendedCAServiceInfo> extendedcaserviceinfos,
 			Map<ApprovalRequestType, Integer> approvals,
-			boolean includeInHealthCheck, boolean _doEnforceUniquePublicKeys,
-			boolean _doEnforceUniqueDistinguishedName, boolean _doEnforceUniqueSubjectDNSerialnumber,
-			boolean _useCertReqHistory, boolean _useUserStorage, boolean _useCertificateStorage, boolean _acceptRevocationNonExistingEntry,
+			boolean includeInHealthCheck, boolean doEnforceUniquePublicKeys, boolean doEnforceKeyRenewal,
+			boolean doEnforceUniqueDistinguishedName, boolean doEnforceUniqueSubjectDNSerialnumber,
+			boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationNonExistingEntry,
 			int defaultCertprofileId) {
 		this.caid = caid;
 		setEncodedValidity(encodedValidity);
@@ -147,13 +149,14 @@ public class CVCCAInfo extends CAInfo {
 		this.extendedcaserviceinfos = extendedcaserviceinfos;
 		setApprovals(approvals);
 		this.includeInHealthCheck = includeInHealthCheck;
-		this.doEnforceUniquePublicKeys = _doEnforceUniquePublicKeys;
-		this.doEnforceUniqueDistinguishedName = _doEnforceUniqueDistinguishedName;
-		this.doEnforceUniqueSubjectDNSerialnumber = _doEnforceUniqueSubjectDNSerialnumber;
-		this.useCertReqHistory = _useCertReqHistory;
-        this.useUserStorage = _useUserStorage;
-        this.useCertificateStorage = _useCertificateStorage;
-        this.acceptRevocationNonExistingEntry = _acceptRevocationNonExistingEntry;
+		this.doEnforceUniquePublicKeys = doEnforceUniquePublicKeys;
+		this.doEnforceKeyRenewal = doEnforceKeyRenewal;
+		this.doEnforceUniqueDistinguishedName = doEnforceUniqueDistinguishedName;
+		this.doEnforceUniqueSubjectDNSerialnumber = doEnforceUniqueSubjectDNSerialnumber;
+		this.useCertReqHistory = useCertReqHistory;
+        this.useUserStorage = useUserStorage;
+        this.useCertificateStorage = useCertificateStorage;
+        this.acceptRevocationNonExistingEntry = acceptRevocationNonExistingEntry;
         this.defaultCertificateProfileId = defaultCertprofileId;
 	}
 }

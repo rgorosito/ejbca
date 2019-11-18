@@ -144,7 +144,7 @@ public class CAInterfaceBean implements Serializable {
     private CAInfo cainfo;
     private EjbcaWebBean ejbcawebbean;
     /** The certification request in binary format */
-    transient private byte[] request;
+    private transient byte[] request;
     private Certificate processedcert;
 	
 	/** Creates a new instance of CaInterfaceBean */
@@ -247,7 +247,7 @@ public class CAInterfaceBean implements Serializable {
 		this.processedcert =cert;
 	}
 
-	public Certificate getProcessedCertificate(){
+    Certificate getProcessedCertificate(){
 		return this.processedcert;
 	}    
 
@@ -296,7 +296,7 @@ public class CAInterfaceBean implements Serializable {
 		} else {
 			final CertificateProfile certprofile = certificateProfileSession.getCertificateProfile(certificateProfileId);
 			if (certprofile != null) {
-				if (certprofile.getPublisherList().size() > 0) {
+				if (!certprofile.getPublisherList().isEmpty()) {
                     if (publishersession.storeCertificate(authenticationToken, certprofile.getPublisherList(), cdw, password, dn, ei)) {
                         returnval = "CERTREPUBLISHEDSUCCESS";
                     }
@@ -324,7 +324,7 @@ public class CAInterfaceBean implements Serializable {
 	public List<CertReqHistory> getCertReqUserDatas(String username){
 		List<CertReqHistory> history = this.certreqhistorysession.retrieveCertReqHistory(username);
 		// Sort it by timestamp, newest first;
-		Collections.sort(history, new CertReqUserCreateComparator());
+		history.sort(new CertReqUserCreateComparator());
 		return history;
 	}
 
@@ -336,7 +336,7 @@ public class CAInterfaceBean implements Serializable {
             String keySequenceFormat, String keySequence, int catype, String subjectdn,
             String certificateProfileIdString, String defaultCertificateProfileIdString, boolean useNoConflictCertificateData, 
             String signedByString, String description, String caSerialNumberOctetSizeString, String validityString,
-            Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys,
+            Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys, boolean doEnforceKeyRenewal,
             boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
             boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationsNonExistingEntry, String subjectaltname,
             String policyid, boolean useauthoritykeyidentifier, boolean authoritykeyidentifiercritical,
@@ -348,7 +348,7 @@ public class CAInterfaceBean implements Serializable {
             String nameConstraintsPermittedString, String nameConstraintsExcludedString,
             String caDefinedFreshestCrlString, boolean useutf8policytext,
             boolean useprintablestringsubjectdn, boolean useldapdnorder, boolean usecrldistpointoncrl,
-            boolean crldistpointoncrlcritical, boolean includeInHealthCheck, boolean serviceOcspActive,
+            boolean crldistpointoncrlcritical, boolean includeInHealthCheck,
             boolean serviceCmsActive, String sharedCmpRaSecret, boolean keepExpiredCertsOnCRL, boolean usePartitionedCrl, int crlPartitions, int suspendedCrlPartitions,
             boolean buttonCreateCa, boolean buttonMakeRequest,
             String cryptoTokenIdString, String keyAliasCertSignKey, String keyAliasCrlSignKey, String keyAliasDefaultKey,
@@ -407,7 +407,7 @@ public class CAInterfaceBean implements Serializable {
                     keySequenceFormat, keySequence, catype, subjectdn, certificateProfileIdString, defaultCertificateProfileIdString, 
                     useNoConflictCertificateData, signedByString,
                     description, caSerialNumberOctetSizeString, validityString, approvals, finishUser,
-                    isDoEnforceUniquePublicKeys, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber,
+                    isDoEnforceUniquePublicKeys, doEnforceKeyRenewal, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber,
                     useCertReqHistory, useUserStorage, useCertificateStorage, acceptRevocationsNonExistingEntry, subjectaltname, policyid,
                     useauthoritykeyidentifier, authoritykeyidentifiercritical, crlperiod, crlIssueInterval,
                     crlOverlapTime, deltacrlperiod, availablePublisherValues, availableKeyValidatorValues, usecrlnumber, crlnumbercritical,
@@ -416,7 +416,7 @@ public class CAInterfaceBean implements Serializable {
                     certificateAiaDefaultCaIssuerUriString,
                     nameConstraintsPermittedString, nameConstraintsExcludedString,
                     caDefinedFreshestCrlString, useutf8policytext, useprintablestringsubjectdn, useldapdnorder,
-                    usecrldistpointoncrl, crldistpointoncrlcritical, includeInHealthCheck, serviceOcspActive,
+                    usecrldistpointoncrl, crldistpointoncrlcritical, includeInHealthCheck,
                     serviceCmsActive, sharedCmpRaSecret, keepExpiredCertsOnCRL, usePartitionedCrl, crlPartitions, suspendedCrlPartitions,
                     buttonCreateCa, buttonMakeRequest, cryptoTokenId,
                     keyAliasCertSignKey, keyAliasCrlSignKey, keyAliasDefaultKey,
@@ -438,7 +438,7 @@ public class CAInterfaceBean implements Serializable {
 	        String keySequenceFormat, String keySequence, int caType, String subjectDn,
 	        String certificateProfileIdString, String defaultCertificateProfileIdString, boolean useNoConflictCertificateData, 
 	        String signedByString, String description, String caSerialNumberOctetSizeString, String validityString,
-	        Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys,
+	        Map<ApprovalRequestType, Integer> approvals, boolean finishUser, boolean isDoEnforceUniquePublicKeys, boolean doEnforceKeyRenewal,
 	        boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
 	        boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationsNonExistingEntry, String subjectAltName,
 	        String policyid, boolean useAuthorityKeyIdentifier, boolean authorityKeyIdentifierCritical,
@@ -449,7 +449,7 @@ public class CAInterfaceBean implements Serializable {
             String certificateAiaDefaultCaIssuerUriString,
             String nameConstraintsPermittedString, String nameConstraintsExcludedString, String caDefinedFreshestCrlString, boolean useUtf8PolicyText,
             boolean usePrintableStringSubjectDn, boolean useLdapDnOrder, boolean useCrlDistributionPointOnCrl,
-            boolean crlDistributionPointOnCrlCritical, boolean includeInHealthCheck, boolean serviceOcspActive,
+            boolean crlDistributionPointOnCrlCritical, boolean includeInHealthCheck,
             boolean serviceCmsActive, String sharedCmpRaSecret, boolean keepExpiredCertsOnCRL, boolean usePartitionedCrl, int crlPartitions, int suspendedCrlPartitions,
             boolean buttonCreateCa, boolean buttonMakeRequest,
             int cryptoTokenId, String keyAliasCertSignKey, String keyAliasCrlSignKey, String keyAliasDefaultKey,
@@ -618,6 +618,7 @@ public class CAInterfaceBean implements Serializable {
                                 .setCrlDistributionPointOnCrlCritical(crlDistributionPointOnCrlCritical)
                                 .setIncludeInHealthCheck(includeInHealthCheck)
                                 .setDoEnforceUniquePublicKeys(isDoEnforceUniquePublicKeys)
+                                .setDoEnforceKeyRenewal(doEnforceKeyRenewal)
                                 .setDoEnforceUniqueDistinguishedName(isDoEnforceUniqueDistinguishedName)
                                 .setDoEnforceUniqueSubjectDNSerialnumber(isDoEnforceUniqueSubjectDNSerialnumber)
                                 .setUseCertReqHistory(useCertReqHistory)
@@ -688,6 +689,7 @@ public class CAInterfaceBean implements Serializable {
                                 .setCrlDistributionPointOnCrlCritical(crlDistributionPointOnCrlCritical)
                                 .setIncludeInHealthCheck(false) // Do not automatically include new CAs in health-check
                                 .setDoEnforceUniquePublicKeys(isDoEnforceUniquePublicKeys)
+                                .setDoEnforceKeyRenewal(doEnforceKeyRenewal)
                                 .setDoEnforceUniqueDistinguishedName(isDoEnforceUniqueDistinguishedName)
                                 .setDoEnforceUniqueSubjectDNSerialnumber(isDoEnforceUniqueSubjectDNSerialnumber)
                                 .setUseCertReqHistory(useCertReqHistory)
@@ -728,6 +730,7 @@ public class CAInterfaceBean implements Serializable {
 	                        approvals,
 	                        false, // Do not automatically include new CAs in health-check
 	                        isDoEnforceUniquePublicKeys,
+                            doEnforceKeyRenewal,
 	                        isDoEnforceUniqueDistinguishedName,
 	                        isDoEnforceUniqueSubjectDNSerialnumber,
 	                        useCertReqHistory,
@@ -854,7 +857,7 @@ public class CAInterfaceBean implements Serializable {
     public CAInfo createCaInfo(int caid, String caname, String subjectDn, int catype,
 	        String keySequenceFormat, String keySequence, String signedByString, String description, String caSerialNumberOctetSizeString, 
 	        String validityString, long crlperiod, long crlIssueInterval, long crlOverlapTime, long deltacrlperiod, boolean finishUser,
-	        boolean isDoEnforceUniquePublicKeys, boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
+	        boolean isDoEnforceUniquePublicKeys, boolean doEnforceKeyRenewal, boolean isDoEnforceUniqueDistinguishedName, boolean isDoEnforceUniqueSubjectDNSerialnumber,
 	        boolean useCertReqHistory, boolean useUserStorage, boolean useCertificateStorage, boolean acceptRevocationNonExistingEntry,
             int defaultCertprofileId, boolean useNoConflictCertificateData, 
 	        Map<ApprovalRequestType, Integer> approvals,
@@ -864,7 +867,7 @@ public class CAInterfaceBean implements Serializable {
 	        String certificateAiaDefaultCaIssuerUriParam,
 	        String nameConstraintsPermittedString, String nameConstraintsExcludedString,
 	        String caDefinedFreshestCrl, boolean useutf8policytext, boolean useprintablestringsubjectdn, boolean useldapdnorder, boolean usecrldistpointoncrl,
-	        boolean crldistpointoncrlcritical, boolean includeInHealthCheck, boolean serviceOcspActive, boolean serviceCmsActive, String sharedCmpRaSecret, boolean keepExpiredCertsOnCRL,
+	        boolean crldistpointoncrlcritical, boolean includeInHealthCheck, boolean serviceCmsActive, String sharedCmpRaSecret, boolean keepExpiredCertsOnCRL,
             boolean usePartitionedCrl, int crlPartitions, int suspendedCrlPartitions
 	        ) throws Exception {
         // We need to pick up the old CAToken, so we don't overwrite with default values when we save the CA further down
@@ -946,7 +949,7 @@ public class CAInterfaceBean implements Serializable {
                         parseNameConstraintsInput(nameConstraintsPermittedString), parseNameConstraintsInput(nameConstraintsExcludedString),
                         cadefinedfreshestcrl, finishUser, extendedcaservices, useutf8policytext, approvals,
                         useprintablestringsubjectdn, useldapdnorder, usecrldistpointoncrl, crldistpointoncrlcritical, includeInHealthCheck,
-                        isDoEnforceUniquePublicKeys, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber, useCertReqHistory,
+                        isDoEnforceUniquePublicKeys, doEnforceKeyRenewal, isDoEnforceUniqueDistinguishedName, isDoEnforceUniqueSubjectDNSerialnumber, useCertReqHistory,
                         useUserStorage, useCertificateStorage, acceptRevocationNonExistingEntry, sharedCmpRaSecret, keepExpiredCertsOnCRL, defaultCertprofileId, 
                         useNoConflictCertificateData, usePartitionedCrl, crlPartitions, suspendedCrlPartitions);
             }
@@ -963,6 +966,7 @@ public class CAInterfaceBean implements Serializable {
                        approvals,
                        includeInHealthCheck,
                        isDoEnforceUniquePublicKeys,
+                       doEnforceKeyRenewal,
                        isDoEnforceUniqueDistinguishedName,
                        isDoEnforceUniqueSubjectDNSerialnumber,
                        useCertReqHistory,
@@ -995,7 +999,7 @@ public class CAInterfaceBean implements Serializable {
     	                // Fetch a list of all keys and their specs
     	                final List<KeyPairInfo> cryptoTokenKeyPairInfos = cryptoTokenManagementSession.getKeyPairInfos(authenticationToken, cryptoTokenId);
     	                // Only allow tokens with at least one keypair
-    	                if (cryptoTokenKeyPairInfos.size()>0) {
+    	                if (!cryptoTokenKeyPairInfos.isEmpty()) {
     	                    for (final KeyPairInfo cryptoTokenKeyPairInfo : cryptoTokenKeyPairInfos) {
     	                        String requiredKeyAlgorithm = AlgorithmTools.getKeyAlgorithmFromSigAlg(caSigingAlgorithm);
     	                        if (requiredKeyAlgorithm.equals(cryptoTokenKeyPairInfo.getKeyAlgorithm())) {
@@ -1245,11 +1249,11 @@ public class CAInterfaceBean implements Serializable {
             return null;
         }
     }
-    
-    /** Returns the current CA validity "not after" date. 
-     * @throws AuthorizationDeniedException 
-     * @throws CADoesntExistsException */
-    public Date getRolloverNotAfter(int caid) throws CADoesntExistsException, AuthorizationDeniedException {
+
+    /** Returns the current CA validity "not after" date.
+     * @throws AuthorizationDeniedException
+     */
+    public Date getRolloverNotAfter(int caid) throws AuthorizationDeniedException {
         final Collection<Certificate> chain = casession.getCAInfo(authenticationToken, caid).getCertificateChain();
         return CertTools.getNotAfter(chain.iterator().next());
     }

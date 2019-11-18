@@ -127,6 +127,7 @@ public class X509CAInfo extends CAInfo {
              false, // CRL Distribution Point on CRL critical
              true, // Include in HealthCheck
              true, // isDoEnforceUniquePublicKeys
+             true, // doEnforceKeyRenewal
              true, // isDoEnforceUniqueDistinguishedName
              false, // isDoEnforceUniqueSubjectDNSerialnumber
              false, // useCertReqHistory
@@ -147,7 +148,7 @@ public class X509CAInfo extends CAInfo {
      * Please use the shorter form if you do not need to set all of the values.
      * @param subjectDn the Subject DN of the CA as found in the certificate
      * @param name the name of the CA shown in EJBCA, can be changed by the user
-     * @param status the operational status of the CA, one of the constants in {@link #CAConstants}
+     * @param status the operational status of the CA, one of the constants in {@link CAConstants}
      * @param updateTime the last time this CA was updated, normally the current date and time
      * @param subjectaltname the Subject Alternative Name (SAN) of the CA, as found in the certificate
      * @param certificateprofileid the ID of the certificate profile for this CA
@@ -191,14 +192,15 @@ public class X509CAInfo extends CAInfo {
      * @param useCrlDistributionPointOnCrl
      * @param crlDistributionPointOnCrlCritical
      * @param includeInHealthCheck enable healthcheck for this CA
-     * @param _doEnforceUniquePublicKeys
-     * @param _doEnforceUniqueDistinguishedName
-     * @param _doEnforceUniqueSubjectDNSerialnumber
-     * @param _useCertReqHistory
-     * @param _useUserStorage
-     * @param _useCertificateStorage
-     * @param _acceptRevocationNonExistingEntry
-     * @param _cmpRaAuthSecret
+     * @param doEnforceUniquePublicKeys
+     * @param doEnforceKeyRenewal
+     * @param doEnforceUniqueDistinguishedName
+     * @param doEnforceUniqueSubjectDNSerialnumber
+     * @param useCertReqHistory
+     * @param useUserStorage
+     * @param useCertificateStorage
+     * @param acceptRevocationNonExistingEntry
+     * @param cmpRaAuthSecret
      * @param keepExpiredCertsOnCRL
      * @param usePartitionedCrl boolean specifying partitioned crl usage
      * @param crlPartitions the number of crl partitions (if any) used currently by this ca 
@@ -218,9 +220,9 @@ public class X509CAInfo extends CAInfo {
     		final boolean finishuser, final Collection<ExtendedCAServiceInfo> extendedcaserviceinfos,
     		final boolean useUTF8PolicyText, final Map<ApprovalRequestType, Integer> approvals, final boolean usePrintableStringSubjectDN,
     		final boolean useLdapDnOrder, final boolean useCrlDistributionPointOnCrl, final boolean crlDistributionPointOnCrlCritical, final boolean includeInHealthCheck,
-    		final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName, final boolean _doEnforceUniqueSubjectDNSerialnumber,
-    		final boolean _useCertReqHistory, final boolean _useUserStorage, final boolean _useCertificateStorage, final boolean _acceptRevocationNonExistingEntry,
-            final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL, final boolean usePartitionedCrl, final int crlPartitions, final int suspendedCrlPartitions) {
+    		final boolean doEnforceUniquePublicKeys, final boolean doEnforceKeyRenewal, final boolean doEnforceUniqueDistinguishedName, final boolean doEnforceUniqueSubjectDNSerialnumber,
+    		final boolean useCertReqHistory, final boolean useUserStorage, final boolean useCertificateStorage, final boolean acceptRevocationNonExistingEntry,
+            final String cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL, final boolean usePartitionedCrl, final int crlPartitions, final int suspendedCrlPartitions) {
         this.subjectdn = CertTools.stringToBCDNString(StringTools.strip(subjectDn));
         this.caid = CertTools.stringToBCDNString(this.subjectdn).hashCode();
         this.name = name;
@@ -241,9 +243,7 @@ public class X509CAInfo extends CAInfo {
 			} else {
 			    setCertificateChain(null);
 			}
-		} catch (CertificateException e) {
-			throw new IllegalArgumentException(e);
-		} catch (NoSuchProviderException e) {
+		} catch (CertificateException | NoSuchProviderException e) {
 			throw new IllegalArgumentException(e);
 		}
         this.catoken = catoken;
@@ -277,14 +277,15 @@ public class X509CAInfo extends CAInfo {
         this.useCrlDistributionPointOnCrl = useCrlDistributionPointOnCrl;
         this.crlDistributionPointOnCrlCritical = crlDistributionPointOnCrlCritical;
         this.includeInHealthCheck = includeInHealthCheck;
-        this.doEnforceUniquePublicKeys = _doEnforceUniquePublicKeys;
-        this.doEnforceUniqueDistinguishedName = _doEnforceUniqueDistinguishedName;
-        this.doEnforceUniqueSubjectDNSerialnumber = _doEnforceUniqueSubjectDNSerialnumber;
-        this.useCertReqHistory = _useCertReqHistory;
-        this.useUserStorage = _useUserStorage;
-        this.useCertificateStorage = _useCertificateStorage;
-        this.acceptRevocationNonExistingEntry = _acceptRevocationNonExistingEntry;
-        setCmpRaAuthSecret(_cmpRaAuthSecret);
+        this.doEnforceUniquePublicKeys = doEnforceUniquePublicKeys;
+        this.doEnforceKeyRenewal = doEnforceKeyRenewal;
+        this.doEnforceUniqueDistinguishedName = doEnforceUniqueDistinguishedName;
+        this.doEnforceUniqueSubjectDNSerialnumber = doEnforceUniqueSubjectDNSerialnumber;
+        this.useCertReqHistory = useCertReqHistory;
+        this.useUserStorage = useUserStorage;
+        this.useCertificateStorage = useCertificateStorage;
+        this.acceptRevocationNonExistingEntry = acceptRevocationNonExistingEntry;
+        setCmpRaAuthSecret(cmpRaAuthSecret);
         this.keepExpiredCertsOnCRL = keepExpiredCertsOnCRL;
         this.authorityInformationAccess = authorityInformationAccess;
         this.certificateAiaDefaultCaIssuerUri = certificateAiaDefaultCaIssuerUri;
@@ -308,7 +309,7 @@ public class X509CAInfo extends CAInfo {
             final Collection<ExtendedCAServiceInfo> extendedcaserviceinfos, final boolean useUTF8PolicyText,
             final Map<ApprovalRequestType, Integer> approvals, final boolean usePrintableStringSubjectDN, final boolean useLdapDnOrder,
             final boolean useCrlDistributionPointOnCrl, final boolean crlDistributionPointOnCrlCritical, final boolean includeInHealthCheck,
-            final boolean _doEnforceUniquePublicKeys, final boolean _doEnforceUniqueDistinguishedName,
+            final boolean _doEnforceUniquePublicKeys, final boolean doEnforceKeyRenewal, final boolean _doEnforceUniqueDistinguishedName,
             final boolean _doEnforceUniqueSubjectDNSerialnumber, final boolean _useCertReqHistory, final boolean _useUserStorage,
             final boolean _useCertificateStorage, final boolean _acceptRevocationNonExistingEntry, final String _cmpRaAuthSecret, final boolean keepExpiredCertsOnCRL,
             final int defaultCertprofileId, final boolean useNoConflictCertificateData, final boolean usePartitionedCrl, final int crlPartitions, final int suspendedCrlPartitions) {
@@ -341,6 +342,7 @@ public class X509CAInfo extends CAInfo {
         this.crlDistributionPointOnCrlCritical = crlDistributionPointOnCrlCritical;
         this.includeInHealthCheck = includeInHealthCheck;
         this.doEnforceUniquePublicKeys = _doEnforceUniquePublicKeys;
+        this.doEnforceKeyRenewal = doEnforceKeyRenewal;
         this.doEnforceUniqueDistinguishedName = _doEnforceUniqueDistinguishedName;
         this.doEnforceUniqueSubjectDNSerialnumber = _doEnforceUniqueSubjectDNSerialnumber;
         this.useCertReqHistory = _useCertReqHistory;
@@ -734,6 +736,7 @@ public class X509CAInfo extends CAInfo {
         private boolean crlDistributionPointOnCrlCritical = false;
         private boolean includeInHealthCheck = true;
         private boolean doEnforceUniquePublicKeys = true;
+        private boolean doEnforceKeyRenewal = true;
         private boolean doEnforceUniqueDistinguishedName = true;
         private boolean doEnforceUniqueSubjectDNSerialnumber = false;
         private boolean useCertReqHistory = false;
@@ -975,6 +978,10 @@ public class X509CAInfo extends CAInfo {
             this.doEnforceUniquePublicKeys = doEnforceUniquePublicKeys;
             return this;
         }
+        public X509CAInfoBuilder setDoEnforceKeyRenewal(boolean doEnforceKeyRenewal) {
+            this.doEnforceKeyRenewal = doEnforceKeyRenewal;
+            return this;
+        }
 
         public X509CAInfoBuilder setDoEnforceUniqueDistinguishedName(boolean doEnforceUniqueDistinguishedName) {
             this.doEnforceUniqueDistinguishedName = doEnforceUniqueDistinguishedName;
@@ -1048,7 +1055,7 @@ public class X509CAInfo extends CAInfo {
                     finishUser, extendedCaServiceInfos,
                     useUtf8PolicyText, approvals, usePrintableStringSubjectDN,
                     useLdapDnOrder, useCrlDistributionPointOnCrl, crlDistributionPointOnCrlCritical, includeInHealthCheck,
-                    doEnforceUniquePublicKeys, doEnforceUniqueDistinguishedName, doEnforceUniqueSubjectDNSerialnumber,
+                    doEnforceUniquePublicKeys, doEnforceKeyRenewal, doEnforceUniqueDistinguishedName, doEnforceUniqueSubjectDNSerialnumber,
                     useCertReqHistory, useUserStorage, useCertificateStorage, acceptRevocationNonExistingEntry,
                     cmpRaAuthSecret, keepExpiredCertsOnCRL, usePartitionedCrl, crlPartitions, suspendedCrlPartitions);
         }
