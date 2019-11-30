@@ -1,35 +1,50 @@
+/*************************************************************************
+ *                                                                       *
+ *  EJBCA Community: The OpenSource Certificate Authority                *
+ *                                                                       *
+ *  This software is free software; you can redistribute it and/or       *
+ *  modify it under the terms of the GNU Lesser General Public           *
+ *  License as published by the Free Software Foundation; either         *
+ *  version 2.1 of the License, or any later version.                    *
+ *                                                                       *
+ *  See terms of license at gnu.org.                                     *
+ *                                                                       *
+ *************************************************************************/
 package org.ejbca.webtest.scenario;
+
+import java.io.IOException;
 
 import org.cesecore.authorization.AuthorizationDeniedException;
 import org.ejbca.webtest.WebTestBase;
 import org.ejbca.webtest.helper.CTLogHelper;
 import org.ejbca.webtest.helper.SystemConfigurationHelper;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runners.MethodSorters;
 import org.openqa.selenium.WebDriver;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-
+/**
+ * 
+ * @version $Id$
+ *
+ */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class EcaQa152_OrderOfCTLogs extends WebTestBase {
-
-    private static final String PUBLIC_KEY = "-----BEGIN PUBLIC KEY-----\n" +
-            "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFJY5TplekPjaNgCckezeyhkccA8O\n" +
-            "63Sj84rZ1RCRoJ7vHa8FF2IIbF/S1iEb/gbkmqNJ4K3m+oNzcr76yoH3Dg==\n" +
-            "-----END PUBLIC KEY-----";
 
     private static final String UNLABELED = "Unlabeled";
     private static final String LOG_URL_A = "https://localhost:8443/ejbca/adminweb/ct/v1/";
     private static final String LOG_URL_B = "https://localhost:8443/ejbca/doc/adminguide.html#Certificate%20Transparency%20%28Enterprise%20only%29/ct/v1/";
     private static final String LOG_URL_C = "https://localhost:8443/ejbca/ct/v1/";
+    private static final String TIMEOUT_ONE = "60000";
+    private static final String TIMEOUT_TWO = "30000";
 
     private static CTLogHelper ctLogHelper;
     private static SystemConfigurationHelper sysConfigHelper;
-
+    
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
 
@@ -56,12 +71,12 @@ public class EcaQa152_OrderOfCTLogs extends WebTestBase {
         goToSystemConfigurationPage();
 
         ctLogHelper.fillLogUrlField(logUrl);
-        ctLogHelper.fillPublicKeyField(createPublicKeyFile());
-        ctLogHelper.fillTimeoutField(60000);
+        ctLogHelper.fillPublicKeyField(ctLogHelper.createPublicKeyFile(folder));
+        ctLogHelper.fillTimeoutField(TIMEOUT_ONE);
         ctLogHelper.fillLabelField(UNLABELED);
         ctLogHelper.addCertificateTransparencyLog();
 
-        ctLogHelper.assertIsTableAndRowExists(UNLABELED, logUrl);
+        ctLogHelper.assertIsTableAndRowExists(UNLABELED, logUrl, TIMEOUT_ONE);
     }
 
     @Test
@@ -71,12 +86,12 @@ public class EcaQa152_OrderOfCTLogs extends WebTestBase {
         goToSystemConfigurationPage();
 
         ctLogHelper.fillLogUrlField(logUrl);
-        ctLogHelper.fillPublicKeyField(createPublicKeyFile());
-        ctLogHelper.fillTimeoutField(30000);
+        ctLogHelper.fillPublicKeyField(ctLogHelper.createPublicKeyFile(folder));
+        ctLogHelper.fillTimeoutField(TIMEOUT_TWO);
         ctLogHelper.fillLabelField(UNLABELED);
         ctLogHelper.addCertificateTransparencyLog();
 
-        ctLogHelper.assertIsTableAndRowExists(UNLABELED, logUrl);
+        ctLogHelper.assertIsTableAndRowExists(UNLABELED, logUrl, TIMEOUT_TWO);
     }
 
     @Test
@@ -87,12 +102,12 @@ public class EcaQa152_OrderOfCTLogs extends WebTestBase {
         goToSystemConfigurationPage();
 
         ctLogHelper.fillLogUrlField(logUrl);
-        ctLogHelper.fillPublicKeyField(createPublicKeyFile());
-        ctLogHelper.fillTimeoutField(30000);
+        ctLogHelper.fillPublicKeyField(ctLogHelper.createPublicKeyFile(folder));
+        ctLogHelper.fillTimeoutField(TIMEOUT_TWO);
         ctLogHelper.fillLabelField(label);
         ctLogHelper.addCertificateTransparencyLog();
 
-        ctLogHelper.assertIsTableAndRowExists(label, logUrl);
+        ctLogHelper.assertIsTableAndRowExists(label, logUrl, TIMEOUT_TWO);
     }
 
     @Test
@@ -135,14 +150,5 @@ public class EcaQa152_OrderOfCTLogs extends WebTestBase {
     private void goToSystemConfigurationPage() {
         sysConfigHelper.openPage(getAdminWebUrl());
         sysConfigHelper.openTab(SystemConfigurationHelper.SysConfigTabs.CTLOGS);
-    }
-
-    private File createPublicKeyFile() throws IOException {
-        File publicKeyFile = folder.newFile("test_pub.pem");
-        FileWriter fileWriter = new FileWriter(publicKeyFile);
-        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
-        bufferedWriter.write(PUBLIC_KEY);
-        bufferedWriter.close();
-        return publicKeyFile;
     }
 }

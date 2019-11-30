@@ -12,9 +12,6 @@
  *************************************************************************/
 package org.ejbca.webtest.scenario;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 
 import org.cesecore.authorization.AuthorizationDeniedException;
@@ -33,20 +30,20 @@ import org.openqa.selenium.WebDriver;
  * @version $Id$
  *
  */
-public class EcaQa155_EditCTLogLogURLMandatoryCheckboxAndTimeout extends WebTestBase {
+public class EcaQa155_EditCreateCTLog extends WebTestBase {
     
-    private static final String TEST_LABEL = "Test";
+    private static final String INIT_LABEL = "Test";
+    private static final String EDIT_LABEL = "ECAQA-155";
+    private static final String INIT_LOG_URL = "https://localhost:8443/ejbca/adminweb/";
+    private static final String EDIT_LOG_URL = "https://localhost:8443/ejbca/ct/v1/";
+    private static final String INITIAL_TIMEOUT = "60000";
+    private static final String EDITED_TIMEOUT = "120000";
+    
     private static SystemConfigurationHelper systemConfigurationHelper;
     private static CTLogHelper ctLogHelper;
     
-    private static final String PUBLIC_KEY = "-----BEGIN PUBLIC KEY-----\n" +
-            "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFJY5TplekPjaNgCckezeyhkccA8O\n" +
-            "63Sj84rZ1RCRoJ7vHa8FF2IIbF/S1iEb/gbkmqNJ4K3m+oNzcr76yoH3Dg==\n" +
-            "-----END PUBLIC KEY-----";
-    
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
-
     
     @BeforeClass
     public static void init() {
@@ -61,47 +58,32 @@ public class EcaQa155_EditCTLogLogURLMandatoryCheckboxAndTimeout extends WebTest
 
     @AfterClass
     public static void exit() throws AuthorizationDeniedException {
+        removeCertificateTransparencyLogs(INIT_LOG_URL,EDIT_LOG_URL);
         // super
         afterClass();
     }
     
     @Test
-    public void stepOne_CtLogPageOpen(){
+    public void stepTwo_CtLogEditFirstLog() throws IOException, AuthorizationDeniedException {
         goToSystemConfigurationPage();
-    }
-    
-    @Test
-    public void stepTwo_CtLogAddFirstLog() throws IOException {
-        final String logUrl = "https://localhost:8443/ejbca/adminweb/";
-        ctLogHelper.fillLogUrlField(logUrl);
-        ctLogHelper.fillPublicKeyField(createPublicKeyFile());
-        ctLogHelper.fillTimeoutField(60000);
-        ctLogHelper.fillLabelField(TEST_LABEL);
+        ctLogHelper.fillLogUrlField(INIT_LOG_URL);
+        ctLogHelper.fillPublicKeyField(ctLogHelper.createPublicKeyFile(folder));
+        ctLogHelper.fillTimeoutField(INITIAL_TIMEOUT);
+        ctLogHelper.fillLabelField(INIT_LABEL);
         ctLogHelper.addCertificateTransparencyLog();
-        ctLogHelper.assertIsTableAndRowExists(TEST_LABEL, logUrl);
-    }
-    
-    @Test
-    public void stepThree_CtLogEditFirstLog() {
+        ctLogHelper.assertIsTableAndRowExists(INIT_LABEL, INIT_LOG_URL, INITIAL_TIMEOUT);
         
-    }
-    
-    @Test
-    public void stepFour_CtLogAddSecondLog() {
-        
+        ctLogHelper.pressEditCtLogButton(INIT_LABEL, INIT_LOG_URL);
+        ctLogHelper.fillEditLogUrlField(EDIT_LOG_URL);
+        ctLogHelper.fillEditTimeoutField(EDITED_TIMEOUT);
+        ctLogHelper.fillEditLabelField(EDIT_LABEL);
+        ctLogHelper.pressSaveEditCtLogButton();
+        ctLogHelper.assertIsTableAndRowExists(EDIT_LABEL, EDIT_LOG_URL, EDITED_TIMEOUT);
     }
     
     private void goToSystemConfigurationPage(){
         systemConfigurationHelper.openPage(getAdminWebUrl());
         systemConfigurationHelper.openTab(SystemConfigurationHelper.SysConfigTabs.CTLOGS);
     }
-    
-    private File createPublicKeyFile() throws IOException {
-        File publicKeyFile = folder.newFile("test_pub.pem");
-        FileWriter fileWriter = new FileWriter(publicKeyFile);
-        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
-        bufferedWriter.write(PUBLIC_KEY);
-        bufferedWriter.close();
-        return publicKeyFile;
-    }
+
 }

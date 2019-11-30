@@ -209,7 +209,7 @@
 	<property name="systemtests.properties.file" location="${ejbca.home}/conf/systemtests.properties"/>
     
 	<!-- Define class-paths of global interest -->
-	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.9.jar"/></path>
+	<path id="lib.cert-cvc.classpath"><fileset dir="${ejbca.home}/lib" includes="cert-cvc-1.4.10.jar"/></path>
 
 	<path id="lib.junit.classpath">
 		<fileset dir="${ejbca.home}/lib/ext">
@@ -228,20 +228,20 @@
 	</path>
 	
 	<path id="lib.easymock.classpath">
-		<fileset dir="${ejbca.home}/lib/ext/easymock">
-			<include name="*.jar"/>
+        <!-- this is for cglib and objenesis, so we don't have to duplicate those jars -->
+		<fileset dir="${ejbca.home}/lib/ext/test/powermock">
+			<include name="cglib-nodep*.jar"/>
+            <include name="objenesis-*.jar"/>
 		</fileset>
 		<!-- TODO To support legacy references, use lib.test.classpath instead of lib.easymock.classpath -->
 		<fileset dir="${ejbca.home}/lib/ext/test">
-			<include name="easymock-3.6.jar"/>
+			<include name="easymock-*.jar"/>
 		</fileset>
 	</path>
 
 	<path id="lib.test.classpath">
 		<fileset dir="${ejbca.home}/lib/ext/test">
 			<include name="*.jar"/>
-			<exclude name="*-javadoc.jar"/>
-			<exclude name="*-sources.jar"/>
 		</fileset>
 	</path>
 
@@ -365,7 +365,20 @@
 		<fileset dir="${ejbca.home}/lib/jee" includes="javaee-api-7.0-*.jar"/>
 		<fileset dir="${ejbca.home}/lib/jee" includes="jaxb-api-*.jar"/>
 	</path>
-	
+
+    <!-- Client jars needed din order to run a WS client on Java 9 and later where the WS stack is not part of the SDK -->
+    <path id="soapclient.classpath">
+        <fileset dir="${ejbca.home}/lib/jee">
+            <include name="javaee-api*.jar"/>
+        </fileset>
+        <fileset dir="${ejbca.home}/lib/jee/soapclient">
+            <include name="*.jar"/>
+        </fileset>
+        <fileset dir="${ejbca.home}/lib/ext">
+            <include name="geronimo-osgi-locator*.jar"/>
+        </fileset>
+    </path>
+
 	<path id="lib.servicemanifestbuilder.classpath">
 		<fileset dir="${ejbca.home}/lib/ext" includes="servicemanifestbuilder*.jar"/>
 	</path>
