@@ -107,7 +107,7 @@ public class ScpPublisherTest {
     public void setup() throws CAExistsException, CryptoTokenOfflineException, AuthorizationDeniedException {
         final int cryptoTokenId = CryptoTokenTestUtils.createCryptoTokenForCA(internalAdmin, caName, String.valueOf(1024));
         CAToken catoken = createCaToken(cryptoTokenId, AlgorithmConstants.SIGALG_SHA1_WITH_RSA, AlgorithmConstants.SIGALG_SHA1_WITH_RSA);
-        X509CAInfo cainfo = new X509CAInfo(cadn, caName, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d",
+        X509CAInfo cainfo = X509CAInfo.getDefaultX509CAInfo(cadn, caName, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d",
                 CAInfo.SELFSIGNED, null, catoken);
         final CAAdminSessionRemote caAdminSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CAAdminSessionRemote.class);
         try {
