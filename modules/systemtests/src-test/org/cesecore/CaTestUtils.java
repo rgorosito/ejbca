@@ -12,6 +12,9 @@
  *************************************************************************/
 package org.cesecore;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -25,6 +28,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -64,13 +68,12 @@ import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.keys.token.CryptoTokenNameInUseException;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.CryptoTokenTestUtils;
+import org.cesecore.keys.token.KeyGenParams;
 import org.cesecore.keys.token.SoftCryptoToken;
 import org.cesecore.keys.token.p11.exception.NoSuchSlotException;
 import org.cesecore.util.CertTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.StringTools;
-import org.cesecore.util.ui.PropertyValidationException;
-import org.ejbca.core.ejb.approval.ApprovalProfileExistsException;
 import org.ejbca.core.ejb.ca.caadmin.CAAdminSessionRemote;
 import org.ejbca.core.model.ca.caadmin.extendedcaservices.KeyRecoveryCAServiceInfo;
 import org.ejbca.cvc.AccessRightEnum;
@@ -81,9 +84,6 @@ import org.ejbca.cvc.CardVerifiableCertificate;
 import org.ejbca.cvc.CertificateGenerator;
 import org.ejbca.cvc.HolderReferenceField;
 import org.ejbca.cvc.exception.ConstructionException;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 /**
  * Common class for test classes which need to create a CA.
@@ -136,7 +136,7 @@ public abstract class CaTestUtils {
     public static X509CA createX509CaWithApprovals(final AuthenticationToken authenticationToken, final String cryptoTokenName, final String caName, final String cadn, 
             int caStatus, Map<ApprovalRequestType, Integer> approvals) throws CryptoTokenOfflineException, CryptoTokenAuthenticationFailedException, CryptoTokenNameInUseException,
                 AuthorizationDeniedException, InvalidKeyException, InvalidAlgorithmParameterException, CertificateException, InvalidAlgorithmException,
-                IllegalStateException, OperatorCreationException, CAExistsException, PropertyValidationException, ApprovalProfileExistsException, CADoesntExistsException {
+                IllegalStateException, OperatorCreationException, CAExistsException {
         final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
         final CryptoTokenManagementProxySessionRemote cryptoTokenManagementProxySession = EjbRemoteHelper.INSTANCE
                 .getRemoteSession(CryptoTokenManagementProxySessionRemote.class, EjbRemoteHelper.MODULE_TEST);
@@ -154,7 +154,7 @@ public abstract class CaTestUtils {
             CryptoTokenOfflineException, InvalidAlgorithmException, IllegalStateException, OperatorCreationException {
         CAToken catoken = createCaToken(cryptoToken.getId(), AlgorithmConstants.SIGALG_SHA256_WITH_RSA, AlgorithmConstants.SIGALG_SHA256_WITH_RSA);
         // No extended services
-        X509CAInfo cainfo = new X509CAInfo(cadn, caName, caStatus,
+        X509CAInfo cainfo = X509CAInfo.getDefaultX509CAInfo(cadn, caName, caStatus,
                 CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d", CAInfo.SELFSIGNED, null, catoken);
         cainfo.setDescription("JUnit RSA CA");
         X509CA x509ca = (X509CA) CAFactory.INSTANCE.getX509CAImpl(cainfo);
@@ -177,12 +177,19 @@ public abstract class CaTestUtils {
         CryptoTokenManagementSessionRemote cryptoTokenManagementSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CryptoTokenManagementSessionRemote.class);
         InternalCertificateStoreSessionRemote internalCertificateStoreSession = EjbRemoteHelper.INSTANCE.getRemoteSession(InternalCertificateStoreSessionRemote.class, EjbRemoteHelper.MODULE_TEST);
         CAInfo caInfo = caSession.getCAInfo(authenticationToken, caName);
+        Integer cryptoTokenId = null;
         if (caInfo != null) {
+            if (caInfo.getCAToken() != null) {
+                // We want to delete this CAs crypto token
+                cryptoTokenId = caInfo.getCAToken().getCryptoTokenId();
+            }
             caSession.removeCA(authenticationToken, caInfo.getCAId());
             internalCertificateStoreSession.removeCertificatesBySubject(caInfo.getSubjectDN());
         }
-
-        Integer cryptoTokenId = cryptoTokenManagementSession.getIdFromName(cryptoTokenName);
+        if (cryptoTokenId == null) {
+            // If we didn't find on in CAToken, make sure we don't have one with the same name as the CA
+            cryptoTokenId = cryptoTokenManagementSession.getIdFromName(cryptoTokenName);
+        }
         if (cryptoTokenId != null) {
             cryptoTokenManagementSession.deleteCryptoToken(authenticationToken, cryptoTokenId);
         }
@@ -237,7 +244,7 @@ public abstract class CaTestUtils {
         extendedCaServices.add(new KeyRecoveryCAServiceInfo(ExtendedCAServiceInfo.STATUS_ACTIVE));
         String caname = CertTools.getPartFromDN(cadn, "CN");
         boolean ldapOrder = !CertTools.isDNReversed(cadn);
-        X509CAInfo cainfo = new X509CAInfo(cadn, caname, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d",
+        X509CAInfo cainfo = X509CAInfo.getDefaultX509CAInfo(cadn, caname, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_ROOTCA, "3650d",
                 signedBy, null, catoken);
         cainfo.setDescription("JUnit RSA CA");
         cainfo.setExtendedCAServiceInfos(extendedCaServices);
@@ -286,7 +293,7 @@ public abstract class CaTestUtils {
         final List<ExtendedCAServiceInfo> extendedCaServices = new ArrayList<>(2);
         extendedCaServices.add(new KeyRecoveryCAServiceInfo(ExtendedCAServiceInfo.STATUS_ACTIVE));
         String caname = CertTools.getPartFromDN(cadn, "CN");
-        X509CAInfo cainfo = new X509CAInfo(cadn, caname, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, "3650d",
+        X509CAInfo cainfo = X509CAInfo.getDefaultX509CAInfo(cadn, caname, CAConstants.CA_ACTIVE, CertificateProfileConstants.CERTPROFILE_FIXED_SUBCA, "3650d",
                 signedBy, null, catoken);
         cainfo.setDescription("JUnit RSA CA");
         cainfo.setExtendedCAServiceInfos(extendedCaServices);
@@ -479,10 +486,10 @@ public abstract class CaTestUtils {
             cryptoTokenId = cryptoTokenManagementSession.getIdFromName(cryptoTokenName);
         }
         if (!cryptoTokenManagementSession.isAliasUsedInCryptoToken(cryptoTokenId, CAToken.SOFTPRIVATESIGNKEYALIAS)) {
-            cryptoTokenManagementSession.createKeyPair(authenticationToken, cryptoTokenId, CAToken.SOFTPRIVATESIGNKEYALIAS, "1024");
+            cryptoTokenManagementSession.createKeyPair(authenticationToken, cryptoTokenId, CAToken.SOFTPRIVATESIGNKEYALIAS, KeyGenParams.builder("RSA1024").build());
         }
         if (!cryptoTokenManagementSession.isAliasUsedInCryptoToken(cryptoTokenId, CAToken.SOFTPRIVATEDECKEYALIAS)) {
-            cryptoTokenManagementSession.createKeyPair(authenticationToken, cryptoTokenId, CAToken.SOFTPRIVATEDECKEYALIAS, "1024");
+            cryptoTokenManagementSession.createKeyPair(authenticationToken, cryptoTokenId, CAToken.SOFTPRIVATEDECKEYALIAS, KeyGenParams.builder("RSA1024").build());
         }
         return cryptoTokenId;
     }
@@ -504,6 +511,8 @@ public abstract class CaTestUtils {
      * be overridden in systemtests.properties using 'target.clientcert.ca'.
      * <p>
      * This CA should be an active CA, that we can issue certificates from.
+     * 
+     * @return CAInfo of ManagementCA or other trusted CA, never null.
      */
     public static CAInfo getClientCertCaInfo(final AuthenticationToken authenticationToken) {
         final CAInfo caInfo = getCaInfo(authenticationToken, SystemTestsConfiguration.getClientCertificateCaNames());
@@ -516,6 +525,7 @@ public abstract class CaTestUtils {
 
     /**
      * Returns the first available CA in the list.
+     * @return CAInfo. Never null
      * @throws IllegalStateException if none exist or if access was denied.
      */
     private static CAInfo getCaInfo(final AuthenticationToken authenticationToken, final String[] cas) {
@@ -533,6 +543,25 @@ public abstract class CaTestUtils {
         throw new IllegalStateException("Cannot find the required CA. Looked for: '" + StringUtils.join(cas, "', '") +
                 "'. Use '" + SystemTestsConfiguration.TARGET_SERVERCERT_CA + "' and '" + SystemTestsConfiguration.TARGET_CLIENTCERT_CA +
                 "' in systemtests.properties to override.");
+    }
+    
+    /**
+     * Like {@link #getClientCertCaInfo} but returns the name of the CA instead.
+     * I.e. it returns the name of an active CA that is trusted by the application server.
+     *
+     * @param authenticationToken Authentication token
+     * @return Name of the CA, never null.
+     * @throws IllegalStateException if none exist or if access was denied.
+     */
+    public static String getClientCertCaName(final AuthenticationToken authenticationToken) {
+        final CaSessionRemote caSession = EjbRemoteHelper.INSTANCE.getRemoteSession(CaSessionRemote.class);
+        final List<String> allCaNames = caSession.getActiveCANames(authenticationToken);
+        final List<String> clientCertCaNames = Arrays.asList(SystemTestsConfiguration.getClientCertificateCaNames());
+        allCaNames.retainAll(clientCertCaNames);
+        if (allCaNames.isEmpty()) {
+            throw new IllegalStateException("No active CA for issuing client certificates was found. Searched for: " + String.join(", ", clientCertCaNames));
+        }
+        return allCaNames.iterator().next();
     }
 
 }

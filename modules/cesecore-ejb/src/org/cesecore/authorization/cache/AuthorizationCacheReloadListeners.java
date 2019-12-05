@@ -28,6 +28,7 @@ public enum AuthorizationCacheReloadListeners {
     INSTANCE;
 
     private final Set<AuthorizationCacheReloadListener> authCacheReloadEvent = new HashSet<>();
+    // Logger is not static since static initializers run after the constructor for enums.
     private final Logger log = Logger.getLogger(AuthorizationCacheReloadListeners.class);
 
     /** Broadcast the specified event to all registered listeners */

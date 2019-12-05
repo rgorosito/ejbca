@@ -34,6 +34,7 @@ import org.cesecore.util.ui.DynamicUiProperty;
 public enum InternalKeyBindingFactory {
     INSTANCE;
 
+    // Logger is not static since static initializers run after the constructor for enums.
     private final Logger log = Logger.getLogger(InternalKeyBindingFactory.class);
     private final Map<String, String> aliasToImplementationMap = new HashMap<>();
     private final Map<String, String> implementationToAliasMap = new HashMap<>();

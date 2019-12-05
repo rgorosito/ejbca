@@ -88,8 +88,10 @@ import org.cesecore.keys.token.CryptoTokenNameInUseException;
 import org.cesecore.keys.token.CryptoTokenOfflineException;
 import org.cesecore.keys.token.KeyPairInfo;
 import org.cesecore.keys.token.SoftCryptoToken;
+import org.cesecore.util.AsStringComparator;
 import org.cesecore.util.Base64;
 import org.cesecore.util.CertTools;
+import org.cesecore.util.EntryValueComparator;
 import org.cesecore.util.FileTools;
 import org.cesecore.util.SimpleTime;
 import org.cesecore.util.StringTools;
@@ -820,19 +822,55 @@ public class CAInterfaceBean implements Serializable {
                
                // No need to add the Keyrecovery extended service here, because it is only "updated" in EditCA, and there
                // is not need to update it.
-               //TODO builder
-                cainfo = new X509CAInfo(caid, caInfoDto.getCaEncodedValidity(), catoken, caInfoDto.getDescription(), caSerialNumberOctetSize, caInfoDto.getCrlPeriod(),
-                        caInfoDto.getCrlIssueInterval(), caInfoDto.getcrlOverlapTime(), caInfoDto.getDeltaCrlPeriod(), crlpublishers, keyValidators,
-                        caInfoDto.isUseAuthorityKeyIdentifier(), caInfoDto.isAuthorityKeyIdentifierCritical(), caInfoDto.isUseCrlNumber(),
-                        caInfoDto.isCrlNumberCritical(), caInfoDto.getDefaultCRLDistPoint(), caInfoDto.getDefaultCRLIssuer(), caInfoDto.getDefaultOCSPServiceLocator(),
-                        authorityInformationAccess, certificateAiaDefaultCaIssuerUri, parseNameConstraintsInput(caInfoDto.getNameConstraintsPermitted()),
-                        parseNameConstraintsInput(caInfoDto.getNameConstraintsExcluded()), cadefinedfreshestcrl, caInfoDto.isFinishUser(), extendedcaservices, caInfoDto.isUseUtf8Policy(),
-                        approvals, caInfoDto.isUsePrintableStringSubjectDN(), caInfoDto.isUseLdapDNOrder(), caInfoDto.isUseCrlDistributiOnPointOnCrl(),
-                        caInfoDto.isCrlDistributionPointOnCrlCritical(), caInfoDto.isIncludeInHealthCheck(), caInfoDto.isDoEnforceUniquePublickeys(), caInfoDto.isDoEnforceKeyRenewal(),
-                        caInfoDto.isDoEnforceUniqueDN(), caInfoDto.isDoEnforceUniqueSubjectDNSerialnumber(), caInfoDto.isUseCertReqHistory(), caInfoDto.isUseUserStorage(),
-                        caInfoDto.isUseCertificateStorage(), caInfoDto.isAcceptRevocationsNonExistingEntry(), caInfoDto.getSharedCmpRaSecret(), caInfoDto.isKeepExpiredOnCrl(),
-                        caInfoDto.getDefaultCertProfileId(), caInfoDto.isUseNoConflictCertificateData(), caInfoDto.isUsePartitionedCrl(), caInfoDto.getCrlPartitions(),
-                        caInfoDto.getSuspendedCrlPartitions());
+               X509CAInfo.X509CAInfoBuilder x509CAInfoBuilder = new X509CAInfo.X509CAInfoBuilder()
+                       .setCaId(caid)
+                       .setEncodedValidity(caInfoDto.getCaEncodedValidity())
+                       .setCaToken(catoken)
+                       .setDescription(caInfoDto.getDescription())
+                       .setCaSerialNumberOctetSize(caSerialNumberOctetSize)
+                       .setCrlPeriod(caInfoDto.getCrlPeriod())
+                       .setCrlIssueInterval(caInfoDto.getCrlIssueInterval())
+                       .setCrlOverlapTime(caInfoDto.getcrlOverlapTime())
+                       .setDeltaCrlPeriod(caInfoDto.getDeltaCrlPeriod())
+                       .setCrlPublishers(crlpublishers)
+                       .setValidators(keyValidators)
+                       .setUseAuthorityKeyIdentifier(caInfoDto.isUseAuthorityKeyIdentifier())
+                       .setAuthorityKeyIdentifierCritical(caInfoDto.isAuthorityKeyIdentifierCritical())
+                       .setUseCrlNumber(caInfoDto.isUseCrlNumber())
+                       .setCrlNumberCritical(caInfoDto.isCrlNumberCritical())
+                       .setDefaultCrlDistPoint(caInfoDto.getDefaultCRLDistPoint())
+                       .setDefaultCrlIssuer(caInfoDto.getDefaultCRLIssuer())
+                       .setDefaultOcspCerviceLocator(caInfoDto.getDefaultOCSPServiceLocator())
+                       .setAuthorityInformationAccess(authorityInformationAccess)
+                       .setCertificateAiaDefaultCaIssuerUri(certificateAiaDefaultCaIssuerUri)
+                       .setNameConstraintsPermitted(parseNameConstraintsInput(caInfoDto.getNameConstraintsPermitted()))
+                       .setNameConstraintsExcluded(parseNameConstraintsInput(caInfoDto.getNameConstraintsExcluded()))
+                       .setCaDefinedFreshestCrl(cadefinedfreshestcrl)
+                       .setFinishUser(caInfoDto.isFinishUser())
+                       .setExtendedCaServiceInfos(extendedcaservices)
+                       .setUseUtf8PolicyText(caInfoDto.isUseUtf8Policy())
+                       .setApprovals(approvals)
+                       .setUsePrintableStringSubjectDN(caInfoDto.isUsePrintableStringSubjectDN())
+                       .setUseLdapDnOrder(caInfoDto.isUseLdapDNOrder())
+                       .setUseCrlDistributionPointOnCrl(caInfoDto.isUseCrlDistributiOnPointOnCrl())
+                       .setCrlDistributionPointOnCrlCritical(caInfoDto.isCrlDistributionPointOnCrlCritical())
+                       .setIncludeInHealthCheck(caInfoDto.isIncludeInHealthCheck())
+                       .setDoEnforceUniquePublicKeys(caInfoDto.isDoEnforceUniquePublickeys())
+                       .setDoEnforceKeyRenewal(caInfoDto.isDoEnforceKeyRenewal())
+                       .setDoEnforceUniqueDistinguishedName(caInfoDto.isDoEnforceUniqueDN())
+                       .setDoEnforceUniqueSubjectDNSerialnumber(caInfoDto.isDoEnforceUniqueSubjectDNSerialnumber())
+                       .setUseCertReqHistory(caInfoDto.isUseCertReqHistory())
+                       .setUseUserStorage(caInfoDto.isUseUserStorage())
+                       .setUseCertificateStorage(caInfoDto.isUseCertificateStorage())
+                       .setAcceptRevocationNonExistingEntry(caInfoDto.isAcceptRevocationsNonExistingEntry())
+                       .setCmpRaAuthSecret(caInfoDto.getSharedCmpRaSecret())
+                       .setKeepExpiredCertsOnCRL(caInfoDto.isKeepExpiredOnCrl())
+                       .setDefaultCertProfileId(caInfoDto.getDefaultCertProfileId())
+                       .setUseNoConflictCertificateData(caInfoDto.isUseNoConflictCertificateData())
+                       .setUsePartitionedCrl(caInfoDto.isUsePartitionedCrl())
+                       .setCrlPartitions(caInfoDto.getCrlPartitions())
+                       .setSuspendedCrlPartitions(caInfoDto.getSuspendedCrlPartitions());
+               cainfo = x509CAInfoBuilder.buildForUpdate();
             }
            // Info specific for CVC CA
            if (caInfoDto.getCaType() == CAInfo.CATYPE_CVC) {
@@ -866,10 +904,6 @@ public class CAInterfaceBean implements Serializable {
     public List<Entry<String, String>> getAvailableCryptoTokens(final String caSigingAlgorithm, boolean isEditingCA)
             throws AuthorizationDeniedException {
 	    final List<Entry<String, String>> availableCryptoTokens = new ArrayList<>();
-        if (!isEditingCA && authorizationSession.isAuthorizedNoLogging(authenticationToken, CryptoTokenRules.MODIFY_CRYPTOTOKEN.resource())) {
-            // Add a quick setup option for key generation (not visible when editing an uninitialized CA)
-            availableCryptoTokens.add(new AbstractMap.SimpleEntry<>(Integer.toString(0), ejbcawebbean.getText("CRYPTOTOKEN_NEWFROMCA")));
-        }
 	    if (caSigingAlgorithm != null && caSigingAlgorithm.length()>0) {
 	        final List<CryptoTokenInfo> cryptoTokenInfos = cryptoTokenManagementSession.getCryptoTokenInfos(authenticationToken);
             for (final CryptoTokenInfo cryptoTokenInfo : cryptoTokenInfos) {
@@ -897,6 +931,11 @@ public class CAInterfaceBean implements Serializable {
 	            }
 	        }
 	    }
+        availableCryptoTokens.sort(new EntryValueComparator<>(new AsStringComparator()));
+        if (!isEditingCA && authorizationSession.isAuthorizedNoLogging(authenticationToken, CryptoTokenRules.MODIFY_CRYPTOTOKEN.resource())) {
+            // Add a quick setup option for key generation (not visible when editing an uninitialized CA)
+            availableCryptoTokens.add(0, new AbstractMap.SimpleEntry<>(Integer.toString(0), ejbcawebbean.getText("CRYPTOTOKEN_NEWFROMCA")));
+        }
 	    return availableCryptoTokens;
 	}
 	

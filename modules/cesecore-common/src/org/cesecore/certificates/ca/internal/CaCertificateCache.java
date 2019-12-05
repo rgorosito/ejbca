@@ -42,6 +42,7 @@ import org.cesecore.util.CertTools;
 public enum CaCertificateCache  {
     INSTANCE;
     
+    // Logger is not static since static initializers run after the constructor for enums.
 	private final Logger log = Logger.getLogger(CaCertificateCache.class);
 
     /** Mapping from subjectDN to key in the certs HashMap. */
