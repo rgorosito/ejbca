@@ -1213,13 +1213,13 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
                         try {
                             if (cvccert.getCVCertificate().getCertificateBody().getAuthorizationTemplate().getAuthorizationField().getAuthRole()
                                     .isDV()) {
-                                if (cachain.size() == 0) {
-                                    log.error("The DVCA certificate cannot be imported because the CVCA certificate is not present in the chain.");
-                                    throw new CertPathValidatorException(intres.getLocalizedMessage("caadmin.errornocvca"));
-                                }
                                 log.debug("Enriching DV public key with EC parameters from CVCA");
                                 Certificate cvcacert = reqchain.iterator().next();
                                 caCertPublicKey = KeyTools.getECPublicKeyWithParams(caCertPublicKey, cvcacert.getPublicKey());
+                            } else {
+                                final String msg = "Trying to receive CA certificate response for a DVCA, but the received certificate's authRole field is not for a DV"; 
+                                log.debug(msg);
+                                throw new CertPathValidatorException(msg);
                             }
                         } catch (InvalidKeySpecException e) {
                             log.debug("Strange CVCA certificate that we can't get the key from, continuing anyway...", e);
@@ -3416,7 +3416,7 @@ public class CAAdminSessionBean implements CAAdminSessionLocal, CAAdminSessionRe
      * Get a hash code for the test key of a CA. If the token of the CA cannot be read, the
      * hash code <code>0</code> is returned.
      * 
-     * @param caInfo an object containing information about the CA.
+     * @param caToken an object containing the CAs token that contains the test key.
      * @return a hash code derived from the crypto token ID and the test key alias.
      */
     private int getCaTestKeyHashCode(final CAToken caToken) {
