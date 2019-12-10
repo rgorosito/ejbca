@@ -28,7 +28,6 @@ import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -108,7 +107,7 @@ public class CertificateCrlReader extends BaseWorker implements CustomServiceWor
         CaSessionLocal caSession = new EjbLocalHelper().getCaSession();
         List<String> authorizedCaIds = new ArrayList<>();
         List<String> authorizedCaNames = new ArrayList<>();
-        HashMap<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
+        Map<Integer, String> caIdToNameMap = caSession.getCAIdToNameMap();
         authorizedCaIds.add("-1");
         authorizedCaNames.add("None");
         for (Integer caId : caSession.getAuthorizedCaIds(authenticationToken)) {
