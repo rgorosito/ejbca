@@ -13,6 +13,11 @@
 
 package org.ejbca.core.protocol.ocsp;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -61,7 +66,6 @@ import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.cesecore.CaTestUtils;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
-import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.certificates.endentity.EndEntityConstants;
@@ -85,11 +89,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 /**
  * 
@@ -183,7 +182,7 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         
     @Override
     public String getRoleName() {
-        return this.getClass().getSimpleName(); 
+        return getClass().getSimpleName(); 
     }
 
     /**
@@ -286,7 +285,7 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         RevokedStatus rev = (RevokedStatus) status;
         assertTrue("Status does not have reason", rev.hasRevocationReason());
         int reason = rev.getRevocationReason();
-        assertEquals("Wrong revocation reason", reason, RevokedCertInfo.REVOCATION_REASON_KEYCOMPROMISE);
+        assertEquals("Wrong revocation reason", RevokedCertInfo.REVOCATION_REASON_KEYCOMPROMISE, reason);
     }
 
     /**
@@ -462,9 +461,9 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
 
         // POST it
         con.setRequestProperty("Content-Type", "application/ocsp-request");
-        OutputStream outputStream = con.getOutputStream();
-        outputStream.write(ocspPackage);
-        outputStream.close();
+        try (OutputStream outputStream = con.getOutputStream()) {
+            outputStream.write(ocspPackage);
+        }
         assertEquals("Response code", 200, con.getResponseCode());
         assertEquals("Content-Type", "application/ocsp-response", con.getContentType());
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -501,7 +500,7 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
         return fnrobj.getFnr();
     }
 
-    private void getFnrNotGood(BasicOCSPResp basicOCSPResp) throws IOException {
+    private void getFnrNotGood(BasicOCSPResp basicOCSPResp) {
         final Extension unidExtension = basicOCSPResp.getExtension(FnrFromUnidExtension.FnrFromUnidOid);
         assertNull(unidExtension);
     }
@@ -536,6 +535,7 @@ public class ProtocolLookupServerHttpTest extends CaTestCase {
             certs = KeyTools.getCertChain(keystore, alias);
         }
         
+        assertNotNull("No trusted cert found in truststore", certs);
         trustks.setCertificateEntry("trusted", certs[certs.length - 1]);
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
         trustManagerFactory.init(trustks);
