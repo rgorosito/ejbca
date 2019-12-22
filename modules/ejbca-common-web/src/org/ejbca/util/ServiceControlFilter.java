@@ -76,23 +76,18 @@ public class ServiceControlFilter implements Filter {
         availableProtocolsConfiguration = (AvailableProtocolsConfiguration) globalConfigurationSession
                 .getCachedConfiguration(AvailableProtocolsConfiguration.CONFIGURATION_ID);
         
-        if (httpRequest.getRequestURL().toString().contains("ejbca/swagger-ui")) {
-            chain.doFilter(request, response);
-            log.debug("Allowing service explicitly for Swagger UI");
-        }
-        else {
-            if (!availableProtocolsConfiguration.getProtocolStatus(serviceName)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Access to service " + serviceName + " is disabled. HTTP request " + httpRequest.getRequestURL() + " is filtered.");
-                }
-                httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "This service has been disabled.");
-                return;
-            }
-
+        // Note: Swagger gets serviceName == AvailableProtocols.REST_CERTIFICATE_MANAGEMENT
+        if (!availableProtocolsConfiguration.getProtocolStatus(serviceName)) {
             if (log.isDebugEnabled()) {
-                log.debug("Access to service " + serviceName + " is allowed. HTTP request " + httpRequest.getRequestURL() + " is let through.");
+                log.debug("Access to service " + serviceName + " is disabled. HTTP request " + httpRequest.getRequestURL() + " is filtered.");
             }
-            chain.doFilter(request, response);
+            httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "This service has been disabled.");
+            return;
         }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Access to service " + serviceName + " is allowed. HTTP request " + httpRequest.getRequestURL() + " is let through.");
+        }
+        chain.doFilter(request, response);
     }
 }

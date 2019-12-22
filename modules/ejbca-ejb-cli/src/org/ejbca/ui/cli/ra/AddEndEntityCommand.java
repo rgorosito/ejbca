@@ -91,9 +91,9 @@ public class AddEndEntityCommand extends BaseRaCommand {
     private static final String EMAIL_KEY = "--email";
     private static final String CERT_PROFILE_KEY = "--certprofile";
     private static final String EE_PROFILE_KEY = "--eeprofile";
-    private static final String SUPER_ADMIN_VALIDITY = "--superadminvalidity";
-    private static final String SUPERADMIN_CERTPROFILE_NAME = "SuperAdminCP";
-    private static final String SUPERADMIN_EEPROFILE_NAME = "SuperAdminEE";
+    private static final String VALIDITY = "--validity";
+    private static final String CLIENT_AUTHENTICATION_CERTPROFILE_NAME = "ClientAuthenticationCP";
+    private static final String CLIENT_AUTHENTICATION_EEPROFILE_NAME = "ClientAuthenticationEEP";
     
     private final GlobalConfiguration globalConfiguration = (GlobalConfiguration) EjbRemoteHelper.INSTANCE.getRemoteSession(
             GlobalConfigurationSessionRemote.class).getCachedConfiguration(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
@@ -127,8 +127,9 @@ public class AddEndEntityCommand extends BaseRaCommand {
                 "The certificate profile, will default to End User."));
         registerParameter(new Parameter(EE_PROFILE_KEY, "Profile Name", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.ARGUMENT,
                 "The end entity profile, will default to Empty."));
-        registerParameter(new Parameter(SUPER_ADMIN_VALIDITY, "Super admin validity", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.ARGUMENT,
-                "The validity of super admin."));
+        registerParameter(new Parameter(VALIDITY, "Validity", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.HIDDEN,
+                "The validity of the end user certificate. Providing this option will result in creation of an EE profile and a Certificate Profile"
+                + "which are going to be used for custom end entity's validity."));
     }
 
     @Override
@@ -151,10 +152,9 @@ public class AddEndEntityCommand extends BaseRaCommand {
         final String email = parameters.get(EMAIL_KEY);
         final EndEntityType type;
         final String tokenString = parameters.get(TYPE_KEY);
-        final String superAdminValidity = parameters.get(SUPER_ADMIN_VALIDITY);
+        final String validity = parameters.get(VALIDITY);
         
         try {
-
             type = new EndEntityType(EndEntityTypes.getTypesFromHexCode(Integer.parseInt(tokenString)));
         } catch (NumberFormatException e) {
             log.error("ERROR: Invalid type: " + tokenString);
@@ -177,19 +177,23 @@ public class AddEndEntityCommand extends BaseRaCommand {
         }
         int certificatetypeid = CertificateProfileConstants.CERTPROFILE_FIXED_ENDUSER;
         
-        if(superAdminValidity != null) {
+        if(validity != null) {
             CertificateProfile clonedCertProfile = new CertificateProfile(certificatetypeid);
-            clonedCertProfile.setEncodedValidity(superAdminValidity);
+            clonedCertProfile.setEncodedValidity(validity);
             try {
-                certificatetypeid = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class).addCertificateProfile(getAuthenticationToken(), SUPERADMIN_CERTPROFILE_NAME, clonedCertProfile);
+                certificatetypeid = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class).addCertificateProfile(getAuthenticationToken(), CLIENT_AUTHENTICATION_CERTPROFILE_NAME, clonedCertProfile);
             } catch (CertificateProfileExistsException | AuthorizationDeniedException e) {
-                getLogger().error("Failed to create the certificate profile for the modified super admin validity of " + superAdminValidity);
+                getLogger().error("Failed to create the certificate profile for the modified super admin validity of " + validity);
                 error = true;
             }
         }
         
         final String certificateProfile = parameters.get(CERT_PROFILE_KEY);
         if (certificateProfile != null) {
+            if (validity != null) {
+                getLogger().error("The certificate profile is not meant to be used in combination with validity! Exiting!");
+                return CommandResult.FUNCTIONAL_FAILURE;
+            }
             // Use certificate type, no end entity profile.
             certificatetypeid = EjbRemoteHelper.INSTANCE.getRemoteSession(CertificateProfileSessionRemote.class).getCertificateProfileId(
                     certificateProfile);
@@ -202,21 +206,25 @@ public class AddEndEntityCommand extends BaseRaCommand {
         final String endEntityProfile = parameters.get(EE_PROFILE_KEY);
         int endEntityProfileId = EndEntityConstants.EMPTY_END_ENTITY_PROFILE;
         
-        if (superAdminValidity != null) {
+        if (validity != null) {
             EndEntityProfile clonedEEProfile = new EndEntityProfile(true);
             List<Integer> defaultAvailableCertProfileIds = clonedEEProfile.getAvailableCertificateProfileIds();
             defaultAvailableCertProfileIds.add(certificatetypeid);
             clonedEEProfile.setAvailableCertificateProfileIds(defaultAvailableCertProfileIds);
             clonedEEProfile.setDefaultCertificateProfile(certificatetypeid);
             try {
-                endEntityProfileId = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class).addEndEntityProfile(getAuthenticationToken(), SUPERADMIN_EEPROFILE_NAME, clonedEEProfile);
+                endEntityProfileId = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class).addEndEntityProfile(getAuthenticationToken(), CLIENT_AUTHENTICATION_EEPROFILE_NAME, clonedEEProfile);
             } catch (EndEntityProfileExistsException | AuthorizationDeniedException e) {
-                getLogger().error("Failed to create the end entity profile for the modified super admin validity of " + superAdminValidity);
+                getLogger().error("Failed to create the end entity profile for the modified super admin validity of " + validity);
                 error = true;
             }
         }
         
         if (endEntityProfile != null) {
+            if (validity != null) {
+                getLogger().error("The end entity profile is not meant to be used in combination with validity! Exiting!");
+                return CommandResult.FUNCTIONAL_FAILURE;
+            }
             try {
                 endEntityProfileId = EjbRemoteHelper.INSTANCE.getRemoteSession(EndEntityProfileSessionRemote.class).getEndEntityProfileId(
                         endEntityProfile);

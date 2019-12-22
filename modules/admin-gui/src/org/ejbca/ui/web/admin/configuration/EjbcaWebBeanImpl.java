@@ -357,13 +357,13 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
     /** Return the admins selected theme including its trailing '.css' */
     @Override
     public String getCssFile() {
-        return globalconfiguration.getAdminWebPath() + globalconfiguration.getThemePath() + "/" + currentAdminPreference.getTheme() + ".css";
+        return globalconfiguration == null ? null : globalconfiguration.getAdminWebPath() + globalconfiguration.getThemePath() + "/" + currentAdminPreference.getTheme() + ".css";
     }
 
     /** Return the IE fixes CSS of the admins selected theme including it's trailing '.css' */
     @Override
     public String getIeFixesCssFile() {
-        return globalconfiguration.getAdminWebPath() + globalconfiguration.getThemePath() + "/" + currentAdminPreference.getTheme()
+        return globalconfiguration == null ? null : globalconfiguration.getAdminWebPath() + globalconfiguration.getThemePath() + "/" + currentAdminPreference.getTheme()
                 + globalconfiguration.getIeCssFilenamePostfix() + ".css";
     }
 
@@ -532,12 +532,12 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
 
     @Override
     public String getBaseUrl() {
-        return globalconfiguration.getBaseUrl(requestScheme, requestServerName, requestServerPort);
+        return globalconfiguration == null ? null : globalconfiguration.getBaseUrl(requestScheme, requestServerName, requestServerPort);
     }
 
     @Override
     public String getReportsPath() {
-        return globalconfiguration.getReportsPath();
+        return globalconfiguration == null ? null : globalconfiguration.getReportsPath();
     }
 
     /* Returns the global configuration */
@@ -551,7 +551,7 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
      */
     @Override
     public String getBaseUrlPublic() {
-        return globalconfiguration.getBaseUrlPublic();
+        return globalconfiguration == null ? null : globalconfiguration.getBaseUrlPublic();
     }
 
     @Override
@@ -572,6 +572,9 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
 
     @Override
     public String getImagefileInfix(final String imagefilename) {
+        if (globalconfiguration == null) {
+            return null;
+        }
         String returnedurl = null;
         final String[] strs = adminsweblanguage.getAvailableLanguages();
         final int index = currentAdminPreference.getPreferedLanguage();
@@ -639,8 +642,8 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
     /** Returns a fallback text to be used if the session was not initialized properly */
     private String fallbackText(final String template, final Object... params) {
         final String msg = "Language was not initialized for this session";
-        if (log.isDebugEnabled()) {
-            log.warn(msg, new Exception("Stack trace")); // Included for stack trace
+        if (log.isTraceEnabled()) {
+            log.trace(msg, new Exception("Stack trace")); // Included for stack trace
         } else {
             log.warn(msg);
         }
@@ -1054,12 +1057,12 @@ public class EjbcaWebBeanImpl implements EjbcaWebBean {
 
     @Override
     public boolean isSessionTimeoutEnabled() {
-        return globalconfiguration.getUseSessionTimeout();
+        return globalconfiguration == null ? null : globalconfiguration.getUseSessionTimeout();
     }
 
     @Override
     public int getSessionTimeoutTime() {
-        return globalconfiguration.getSessionTimeoutTime();
+        return globalconfiguration == null ? null : globalconfiguration.getSessionTimeoutTime();
     }
 
     @Override

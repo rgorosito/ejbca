@@ -77,9 +77,9 @@ public class PKCS11Utils {
         try {
             clazz = Class.forName(className);
         } catch (ClassNotFoundException e) {
-            log.warn(String.format(
-                    "Class '%s' not available. The attribute of all generated keys will have 'CKA_MODIFYABLE=TRUE'. A '%s' exception was thrown with the message '%s'.",
-                    className, e.getClass().getName(), e.getMessage() ));
+            log.debug(String.format(
+                    "The class '%s' is not available. The attribute of all generated keys may have 'CKA_MODIFIABLE=TRUE'. Consider compiling with -Dbuild.cesecore.p11.jar=true (Java 8 only).",
+                    className));
             p11utils = new PKCS11Utils(null, null, null);
             return p11utils;
         }
