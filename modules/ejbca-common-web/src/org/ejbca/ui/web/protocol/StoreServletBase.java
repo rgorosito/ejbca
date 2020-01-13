@@ -24,6 +24,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.cesecore.certificates.ca.internal.CaCertificateCache;
@@ -53,7 +54,7 @@ public abstract class StoreServletBase extends HttpServlet {
 	/**
 	 * Called when the servlet is initialized.
 	 * @param config see {@link HttpServlet#init(ServletConfig)}
-	 * @throws ServletException
+	 * @throws ServletException ServletException
 	 */
 	@Override
     public void init(ServletConfig config) throws ServletException {
@@ -67,42 +68,42 @@ public abstract class StoreServletBase extends HttpServlet {
 
 	/**
 	 * Return certificate or CRL for the RFC4387 sHash http parameter
-	 * @param sHash
-	 * @param resp
-	 * @param req
-	 * @throws IOException
-	 * @throws ServletException
+	 * @param sHash sHash http parameter
+	 * @param resp HttpServletResponse
+	 * @param req HttpServletRequest
+	 * @throws IOException IOException
+	 * @throws ServletException ServletException
 	 */
 	public abstract void sHash(String sHash, HttpServletResponse resp, HttpServletRequest req) throws IOException, ServletException;
 
 	/**
 	 * Return certificate or CRL for the RFC4387 iHash http parameter
-	 * @param iHash
-	 * @param resp
-	 * @param req
-	 * @throws IOException
-	 * @throws ServletException
+	 * @param iHash iHash http parameter
+	 * @param resp HttpServletResponse
+	 * @param req HttpServletRequest
+	 * @throws IOException IOException
+	 * @throws ServletException ServletException
 	 */
 	public abstract void iHash(String iHash, HttpServletResponse resp, HttpServletRequest req) throws IOException, ServletException;
 
 	/**
 	 * Return certificate or CRL for the RFC4387 sKIDHash http parameter
-	 * @param sKIDHash
-	 * @param resp
-	 * @param req
-	 * @throws IOException
-	 * @throws ServletException
+	 * @param sKIDHash sKIDHash http parameter
+	 * @param resp HttpServletResponse
+	 * @param req HttpServletRequest
+	 * @throws IOException IOException
+	 * @throws ServletException ServletException
 	 */
 	public abstract void sKIDHash(String sKIDHash, HttpServletResponse resp, HttpServletRequest req) throws IOException, ServletException;
 	
 	/**
 	 * Return certificate or CRL for the RFC4387 sKIDHash http parameter. In this case the alias name has been used to get the parameter.
-	 * @param sKIDHash
-	 * @param resp
-	 * @param req
+	 * @param sKIDHash sKIDHash http parameter
+	 * @param resp HttpServletResponse
+	 * @param req HttpServletRequest
 	 * @param name alias name of the object
-	 * @throws IOException
-	 * @throws ServletException
+	 * @throws IOException IOException
+	 * @throws ServletException ServletException
 	 */
 	public abstract void sKIDHash(String sKIDHash, HttpServletResponse resp, HttpServletRequest req, String name) throws IOException, ServletException;
 
@@ -156,6 +157,7 @@ public abstract class StoreServletBase extends HttpServlet {
 		}
 		printInfo(req, resp);
 	}
+
 	private boolean alias(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 		final String alias = req.getParameter("setAlias");
 		if ( alias==null ) {
@@ -242,25 +244,31 @@ public abstract class StoreServletBase extends HttpServlet {
 	}
 	
 	private void printInfo(X509Certificate certs[], String indent, PrintWriter pw, String url) {
-		for ( int i=0; i<certs.length; i++ ) {
-			printInfo(certs[i], indent, pw, HTMLTools.htmlescape(url));
-			pw.println();
-			final X509Certificate issuedCerts[] = this.certCache.findLatestByIssuerDN(HashID.getFromSubjectDN(certs[i]));
-			if ( issuedCerts==null || issuedCerts.length<1 ) {
-				continue;
-			}
-			printInfo(issuedCerts, SPACE+indent, pw, url);
-		}
+        for (X509Certificate cert : certs) {
+            // Escape the URL as it might be unsafe
+            printInfo(cert, indent, pw, HTMLTools.htmlescape(url));
+            pw.println();
+            final X509Certificate issuedCerts[] = this.certCache.findLatestByIssuerDN(HashID.getFromSubjectDN(cert));
+            if (ArrayUtils.isEmpty(issuedCerts)) {
+                continue;
+            }
+            printInfo(issuedCerts, SPACE + indent, pw, url);
+        }
 	}
-	
-	/**
-	 * Print info and download URL of a certificate or CRL.
-	 * @param cert
-	 * @param indent
-	 * @param pw
-	 * @param url
-	 */
+
+    /**
+     * Print info and download URL of a certificate or CRL.
+     * <p>
+     *     The implementation has to escape characters of URL to be HTML safe.
+     * </p>
+     *
+     * @param cert certificate
+     * @param indent indentation
+     * @param pw PrintWriter
+     * @param url The URL in the escaped form for HTML
+     */
 	public abstract void printInfo(X509Certificate cert, String indent, PrintWriter pw, String url);
+
 	/**
 	 * @return the title of the page
 	 */
@@ -295,6 +303,7 @@ public abstract class StoreServletBase extends HttpServlet {
 		writer.println("</html>");
 		writer.flush();
 	}
+
 	private void printInfo(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 		final StringWriter sw = new StringWriter();
 		final PrintWriter pw = new HtmlPrintWriter(sw);
@@ -308,7 +317,7 @@ public abstract class StoreServletBase extends HttpServlet {
 
 	private class HtmlPrintWriter extends PrintWriter {
 
-		public HtmlPrintWriter(Writer out) {
+		HtmlPrintWriter(Writer out) {
 			super(out);
 		}
 		@Override
