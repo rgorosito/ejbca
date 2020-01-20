@@ -24,7 +24,6 @@ import java.security.cert.X509Certificate;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +46,7 @@ import org.cesecore.certificates.ca.CADoesntExistsException;
 import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificate.CertificateStoreSessionLocal;
 import org.cesecore.certificates.endentity.ExtendedInformation;
+import org.cesecore.certificates.pinning.TrustEntry;
 import org.cesecore.keybind.InternalKeyBindingInfo;
 import org.cesecore.keybind.InternalKeyBindingMgmtSessionLocal;
 import org.cesecore.keybind.InternalKeyBindingStatus;
@@ -391,8 +391,8 @@ public class CertSafePublisher extends CustomPublisherUiBase implements ICustomP
         chain.addAll(getCaCertificateChain(sslCertificate));
         final String alias = authenticationKeyBinding.getKeyPairAlias();
         try {
-            List< Collection<X509Certificate> > trustedCertificates = internalKeyBindingMgmtSession.getListOfTrustedCertificates(authenticationKeyBinding);
-            final TrustManager trustManagers[] = new X509TrustManager[] { new ClientX509TrustManager(trustedCertificates) };
+            final List<TrustEntry> trustEntries = internalKeyBindingMgmtSession.getTrustEntries(authenticationKeyBinding);
+            final TrustManager trustManagers[] = new X509TrustManager[] { new ClientX509TrustManager(trustEntries) };
             final KeyManager keyManagers[] = new X509KeyManager[] { new ClientX509KeyManager(alias, cryptoToken.getPrivateKey(alias), chain) };
             // Now construct a SSLContext using these (possibly wrapped) KeyManagers, and the TrustManagers.
             // We still use a null SecureRandom, indicating that the defaults should be used.
