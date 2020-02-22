@@ -1,0 +1,9 @@
+/build-test
+/build-util
+/build-temp
+/src-temp
+/build
+/build-va
+/build-common-web
+/build-va-common
+/junitvmwatcher*.properties
