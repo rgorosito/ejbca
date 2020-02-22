@@ -154,11 +154,7 @@ import org.ejbca.util.query.IllegalQueryException;
  * Proxy implementation of the the RaMasterApi that will get the result of the most preferred API implementation
  * or a mix thereof depending of the type of call.
  *
-<<<<<<< HEAD
  * @version $Id$
-=======
- * @version $Id: RaMasterApiProxyBean.java 31935 2019-03-22 07:33:49Z henriks $
->>>>>>> 3a6b27354344160e7b15017046e368c166f06ee9
  */
 @Singleton
 @Startup
