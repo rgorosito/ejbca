@@ -56,6 +56,10 @@ public class EndEntityProfileHelper extends BaseHelper {
         static final By INPUT_USE_ISSUANNCE_REVOCATION_REASON = By.id("eeProfiles:useRevocationReasonAfterIssuanceCheckBox");
         // Maximum number of failed login attempts / Use
         static final By INPUT_USE_MAX_FAILED_LOGINS = By.id("eeProfiles:nrFailedAttempts");
+        // Batch generation / Use
+        static final By INPUT_BATCH_GENERATION = By.id("eeProfiles:batchCheckBox");
+        // Other certificate data / Custom certificate serial number in hex / Use
+        static final By INPUT_CUSTOM_SERIAL_NUMBER = By.id("eeProfiles:certSerialNumberCheckBox");
         // Other certificate data / Certificate Validity Start Time /Use
         static final By INPUT_USE_START_TIME = By.id("eeProfiles:certValidityStartTimeCheckBox");
         // Other certificate data / Certificate Validity End Time /Use
@@ -64,6 +68,10 @@ public class EndEntityProfileHelper extends BaseHelper {
         static final By INPUT_START_TIME = By.id("eeProfiles:textFieldCertValidityStartTime");
         // Other certificate data / Certificate Validity END Time /Value
         static final By INPUT_END_TIME = By.id("eeProfiles:textFieldCertValidityEndTime");
+        // Other certificate data / Certificate Validity Start Time / Modifiable
+        static final By INPUT_START_TIME_MODIFIABLE = By.id("eeProfiles:certValidityStartTimeModCheckBox");
+        // Other certificate data / Certificate Validity END Time / Modifiable
+        static final By INPUT_END_TIME_MODIFIABLE = By.id("eeProfiles:certValidityEndTimeModCheckBox");
         //Other certificate data/ Name Constraints, Permitted / Use
         static final By INPUT_USE_NAME_CONSTRAINTS = By.id("eeProfiles:nameConstraintsPermittedCheckBox");
         // Other certificate data/ Custom certificate extension data
@@ -260,6 +268,20 @@ public class EndEntityProfileHelper extends BaseHelper {
                     "Expected profile save message was not displayed");
         }
     }
+    
+    /** Saves the End Entity Profile with failure assertion. */
+    public void saveEndEntityProfileWithClientSideErrors() {
+        saveEndEntityProfile(false);
+        assertIsOnEditPage();
+    }
+
+    /** Fails test if not on Edit page (e.g. on list page) */
+    private void assertIsOnEditPage() {
+        final WebElement endEntityProfileTitle = findElement(Page.TEXT_TITLE_END_ENTITY_PROFILE);
+        if (endEntityProfileTitle == null) {
+            fail("Should stay on the edit page for the end entity profile.");
+        }
+    }
 
     /**
      * Clones the End Entity Profile.
@@ -366,12 +388,56 @@ public class EndEntityProfileHelper extends BaseHelper {
     public void triggerCertificateValidityStartTime() {
         clickLink(Page.INPUT_USE_START_TIME);
     }
+    
+    public void setUseCertificateValidityStartTime(final boolean use) {
+        if (isSelectedElement(Page.INPUT_USE_START_TIME) != use) {
+            triggerCertificateValidityStartTime();
+        }
+    }
 
     /**
      * Triggers the checkbox 'Use' for 'Certificate Validity End Time'.
      */
     public void triggerCertificateValidityEndTime() {
         clickLink(Page.INPUT_USE_END_TIME);
+    }
+    
+    public void setUseCertificateValidityEndTime(final boolean use) {
+        if (isSelectedElement(Page.INPUT_USE_END_TIME) != use) {
+            triggerCertificateValidityEndTime();
+        }
+    }
+    
+    /** Checks the state for the 'Use' checkbox for 'Custom Validity Start Time' */
+    public void assertUseCustomValidityStartTimeIsSelected(boolean expectedState) {
+        assertEquals("'Use' checkbox for 'Custom Validity Start Time' should be checked.", expectedState, isSelectedElement(Page.INPUT_USE_START_TIME));
+    }
+    
+    /** Checks the state for the 'Use' checkbox for 'Custom Validity End Time' */
+    public void assertUseCustomValidityEndTimeIsSelected(boolean expectedState) {
+        assertEquals("'Use' checkbox for 'Custom Validity End Time' should be checked.", expectedState, isSelectedElement(Page.INPUT_USE_END_TIME));
+    }
+    
+    /** Checks the state for the 'Use' checkbox for 'Custom Validity Start Time' */
+    public void assertCustomValidityStartTimeModifiableIsSelected(boolean expectedState) {
+        assertEquals("'Modifiable' checkbox for 'Custom Validity Start Time' should be checked.", expectedState, isSelectedElement(Page.INPUT_START_TIME_MODIFIABLE));
+    }
+    
+    /** Checks the state for the 'Use' checkbox for 'Custom Validity End Time' */
+    public void assertCustomValidityEndTimeModifiableIsSelected(boolean expectedState) {
+        assertEquals("'Modifiable' checkbox for 'Custom Validity End Time' should be checked.", expectedState, isSelectedElement(Page.INPUT_END_TIME_MODIFIABLE));
+    }
+    
+    /** Checks if the Custom Validity Start Time controls are enabled (true) or disabled (false) */
+    public void assertCustomValidityStartTimeFieldsEnabled(boolean enabled) {
+        assertEquals("'Custom Validity Start Time' text box had the wrong enabled state.", enabled, isEnabledElement(Page.INPUT_START_TIME));
+        assertEquals("'Custom Validity Start Time' 'Modifiable' chekcbox had the wrong enabled state.", enabled, isEnabledElement(Page.INPUT_START_TIME_MODIFIABLE));
+    }
+
+    /** Checks if the Custom Validity End Time controls are enabled (true) or disabled (false) */
+    public void assertCustomValidityEndTimeFieldsEnabled(boolean enabled) {
+        assertEquals("'Custom Validity End Time' text box had the wrong enabled state.", enabled, isEnabledElement(Page.INPUT_END_TIME));
+        assertEquals("'Custom Validity End Time' 'Modifiable' chekcbox had the wrong enabled state.", enabled, isEnabledElement(Page.INPUT_END_TIME_MODIFIABLE));
     }
 
     /**
@@ -445,12 +511,20 @@ public class EndEntityProfileHelper extends BaseHelper {
     public void setCertificateValidityStartTime(String startTime) {
         fillInput(Page.INPUT_START_TIME, startTime);
     }
+    
+    public String getCertificateValidityStartTime() {
+        return getElementText(Page.INPUT_START_TIME);
+    }
 
     /**
      * Fills  Certificate Validity End Time
      */
     public void setCertificateValidityEndTime(String endTime) {
         fillInput(Page.INPUT_END_TIME, endTime);
+    }
+
+    public String getCertificateValidityEndTime() {
+        return getElementText(Page.INPUT_END_TIME);
     }
 
     /**
@@ -706,12 +780,39 @@ public class EndEntityProfileHelper extends BaseHelper {
      * Adds an attribute to 'Subject DN Attributes', 'Subject Alternative Name' or
      * 'Subject Directory Attributes' while editing an End Entity Profile.
      *
-     * @param attributeType either 'subjectdn', 'subjectaltname' or 'subjectdirattr'
+     * @param attributeType either 'dn', 'altName' or 'directory'
      * @param attributeName the displayed name of the attribute, e.g. 'O, Organization'
      */
-    public void addSubjectAttribute(final String attributeType, final String attributeName) {
+    private void addSubjectAttribute(final String attributeType, final String attributeName) {
         selectOptionByName(Page.getSubjectAttributesSelectByAttributeType(attributeType), attributeName);
         clickLink(Page.getSubjectAttributesAddButtonByAttributeType(attributeType));
+    }
+    
+    /**
+     * Adds an attribute to 'Subject DN Attributes'
+     *
+     * @param attributeName the displayed name of the attribute, e.g. 'O, Organization'
+     */
+    public void addSubjectDnAttribute(final String attributeName) {
+        addSubjectAttribute("dn", attributeName);
+    }
+    
+    /**
+     * Adds an attribute to 'Subject Alternative Name'
+     *
+     * @param attributeName the displayed name of the attribute, e.g. 'DNS Name'
+     */
+    public void addSubjectAltNameAttribute(final String attributeName) {
+        addSubjectAttribute("altName", attributeName);
+    }
+
+    /**
+     * Adds an attribute to 'Subject Directory Attributes'
+     *
+     * @param attributeName the displayed name of the attribute, e.g. 'Date of birth (YYYYMMDD)'
+     */
+    public void addSubjectDirectoryAttribute(final String attributeName) {
+        addSubjectAttribute("directory", attributeName);
     }
 
     /**
@@ -771,6 +872,14 @@ public class EndEntityProfileHelper extends BaseHelper {
         fillInput(Page.getSubjectAttributesAttributeTextfieldByAttributeTypeAndAttributeIndex(attributeType, attributeIndex), value);
     }
 
+    public void triggerBatchGeneration() {
+        clickLink(Page.INPUT_BATCH_GENERATION);
+    }
+
+    public void triggerCustomCertificateSerialNumber() {
+        clickLink(Page.INPUT_CUSTOM_SERIAL_NUMBER);
+    }
+
     // Asserts the title text
     private void assertEndEntityProfileTitleExists(final String endEntityProfileName) {
         final WebElement endEntityProfileTitle = findElement(Page.TEXT_TITLE_END_ENTITY_PROFILE);
@@ -827,9 +936,7 @@ public class EndEntityProfileHelper extends BaseHelper {
     }
 
     /**
-     *
      * @param inputIndex the index of notification to check
-     * @return
      */
     public String getNotificationSubjectValueText(final int inputIndex) {
         return getElementValue(Page.getNotificationSubjectByIndex(inputIndex));

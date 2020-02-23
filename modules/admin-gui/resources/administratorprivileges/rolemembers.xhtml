@@ -22,6 +22,9 @@
      version: $Id$
      -->
     </ui:remove>
+    
+
+    
     <ui:composition template="/WEB-INF/include/template.xhtml">
         <ui:define name="content">
             <h:panelGrid columns="2" styleClass="fullwidth">
@@ -90,11 +93,10 @@
                             </h:panelGroup>
                         </f:facet>
                         <h:outputText rendered="#{!roleMembersBean.isRenderCertificateLink(roleMember)}" value="#{roleMember.tokenMatchValue}"/>
-                        <h:outputLink rendered="#{roleMembersBean.isRenderCertificateLink(roleMember)}"
-                            value="#{facesContext.externalContext.context.contextPath}/ra/listendentities.jsp">
-                            <f:param name="action" value="listusers"/>
-                            <f:param name="buttonisrevoked" value="value"/>
-                            <f:param name="textfieldserialnumber" value="#{roleMember.tokenMatchValue}"/>
+	 		            <h:outputLink rendered="#{roleMembersBean.isRenderCertificateLink(roleMember)}" target="_blank"
+			                value="#{web.ejbcaBaseURL}#{web.ejbcaWebBean.globalConfiguration.adminWebPath}viewcertificate.xhtml">
+                            <f:param name="serno" value="#{roleMember.tokenMatchValue}"/>
+                            <f:param name="caid" value="#{roleMember.tokenIssuerId}"/>
                             <h:outputText value="#{roleMember.tokenMatchValue}"/>
                         </h:outputLink>
                     </h:column>

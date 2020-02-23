@@ -443,3 +443,14 @@ CREATE TABLE SctData (
     rowVersion INTEGER NOT NULL,
     PRIMARY KEY (pk) 
 );
+
+CREATE TABLE OcspResponseData (
+    serialNumber VARCHAR(256) NOT NULL,
+    producedAt BIGINT NOT NULL,
+    nextUpdate BIGINT,
+    ocspResponse IMAGE,
+    cAId INTEGER,
+    rowProtection TEXT VARCHAR,
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (cAId, serialNumber)
+);

@@ -443,3 +443,14 @@ CREATE TABLE SctData (
     rowVersion NUMBER(10) NOT NULL,
     PRIMARY KEY (pk) 
 );
+
+CREATE TABLE OcspResponseData (
+    serialNumber VARCHAR2(255 byte) NOT NULL,
+    producedAt NUMBER(19) NOT NULL,
+    nextUpdate NUMBER(19),
+    ocspResponse BLOB,
+    cAId NUMBER(10),
+    rowProtection CLOB,
+    rowVersion NUMBER(10) NOT NULL,
+    PRIMARY KEY (cAId, serialNumber)
+);

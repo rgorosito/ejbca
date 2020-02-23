@@ -447,3 +447,16 @@ CREATE TABLE SctData (
     rowVersion INT(11) NOT NULL,
     PRIMARY KEY (pk) 
 ) TABLESPACE ejbca_ts STORAGE DISK ENGINE=ND;
+
+
+CREATE TABLE OcspResponseData (
+    serialNumber VARCHAR(250) BINARY NOT NULL,
+    producedAt BIGINT(20) NOT NULL,
+    nextUpdate BIGINT(20),
+    ocspResponse LONGBLOB,
+    cAId INT(11),
+    rowProtection LONG TEXT,
+    rowVersion INT(11) NOT NULL,
+    PRIMARY KEY (cAId, serialNumber)
+) TABLESPACE ejbca_ts STORAGE DISK ENGINE=ND;
+

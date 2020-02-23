@@ -57,9 +57,9 @@ public abstract class CryptoTokenTestBase {
 
     private static final String strsoft = "PKCS12 key store mac invalid - wrong password or corrupted file.";
     private static String strp11 = "Failed to initialize PKCS11 provider slot "; // should be appended with real value, i.e. '1'
-    private static final String slotIndexP11Ng = "'i0'"; // Test should run on slot with index 0
+    private static final String slotIndexP11Ng = PKCS11TestUtils.getPkcs11SlotValue("0"); // Test should run on slot with index 0
     private static final String slotIdP11Ng = "0"; // Test should run on slot with id 0
-    private static final String strP11Ng = "Failed to login to PKCS#11 provider slot " + slotIndexP11Ng + ": 0x000000a" + slotIdP11Ng
+    private static final String strP11Ng = "Failed to login to PKCS#11 provider slot '" + slotIndexP11Ng + "': 0x000000a" + slotIdP11Ng
             + ": PIN_INCORRECT";
 
     public CryptoTokenTestBase() {
@@ -394,7 +394,6 @@ public abstract class CryptoTokenTestBase {
             PublicKey pub = cryptoToken.getPublicKey(PKCS11TestUtils.RSA_TEST_KEY_1);
             KeyTools.testKey(priv, pub, cryptoToken.getSignProviderName());
             assertEquals(1024, KeyTools.getKeyLength(pub));
-
             // Get a key that does not exist
             try {
                 pub = cryptoToken.getPublicKey(PKCS11TestUtils.NON_EXISTING_KEY);
@@ -409,13 +408,13 @@ public abstract class CryptoTokenTestBase {
                     priv = cryptoToken.getPrivateKey(PKCS11TestUtils.RSA_TEST_KEY_1);
                     assertTrue("Should throw", false);
                 } catch (CryptoTokenOfflineException e) {
-                    assertTrue(e.getMessage(), e.getMessage().contains("keyStore (111) == null"));
+                    assertTrue(e.getMessage(), e.getMessage().contains(intres.getLocalizedMessage("token.offline", 111)));
                 }
                 try {
                     pub = cryptoToken.getPublicKey(PKCS11TestUtils.RSA_TEST_KEY_1);
                     assertTrue("Should throw", false);
                 } catch (CryptoTokenOfflineException e) {
-                    assertTrue(e.getMessage(), e.getMessage().contains("keyStore (111) == null"));
+                    assertTrue(e.getMessage(), e.getMessage().contains(intres.getLocalizedMessage("token.offline", 111)));
                 }
             }
             // Activate with wrong PIN should not work

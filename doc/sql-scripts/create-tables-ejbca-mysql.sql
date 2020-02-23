@@ -444,3 +444,14 @@ CREATE TABLE SctData (
     rowVersion INT(11) NOT NULL,
     PRIMARY KEY (pk) 
 );
+
+CREATE TABLE OcspResponseData (
+    serialNumber VARCHAR(250) BINARY NOT NULL,
+    producedAt BIGINT(20) NOT NULL,
+    nextUpdate BIGINT(20),
+    ocspResponse LONGBLOB,
+    cAId INT(11),
+    rowProtection LONGTEXT VARCHAR,
+    rowVersion INT(11) NOT NULL,
+    PRIMARY KEY (cAId, serialNumber)
+);

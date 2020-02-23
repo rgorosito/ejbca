@@ -241,13 +241,13 @@ public class AzureCryptoToken extends BaseCryptoToken {
                         }
                     }                    
                 } else {
-                    aliasCache.flush(); // make sure the crypto token is off-line for getTokenStatus
-                    status = STATUS_OFFLINE;
+                    aliasCache.flush();
+                    status = STATUS_OFFLINE; // make sure the crypto token is off-line for getTokenStatus
                     throw new CryptoTokenOfflineException("Can not list keys, response code is " + response.getStatusLine().getStatusCode());                    
                 }
             } catch (IOException | ParseException | CryptoTokenAuthenticationFailedException e) {
-                aliasCache.flush(); // make sure the crypto token is off-line for getTokenStatus
-                status = STATUS_OFFLINE;
+                aliasCache.flush();
+                status = STATUS_OFFLINE; // make sure the crypto token is off-line for getTokenStatus
                 throw new CryptoTokenOfflineException(e);
             }
             status = STATUS_ACTIVE; // make sure the crypto token is on-line for getTokenStatus
@@ -286,7 +286,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
             final int requestStatusCode = response.getStatusLine().getStatusCode();
             if (requestStatusCode == 401) {
                 log.debug("Got access denied calling key vault, try to get authentication URI and fetch auth token");
-                // Bet bearer token (authentication token).
+                // Get bearer token (authentication token).
                 final Header lastHeader = response.getLastHeader("WWW-Authenticate");
                 // Close as soon as possible, we don't need this response, it's an "Error Response" for invalid_token 
                 response.close();
@@ -611,7 +611,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
         PublicKey publicKey = null;
         if (aliasCache.shouldCheckForUpdates(alias.hashCode()) || aliasCache.getEntry(alias.hashCode()).equals(AzureCryptoToken.getDummyCacheKey()) ) {
             if (log.isDebugEnabled()) {
-                log.debug("Looking for public key with alias " + alias + ", and cache is expired or filled with dummyCacheKey. Will try to read it form Key Vault.");
+                log.debug("Looking for public key with alias " + alias + ", and cache is expired or filled with dummyCacheKey. Will try to read it from Key Vault.");
             }
             try {
                 // connect to Azure and retrieve public key, use empty version string to get last version (don't check for existing key versions to save a round trip)
@@ -634,7 +634,7 @@ public class AzureCryptoToken extends BaseCryptoToken {
                         return null;
                     }
                     if (s == null) {
-                        log.warn("We got HTTP 200 as response code getting public key, but no JSON content returned. Unknown error sate from Key Vault. Returning null as public key (we can't find it)");
+                        log.warn("We got HTTP 200 as response code getting public key, but no JSON content returned. Unknown error state from Key Vault. Returning null as public key (we can't find it)");
                         return null;
                     }
                     final JSONParser jsonParser = new JSONParser();

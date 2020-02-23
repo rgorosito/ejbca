@@ -439,6 +439,17 @@ CREATE TABLE SctData (
     PRIMARY KEY (pk) 
 );
 
+CREATE TABLE OcspResponseData (
+    serialNumber VARCHAR(254) NOT NULL,
+    producedAt BIGINT NOT NULL,
+    nextUpdate BIGINT,
+    ocspResponse BLOB(200K),
+    cAId INTEGER NOT NULL,
+    rowProtection CLOB(10K),
+    rowVersion INTEGER NOT NULL,
+    PRIMARY KEY (cAId, serialNumber)
+);
+
 
 alter table AccessRulesData add constraint FKABB4C1DFDBBC970 foreign key (AdminGroupData_accessRules) references AdminGroupData;
 
