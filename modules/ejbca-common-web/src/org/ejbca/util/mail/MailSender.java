@@ -44,6 +44,21 @@ public class MailSender {
 	public final static List<String> NO_TO = null;	//List<String>
 	public final static List<String> NO_CC = null;	//List<String>
 	public final static List<MailAttachment> NO_ATTACHMENTS = null;	//List<MailAttachment>
+	
+	/**
+	 * Returns true if mail is configured and available in the application server.
+	 */
+	public static boolean isMailConfigured() {
+	    try {
+	        ServiceLocator.getInstance().getMailSession(MailConfiguration.getMailJndiName());
+	        return true;
+        } catch (ServiceLocatorException e) {
+            return false;
+        } catch (RuntimeException e) {
+            log.debug("Caught runtime exception when checking for presence of mail session", e);
+            return false;
+        }
+	}
 
 	/**
 	 * Helper method for sending mail using the mail service configured in mail.properties.
@@ -57,9 +72,20 @@ public class MailSender {
 	 * @throws MailException if the message could not be successfully handed over to JavaMail
 	 */
 	public static void sendMailOrThrow(String fromAddress, List<String> toList, List<String> ccList, String subject, String content, List<MailAttachment> attachments) throws MailException {
-		if (!sendMail(fromAddress, toList, ccList, subject, content, attachments)) {
-			throw new MailException("Failed to hand over email to JavaMail.");
-		}
+	    try {
+            final Session mailSession = ServiceLocator.getInstance().getMailSession(MailConfiguration.getMailJndiName());
+            if (!sendMailWithSession(mailSession, fromAddress, toList, ccList, subject, content, attachments)) {
+                throw new MailException("Failed to hand over email to JavaMail.");
+            }
+        } catch (ServiceLocatorException e) {
+            final String msg = "E-mail is not available in the application server: " + e.getMessage();
+            if (log.isDebugEnabled()) {
+                log.error(msg, e);
+            } else {
+                log.error(msg);
+            }
+            throw new MailException(msg, e);
+        }
 	}
 
 	/**
@@ -74,12 +100,15 @@ public class MailSender {
 	 * @return true if the message was successfully handed over to JavaMail
 	 */
 	public static boolean sendMail(String fromAddress, List<String> toList, List<String> ccList, String subject, String content, List<MailAttachment> attachments) {
-        Session mailSession;
         try {
-            mailSession = ServiceLocator.getInstance().getMailSession(MailConfiguration.getMailJndiName());
+            final Session mailSession = ServiceLocator.getInstance().getMailSession(MailConfiguration.getMailJndiName());
+            return sendMailWithSession(mailSession, fromAddress, toList, ccList, subject, content, attachments);
         } catch (ServiceLocatorException e) {
             throw new IllegalStateException(e);
         }
+	}
+
+    private static boolean sendMailWithSession(final Session mailSession, String fromAddress, List<String> toList, List<String> ccList, String subject, String content, List<MailAttachment> attachments) {
         // It would be good if we could set mail session properties, but it seems not possible
         // See https://javamail.java.net/nonav/docs/api/com/sun/mail/smtp/package-summary.html
         // mail.smtp.timeout
@@ -113,6 +142,7 @@ public class MailSender {
 				}
 			}
 			if (!atLeastOneRecipient) {
+			    log.info("Missing e-mail recipient");
 				return false;	// We need at least one recipient.. either TO or CC
 			}
 	        msg.setSubject(subject);

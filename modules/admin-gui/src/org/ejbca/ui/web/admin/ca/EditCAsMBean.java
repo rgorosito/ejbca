@@ -1441,6 +1441,12 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
      */
     public String importCACertUpdate() {
         final byte[] fileBuffer = EditCaUtil.getUploadedFileBuffer(fileRecieveFileImportRenewal);
+        
+        if (fileBuffer==null) {
+           addNonTranslatedErrorMessage("No file selected or upload failed");
+           return "";
+        }
+        
         try {
             cadatahandler.importCACertUpdate(caid, fileBuffer);
             addInfoMessage(getEjbcaWebBean().getText("CARENEWED"));
@@ -1788,6 +1794,7 @@ public class EditCAsMBean extends BaseManagedBean implements Serializable {
             caInfoDto.setCaDefinedFreshestCRL(x509cainfo.getCADefinedFreshestCRL());
             caInfoDto.setDefaultOCSPServiceLocator(x509cainfo.getDefaultOCSPServiceLocator());
             caInfoDto.setCaSerialNumberOctetSize(String.valueOf(x509cainfo.getCaSerialNumberOctetSize()));
+            caInfoDto.setDoPreProduceOcspResponses(x509cainfo.isDoPreProduceOcspResponses());
             
             if(x509cainfo.getPolicies() == null || (x509cainfo.getPolicies().isEmpty())) {
                 caInfoDto.setPolicyId(getEjbcaWebBean().getText("NONE"));

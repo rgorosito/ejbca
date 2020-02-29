@@ -586,6 +586,7 @@ public class CAInterfaceBean implements Serializable {
                             .setUseCertReqHistory(caInfoDto.isUseCertReqHistory())
                             .setUseUserStorage(caInfoDto.isUseUserStorage())
                             .setUseCertificateStorage(caInfoDto.isUseCertificateStorage())
+                            .setDoPreProduceOcspResponses(caInfoDto.isDoPreProduceOcspResponses())
                             .setAcceptRevocationNonExistingEntry(caInfoDto.isAcceptRevocationsNonExistingEntry())
                             .setKeepExpiredCertsOnCRL(caInfoDto.isKeepExpiredOnCrl())
                             .setUsePartitionedCrl(caInfoDto.isUsePartitionedCrl())
@@ -676,8 +677,9 @@ public class CAInterfaceBean implements Serializable {
         try {
             return NameConstraint.parseNameConstraintsList(input);
         } catch (CertificateExtensionException e) {
-            throw new ParameterException(MessageFormat.format(ejbcawebbean.getText("INVALIDNAMECONSTRAINT"), e.getMessage()));
+            throw new ParameterException(ejbcawebbean.getText("INVALIDNAMECONSTRAINT", false, e.getMessage()));
         }
+        
     }
 	
     public String isValidityTimeValid(String validityString) {
@@ -882,6 +884,7 @@ public class CAInterfaceBean implements Serializable {
                        .setUseCertReqHistory(caInfoDto.isUseCertReqHistory())
                        .setUseUserStorage(caInfoDto.isUseUserStorage())
                        .setUseCertificateStorage(caInfoDto.isUseCertificateStorage())
+                       .setDoPreProduceOcspResponses(caInfoDto.isDoPreProduceOcspResponses())
                        .setAcceptRevocationNonExistingEntry(caInfoDto.isAcceptRevocationsNonExistingEntry())
                        .setCmpRaAuthSecret(caInfoDto.getSharedCmpRaSecret())
                        .setKeepExpiredCertsOnCRL(caInfoDto.isKeepExpiredOnCrl())
