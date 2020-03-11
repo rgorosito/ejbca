@@ -43,7 +43,7 @@ public class OcspResponseData extends ProtectedData implements Serializable {
 
     private ResponsePK responsePrimaryKey;
     private long producedAt;
-    private long nextUpdate;
+    private Long nextUpdate;
     private byte[] ocspResponse;
     private int rowVersion = 0;
     private String rowProtection;
@@ -51,7 +51,7 @@ public class OcspResponseData extends ProtectedData implements Serializable {
     public OcspResponseData() {
     }
 
-    public OcspResponseData(final ResponsePK pk, final long producedAt, final long nextUpdate, final byte[] ocspResponse) {
+    public OcspResponseData(final ResponsePK pk, final long producedAt, final Long nextUpdate, final byte[] ocspResponse) {
         this.responsePrimaryKey = pk;
         this.producedAt = producedAt;
         this.nextUpdate = nextUpdate;
@@ -74,11 +74,11 @@ public class OcspResponseData extends ProtectedData implements Serializable {
         this.producedAt = producedAt;
     }
 
-    public long getNextUpdate() {
+    public Long getNextUpdate() {
         return this.nextUpdate;
     }
 
-    public void setNextUpdate(final long nextUpdate) {
+    public void setNextUpdate(final Long nextUpdate) {
         this.nextUpdate = nextUpdate;
     }
 
