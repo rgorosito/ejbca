@@ -88,7 +88,10 @@ public class CaHelper extends BaseHelper {
          * Approval Settings / Next CA key
          */
         static final By SELECT_APPROVALPROFILES = By.xpath("//select[contains(@name, ':approvalProfile')]");
-
+        /**
+         * Approval Settings / CA Service Activation
+         */
+        static final By SELECT_CA_SERVICE_ACTIVATION_APPROVAL_PROFILE = By.xpath("//select[contains(@name, ':approvalProfile')]//following::select[3]");
         /**
          * Select validator from Other Data list.
          *
@@ -100,6 +103,12 @@ public class CaHelper extends BaseHelper {
          * CA Certificate Data / Validity(*y *mo *d *h *m *s) or end date of the certificate
          */
         static final By INPUT_VALIDITY = By.id("editcapage:textfieldvalidity");
+        
+        /**
+         * CA Subject Alternative Name
+         */
+        static final By INPUT_SAN = By.id("editcapage:textfieldsubjectaltname");
+        
         /**
          * CA Certificate Data / Subject DN
          */
@@ -334,6 +343,15 @@ public class CaHelper extends BaseHelper {
     public void setValidity(final String validityString) {
         fillInput(Page.INPUT_VALIDITY, validityString);
     }
+    
+    /**
+     * Sets the CA's SAN
+     * 
+     * @param subjectAlternativeName
+     */
+    public void setSubjectAlternativeName(final String subjectAlternativeName) {
+        fillInput(Page.INPUT_SAN, subjectAlternativeName);
+    }
 
     /**
      * Sets the CA's CRL Expire Period.
@@ -361,7 +379,16 @@ public class CaHelper extends BaseHelper {
     public void setCrlOverlapTime(final String crlOverlapTime) {
         fillInput(Page.INPUT_CRLOVERLAPTIME, crlOverlapTime);
     }
-
+    
+    /**
+     * Sets approval profile for CA service activation
+     * 
+     * @param approvelProfile is the approval profile name
+     */
+    public void setCaServiceActivationApprovalProfile(final String approvalProfile) {
+        selectOptionByName(Page.SELECT_CA_SERVICE_ACTIVATION_APPROVAL_PROFILE, approvalProfile);
+    }
+    
     /**
      * Check 'Use CA Name Change' checkbox  is  shown on page.
      */
