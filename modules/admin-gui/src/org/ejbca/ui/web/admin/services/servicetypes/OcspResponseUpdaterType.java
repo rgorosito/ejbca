@@ -1,6 +1,6 @@
 /*************************************************************************
  *                                                                       *
- *  CESeCore: CE Security Core                                           *
+ *  EJBCA Community: The OpenSource Certificate Authority                *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
  *  modify it under the terms of the GNU Lesser General Public           *
@@ -10,25 +10,31 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.cesecore.keys.token;
+
+package org.ejbca.ui.web.admin.services.servicetypes;
+
+import org.ejbca.core.model.services.OcspResponseUpdaterWorker;
 
 /**
+ * 
  * @version $Id$
+ *
  */
-public final class CryptoTokenConstants {
-    public static final String SIGNKEYALGORITHM  = "SIGNKEYALGORITHM";
-    public static final String ENCKEYALGORITHM   = "ENCKEYALGORITHM";
-    public static final String KEYSTORE          = "KEYSTORE";
-    
-    /** Property for storing the AWS KMS region name in the crypto token properties.
-     * KMS specific, this is a string that will be part of the REST call URI 
-     * https://kms." + region + ".amazonaws.com, i.e. https://kms.us-east-1.amazonaws.com 
-     */
-    public static final String AWSKMS_REGION = "kmsRegion";
-    
-    /** Property for storing the accessKeyID used to access the AWS KMS, in the crypto token properties.
-     */ 
-    public static final String AWSKMS_ACCESSKEYID = "kmsSignInAccessKeyID";
-    
+public class OcspResponseUpdaterType extends BaseWorkerType {
 
+    public static final String NAME = "OCSPQUEUEWORKER";
+
+    private static final long serialVersionUID = 1L;
+    
+    public OcspResponseUpdaterType() {
+        super(ServiceTypeUtil.OCSPRESPONSEUPDATEWORKER_SUB_PAGE, NAME, true, OcspResponseUpdaterWorker.class.getName());
+        // No action available for this worker
+        addCompatibleActionTypeName(NoActionType.NAME);     
+        // Only periodical interval available for this worker
+        addCompatibleIntervalTypeName(PeriodicalIntervalType.NAME);
+    }
+
+
+    
+    
 }
