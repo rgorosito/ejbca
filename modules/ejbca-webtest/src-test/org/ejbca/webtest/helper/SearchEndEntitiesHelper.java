@@ -1,14 +1,12 @@
 package org.ejbca.webtest.helper;
 
-import java.util.List;
-
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import java.util.List;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 
 /**
  * Search End Entities helper class for EJBCA Web Tests.
@@ -36,16 +34,20 @@ public class SearchEndEntitiesHelper extends BaseHelper {
         static final By BUTTON_VIEW_CERTIFICATE_FOR_ROW = By.xpath("./..//div[@class='button-group']/button[@title='View Certificates (popup window)']");
         static final By BUTTON_VIEW_END_ENTITY_FOR_ROW = By.xpath("./..//div[@class='button-group']/button[@title='View End Entity (popup window)']");
         static final By BUTTON_EDIT_END_ENTITY_FOR_ROW = By.xpath("./..//div[@class='button-group']/button[@title='Edit End Entity (popup window)']");
+        static final By BUTTON_REVOKE_SELECTED = By.xpath("//input[@name='buttonrevokeusers']");
+        static final By BUTTON_REACTIVE = By.xpath("//input[@value=\"Reactivate\"]");
 
         static final String TEXT_VIEW_MODE_SWITCH_BASIC = "Basic Mode";
         static final String TEXT_VIEW_MODE_SWITCH_ADVANCED = "Advanced Mode";
         static final By BUTTON_VIEW_MODE_SWITCH_BASIC_OR_ADVANCED = By.id("viewModeSwitchBasicOrAdvanced");
         // Select drop downs
         static final By SELECT_SEARCH_STATUS = By.xpath("//select[@name='selectliststatus']");
+        static final By SELECT_REVOCATION_REASON = By.xpath("//select[@name=\"selectrevokereason\"]");
         // Other
         static final By ROWS_SEARCH_RESULTS = By.xpath("//table[@class='results']/tbody/tr");
         static final By TEXT_NO_RESULTS = By.xpath("//table[@class='results']/tbody//td[text()='No end entities found.']");
-
+        static final By BUTTON_REVOKE_VIEW_CERTIFICATE = By.xpath("//input[@name='buttonrevokeusers']");
+        
         static final By getColumnContainingCommonName(final String cn) {
             return By.xpath("//table[@class='results']/tbody/tr/td[4][contains(text(),'" + cn + "')]");
         }
@@ -120,6 +122,10 @@ public class SearchEndEntitiesHelper extends BaseHelper {
      */
     public void triggerSearchResultFirstRowSelect() {
         clickLink(Page.INPUT_SEARCH_RESULT_FIRST_ROW_SELECT);
+    }
+    
+    public void triggerSearchResultUsernameRowSelect(final String cn) {
+        clickForRowEntry(cn, Page.INPUT_SEARCH_RESULT_FIRST_ROW_SELECT);
     }
 
     /**
@@ -206,7 +212,6 @@ public class SearchEndEntitiesHelper extends BaseHelper {
 
     /**
      * Switches the view to 'Basic Mode' if the link with proper text exists.
-     *
      */
     public void switchViewModeFromAdvancedToBasic() {
         if (Page.TEXT_VIEW_MODE_SWITCH_BASIC.equals(getElementText(Page.BUTTON_VIEW_MODE_SWITCH_BASIC_OR_ADVANCED))) {
@@ -216,12 +221,33 @@ public class SearchEndEntitiesHelper extends BaseHelper {
 
     /**
      * Switches the view to 'Advanced Mode' if the link with proper text exists.
-     *
      */
     public void switchViewModeFromBasicToAdvanced() {
         if (Page.TEXT_VIEW_MODE_SWITCH_ADVANCED.equals(getElementText(Page.BUTTON_VIEW_MODE_SWITCH_BASIC_OR_ADVANCED))) {
             clickLink(Page.BUTTON_VIEW_MODE_SWITCH_BASIC_OR_ADVANCED);
         }
-
+    }
+    
+    /**
+     * Chooses a 'Revocation reason'.
+     *
+     * @param reason One of the options in the list.
+     */
+    public void chooseFromRevocationReason(final String reason) {
+        selectOptionByName(Page.SELECT_REVOCATION_REASON, reason);
+    }
+    
+    /**
+     * Clicks the 'Revoke Selected' button.
+     */
+    public void clickRevokeSelected() {
+        clickLink(Page.BUTTON_REVOKE_SELECTED);
+    }
+    
+    /**
+     * Clicks the 'Reactivate' button in certificate view.
+     */
+    public void clickReactive() {
+        clickLink(Page.BUTTON_REACTIVE);
     }
 }

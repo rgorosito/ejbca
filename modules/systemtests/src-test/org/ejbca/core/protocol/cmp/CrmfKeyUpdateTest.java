@@ -1739,7 +1739,7 @@ public class CrmfKeyUpdateTest extends CmpTestCase {
 
             KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
             SimpleRequestMessage expiredReq = new SimpleRequestMessage(keys.getPublic(), RENEWAL_USERNAME, password,
-                    new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 12));
+                    new Date(System.currentTimeMillis()));
             EndEntityInformation endEntity = endEntityAccessSession.findUser(ADMIN, RENEWAL_USERNAME);
             X509ResponseMessage responseMessage = (X509ResponseMessage) certificateCreateSession.createCertificate(ADMIN, endEntity, expiredReq,
                     X509ResponseMessage.class, signSession.fetchCertGenParams());
@@ -1806,10 +1806,12 @@ public class CrmfKeyUpdateTest extends CmpTestCase {
 
         KeyPair keys = KeyTools.genKeys("512", AlgorithmConstants.KEYALGORITHM_RSA);
         SimpleRequestMessage expiredReq = new SimpleRequestMessage(keys.getPublic(), RENEWAL_USERNAME, password,
-                new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 12));
+                new Date(System.currentTimeMillis()));
         EndEntityInformation endEntity = endEntityAccessSession.findUser(ADMIN, RENEWAL_USERNAME);
         X509ResponseMessage responseMessage = (X509ResponseMessage) certificateCreateSession.createCertificate(ADMIN, endEntity, expiredReq,
                 X509ResponseMessage.class, signSession.fetchCertGenParams());
+        //Wait two seconds to make sure the certificate is expired
+        Thread.sleep(2000);
         try {
             CertTools.checkValidity(responseMessage.getCertificate(), new Date(System.currentTimeMillis() + 1000 * 60 * 60));
             fail("Certificate is not expired, test cannot continue.");

@@ -44,8 +44,8 @@ public class PKCS11CryptoTokenTest extends CryptoTokenTestBase {
     @Before
     public void checkPkcs11DriverAvailable() {
         // Skip test if no PKCS11 driver is installed
-        assumeTrue(PKCS11TestUtils.getHSMLibrary() != null);
-        assumeTrue(PKCS11TestUtils.getHSMProvider() != null);
+        assumeTrue("No PKCS#11 library configured", PKCS11TestUtils.getHSMLibrary() != null);
+        assumeTrue("No PKCS#11 Provider configured", PKCS11TestUtils.getHSMProvider() != null);
     }
 
     @After
@@ -179,8 +179,8 @@ public class PKCS11CryptoTokenTest extends CryptoTokenTestBase {
         String hsmlib = PKCS11TestUtils.getHSMLibrary();
         assertNotNull(hsmlib);
         prop.setProperty(PKCS11CryptoToken.SHLIB_LABEL_KEY, hsmlib);
-        prop.setProperty(PKCS11CryptoToken.SLOT_LABEL_VALUE, PKCS11TestUtils.getPkcs11SlotValue("1"));
-        prop.setProperty(PKCS11CryptoToken.SLOT_LABEL_TYPE, PKCS11TestUtils.getPkcs11SlotType(Pkcs11SlotLabelType.SLOT_NUMBER.getKey()).getKey());
+        prop.setProperty(PKCS11CryptoToken.SLOT_LABEL_VALUE, PKCS11TestUtils.getPkcs11SlotValue());
+        prop.setProperty(PKCS11CryptoToken.SLOT_LABEL_TYPE, PKCS11TestUtils.getPkcs11SlotType().getKey());
         if (file != null) {
             prop.setProperty(PKCS11CryptoToken.ATTRIB_LABEL_KEY, file);
         }

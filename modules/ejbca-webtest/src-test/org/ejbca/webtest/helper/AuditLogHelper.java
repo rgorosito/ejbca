@@ -100,7 +100,6 @@ public class AuditLogHelper extends BaseHelper {
      */
     public void openPage(final String webUrl) {
         openPageByLinkAndAssert(webUrl, Page.PAGE_LINK, Page.PAGE_URI);
-        //
         configureFilteredView();
     }
 

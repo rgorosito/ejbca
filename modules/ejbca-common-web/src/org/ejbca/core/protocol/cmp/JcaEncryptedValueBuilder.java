@@ -13,7 +13,9 @@ import org.bouncycastle.operator.OutputEncryptor;
 
 /**
  * JCA convenience class for EncryptedValueBuilder
-  * @deprecated Copied from BCPKIX 1.59b03, can be removed when we use BC 1.59
+ * The file EncryptedValueBuilder file differs from what is in BC, so we can't remove it until we move to EnvelopedData instead
+ * See ECA-8994
+  * @deprecated Copied from BCPKIX 1.59b03
  */
 @Deprecated
 public class JcaEncryptedValueBuilder

@@ -25,6 +25,7 @@ import org.cesecore.certificates.ca.CAInfo;
 import org.cesecore.certificates.ca.CaSessionRemote;
 import org.cesecore.certificates.ca.catoken.CAToken;
 import org.cesecore.certificates.ca.catoken.CATokenConstants;
+import org.cesecore.keybind.InternalKeyBindingNonceConflictException;
 import org.cesecore.keys.token.CryptoTokenInfo;
 import org.cesecore.keys.token.CryptoTokenManagementSessionRemote;
 import org.cesecore.util.CryptoProviderTools;
@@ -54,7 +55,12 @@ public class CaChangeCryptoTokenCommand extends BaseCaAdminCommand {
         registerParameter(new Parameter(CA_NAME_KEY, "CA Name", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, "The name of the CA."));
         registerParameter(new Parameter(CRYPTOTOKEN_NAME_KEY, "Crypto token name", MandatoryMode.MANDATORY, StandaloneMode.FORBID, ParameterMode.ARGUMENT, "The name of the new crypto token the CA should reference."));
         registerParameter(new Parameter(CA_TOKEN_PROPERTIES_KEY, "Filename", MandatoryMode.OPTIONAL, StandaloneMode.FORBID, ParameterMode.ARGUMENT,
-                "CA Token properties is a file were you define key aliases for the CA, leave out to keep existing properties."));
+                "CA Token properties is a file were you define key aliases for the CA, leave out to keep existing properties. Example properties file content:\n" + 
+        "  defaultKey defaultKey0001\n" + 
+        "  certSignKey signKey0001\n" + 
+        "  crlSignKey signKey0001\n" + 
+        "  keyEncryptKey keyEncryptKeyRSA2048\n" + 
+        "  testKey testKey0001"));
         registerParameter(Parameter.createFlag(EXECUTE_KEY, "Make the change instead of displaying what would change."));
     }
 
@@ -187,6 +193,10 @@ nextCertSignKey fooalias03
             getLogger().error("No such CA with name: " + caName);
             getLogger().error(getCaList());
             return CommandResult.FUNCTIONAL_FAILURE;
+        } catch (InternalKeyBindingNonceConflictException e) {
+            getLogger().error("CA " + caName + " can not be modified, OCSP responses can't be pre-produced when an OCSPKeyBinding related to that CA has nonce enabled in response. "
+                    + "Ignoring since the pre-production of OCSP responses setting was not modified here.");
+            getLogger().error(getCaList());
         } 
         log.trace("<execute()");
         return CommandResult.SUCCESS;

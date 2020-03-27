@@ -12,7 +12,9 @@
  *************************************************************************/
 package org.ejbca.webtest.helper;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -20,6 +22,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -60,6 +63,13 @@ public class RaWebHelper extends BaseHelper {
         static final By TEXTAREA_CERTIFICATE_REQUEST = By.id("keyPairForm:certificateRequest");
         static final By BUTTON_UPLOAD_CSR = By.id("keyPairForm:uploadCsrButton");
         static final By TEXT_ERROR_MESSAGE = By.xpath("//li[@class='errorMessage']");
+        static final By BUTTON_ENROLL = By.id("enrollment");
+        static final By BUTTON_ENROLL_WITH_USERNAME = By.xpath("//a[@href='enrollwithusername.xhtml']");
+        static final By ENROLL_USERNAME_INPUT = By.id("enrollWithUsernameForm:username");
+        static final By ENROLL_ENROLLMENTCODE_INPUT = By.id("enrollWithUsernameForm:enrollmentCode");
+        static final By BUTTON_ENROLL_DOWNLOAD_PKCS12 = By.id("enrollWithUsernameForm:generatePkcs12");
+        static final By BUTTON_CHECKBOX = By.id("enrollWithUsernameForm:checkButton");
+        
         // Manage Requests
         static final By BUTTON_TAB_CONFIRM_REQUESTS = By.id("requestInfoForm:confirmRequestButton");
         static final By BUTTON_MENU_MANAGE_REQUESTS = By.id("menuManageRequests");
@@ -67,6 +77,9 @@ public class RaWebHelper extends BaseHelper {
         static final By BUTTON_TAB_PENDING_REQUESTS = By.id("manageRequestsForm:tabPendingRequests");
         static final By BUTTON_DOWNLOAD_PEM = By.id("requestInfoForm:generatePem"); 
         static final By BUTTON_DOWNLOAD_KEYSTORE_PEM = By.id("requestInfoForm:generateKeyStorePem");
+        static final By BUTTON_DOWNLOAD_P12 = By.id("requestInfoForm:generateP12");
+        static final By BUTTON_DOWNLOAD_JKS = By.id("requestInfoForm:generateJks");
+        static final By BUTTON_RESET = By.id("requestInfoForm:resetButton");
         static final By TABLE_REQUESTS = By.id("manageRequestsForm:manageRequestTable");
         static final By TABLE_REQUEST_ROWS = By.xpath("//tbody/tr");
         static final By TABLE_REQUEST_ROW_CELLS = By.xpath(".//td");
@@ -85,7 +98,7 @@ public class RaWebHelper extends BaseHelper {
         static final By INPUT_ENROLLMENTCODE = By.id("requestInfoForm:passwordField");
         static final By INPUT_ENROLLMENTCODE_CONFIRM = By.id("requestInfoForm:passwordConfirmField");
     }
-
+    
     /**
      * Opens the 'RA Web' page and asserts the correctness of URI path.
      *
@@ -211,13 +224,56 @@ public class RaWebHelper extends BaseHelper {
         clickLink(Page.BUTTON_DOWNLOAD_PEM);
     }
 
-    /**
+    /** 
      * Click to "Download PEM" button in requestInfoForm form.
      */
     public void clickDownloadKeystorePem() {
         clickLink(Page.BUTTON_DOWNLOAD_KEYSTORE_PEM);
     }
-    
+
+    /**
+     * Click to download jks
+     */
+
+    public void clickDownloadJks() {
+        clickLink(Page.BUTTON_DOWNLOAD_JKS);
+    }
+
+    /**
+     * Click to "Download PKCS#12" button in the requestInfoform form.
+     */
+    public void clickDownloadPkcs12(){
+        clickLink(Page.BUTTON_DOWNLOAD_P12);
+
+        String MainWindow=webDriver.getWindowHandle();
+
+        // To handle all new opened window.
+        Set<String> s1=webDriver.getWindowHandles();
+        Iterator<String> i1=s1.iterator();
+
+        while(i1.hasNext()) {
+            String ChildWindow=i1.next();
+
+            if(!MainWindow.equalsIgnoreCase(ChildWindow)) {
+                // Switching to Child window
+                webDriver.switchTo().window(ChildWindow);
+                webDriver.findElement(By.tagName("submit")).submit();
+            }
+        }
+        // Switching to Parent window i.e Main Window.
+        webDriver.switchTo().window(MainWindow);
+    }
+
+    /**
+     * Click to reset Make Request page
+     */
+
+    public void clickMakeRequestReset() {
+        clickLink(Page.BUTTON_RESET);
+    }
+
+
+
     public void assertCsrUploadError() {
         final WebElement errorMessageWebElement = findElement(Page.TEXT_ERROR_MESSAGE);
         assertNotNull("No/wrong error message displayed when uploading forbidden CSR.", errorMessageWebElement);
@@ -484,5 +540,44 @@ public class RaWebHelper extends BaseHelper {
      */
     public void assertApproveMessageDoesNotExist() {
                 assertElementDoesNotExist(Page.TEXT_REQUEST_FORM_APPROVE_MESSAGE, "There was Approve message displayed upon creation of EE");
+    }
+    
+    /**
+     * Helps you hover over 'Enroll' and takes you to 'Use Username'.
+     * 
+     * @param webDriver
+     */
+    public void clickToEnrollUseUsernamen(WebDriver webDriver) {
+        Actions action = new Actions(webDriver);
+        action.moveToElement(webDriver.findElement(Page.BUTTON_ENROLL))
+              .moveToElement(webDriver.findElement(Page.BUTTON_ENROLL_WITH_USERNAME))
+              .click().build().perform(); 
+    }
+    
+    /**
+    * Fills the 'Username' and 'Enrollment code' textfields with text.
+    *
+    * @param username
+    * @param enrollmentCode
+    */
+    public void fillEnrollUsernameAndCode(String username,String enrollmentCode) {
+        fillInput(Page.ENROLL_USERNAME_INPUT, username );
+        fillInput(Page.ENROLL_ENROLLMENTCODE_INPUT, enrollmentCode);        
+    }
+    
+    /**
+     * Clicks the 'Download PKCS#12' button
+     * 
+     * */
+    public void clickEnrollDownloadPKCS12Button() {
+            clickLink(Page.BUTTON_ENROLL_DOWNLOAD_PKCS12);
+    }
+    
+    /**
+     * Clicks the 'Check' next to 'Username' and 'Enrollment code' textfields.
+     * 
+     * */
+    public void clickCheck() {
+        clickLink(Page.BUTTON_CHECKBOX);
     }
 }
