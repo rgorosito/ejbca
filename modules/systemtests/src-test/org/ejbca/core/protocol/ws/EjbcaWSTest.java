@@ -127,6 +127,7 @@ import org.cesecore.util.CertTools;
 import org.cesecore.util.EJBTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.cesecore.util.FileTools;
+import org.cesecore.util.SecureXMLDecoder;
 import org.cesecore.util.ValidityDate;
 import org.ejbca.config.GlobalConfiguration;
 import org.ejbca.core.EjbcaException;
@@ -155,6 +156,7 @@ import org.ejbca.core.model.approval.profile.AccumulativeApprovalProfile;
 import org.ejbca.core.model.approval.profile.ApprovalProfile;
 import org.ejbca.core.model.authorization.AccessRulesConstants;
 import org.ejbca.core.model.ra.raadmin.EndEntityProfile;
+import org.ejbca.core.model.ra.raadmin.EndEntityProfileExistsException;
 import org.ejbca.core.protocol.ws.client.gen.AlreadyRevokedException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.ApprovalException_Exception;
 import org.ejbca.core.protocol.ws.client.gen.AuthorizationDeniedException_Exception;
@@ -1757,10 +1759,11 @@ public class EjbcaWSTest extends CommonEjbcaWs {
         int profileid = certificateProfileSession.getCertificateProfileId(profilename);
 
         try {
-            byte[] profilebytes = ejbcaraws.getProfile(profileid, "cp");
-            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new java.io.ByteArrayInputStream(profilebytes));
-            final Map<?, ?> h = (Map<?, ?>) decoder.readObject();
-            decoder.close();
+            final byte[] profilebytes = ejbcaraws.getProfile(profileid, "cp");
+            final Map<?, ?> h;
+            try (SecureXMLDecoder decoder = new SecureXMLDecoder(new java.io.ByteArrayInputStream(profilebytes))) {
+                h = (Map<?, ?>) decoder.readObject();
+            }
 
             // Check that the default data are different from the data in the profile we want to retrieve
             profile = new CertificateProfile();
@@ -1796,9 +1799,10 @@ public class EjbcaWSTest extends CommonEjbcaWs {
         int profileid = endEntityProfileSession.getEndEntityProfileId(profilename);
         try {
             byte[] profilebytes = ejbcaraws.getProfile(profileid, "eep");
-            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new java.io.ByteArrayInputStream(profilebytes));
-            final Map<?, ?> h = (Map<?, ?>)decoder.readObject();
-            decoder.close();
+            final Map<?, ?> h;
+            try (SecureXMLDecoder decoder = new SecureXMLDecoder(new java.io.ByteArrayInputStream(profilebytes))) {
+                h = (Map<?, ?>)decoder.readObject();
+            }
 
             // Check that the default data are different from the data in the profile we want to retrieve
             profile = new EndEntityProfile();
@@ -2473,7 +2477,7 @@ public class EjbcaWSTest extends CommonEjbcaWs {
             final CertificateProfile profile = certificateProfileSession.getCertificateProfile(certificateProfileId);
             profile.setUseCabfOrganizationIdentifier(true);
             certificateProfileSession.changeCertificateProfile(intAdmin, WS_CERTPROF_EI, profile);
-            createEndEndtityProfile(WS_EEPROF_EI, certificateProfileId);
+            createEndEndtityProfile(WS_EEPROF_EI, certificateProfileId, true);
             // Given
             final UserDataVOWS userData = new UserDataVOWS();
             userData.setUsername(testUser);
@@ -2513,7 +2517,7 @@ public class EjbcaWSTest extends CommonEjbcaWs {
      */
     @Test
     public void testAddUserWithUnconfiguredExtension() throws ApprovalException_Exception, AuthorizationDeniedException_Exception, CADoesntExistsException_Exception, EjbcaException_Exception, WaitingForApprovalException_Exception {
-        log.trace(">test78AddUserWithExtendedInformation");
+        log.trace(">testAddUserWithUnconfiguredExtension");
         final String testUser = "ejbcawstest_extdata";
         final String testSubjectDn = "CN=" + testUser;
         final String testOrgIdent = "NTRUS+CA-123-456+789";
@@ -2543,7 +2547,43 @@ public class EjbcaWSTest extends CommonEjbcaWs {
             assertEquals("org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException: Certificate Extension 'cabforganizationidentifier' is not allowed in Certificate Profile, but was present with value 'NTRUS+CA-123-456+789'", e.getMessage());
         } finally {
             deleteUser(testUser);
-            log.trace("<test78AddUserWithExtendedInformation");
+            log.trace("<testAddUserWithUnconfiguredExtension");
+        }
+    }
+    
+    @Test
+    public void testCaRenewCertRequest() throws Exception {
+        final String rootCaDn = "CN=testCaRenewCertRequestRoot";
+        final String subCaDn = "CN=testCaRenewCertRequestSubCa";       
+        X509CA root = CryptoTokenTestUtils.createTestCAWithSoftCryptoToken(intAdmin, rootCaDn);
+        X509CA subCa = CryptoTokenTestUtils.createTestCAWithSoftCryptoToken(intAdmin, subCaDn, root.getCAId());  
+        final String subCaName = CertTools.getPartFromDN(subCaDn, "CN");
+        List<byte[]> cachain = Arrays.asList(root.getCACertificate().getEncoded());
+        try {
+            byte[] csrBytes = ejbcaraws.caRenewCertRequest(subCaName, cachain, false, false, true, String.valueOf(CryptoTokenTestUtils.SOFT_TOKEN_PIN));
+            PKCS10RequestMessage msg = new PKCS10RequestMessage(csrBytes);
+            assertTrue("CSR was not correctly signed", msg.verify());
+            assertEquals("Request does not have the correct request DN.", subCaDn, msg.getRequestDN());
+        } finally {
+            CaTestUtils.removeCa(intAdmin, root.getCAInfo());
+            CaTestUtils.removeCa(intAdmin, subCa.getCAInfo());
+        }
+    }
+    
+    @Test
+    public void testCaRenewCertRequestForNonExistantCa() throws Exception {
+        final String rootCaDn = "CN=testCaRenewCertRequestRoot";
+        final String subCaDn = "CN=NonExistentCa";       
+        X509CA root = CryptoTokenTestUtils.createTestCAWithSoftCryptoToken(intAdmin, rootCaDn);
+        final String subCaName = CertTools.getPartFromDN(subCaDn, "CN");
+        List<byte[]> cachain = Arrays.asList(root.getCACertificate().getEncoded());
+        try {
+            ejbcaraws.caRenewCertRequest(subCaName, cachain, false, false, true, String.valueOf(CryptoTokenTestUtils.SOFT_TOKEN_PIN));
+            fail("CSR should not have been returned for a non-existant CA");
+        } catch(EjbcaException_Exception e) {
+            assertTrue("Other exception than CADoesntExistsException_Exception was thrown", !CADoesntExistsException_Exception.class.isInstance(e.getClass()));            
+        } finally {
+            CaTestUtils.removeCa(intAdmin, root.getCAInfo());
         }
     }
 
@@ -2744,4 +2784,34 @@ public class EjbcaWSTest extends CommonEjbcaWs {
             log.warn("Error when deleting user ' " + username + "': " + e.getMessage(), e);
         }
     }
+    
+    private void createEndEndtityProfile(String profileName, int certificateProfileId, boolean useCabFOrgId) throws  AuthorizationDeniedException {
+        // Create suitable EE prof
+           try {
+               EndEntityProfile profile = new EndEntityProfile();
+               profile.addField(DnComponents.ORGANIZATION);
+               profile.addField(DnComponents.COUNTRY);
+               profile.addField(DnComponents.COMMONNAME);
+               profile.addField(DnComponents.JURISDICTIONLOCALITY);
+               profile.addField(DnComponents.JURISDICTIONSTATE);
+               profile.addField(DnComponents.JURISDICTIONCOUNTRY);
+               profile.addField(DnComponents.DATEOFBIRTH);
+               profile.setValue(EndEntityProfile.AVAILCAS, 0, Integer.toString(SecConst.ALLCAS));
+               profile.setUse(EndEntityProfile.CLEARTEXTPASSWORD, 0, false); // not allowing clear text password is the most common option
+               profile.setUse(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0, true);
+               profile.setValue(EndEntityProfile.ISSUANCEREVOCATIONREASON, 0, "" + RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD);         
+               profile.setValue(EndEntityProfile.AVAILCERTPROFILES, 0, Integer.toString(certificateProfileId));
+
+               if(useCabFOrgId) {
+                   profile.setCabfOrganizationIdentifierUsed(true);
+               }
+               
+               if (this.endEntityProfileSession.getEndEntityProfile(profileName) == null) {
+                   this.endEntityProfileSession.addEndEntityProfile(intAdmin, profileName, profile);
+               }
+           } catch (EndEntityProfileExistsException pee) {
+               log.error("Error creating end entity profile: ", pee);
+               throw new IllegalStateException("Can not create end entity profile");
+           }
+       }
 }

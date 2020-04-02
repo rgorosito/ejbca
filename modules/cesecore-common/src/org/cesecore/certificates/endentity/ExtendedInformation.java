@@ -30,7 +30,6 @@ import org.apache.commons.lang.time.FastDateFormat;
 import org.apache.log4j.Logger;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.DecoderException;
-import org.cesecore.certificates.certificate.request.RequestMessage;
 import org.cesecore.certificates.crl.RevokedCertInfo;
 import org.cesecore.internal.InternalResources;
 import org.cesecore.internal.UpgradeableDataHashMap;
@@ -129,6 +128,8 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
 
     /** If using SCEP in RA mode with approvals, the incoming enrollment request together with the transactions need to be cached for later use. */
     private static String SCEP_CACHED_REQUEST = "SCEP_CACHED_REQUEST";
+    /** If using SCEP in RA mode with approvals, the incoming approval type (add or edit) needs to be cached. */
+    private static String SCEP_CACHED_APROVAL_TYPE = "SCEP_CACHED_APROVAL_TYPE";
     
 
     /** Creates a new instance of ExtendedInformation */
@@ -210,7 +211,21 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     /**
      * If using SCEP in RA mode with approvals, the incoming enrollment request together with the transaction need to be cached for later use. 
      * 
-     * @return the cached request, or null if none exisst
+     * @return the cached request, or null if none exists
+     */
+    @SuppressWarnings("unchecked")
+    public Class<? extends EndEntityApprovalRequest> getCachedApprovalType() {
+        return (Class<? extends EndEntityApprovalRequest>) data.get(SCEP_CACHED_APROVAL_TYPE);
+    }
+    
+    public void cacheApprovalType(final Class<? extends EndEntityApprovalRequest> approvalType) {
+        data.put(SCEP_CACHED_APROVAL_TYPE, approvalType);
+    }
+    
+    /**
+     * If using SCEP in RA mode with approvals, the incoming enrollment request together with the transaction need to be cached for later use. 
+     * 
+     * @return the cached request, or null if none exists
      */
     public String getCachedScepRequest() {
         return (String) data.get(SCEP_CACHED_REQUEST);
@@ -242,8 +257,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     /**
      * Set the number of remaining login attempts. -1 means unlimited.
      *
-     * @param remainingLoginAttempts
-     *            The number to set
+     * @param remainingLoginAttempts The number to set
      */
     public void setRemainingLoginAttempts(int remainingLoginAttempts) {
         data.put(REMAININGLOGINATTEMPTS, remainingLoginAttempts);
@@ -307,8 +321,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     }
 
     /**
-     * @param sn
-     *            the serial number to be used for the certificate
+     * @param sn the serial number to be used for the certificate
      */
     public void setCertificateSerialNumber(BigInteger sn) {
         if (sn == null) {
@@ -327,10 +340,10 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
      */
     public int getIssuanceRevocationReason() {
         int ret = RevokedCertInfo.NOT_REVOKED;
-            final String revocationReason = getCustomData(ExtendedInformation.CUSTOM_REVOCATIONREASON);
-            if (revocationReason != null) {
-                ret = Integer.valueOf(revocationReason);
-            }
+        final String revocationReason = getCustomData(ExtendedInformation.CUSTOM_REVOCATIONREASON);
+        if (revocationReason != null) {
+            ret = Integer.valueOf(revocationReason);
+        }
         if (log.isDebugEnabled()) {
             log.debug("User issuance revocation reason is " + ret);
         }
@@ -338,10 +351,10 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     }
 
     /**
-    * Sets the issuance revocation code configured on the end entity extended information.
-    *
-    * @param reason issuance revocation code, a constant from RevokedCertInfo such as RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD.
-    */
+     * Sets the issuance revocation code configured on the end entity extended information.
+     *
+     * @param reason issuance revocation code, a constant from RevokedCertInfo such as RevokedCertInfo.REVOCATION_REASON_CERTIFICATEHOLD.
+     */
     public void setIssuanceRevocationReason(int reason) {
     	setCustomData(ExtendedInformation.CUSTOM_REVOCATIONREASON, "" + reason);
     }
@@ -532,7 +545,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
     /** @return the subject DN exactly as requested (via WS ) */
     public String getRawSubjectDn() {
         final String value = (String) data.get(RAWSUBJECTDN);
-        if (value == null || value.isEmpty()) {
+        if (StringUtils.isEmpty(value)) {
             return null;
         }
         // It could/should B64 encoded to avoid XML baddies
@@ -541,7 +554,7 @@ public class ExtendedInformation extends UpgradeableDataHashMap implements Seria
 
     /**
      * Gets generic string data from the ExtendedInformation map.
-     * @return a string from the ExtendedInformation map.
+     * @return a string from the ExtendedInformation map or null.
      */
     public String getMapData(String key) {
         String ret = null;

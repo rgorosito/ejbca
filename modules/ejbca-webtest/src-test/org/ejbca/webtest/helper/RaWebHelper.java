@@ -108,8 +108,9 @@ public class RaWebHelper extends BaseHelper {
         openPageByUrlAndAssert(webUrl, Page.PAGE_URI);
     }
 
-    public void makeNewCertificateRequest() {
+    public void makeNewCertificateRequest() throws InterruptedException {
         clickLink(Page.BUTTON_MAKE_NEW_REQUEST);
+        TimeUnit.SECONDS.sleep(2);
     }
 
     /**
@@ -224,7 +225,7 @@ public class RaWebHelper extends BaseHelper {
         clickLink(Page.BUTTON_DOWNLOAD_PEM);
     }
 
-    /** 
+    /**
      * Click to "Download PEM" button in requestInfoForm form.
      */
     public void clickDownloadKeystorePem() {
@@ -241,27 +242,11 @@ public class RaWebHelper extends BaseHelper {
 
     /**
      * Click to "Download PKCS#12" button in the requestInfoform form.
+     * <p>
+     * This method works in the 'Enroll - Make New Request' workflow.
      */
     public void clickDownloadPkcs12(){
         clickLink(Page.BUTTON_DOWNLOAD_P12);
-
-        String MainWindow=webDriver.getWindowHandle();
-
-        // To handle all new opened window.
-        Set<String> s1=webDriver.getWindowHandles();
-        Iterator<String> i1=s1.iterator();
-
-        while(i1.hasNext()) {
-            String ChildWindow=i1.next();
-
-            if(!MainWindow.equalsIgnoreCase(ChildWindow)) {
-                // Switching to Child window
-                webDriver.switchTo().window(ChildWindow);
-                webDriver.findElement(By.tagName("submit")).submit();
-            }
-        }
-        // Switching to Parent window i.e Main Window.
-        webDriver.switchTo().window(MainWindow);
     }
 
     /**
@@ -547,7 +532,7 @@ public class RaWebHelper extends BaseHelper {
      * 
      * @param webDriver
      */
-    public void clickToEnrollUseUsernamen(WebDriver webDriver) {
+    public void clickToEnrollUseUsername(WebDriver webDriver) {
         Actions action = new Actions(webDriver);
         action.moveToElement(webDriver.findElement(Page.BUTTON_ENROLL))
               .moveToElement(webDriver.findElement(Page.BUTTON_ENROLL_WITH_USERNAME))
@@ -566,8 +551,9 @@ public class RaWebHelper extends BaseHelper {
     }
     
     /**
-     * Clicks the 'Download PKCS#12' button
-     * 
+     * Clicks the 'Download PKCS#12' button.
+     * <p>
+     * This method works in the 'Enroll - Use Username' workflow.
      * */
     public void clickEnrollDownloadPKCS12Button() {
             clickLink(Page.BUTTON_ENROLL_DOWNLOAD_PKCS12);

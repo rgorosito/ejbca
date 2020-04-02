@@ -24,6 +24,7 @@
 </ui:remove>
 
 <ui:composition template="/WEB-INF/include/template.xhtml">
+    <ui:param name="resourceBean" value="#{certProfileBean}" />
     <ui:define name="content">
         <h:panelGroup>
             <h2>
@@ -391,7 +392,7 @@
                                 title="#{web.text.FORMAT_OIDS}"
                                 value="#{certProfileBean.overridableExtensionOIDs}"
                                 disabled="#{certProfileBean.viewOnly}"
-                                converter="org.ejbca.OidsObjectLinkedHashSetConverter" />
+                                converter="org.ejbca.OIDStringLinkedHashSetConverter" />
                             <h:selectBooleanCheckbox
                                 id="checkcustomnonoverridableextension"
                                 value="#{certProfileBean.nonOverridableExtensionOIDs}"

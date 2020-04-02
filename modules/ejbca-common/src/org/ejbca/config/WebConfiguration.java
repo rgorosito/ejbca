@@ -19,6 +19,7 @@ import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.cesecore.util.StringTools;
 import org.ejbca.util.SlotList;
 import org.ejbca.util.URIUtil;
 
@@ -105,11 +106,25 @@ public class WebConfiguration {
 	
 	/**
 	 * Show links to the EJBCA documentation.
-	 * @return "disabled", "internal" or and URL
+	 * @return "disabled", "internal" or an URL
 	 */
 	public static String getDocBaseUri() {
-		return EjbcaConfigurationHolder.getExpandedString(CONFIG_DOCBASEURI);
-	}
+        String  uri = EjbcaConfigurationHolder.getExpandedString(CONFIG_DOCBASEURI);
+        if(uri.equalsIgnoreCase("disabled") || uri.equalsIgnoreCase("internal")) {
+            return uri;
+        }
+        // If the URL contains a query, we remove it
+        if (uri.indexOf("?") > -1) {
+            final String[] sanitizedUri = uri.split("[-?]", 2);
+            uri = sanitizedUri[0];
+        }
+        if (!StringTools.isValidUri(uri) ) {
+            log.warn("\"web.docbaseuri\" is not a valid URI. Using default value: " + "internal");
+            return "internal";
+        }
+        return uri;
+    }
+	
 	
 	/**
 	 * Require administrator certificates to be available to access the Admin GUI

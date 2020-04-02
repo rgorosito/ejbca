@@ -24,6 +24,7 @@
      -->
 </ui:remove>
 <ui:composition template="/WEB-INF/include/template.xhtml">
+    <ui:param name="resourceBean" value="#{endEntityProfileMBean}" />
     <ui:define name="content">
         <h:panelGroup>
             <h2>
@@ -1190,7 +1191,7 @@
                         disabled="#{endEntityProfileMBean.viewOnly or not endEntityProfileMBean.profiledata.cabfOrganizationIdentifierUsed}">
                     </h:selectBooleanCheckbox>
                     <h:outputLabel
-                        for="cabfOrganizationIdentifierRequired"
+                        for="cabfOrgIdentReqCheckBox"
                         value="#{web.text.REQUIRED}" />
                     <h:selectBooleanCheckbox
                         id="cabfOrgIdentModCheckBox"

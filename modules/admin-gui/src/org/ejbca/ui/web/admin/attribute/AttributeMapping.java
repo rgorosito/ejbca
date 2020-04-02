@@ -1,6 +1,6 @@
 /*************************************************************************
  *                                                                       *
- *  EJBCA: The OpenSource Certificate Authority                          *
+ *  EJBCA Community: The OpenSource Certificate Authority                *
  *                                                                       *
  *  This software is free software; you can redistribute it and/or       *
  *  modify it under the terms of the GNU Lesser General Public           *
@@ -10,20 +10,28 @@
  *  See terms of license at gnu.org.                                     *
  *                                                                       *
  *************************************************************************/
-package org.ejbca.core.model.approval;
-
-import org.cesecore.certificates.endentity.EndEntityInformation;
+package org.ejbca.ui.web.admin.attribute;
 
 /**
- * Interface common for all approval requests regarding end entities.
- * 
- * @version $Id$
+ * Constant class containing mappings for request and session attributes.
  *
+ * @version $Id$
  */
-public interface EndEntityApprovalRequest {
+public final class AttributeMapping {
 
-    /**
-     * @return the end entity information member for this approval request. In the case of an edit request, will return the new value. 
-     */
-    EndEntityInformation getEndEntityInformation();
+    public static final class REQUEST {
+
+        public static final String AUTHENTICATION_TOKEN = "authenticationtoken";
+
+    }
+
+    public static final class SESSION {
+
+        public static final String CA_INTERFACE_BEAN = "cabean";
+
+        public static final String EJBCA_WEB_BEAN = "ejbcawebbean";
+
+        public static final String RA_INTERFACE_BEAN = "rabean";
+
+    }
 }

@@ -24,7 +24,6 @@ import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.x509.PrivateKeyUsagePeriod;
 import org.cesecore.certificates.ca.CAOfflineException;
 import org.cesecore.certificates.ca.IllegalValidityException;
-import org.cesecore.certificates.certificate.CertificateConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.endentity.EndEntityConstants;
 import org.cesecore.certificates.endentity.EndEntityInformation;
@@ -180,17 +179,17 @@ public class CertificateValidity {
                 log.warn("Expiration restriction of certificate profile could not be applied!");
             }
         }
-        //If it is a link certificate that we create, we use the old ca's expire date, as requested, as link certificate expire date
+        //If it is a link certificate that we create, we use the old CA's expire date, as requested, as link certificate expire date
         if (isLinkCertificate) {
             lastDate = notAfter;
         }
         if (lastDate == null) {
         	lastDate = certProfileLastDate;
         }
-        // Limit validity: No not allow lastDate to be set in the past, unless certificate is being created as a backdated revocation
-        if (lastDate.before(now) && subject.getStatus() != EndEntityConstants.STATUS_REVOKED) {
-            String msg = "notAfter in request for user " + subject.getUsername() + " set before the current date (" + lastDate.toString()
-                    + "), which is only allowed for backdated revocations.";
+        // Limit validity: No not allow lastDate to be set in the past, unless certificate is being created as a backdated revocation or as a link certificate
+        if (lastDate.before(now) && subject.getStatus() != EndEntityConstants.STATUS_REVOKED && !isLinkCertificate) {
+            String msg = "notAfter (" + lastDate.toString() +") in request for user '" + subject.getUsername() + "' set before the current date (" + now
+                    + "), which is only allowed for backdated revocations or link certificates.";
             log.info(msg);
             throw new IllegalValidityException(msg);
         }
