@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -73,6 +75,7 @@ import org.cesecore.roles.AccessRulesHelper;
 import org.cesecore.roles.Role;
 import org.cesecore.roles.management.RoleDataSessionLocal;
 import org.cesecore.util.FileTools;
+import org.cesecore.util.SecureZipUnpacker;
 import org.cesecore.util.StreamSizeLimitExceededException;
 import org.ejbca.config.AvailableProtocolsConfiguration;
 import org.ejbca.config.AvailableProtocolsConfiguration.AvailableProtocols;
@@ -1287,10 +1290,9 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         }
 
         try {
-            // Authorazation check
             if (!isAllowedToEditSystemConfiguration()) {
                 addErrorMessage("CSS_NOT_AUTH");
-                log.info("Administrator '" + getAdmin() + "' attempted to import css / logo files. Authorazation denied: Insufficient privileges");
+                log.info("Administrator '" + getAdmin() + "' attempted to import css / logo files. Authorization denied: Insufficient privileges");
                 return;
             }
             if (raCssFile != null) {
@@ -1346,63 +1348,34 @@ public class SystemConfigMBean extends BaseManagedBean implements Serializable {
         addInfoMessage("LOGOIMPORTSUCCESS", logoName);
     }
 
-    private void importCssFromFile() throws IOException, IllegalArgumentException, IllegalStateException {
-        byte[] fileBuffer = raCssFile.getBytes();
+    private void importCssFromFile() throws IOException {
+        final byte[] fileBuffer = raCssFile.getBytes();
         if (fileBuffer.length == 0) {
             throw new IllegalArgumentException("Empty input file");
         }
-        String importedFiles = "";
-        String ignoredFiles = "";
-        int numberOfZipEntries = 0;
-        int numberOfImportedFiles = 0;
-        int numberOfignoredFiles = 0;
-        Map<String, RaCssInfo> raCssInfosMap = new HashMap<>();
-        try (final ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(fileBuffer))) {
-            ZipEntry ze;
-            // Read each zip entry
-            while ((ze = zis.getNextEntry()) != null) {
-                String fileName = ze.getName();
-                if (log.isDebugEnabled()) {
-                    log.debug("Reading zip entry: " + fileName);
-                }
-                try {
-                    fileName = URLDecoder.decode(fileName, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    throw new IllegalStateException("UTF-8 was not a known character encoding", e);
-                }
-                numberOfZipEntries++;
-                if (!ze.getName().endsWith(".css")) {
-                    log.info(fileName + " not recognized as a css file. Expected file extension '.css'. Skipping...");
-                    numberOfignoredFiles++;
-                    ignoredFiles += ze.getName() + ", ";
-                    continue;
-                }
-                // Extract bytes from this entry
-                byte[] filebytes = new byte[(int) ze.getSize()];
-                int i = 0;
-                while ((zis.available() == 1) && (i < filebytes.length)) {
-                    filebytes[i++] = (byte) zis.read();
-                }
-                RaCssInfo raCssInfo = new RaCssInfo(filebytes, fileName);
-                raCssInfosMap.put(fileName, raCssInfo);
-                importedFiles += fileName + ", ";
-                numberOfImportedFiles++;
-            }
-        }
-        if (numberOfZipEntries == 0 && raCssFile.getName().endsWith(".css")) {
+        final List<String> importedFiles = new ArrayList<>();
+        final List<String> ignoredFiles = new ArrayList<>();
+        final Map<String, RaCssInfo> raCssInfosMap = SecureZipUnpacker.Builder.fromByteArray(fileBuffer)
+                .onFileIgnored((zipEntry, acceptedFileExtensions) -> ignoredFiles.add(zipEntry.getName()))
+                .onFileUnpacked(zipEntry -> importedFiles.add(zipEntry.getName()))
+                .onlyUnpackFilesWithFileExtension(".css")
+                .build()
+                .unpackFilesToMemory()
+                .stream()
+                .map(unpackedFile -> new RaCssInfo(unpackedFile.getContentAsBytes(), unpackedFile.getFileName()))
+                .collect(Collectors.toMap(RaCssInfo::getCssName, Function.identity()));
+        if (raCssInfosMap.isEmpty() && raCssFile.getName().endsWith(".css")) {
             // Single file selected (not zip)
             raCssInfosMap.put(raCssFile.getName(), new RaCssInfo(raCssFile.getBytes(), raCssFile.getName()));
-            numberOfImportedFiles++;
-            importedFiles = raCssFile.getName();
-        } else if (numberOfZipEntries == 0) {
+            importedFiles.add(raCssFile.getName());
+        } else if (raCssInfosMap.isEmpty()) {
             addErrorMessage("ISNOTAZIPFILE");
             return;
-
         }
-        if (numberOfignoredFiles == 0) {
-            addInfoMessage("CSSIMPORTSUCCESS", numberOfImportedFiles, importedFiles);
+        if (ignoredFiles.isEmpty()) {
+            addInfoMessage("CSSIMPORTSUCCESS", importedFiles.size(), importedFiles);
         } else {
-            addInfoMessage("CSSIMPORTIGNORED", numberOfImportedFiles, importedFiles, numberOfignoredFiles, ignoredFiles);
+            addInfoMessage("CSSIMPORTIGNORED", importedFiles.size(), importedFiles, ignoredFiles.size(), ignoredFiles);
         }
         importedRaCssInfos = raCssInfosMap;
     }

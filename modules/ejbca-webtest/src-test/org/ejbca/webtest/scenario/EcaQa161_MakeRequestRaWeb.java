@@ -80,6 +80,9 @@ public class EcaQa161_MakeRequestRaWeb extends WebTestBase {
         removeEndEntityProfileByName(TestData.END_ENTITY_PROFILE_NAME);
         removeCertificateProfileByName(TestData.CERTIFICATE_PROFILE_NAME);
         removeCaAndCryptoToken(TestData.CA_NAME);
+        deleteDownloadedFile(TestData.END_ENTITY_NAME_PEM + ".pem");
+        deleteDownloadedFile(TestData.END_ENTITY_NAME_JKS + ".jks");
+        deleteDownloadedFile(TestData.END_ENTITY_NAME_PKCS12 + ".p12");
     }
 
     @Test
@@ -124,6 +127,15 @@ public class EcaQa161_MakeRequestRaWeb extends WebTestBase {
     public void stepF_MakePKCS12OnServerRequest() throws InterruptedException {
         makeRequest(TestData.END_ENTITY_NAME_PKCS12, raWebHelper::clickDownloadPkcs12, ".p12");
     }
+    
+    /**
+     * Makes Request based on Key Generation on Server on RA Web
+     * 
+     * @param endEntityName
+     * @param clickDownloadButton
+     * @param fileExtension
+     * @throws InterruptedException
+     */
     
     private void makeRequest(final String endEntityName, final Runnable clickDownloadButton, final String fileExtension) throws InterruptedException {
         raWebHelper.openPage(getRaWebUrl());

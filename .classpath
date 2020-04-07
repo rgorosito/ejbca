@@ -212,7 +212,7 @@
 	<classpathentry kind="lib" path="lib/hibernate/jandex-2.0.5.Final.jar"/>
 	<classpathentry kind="lib" path="lib/hibernate/istack-commons-runtime-3.0.7.jar"/>
 	<classpathentry kind="lib" path="lib/hibernate/FastInfoset-1.2.15.jar"/>
-    <classpathentry kind="lib" path="lib/ext/test/easymock-4.1.jar"/>
+	<classpathentry kind="lib" path="lib/ext/test/easymock-4.1.jar"/>
 	<classpathentry kind="lib" path="lib/ext/test/powermock/cglib-nodep-3.3.0.jar"/>
 	<classpathentry kind="lib" path="lib/ext/test/powermock/javassist-3.24.0-GA.jar"/>
 	<classpathentry kind="lib" path="lib/ext/test/powermock/objenesis-3.0.1.jar"/>
