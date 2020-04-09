@@ -13,21 +13,20 @@
 
 package org.cesecore.config;
 
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang.ArrayUtils;
+import org.bouncycastle.jcajce.provider.digest.SHA3;
+
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Represents an individual RA Style Archive. May or may not contain logo files, mulitple CSS files
- * and identifiers. 
- * @version $Id$
+ * and identifiers.
  *
+ * @version $Id$
  */
 public class RaStyleInfo implements Serializable {
-    
     private static final long serialVersionUID = 1L;
     private static final Random random = new Random();
     
@@ -181,5 +180,33 @@ public class RaStyleInfo implements Serializable {
         }
         return true;
     }
-    
+
+    public Map<String, Object> getAsMap() {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        final Map<String, Object> hashes = new LinkedHashMap<>();
+        final SHA3.DigestSHA3 sha3 = new SHA3.DigestSHA3(256);
+        if (logoBytes != null) {
+            final byte[] logoHash = sha3.digest(logoBytes);
+            hashes.put("logo_hash", Hex.encodeHexString(logoHash));
+            map.put("logo_name", logoName);
+            map.put("logo_type", logoContentType);
+        }
+        if (raCssInfos != null) {
+            for (RaCssInfo raCssInfo : raCssInfos.values()) {
+                sha3.update(raCssInfo.getCssBytes());
+            }
+            final byte[] cssHash = sha3.digest();
+            hashes.put("css_hash", Hex.encodeHexString(cssHash));
+            map.put("css_files", ArrayUtils.toString(raCssInfos.keySet()));
+        }
+        hashes.put("algorithm", sha3.getAlgorithm());
+        map.put("archive_name", archiveName);
+        map.put("hashes", hashes);
+        return map;
+    }
+
+    @Override
+    public String toString() {
+        return getAsMap().toString();
+    }
 }

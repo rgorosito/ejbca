@@ -13,13 +13,6 @@
 
 package org.cesecore.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -45,15 +38,17 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
+import com.novell.ldap.LDAPDN;
+
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERSequence;
-import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.pkcs.Attribute;
@@ -98,7 +93,12 @@ import org.ejbca.cvc.HolderReferenceField;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.novell.ldap.LDAPDN;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Tests the CertTools class .
@@ -1001,6 +1001,12 @@ public class CertToolsUnitTest {
         log.debug("bcdn1: " + bcdn1);
         assertEquals("CN=CommonName,SN=SerialNumber,GIVENNAME=GivenName,INITIALS=Initials,SURNAME=SurName,OU=OrgUnit,O=Org,C=SE", bcdn1);
 
+        String dn1_1 = "CN=CommonName, O=Org, OU=OrgUnit, SN=SerialNumber, SurName=SurName, GivenName=GivenName, Initials=Initials, C=SE";
+        String bcdn1_1 = CertTools.stringToBCDNString(dn1);
+        log.debug("dn1: " + dn1_1);
+        log.debug("bcdn1: " + bcdn1_1);
+        assertEquals("CN=CommonName,SN=SerialNumber,GIVENNAME=GivenName,INITIALS=Initials,SURNAME=SurName,OU=OrgUnit,O=Org,C=SE", bcdn1_1);
+
         dn1 = "CN=CommonName, O=Org, OU=OrgUnit, SerialNumber=SerialNumber, SurName=SurName, GivenName=GivenName,"
                 +" Initials=Initials, C=SE, 1.1.1.1=1111Oid, 2.2.2.2=2222Oid";
         bcdn1 = CertTools.stringToBCDNString(dn1);
@@ -1528,7 +1534,7 @@ public class CertToolsUnitTest {
             // The set of attributes contains a sequence of with type oid
             // PKCSObjectIdentifiers.pkcs_9_at_extensionRequest
             boolean found = false;
-            DERSet s = (DERSet) attribute.getAttrValues();
+            ASN1Set s = ASN1Set.getInstance(attribute.getAttrValues());
             Extensions exts = Extensions.getInstance(s.getObjectAt(0));
             Extension ext = exts.getExtension(Extension.subjectAlternativeName);
             if (ext != null) {
@@ -1545,7 +1551,7 @@ public class CertToolsUnitTest {
             // PKCSObjectIdentifiers.pkcs_9_at_extensionRequest
             Attribute attribute = p10.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)[0];
             boolean found = false;
-            DERSet s = (DERSet) attribute.getAttrValues();
+            ASN1Set s = ASN1Set.getInstance(attribute.getAttrValues());
             Extensions exts = Extensions.getInstance(s.getObjectAt(0));
             Extension ext = exts.getExtension(Extension.subjectAlternativeName);
             if (ext != null) {
@@ -2252,8 +2258,17 @@ public class CertToolsUnitTest {
         CertTools.checkNameConstraints(cacert, validDN2, null);
         X500Name invalidDN1 = CertTools.stringToBcX500Name("C=SE,O=PrimeKey,CN=example.com", CeSecoreNameStyle.INSTANCE, true);
         checkNCException(cacert, invalidDN1, null, "ldapDnOrder true was accepted");
-        X500Name invalidDN2 = CertTools.stringToBcX500Name("C=SE,O=PrimeKey,CN=example.com", PrintableStringNameStyle.INSTANCE, false);
-        checkNCException(cacert, invalidDN2, null, "PrintableStringNameStyle was accepted");
+        X500Name validDN3 = CertTools.stringToBcX500Name("C=SE,O=PrimeKey,CN=example.com", PrintableStringNameStyle.INSTANCE, false);
+        // This should be accepted according to RFC5280, section 4.2.1.10
+        // "CAs issuing certificates with a restriction of the form directoryName
+        // SHOULD NOT rely on implementation of the full ISO DN name comparison
+        // algorithm. This implies name restrictions MUST be stated identically to
+        // the encoding used in the subject field or subjectAltName extension."
+        // ISO DN matching makes string conversion of various formats, UTF-8, PrintableString etc and compares the result.
+        // But, there might be clients who do a binary check, which will likely fail if the encodings differ, so as a CA it's important to encode the NC right
+        CertTools.checkNameConstraints(cacert, validDN3, null);
+        // Before up to BC 1.61, encoding was checked and this was rejected. See ECA-9035
+        // checkNCException(cacert, invalidDN2, null, "PrintableStringNameStyle was accepted");
 
 
         // Allowed subject alternative names
@@ -2283,7 +2298,7 @@ public class CertToolsUnitTest {
      */
     private void checkNCException(X509Certificate cacert, X500Name subjectDNName, GeneralName subjectAltName, String message) {
         try {
-            CertTools.checkNameConstraints(cacert, subjectDNName, new GeneralNames(subjectAltName));
+            CertTools.checkNameConstraints(cacert, subjectDNName, subjectAltName != null ? new GeneralNames(subjectAltName) : null);
             fail(message);
         } catch (IllegalNameException e) { /* NOPMD expected */ }
     }    

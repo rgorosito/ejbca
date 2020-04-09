@@ -42,8 +42,9 @@ import org.bouncycastle.jce.X509KeyUsage;
 import org.cesecore.CaTestUtils;
 import org.cesecore.authentication.tokens.AuthenticationToken;
 import org.cesecore.authentication.tokens.UsernamePrincipal;
-import org.cesecore.certificates.ca.CA;
 import org.cesecore.certificates.ca.CaSessionRemote;
+import org.cesecore.certificates.ca.X509CA;
+import org.cesecore.certificates.ca.X509CAInfo;
 import org.cesecore.certificates.certificateprofile.CertificateProfile;
 import org.cesecore.certificates.certificateprofile.CertificateProfileConstants;
 import org.cesecore.certificates.certificateprofile.CertificateProfileExistsException;
@@ -51,6 +52,7 @@ import org.cesecore.certificates.util.AlgorithmConstants;
 import org.cesecore.configuration.GlobalConfigurationSessionRemote;
 import org.cesecore.keys.util.KeyTools;
 import org.cesecore.mock.authentication.tokens.TestAlwaysAllowLocalAuthenticationToken;
+import org.cesecore.util.CeSecoreNameStyle;
 import org.cesecore.util.CryptoProviderTools;
 import org.cesecore.util.EjbRemoteHelper;
 import org.ejbca.config.CmpConfiguration;
@@ -90,12 +92,12 @@ public class CmpRAUnidTest extends CmpTestCase {
     private static final String FNR = "90123456789";
     private static final String LRA = "01234";
     private static final String SUBJECT_SN = FNR + '-' + LRA;
-    private static final X500Name SUBJECT_DN = new X500Name("C=SE,SN=" + SUBJECT_SN + ",CN=unid-frn");
+    private static X500Name SUBJECT_DN;
 
     private static final String issuerDN = "CN=TestCA";
     private final KeyPair keys;
     private final X509Certificate cacert;
-    private final CA testx509ca;
+    private final X509CA testx509ca;
     private final CmpConfiguration cmpConfiguration;
     private static final String configAlias = "CmpRAUnidTestCmpConfAlias";
 
@@ -111,6 +113,8 @@ public class CmpRAUnidTest extends CmpTestCase {
     public static void beforeClass() {
         assumeTrue(enterpriseEjbBridgeSession.isRunningEnterprise());
         CryptoProviderTools.installBCProvider();
+        // We must instantiate this after provider is installed as we set SN handling there 
+        SUBJECT_DN = new X500Name("C=SE,SN=" + SUBJECT_SN + ",CN=unid-frn");
     }
 
     public CmpRAUnidTest() throws Exception {
@@ -125,7 +129,11 @@ public class CmpRAUnidTest extends CmpTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-
+        //For the purposes of this system test, use UnidFnrHandlerMock instead of UnidFnrHandler. It's essentially the same but isn't
+        //reliant on the existence of a data source. 
+        X509CAInfo testX509CaInfo = (X509CAInfo) testx509ca.getCAInfo();
+        testX509CaInfo.setRequestPreProcessor(UnidFnrHandlerMock.class.getCanonicalName());
+        testx509ca.updateCA(null, testX509CaInfo, null);
         caSession.addCA(admin, testx509ca);
 
         configurationSession.backupConfiguration();
@@ -140,9 +148,6 @@ public class CmpRAUnidTest extends CmpTestCase {
         cmpConfiguration.setRACAName(configAlias, testx509ca.getName());
         cmpConfiguration.setAuthenticationModule(configAlias, CmpConfiguration.AUTHMODULE_REG_TOKEN_PWD + ";" + CmpConfiguration.AUTHMODULE_HMAC);
         cmpConfiguration.setAuthenticationParameters(configAlias, "-;" + PBEPASSWORD);
-        //For the purposes of this system test, use UnidFnrHandlerMock instead of UnidFnrHandler. It's essentially the same but isn't
-        //reliant on the existence of a data source. 
-        cmpConfiguration.setCertReqHandlerClass(configAlias, UnidFnrHandlerMock.class.getName());
         globalConfigurationSession.saveConfiguration(admin, cmpConfiguration);
 
         // Configure a Certificate profile (CmpRA) using ENDUSER as template
@@ -198,7 +203,7 @@ public class CmpRAUnidTest extends CmpTestCase {
             final ASN1ObjectIdentifier oid = expectedOIDs[i];
             expectedValue = expected.getRDNs(oid)[0].getFirst().getValue().toString();
             actualValue = actual.getRDNs(oid)[0].getFirst().getValue().toString();
-            if (!oid.equals(BCStyle.SN)) {
+            if (!oid.equals(BCStyle.SERIALNUMBER)) {
                 log.debug("Check that " + oid.getId() + " is OK. Expected '" + expectedValue + "'. Actual '" + actualValue + "'.");
                 assertEquals("Not expected " + oid, expectedValue, actualValue);
                 continue;
@@ -247,7 +252,8 @@ public class CmpRAUnidTest extends CmpTestCase {
                         PKCSObjectIdentifiers.sha1WithRSAEncryption.getId());
                 final X509Certificate cert = checkCmpCertRepMessage(SUBJECT_DN, cacert, resp, reqId);
                 final X500Name x500Name = X500Name.getInstance(cert.getSubjectX500Principal().getEncoded());
-                unid = IETFUtils.valueToString(x500Name.getRDNs(BCStyle.SN)[0].getFirst().getValue());
+                unid = IETFUtils.valueToString(x500Name.getRDNs(CeSecoreNameStyle.SERIALNUMBER)[0].getFirst().getValue());
+
                 log.debug("Unid received in certificate response: " + unid);
             }
         } finally {

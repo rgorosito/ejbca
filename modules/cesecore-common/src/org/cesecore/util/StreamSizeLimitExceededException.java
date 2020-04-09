@@ -12,12 +12,14 @@
  *************************************************************************/
 package org.cesecore.util;
 
+import java.io.IOException;
+
 /**
  * Thrown when there's too much data, e.g. in a stream when using FileTools.streamCopyWithLimit
  * 
  * @version $Id$
  */
-public class StreamSizeLimitExceededException extends Exception {
+public class StreamSizeLimitExceededException extends IOException {
 
     private static final long serialVersionUID = 1L;
 
